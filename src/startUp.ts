@@ -3,22 +3,35 @@ import { ethers } from "ethers";
 import { IConfig } from "./dataEntities/config";
 import { KitsuneWatcher } from "./watcher";
 import { KitsuneInspector } from "./inspector";
+import { getJsonRPCProvider, validateProviders } from "./provider";
 const config = require("./config.json") as IConfig;
-const provider = new ethers.providers.JsonRpcProvider(config.jsonRpcUrl);
-provider.pollingInterval = 100;
 
 
-const watcherWallet = new ethers.Wallet(config.watcherKey, provider);
-const watcher = new KitsuneWatcher(provider, watcherWallet);
-const inspector = new KitsuneInspector(10, provider);
+validateProviders(true).then((res) => {
 
-// start the pisa service
-const service = new PisaService(config.host.name, config.host.port, inspector, watcher);
+    const provider = getJsonRPCProvider();
 
-// wait for a stop signal
-waitForStop();
+    provider.pollingInterval = 100;
+    
+    
+    const watcherWallet = new ethers.Wallet(config.watcherKey, provider);
+    const watcher = new KitsuneWatcher(provider, watcherWallet);
+    const inspector = new KitsuneInspector(10, provider);
+    
+    // start the pisa service
+    const service = new PisaService(config.host.name, config.host.port, inspector, watcher);
+    
+    // wait for a stop signal
+    waitForStop(service);
+    
 
-function waitForStop() {
+})
+
+
+
+
+
+function waitForStop(service: PisaService) {
     const stdin = process.stdin;
 
     // without this, we would only get streams once enter is pressed
