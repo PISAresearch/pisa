@@ -25,6 +25,9 @@ jobs:
           name: build kitsune
           command: npm run build-kitsune
       - run:
+          name: build typescipt
+          command: npm run build
+      - run:
           name: test
           command: npm run test
       - run:
