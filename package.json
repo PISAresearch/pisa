@@ -9,8 +9,7 @@
     "test-etoe": "mocha -r ts-node/register src/ts/__pisa_tests__/endToEnd.testy.ts --exit",
     "build-kitsune": "cd src/external/statechannels && npm i && npx truffle compile",
     "start-evm": "ganache-cli -d -l 15000000 --allowUnlimitedContractSize --defaultBalanceEther 1000000",
-    "start": "ts-node src/ts/service.ts",
-    "build": "npx tsc"
+    "start": "ts-node src/ts/service.ts"
   },
   "repository": {
     "type": "git",
@@ -23,17 +22,17 @@
   },
   "homepage": "https://github.com/PISAresearch/pisa#readme",
   "dependencies": {
-    "ethers": "^4.0.18",
+    "ethers": "^4.0.7",
     "express": "^4.16.4",
     "express-http-context": "^1.2.0",
-    "ganache-core": "^2.3.1",
+    "ganache-core": "^2.2.1",
     "request": "^2.88.0",
     "request-promise": "^4.2.2",
     "uuid": "^3.3.2",
     "winston": "^3.1.0"
   },
   "devDependencies": {
-    "@types/chai": "^4.1.7",
+    "@types/chai": "^4.1.6",
     "@types/express": "^4.16.0",
     "@types/ganache-core": "^2.1.1",
     "@types/mocha": "^5.2.5",
@@ -43,6 +42,6 @@
     "chai": "^4.2.0",
     "mocha": "^5.2.0",
     "ts-node": "^7.0.1",
-    "typescript": "^3.2.2"
+    "typescript": "^3.1.3"
   }
 }
