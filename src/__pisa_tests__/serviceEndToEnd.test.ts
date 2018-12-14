@@ -46,8 +46,8 @@ describe("Service end-to-end", () => {
         account0 = accounts[0];
         account1 = accounts[1];
 
-        // set the dispute period
-        disputePeriod = 10;
+        // set the dispute period, greater than the inspector period
+        disputePeriod = 11;
 
         // contract
         const channelContractFactory = new ethers.ContractFactory(
