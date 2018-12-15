@@ -10,7 +10,7 @@ import { IConfig } from "../dataEntities/config";
 import Ganache from "ganache-core";
 import { IAppointmentRequest } from "../dataEntities/appointment";
 import logger from "../logger";
-const StateChannelFactory = require("./../../external/statechannels/build/contracts/StateChannelFactory.json");
+const StateChannelFactory = require("../../statechannels/build/contracts/StateChannelFactory.json");
 logger.transports.forEach(l => (l.level = "max"));
 
 const ganache = Ganache.provider({
