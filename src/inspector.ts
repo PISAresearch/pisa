@@ -40,6 +40,9 @@ export class Inspector {
         if (code === "0x" || code === "0x00") {
             throw new PublicInspectionError(`No code found at address ${contractAddress}`);
         }
+        if (code != this.deployedBytecode) {
+            throw new PublicInspectionError(`Contract at: ${contractAddress} does not have correct bytecode.`);
+        }
 
         // create a contract reference
         const contract: ethers.Contract = new ethers.Contract(contractAddress, this.channelAbi, this.provider);
