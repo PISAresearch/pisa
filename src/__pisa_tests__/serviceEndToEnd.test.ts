@@ -196,7 +196,7 @@ describe("Service end-to-end", () => {
         };
 
         await failWithCode(
-            `400 - "No code found at address: ${appointmentRequest.stateUpdate.contractAddress}`,
+            `400 - "No code found at address ${appointmentRequest.stateUpdate.contractAddress}`,
             appointmentRequest
         );
     }).timeout(3000);
