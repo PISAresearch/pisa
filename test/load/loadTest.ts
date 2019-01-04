@@ -4,14 +4,6 @@ import { ethers } from "ethers";
 import { IConfig } from "../../src/dataEntities/config";
 import { getJsonRPCProvider } from "../../src/provider";
 let config = require("../../config.json") as IConfig;
-// let config = {
-//     jsonRpcUrl: "http://localhost:8545",
-//     host: {
-//         name: "localhost",
-//         port: 3000
-//     },
-//     watcherKey: "0x6370fd033278c143179d81c5526140625662b8daa446c22ee2d73db3707e620c"
-// };
 
 let account0: string,
     account1: string,
@@ -22,7 +14,7 @@ let account0: string,
 // concurrently watch for x events
 let setup = async (creationCount: number) => {
     const provider = await getJsonRPCProvider();
-    if (creationCount === 0) {
+    if (creationCount <= 0) {
         console.error("Specify more than 0 requests.");
         process.exit(1);
     }
