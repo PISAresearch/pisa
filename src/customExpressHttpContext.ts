@@ -3,7 +3,7 @@ import uuid from "uuid";
 
 const REQUEST_ID = "requestId";
 
-export const setRequestId = () => {
+export const setRequestId = (value? : string) => {
     return httpContext.set(REQUEST_ID, uuid.v1());
 }
 
