@@ -1,6 +1,6 @@
 [submodule "statechannels"]
 	path = statechannels
 	url = https://github.com/stonecoldpat/statechannels.git
-[submodule "raiden"]
+[submodule "raiden_demo/raiden"]
 	path = raiden_demo/raiden
 	url = https://github.com/raiden-network/raiden-contracts.git
