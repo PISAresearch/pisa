@@ -1,7 +1,9 @@
 import express, { Response } from "express";
 import httpContext from "express-http-context";
 import logger from "./logger";
-import { parseAppointment, PublicValidationError } from "./dataEntities/appointment";
+import { parseAppointment, PublicValidationError, 
+//    parseRaidenAppointment 
+} from "./dataEntities/appointment";
 import { Inspector, PublicInspectionError } from "./inspector";
 import { Watcher } from "./watcher";
 // TODO: this isn working properly, it seems that watchers are sharing the last set value...
@@ -56,6 +58,32 @@ export class PisaService {
             }
         };
     }
+
+    // private raidenAppointment(inspector: Inspector, watcher: Watcher) {
+    //     return async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    //         try {
+    //             const appointmentRequest = parseRaidenAppointment(req.body);
+    //             // inspect this appointment
+    //             const appointment = await inspector.inspect(appointmentRequest);
+
+    //             // start watching it if it passed inspection
+    //             await watcher.watch(appointment);
+
+    //             // return the appointment
+    //             res.status(200);
+    //             res.send(appointment);
+    //         } catch (doh) {
+    //             if (doh instanceof PublicInspectionError) this.logAndSend(400, doh.message, doh, res);
+    //             else if (doh instanceof PublicValidationError) this.logAndSend(400, doh.message, doh, res);
+    //             else if (doh instanceof Error) this.logAndSend(500, "Internal server error.", doh, res);
+    //             else {
+    //                 logger.error("Error: 500. " + inspect(doh));
+    //                 res.status(500);
+    //                 res.send("Internal server error.");
+    //             }
+    //         }
+    //     };
+    // }
 
     private logAndSend(code: number, responseMessage: string, error: Error, res: Response) {
         logger.error(`HTTP Status: ${code}.`);
