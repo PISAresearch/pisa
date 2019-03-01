@@ -2,10 +2,10 @@ import express, { Response } from "express";
 import httpContext from "express-http-context";
 import logger from "./logger";
 import { parseAppointment, PublicValidationError, 
-//    parseRaidenAppointment 
+    parseRaidenAppointment 
 } from "./dataEntities/appointment";
-import { Inspector, PublicInspectionError } from "./inspector";
-import { Watcher } from "./watcher";
+import { Inspector, PublicInspectionError, RaidenInspector } from "./inspector";
+import { Watcher, RaidenWatcher } from "./watcher";
 // TODO: this isn working properly, it seems that watchers are sharing the last set value...
 import { setRequestId } from "./customExpressHttpContext";
 import { Server } from "http";
@@ -27,6 +27,10 @@ export class PisaService {
             next();
         });
         app.post("/appointment", this.appointment(inspector, watcher));
+
+        const raidenInspector = new RaidenInspector(inspector.minimumDisputePeriod, inspector.provider);
+        const raidenWatcher = new RaidenWatcher(watcher.provider, watcher.signer);
+        app.post("/raidenAppointment", this.raidenAppointment(raidenInspector, raidenWatcher))
 
         const service = app.listen(port, hostname);
         logger.info(`PISA listening on: ${hostname}:${port}.`);
@@ -59,31 +63,31 @@ export class PisaService {
         };
     }
 
-    // private raidenAppointment(inspector: Inspector, watcher: Watcher) {
-    //     return async (req: express.Request, res: express.Response, next: express.NextFunction) => {
-    //         try {
-    //             const appointmentRequest = parseRaidenAppointment(req.body);
-    //             // inspect this appointment
-    //             const appointment = await inspector.inspect(appointmentRequest);
+    private raidenAppointment(inspector: RaidenInspector, watcher: RaidenWatcher) {
+        return async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+            try {
+                const appointmentRequest = parseRaidenAppointment(req.body);
+                // inspect this appointment
+                const appointment = await inspector.inspect(appointmentRequest);
 
-    //             // start watching it if it passed inspection
-    //             await watcher.watch(appointment);
+                // start watching it if it passed inspection
+                await watcher.watch(appointment);
 
-    //             // return the appointment
-    //             res.status(200);
-    //             res.send(appointment);
-    //         } catch (doh) {
-    //             if (doh instanceof PublicInspectionError) this.logAndSend(400, doh.message, doh, res);
-    //             else if (doh instanceof PublicValidationError) this.logAndSend(400, doh.message, doh, res);
-    //             else if (doh instanceof Error) this.logAndSend(500, "Internal server error.", doh, res);
-    //             else {
-    //                 logger.error("Error: 500. " + inspect(doh));
-    //                 res.status(500);
-    //                 res.send("Internal server error.");
-    //             }
-    //         }
-    //     };
-    // }
+                // return the appointment
+                res.status(200);
+                res.send(appointment);
+            } catch (doh) {
+                if (doh instanceof PublicInspectionError) this.logAndSend(400, doh.message, doh, res);
+                else if (doh instanceof PublicValidationError) this.logAndSend(400, doh.message, doh, res);
+                else if (doh instanceof Error) this.logAndSend(500, "Internal server error.", doh, res);
+                else {
+                    logger.error("Error: 500. " + inspect(doh));
+                    res.status(500);
+                    res.send("Internal server error.");
+                }
+            }
+        };
+    }
 
     private logAndSend(code: number, responseMessage: string, error: Error, res: Response) {
         logger.error(`HTTP Status: ${code}.`);

@@ -59,7 +59,7 @@ export function parseRaidenAppointment(obj: any) {
     propertyExistsAndIsOfType("expiryPeriod", "number", obj);
     doesPropertyExist("stateUpdate", obj);
     isRaidenStateUpdate(obj["stateUpdate"]);
-    return obj as IAppointmentRequest;
+    return obj as IRaidenAppointmentRequest;
 }
 
 function isRaidenStateUpdate(obj: any) {

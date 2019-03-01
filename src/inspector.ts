@@ -1,17 +1,25 @@
-import { IAppointmentRequest, IRaidenAppointmentRequest, IAppointment, IRaidenAppointment } from "./dataEntities/appointment";
+import {
+    IAppointmentRequest,
+    IRaidenAppointmentRequest,
+    IAppointment,
+    IRaidenAppointment
+} from "./dataEntities/appointment";
 import { KitsuneTools } from "./kitsuneTools";
 import { ethers } from "ethers";
 import { verifyMessage } from "ethers/utils";
+import { BalanceProofSigGroup } from "../raiden_demo/raiden-pisa-daemon/src/balanceProof";
 import logger from "./logger";
+const RaidenContracts = require("../raiden_demo/raiden/raiden_contracts/data/contracts.json");
+const tokenNetworkAbi = RaidenContracts.contracts.TokenNetwork.abi;
 
 /**
  * Responsible for deciding whether to accept appointments
  */
 export class Inspector {
     constructor(
-        private readonly minimumDisputePeriod: number,
-        private readonly provider: ethers.providers.BaseProvider,
-        private readonly channelAbi: any,
+        public readonly minimumDisputePeriod: number,
+        public readonly provider: ethers.providers.BaseProvider,
+        public readonly channelAbi: any,
         private readonly hashForSetState: (hState: string, round: number, channelAddress: string) => string,
         private readonly participants: (contract: ethers.Contract) => Promise<string[]>,
         private readonly round: (contract: ethers.Contract) => Promise<number>,
@@ -178,13 +186,12 @@ export class RaidenInspector {
     constructor(
         private readonly minimumDisputePeriod: number,
         private readonly provider: ethers.providers.BaseProvider,
-        private readonly channelAbi: any,
-        private readonly hashForSetState: (hState: string, round: number, channelAddress: string) => string,
-        private readonly participants: (contract: ethers.Contract) => Promise<string[]>,
-        private readonly round: (contract: ethers.Contract) => Promise<number>,
-        //private readonly disputePeriod: (contract: ethers.Contract) => Promise<number>,
-        //private readonly status: (contract: ethers.Contract) => Promise<number> // private readonly deployedBytecode: string
-    ) {}
+        // private readonly channelAbi: any,
+        // private readonly hashForSetState: (hState: string, round: number, channelAddress: string) => string,
+        // private readonly participants: (contract: ethers.Contract) => Promise<string[]>,
+        // private readonly round: (contract: ethers.Contract) => Promise<number> //private readonly disputePeriod: (contract: ethers.Contract) => Promise<number>,
+    ) //private readonly status: (contract: ethers.Contract) => Promise<number> // private readonly deployedBytecode: string
+    {}
 
     /**
      * Inspects an appointment to decide whether to accept it. Throws on reject.
@@ -207,7 +214,7 @@ export class RaidenInspector {
         // }
 
         // create a contract reference
-        const contract: ethers.Contract = new ethers.Contract(contractAddress, this.channelAbi, this.provider);
+        const contract: ethers.Contract = new ethers.Contract(contractAddress, tokenNetworkAbi, this.provider);
 
         // verify the appointment
         ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -228,28 +235,33 @@ export class RaidenInspector {
             appointmentRequest.stateUpdate.channel_identifier,
             appointmentRequest.stateUpdate.closing_participant,
             appointmentRequest.stateUpdate.non_closing_participant
-        )
-        const settleBlockNumber = channelInfo[1];
-        const status = channelInfo[0];
+        );
+        
+        const settleBlockNumber = channelInfo[0];
+        const status = channelInfo[1];
 
         logger.info(`Round at ${contract.address}: ${nonce.toString(10)}`);
         if (appointmentRequest.stateUpdate.nonce <= nonce) {
             throw new PublicInspectionError(
-                `Supplied appointment round ${appointmentRequest.stateUpdate.nonce} is not greater than channel round ${nonce}`
+                `Supplied appointment round ${
+                    appointmentRequest.stateUpdate.nonce
+                } is not greater than channel round ${nonce}`
             );
         }
 
         //check that the channel has a reasonable dispute period
-        
+
         // settle block number is used for two purposes:
         // 1) It is initially populated with a settle_timeout
         // 2) When closeChannel is called it is updated with += block.number
         // we've checked that the status is correct - so we must be in situation 1)
-        const channelDisputePeriod: number = await settleBlockNumber
+        const channelDisputePeriod: number = await settleBlockNumber;
         logger.info(`Dispute period at ${contract.address}: ${channelDisputePeriod.toString(10)}`);
         if (channelDisputePeriod <= this.minimumDisputePeriod) {
             throw new PublicInspectionError(
-                `Channel dispute period ${channelDisputePeriod} is less than or equal the minimum acceptable dispute period ${this.minimumDisputePeriod}`
+                `Channel dispute period ${channelDisputePeriod} is less than or equal the minimum acceptable dispute period ${
+                    this.minimumDisputePeriod
+                }`
             );
         }
 
@@ -257,7 +269,6 @@ export class RaidenInspector {
         // this isn't strictly necessary but it might catch some mistakes
         // if a client submits a request for an appointment that will always expire before a dispute can complete then
         // there is never any recourse against PISA.
-        logger.info(`Dispute period at ${contract.address}: ${channelDisputePeriod.toString(10)}`);
         if (appointmentRequest.expiryPeriod <= channelDisputePeriod) {
             throw new PublicInspectionError(
                 `Supplied appointment expiryPeriod ${
@@ -280,23 +291,47 @@ export class RaidenInspector {
             throw new PublicInspectionError(`Channel status is ${channelStatus} not "Opened".`);
         }
 
-        //verify all the signatures
-        // get the participants
-        let participants: string[] = await this.participants(contract);
-        logger.info(`Participants at ${contract.address}: ${JSON.stringify(participants)}`);
+        // TODO: sigs from here on down
+        let sigGroup: BalanceProofSigGroup = new BalanceProofSigGroup(
+            appointmentRequest.stateUpdate.token_network_identifier,
+            appointmentRequest.stateUpdate.chain_id,
+            appointmentRequest.stateUpdate.channel_identifier,
+            appointmentRequest.stateUpdate.balance_hash,
+            appointmentRequest.stateUpdate.nonce,
+            appointmentRequest.stateUpdate.additional_hash,
+            appointmentRequest.stateUpdate.closing_signature
+        );
 
-        // form the hash
-        // const setStateHash = this.hashForSetState(hState, appointmentRound, contract.address);
+        // a) did the non closing participant sign the message?
+        let nonClosingAccount = verifyMessage(
+            ethers.utils.arrayify(sigGroup.packForNonCloser()),
+            appointmentRequest.stateUpdate.non_closing_signature
+        );
+        if (appointmentRequest.stateUpdate.non_closing_participant !== nonClosingAccount) {
+            throw new PublicInspectionError(
+                `Supplied non_closing_signature was created by account ${nonClosingAccount}, not account ${
+                    appointmentRequest.stateUpdate.non_closing_participant
+                }`
+            );
+        }
 
-        // // check the sigs
-        // this.verifySignatures(participants, setStateHash, signatures);
+        // b) did the closing participant sign the message?
+        let closingAccount = verifyMessage(
+            ethers.utils.arrayify(sigGroup.packForCloser()),
+            appointmentRequest.stateUpdate.closing_signature
+        );
+        if (appointmentRequest.stateUpdate.closing_participant !== closingAccount) {
+            throw new PublicInspectionError(
+                `Supplied non_closing_signature was created by account ${closingAccount}, not account ${
+                    appointmentRequest.stateUpdate.closing_participant
+                }`
+            );
+        }
+
         logger.info("All participants have signed.");
         ///////////////////////////////////////////////////////////////////////////////////////////////////////////
         ///////////////////////////////////////////////////////////////////////////////////////////////////////////
         ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-        
-   
 
         // here we want to
         const appointment = this.createAppointment(appointmentRequest);

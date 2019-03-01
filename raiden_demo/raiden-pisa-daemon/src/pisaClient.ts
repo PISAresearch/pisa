@@ -20,13 +20,13 @@ export class PisaClient {
     async requestAppointment(appointmentRequest: IAppointmentRequest) {
         await request.post(`http://${this.hostAndPort}/appointment`, { json: appointmentRequest });
     }
+
+    async requestRaidenAppointment(appointmentRequest: IAppointmentRequest) {
+        await request.post(`http://${this.hostAndPort}/raidenAppointment`, { json: appointmentRequest });
+    }
 }
 
 export interface IAppointmentRequest {
     expiryPeriod: number;
     stateUpdate: IDoubleSignedBalanceProof
-    // contractAddress: string;
-    // hashState: string;
-    // round: number;
-    // signatures: string[2];
 }

@@ -69,7 +69,7 @@ export class BalanceProofSigGroup {
     // // Length of the actual message: 20 + 32 + 32 + 32 + 32 + 32 + 32 + 65
     // string memory message_length = '277';
 
-    private packForCloser(): string {
+    public packForCloser(): string {
         return ethers.utils.solidityPack(
             ["address", "uint256", "uint256", "uint256", "bytes32", "uint256", "bytes32"],
             [
@@ -84,7 +84,7 @@ export class BalanceProofSigGroup {
         );
     }
 
-    private packForNonCloser(): string {
+    public packForNonCloser(): string {
         return ethers.utils.solidityPack(
             ["address", "uint256", "uint256", "uint256", "bytes32", "uint256", "bytes32", "bytes"],
             [
@@ -100,8 +100,7 @@ export class BalanceProofSigGroup {
         );
     }
 
-    public async sign(wallet: ethers.Wallet) {
-        const hashNext = this.packForNonCloser();
-        return await wallet.signMessage(ethers.utils.arrayify(hashNext));
+    public async sign(hash: string, wallet: ethers.Wallet) {
+        return await wallet.signMessage(ethers.utils.arrayify(hash));
     }
 }

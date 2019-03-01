@@ -3,9 +3,9 @@ import { ethers } from "ethers";
 import { IConfig } from "./dataEntities/config";
 import { KitsuneWatcher } from "./watcher";
 import { KitsuneInspector } from "./inspector";
-import { getJsonRPCProvider } from "./provider";
+import { getInfuraProvider } from "./provider";
 const config = require("../config.json") as IConfig;
-getJsonRPCProvider().then(
+getInfuraProvider().then(
     provider => {
         const watcherWallet = new ethers.Wallet(config.watcherKey, provider);
         const watcher = new KitsuneWatcher(provider, watcherWallet);
