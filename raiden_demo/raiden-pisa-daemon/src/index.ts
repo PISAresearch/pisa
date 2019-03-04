@@ -20,14 +20,10 @@ const run = async (startingId: number) => {
         const pisaClient = new PisaClient(pisaHostAndPort);
 
         const callback = async (bp: IRawBalanceProof) => {
-            console.log("update detected")
             const sigGroup = BalanceProofSigGroup.fromBalanceProof(bp);
             const nonClosingHash = sigGroup.packForNonCloser();
 
             const nonClosingSig = await sigGroup.sign(nonClosingHash, wallet);
-            console.log("signed", wallet.address);
-            console.log("verified", ethers.utils.verifyMessage(ethers.utils.arrayify(nonClosingHash), nonClosingSig));
-
             const appointmentRequest: IAppointmentRequest = {
                 // settlement is 500, so lets take 20 of those
                 expiryPeriod: 10000,
@@ -49,7 +45,7 @@ const run = async (startingId: number) => {
 
         };
 
-        const listener = new SqliteListener(5000, sqliteDbLocation, startingId, callback);
+        const listener = new SqliteListener(10000, sqliteDbLocation, startingId, callback);
         listener.start();
 
         console.log("listening for updates...")
@@ -58,4 +54,4 @@ const run = async (startingId: number) => {
     }
 };
 
-run(0);
+run(294);

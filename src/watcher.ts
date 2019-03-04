@@ -75,10 +75,18 @@ export class Watcher {
     }
 }
 
+interface IRaidenAppointmentAndListener {
+    appointment: IRaidenAppointment;
+    listener: ethers.providers.Listener;
+    
+}
+
 /**
  * A watcher is responsible for watching for, and responding to, events emitted on-chain.
  */
 export class RaidenWatcher {
+    currentAppointments: IRaidenAppointmentAndListener[];
+
     constructor(
         private readonly provider: ethers.providers.BaseProvider,
         private readonly signer: ethers.Signer //private readonly channelAbi: any,
@@ -118,16 +126,16 @@ export class RaidenWatcher {
             this.provider
         ).connect(this.signer);
 
-        const filter = contract.ChannelClosed(
+        const filter = contract.filters.ChannelClosed(
             appointment.stateUpdate.channel_identifier,
             appointment.stateUpdate.closing_participant,
             null
         );
 
-        // watch the supplied event
-        contract.once(filter, async (channelIdentifier: number, closingParticipant: string, nonce: number) => {
+        
+        const listener: ethers.providers.Listener = async (channelIdentifier: number, closingParticipant: string, nonce: number) => {
             // this callback should not throw exceptions as they cannot be handled elsewhere
-
+            
             // call the callback
             try {
                 logger.info(
@@ -188,7 +196,10 @@ export class RaidenWatcher {
             // } catch (doh) {
             //     logger.error(`Failed to remove listener on event ${this.eventName} in contract ${contract.address}.`);
             // }
-        });
+        }
+
+        // watch the supplied event
+        contract.once(filter, listener);
     }
 }
 
