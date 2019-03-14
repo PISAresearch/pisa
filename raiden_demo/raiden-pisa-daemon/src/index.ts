@@ -3,21 +3,27 @@ import { BalanceProofSigGroup, IRawBalanceProof } from "./balanceProof";
 import { getWallet } from "./wallet";
 import { PisaClient } from "./pisaClient";
 import { IAppointmentRequest } from "./pisaClient";
-import { ethers } from "ethers";
 
-const keyLocation =
-    "/home/chris/.ethereum/keystore/UTC--2019-01-30T12-27-45.607500912Z--f0afbed24d88ce4cb12828984bb10d2f1ad0e185";
-//const password = "z+Ag)_Pm99&>>3ch";
-const password = "]7k.t?/P]B.\\6J>`";
-
-const sqliteDbLocation = "/home/chris/.raiden/node_f0afbed2/netid_3/network_40a5d15f/v16_log.db";
-const pisaHostAndPort = "localhost:3000";
+const argv = require('yargs')
+    .scriptName("raiden-pisa-daemon")
+    .usage('$0 [args]')
+    .demandOption(['keyfile'])
+    .describe('keyfile', 'The location of the keyfile')
+    .alias('password', 'p')
+    .demandOption(['password'])
+    .describe('password', 'The password of the keyfile')
+    .demandOption(['pisa'])
+    .describe('pisa', 'host:port of pisa service')
+    .demandOption(['db'])
+    .describe('db', 'The location of the raiden db instance that is hiring pisa')
+    .help()
+    .argv;
 
 
 const run = async (startingId: number) => {
     try {
-        const wallet = await getWallet(keyLocation, password);
-        const pisaClient = new PisaClient(pisaHostAndPort);
+        const wallet = await getWallet(argv.keyfile, argv.password);
+        const pisaClient = new PisaClient(argv.pisa);
 
         const callback = async (bp: IRawBalanceProof) => {
             const sigGroup = BalanceProofSigGroup.fromBalanceProof(bp);
@@ -45,7 +51,7 @@ const run = async (startingId: number) => {
 
         };
 
-        const listener = new SqliteListener(10000, sqliteDbLocation, startingId, callback);
+        const listener = new SqliteListener(10000, argv.db, startingId, callback);
         listener.start();
 
         console.log("listening for updates...")
@@ -54,4 +60,5 @@ const run = async (startingId: number) => {
     }
 };
 
-run(294);
+//TODO: get rid of startingId (maybe read it directly from the db?)
+run(0);

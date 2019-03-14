@@ -44,3 +44,58 @@ If a party is offline when their counterparty calls 'close' they will not be abl
 ## Alterations to PISA
 
 ## Setup
+
+## Running Scenario 2 on Ropsten
+
+1. Download [raiden binaries](https://github.com/raiden-network/raiden/releases) and unzip it.
+
+2. Download geth (no need to sync). NOTE: Instructions here assume there are no previous Ropsten accounts.
+
+3. Create two accounts (say A and B) from geth:
+   ```geth --testnet account add```
+
+   Run the above twice and follow instructions; remember the passwords.
+
+4. Take note of addresses and keyfile location of the new accounts; the addresses need to be checksummed. Enter `geth --testnet console`, then take note of the results of: `web3.toChecksumAddress(eth.accounts[0])` and `web3.toChecksumAddress(eth.accounts[1])`.
+
+5. Get Ropsten ether for A and B from a [ropsten faucet](https://faucet.ropsten.be/).
+
+6. Get WETH for A and B. (Contract address on Ropsten: 0xc778417E063141139Fce010982780140Aa0cD5Ab)
+   By importing the accounts on Metamask, you can do this [here](https://ropsten.etherscan.io/address/0xc778417e063141139fce010982780140aa0cd5ab#writeContract) by sending ether to the deposit() function.
+
+7. Create files `password-a.txt` and `password-b.txt` containing each one line with the corresponding password.
+
+8. Start a raiden node for A:
+   ```./raiden --gas-price fast --accept-disclaimer --api-address 127.0.0.1:<port-a> --network-id ropsten --eth-rpc-endpoint https://ropsten.infura.io/v3/6a750ee18d924477b219e6cea6de2215 --address <address-a> --password-file ./password-a.txt```
+
+   (NOTE: assuming default locations for the keystore files; check `./raiden --help` otherwise).
+
+   Take note of the location of the sqlite database when raiden is loading.
+
+9. Start a raiden node for B as above.
+
+10. Using B's raiden UI, open an channel with A, for some small amount of WETH. The GUI is at 127.0.0.1:<port-b> .
+
+11. Navigate to /pisa. Build if needed:
+
+    ```npm install && npm run build```
+
+    Start pisa:
+
+    ```npm run start-dev```
+
+12. Navigate to /pisa/raiden_demo/raiden-pisa-daemon. Install dependencies with `npm install` and start the raiden-pisa-damon:
+
+    ```npm start -- --keyfile=<keyfile for A> --p=<password of the keyfile> --db=<dblocation> --pisa=pisahost:pisaport ```
+
+13. Make a payment from B to A using the raiden GUI. After some time (~15 secs) you should notice that the daemon registers an update, and that it calls pisa.
+
+14. Now stop the raiden node for A.
+
+15. Now use B to close the channel.
+
+16. Pisa will now supply the latest balance update for A.
+
+17. Now wait 500 blocks for the settlement period to endpoint.
+
+18. Now turn on raiden node A again, and notice that their balance includes the payment made in 13.
