@@ -16,11 +16,13 @@ const argv = require('yargs')
     .describe('pisa', 'host:port of pisa service')
     .demandOption(['db'])
     .describe('db', 'The location of the raiden db instance that is hiring pisa')
+    .describe('startId', 'Tells the daemon to start processing raiden db from this row id onward')
+    .default('startId', null)
     .help()
     .argv;
 
 
-const run = async (startingId: number) => {
+const run = async (startingRowId: number) => {
     try {
         const wallet = await getWallet(argv.keyfile, argv.password);
         const pisaClient = new PisaClient(argv.pisa);
@@ -51,14 +53,13 @@ const run = async (startingId: number) => {
 
         };
 
-        const listener = new SqliteListener(10000, argv.db, startingId, callback);
+        const listener = new SqliteListener(10000, argv.db, startingRowId, callback);
         listener.start();
 
         console.log("listening for updates...")
-    } catch (doh) {
-        console.error(doh);
+    } catch (err) {
+        console.error(err);
     }
 };
 
-//TODO: get rid of startingId (maybe read it directly from the db?)
-run(0);
+run(argv.startId);

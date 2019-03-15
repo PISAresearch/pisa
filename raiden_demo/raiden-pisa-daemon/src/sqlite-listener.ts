@@ -8,8 +8,8 @@ export interface IBalanceProofRecord {
 }
 
 export class SqliteListener {
-    public lastRowId: number;
-    public readonly sqliteDb: sqlite.Database;
+    private lastRowId: number;
+    private readonly sqliteDb: sqlite.Database;
 
     constructor(
         private pollInterval: number,
@@ -19,12 +19,23 @@ export class SqliteListener {
     ) {
         this.sqliteDb = new sqlite.Database(dbFileLocation);
         this.lastRowId = startingRowId;
-        
     }
 
-    public start() {
+    public async start() {
+        if (this.lastRowId === null) {
+            // Find the current lastRowId, then start polling
+            this.lastRowId = await new Promise((resolve, reject) => {
+                this.sqliteDb.get("SELECT MAX(s.identifier) as lastRowId FROM state_changes s", [], (err, result) => {
+                    if (err) {
+                        reject(err);
+                    } else {
+                        resolve(result.lastRowId);
+                    }
+                });
+            });
+        }
+
         setInterval(this.tick, this.pollInterval, this);
-        //this.tick();
     }
 
     private tick(listener: SqliteListener) {
@@ -41,13 +52,13 @@ export class SqliteListener {
                     console.log("ROW ID", result.identifier)
                     listener.lastRowId = result.identifier;
                 }
-            } catch (doh) {
-                console.error(doh);
+            } catch (err) {
+                console.error(err);
             }
         }));
     }
 
-    public static async getBalanceProofsSince(lastRowId: number, sqliteDb: sqlite.Database): Promise<IBalanceProofRecord[]> {
+    private static async getBalanceProofsSince(lastRowId: number, sqliteDb: sqlite.Database): Promise<IBalanceProofRecord[]> {
         return ((await SqliteListener.promiseAll(sqliteDb, `SELECT s.identifier, json_extract(s.data, "$.balance_proof") as balance_proof
                     FROM state_changes s
                     WHERE identifier > ${lastRowId} AND (json_extract(s.data, "$._type") == "raiden.transfer.state_change.ReceiveUnlock")
@@ -64,7 +75,7 @@ export class SqliteListener {
         }) as IBalanceProofRecord[];
     }
 
-    public static promiseAll(sqliteDb: sqlite.Database, a: string) {
+    private static promiseAll(sqliteDb: sqlite.Database, a: string) {
         return new Promise((resolve, reject) => {
             sqliteDb.all(a, (err: any, success: any[]) => {
                 if (err) reject(err);
