@@ -17,7 +17,7 @@ export class SqliteListener {
         startingRowId: number,
         private balanceProofCallback: (bp: IRawBalanceProof) => Promise<void>
     ) {
-        this.sqliteDb = new sqlite.Database(dbFileLocation);
+        this.sqliteDb = new sqlite.Database(dbFileLocation, sqlite.OPEN_READONLY);
         this.lastRowId = startingRowId;
     }
 
