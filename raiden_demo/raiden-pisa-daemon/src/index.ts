@@ -1,3 +1,5 @@
+import * as fs from "fs";
+
 import { SqliteListener } from "./sqlite-listener";
 import { BalanceProofSigGroup, IRawBalanceProof } from "./balanceProof";
 import { getWallet } from "./wallet";
@@ -9,9 +11,9 @@ const argv = require('yargs')
     .usage('$0 [args]')
     .demandOption(['keyfile'])
     .describe('keyfile', 'The location of the keyfile')
-    .alias('password', 'p')
-    .demandOption(['password'])
-    .describe('password', 'The password of the keyfile')
+    .alias('password-file', 'p')
+    .demandOption(['password-file'])
+    .describe('password-file', 'The password-file (NOT the password!) of the keyfile')
     .demandOption(['pisa'])
     .describe('pisa', 'host:port of pisa service')
     .demandOption(['db'])
@@ -24,7 +26,8 @@ const argv = require('yargs')
 
 const run = async (startingRowId: number) => {
     try {
-        const wallet = await getWallet(argv.keyfile, argv.password);
+        const password = fs.readFileSync(argv.passwordFile).toString();
+        const wallet = await getWallet(argv.keyfile, password);
         const pisaClient = new PisaClient(argv.pisa);
 
         const callback = async (bp: IRawBalanceProof) => {
