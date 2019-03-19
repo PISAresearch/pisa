@@ -1,0 +1,18 @@
+version: "3"
+services:
+  alice:
+    image: pisaresearch/raiden:latest
+    ports:
+      - "6660:5001"
+    entrypoint: "/opt/venv/bin/python3 -m raiden --gas-price fast --accept-disclaimer --network-id ropsten --eth-rpc-endpoint https://ropsten.infura.io/v3/6a750ee18d924477b219e6cea6de2215 --address 0xF0AFBed24d88cE4CB12828984Bb10d2f1ad0e185 --api-address http://0.0.0.0:5001 --keystore-path /.ethereum/keystore/ --password-file /home/password.txt"
+    volumes:
+      - ${PWD}/test-accounts/password--f0afbed24d88ce4cb12828984bb10d2f1ad0e185.txt:/home/password.txt
+      - ${PWD}/test-accounts/UTC--2019-01-30T12-27-45.607500912Z--f0afbed24d88ce4cb12828984bb10d2f1ad0e185:/.ethereum/keystore/UTC--2019-01-30T12-27-45.607500912Z--f0afbed24d88ce4cb12828984bb10d2f1ad0e185
+  bob:
+    image: pisaresearch/raiden:latest
+    ports:
+      - "6661:5001"
+    entrypoint: "/opt/venv/bin/python3 -m raiden --gas-price fast --accept-disclaimer --network-id ropsten --eth-rpc-endpoint https://ropsten.infura.io/v3/6a750ee18d924477b219e6cea6de2215 --address 0xB457aed7A81D0428Fe54087af80099FcF27E2782 --api-address http://0.0.0.0:5001 --keystore-path /.ethereum/keystore/ --password-file /home/password.txt"
+    volumes:
+      - ${PWD}/test-accounts/password--b457aed7a81d0428fe54087af80099fcf27e2782.txt:/home/password.txt
+      - ${PWD}/test-accounts/UTC--2019-01-30T12-27-56.333660472Z--b457aed7a81d0428fe54087af80099fcf27e2782:/.ethereum/keystore/UTC--2019-01-30T12-27-56.333660472Z--b457aed7a81d0428fe54087af80099fcf27e2782
