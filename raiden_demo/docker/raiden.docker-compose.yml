@@ -1,7 +1,7 @@
 version: "3"
 services:
   alice:
-    image: pisaresearch/raiden:nosupport
+    image: pisaresearch/raiden:latest
     ports:
       - "6660:5001"
     entrypoint: "/opt/venv/bin/python3 -m raiden --gas-price fast --accept-disclaimer --network-id ropsten --eth-rpc-endpoint https://ropsten.infura.io/v3/6a750ee18d924477b219e6cea6de2215 --address 0xF0AFBed24d88cE4CB12828984Bb10d2f1ad0e185 --api-address http://0.0.0.0:5001 --keystore-path /.ethereum/keystore/ --password-file /home/password.txt"
@@ -13,7 +13,7 @@ services:
         aliases:
           - alice
   bob:
-    image: pisaresearch/raiden:nosupport
+    image: pisaresearch/raiden:latest
     ports:
       - "6661:5001"
     entrypoint: "/opt/venv/bin/python3 -m raiden --gas-price fast --accept-disclaimer --network-id ropsten --eth-rpc-endpoint https://ropsten.infura.io/v3/6a750ee18d924477b219e6cea6de2215 --address 0xF0AFBed24d88cE4CB12828984Bb10d2f1ad0e185 --address 0xB457aed7A81D0428Fe54087af80099FcF27E2782 --api-address http://0.0.0.0:5001 --keystore-path /.ethereum/keystore/ --password-file /home/password.txt --no-sync-check"
