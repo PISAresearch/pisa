@@ -1,0 +1,15 @@
+version: "3"
+services:
+  parity:
+    image: parity/parity:v2.4.1
+    ports:
+      - "8545:8545"
+    volumes:
+      - ${PWD}/../docker/test-chain.json/:/home/test-chain.json
+    command: '--config dev --chain "/home/test-chain.json" --jsonrpc-interface 0.0.0.0 --jsonrpc-port 8545 --jsonrpc-apis=eth,net,web3,parity --no-ws --network-id 3'
+    networks:
+      raidendemo:
+        aliases:
+          - parity
+networks:
+  raidendemo:

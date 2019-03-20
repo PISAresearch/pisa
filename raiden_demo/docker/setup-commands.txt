@@ -1,0 +1,17 @@
+# BUILD deploy image
+sudo docker build -f contractsDeploy.dockerfile -t pisaresearch/raiden-deploy-contracts:latest .
+# BUILD the register image
+sudo docker build -f contractsRegister.dockerfile -t pisaresearch/raiden-register-contracts:latest .
+
+# RUN the parity node
+docker-compose -f parity.docker-compose.yml up
+
+# RUN the deploy contracts
+docker run -it --network docker_raidendemo -v ${PWD}/test-accounts/UTC--2019-01-28T15-15-04.627735332Z--28df43df07cf4b545279918490d02453f4936e0d:/home/keyfile pisaresearch/raiden-deploy-contracts:latest
+
+# RUN the register contracts - you need to provide output (TOKEN_TO_BE_REGISTERED_ADDRESS, TOKEN_NETWORK_REGISTRY_ADDRESS) from the deploy command
+# supply the password: z+Ag)_Pm99&>>3ch
+docker run -it --network docker_raidendemo -v ${PWD}/test-accounts/UTC--2019-01-28T15-15-04.627735332Z--28df43df07cf4b545279918490d02453f4936e0d:/home/keyfile --entrypoint "python"  pisaresearch/raiden-deploy-contracts:latest -m raiden_contracts.deploy register --rpc-provider http://parity:8545 --private-key /home/keyfile --gas-price 10 --token-address <TOKEN_TO_BE_REGISTERED_ADDRESS> --registry-address <TOKEN_NETWORK_REGISTRY_ADDRESS>
+
+
+docker run -it --network docker_raidendemo -v ${PWD}/test-accounts/UTC--2019-01-28T15-15-04.627735332Z--28df43df07cf4b545279918490d02453f4936e0d:/home/keyfile --entrypoint "python"  pisaresearch/raiden-deploy-contracts:latest -m raiden_contracts.deploy register --rpc-provider http://parity:8545 --private-key /home/keyfile --gas-price 10 --token-address 0xB2B506fa29DE60E21A9406c82c1B9F0da8D9cAF1 --registry-address 0xCa70BfDEa6BD82e45d4fD26Dd9f36DB9fad61796
