@@ -1,44 +1,22 @@
 version: "3"
 services:
-  # ganache:
-  #   image: pisaresearch/ganache-cli:latest
-  #   ports:
-  #     - "6659:8545"
-  #   entrypoint: "node /app/ganache-core.docker.cli.js -l 15000000 --allowUnlimitedContractSize --defaultBalanceEther 1000000 --hardfork byzantium --fork https://ropsten.infura.io/v3/6a750ee18d924477b219e6cea6de2215 --account=0x3ebe90153ac377735aacad7d95b0a37809dad3dc0c5e49752b67eb61298c3114,10000000000000000000 --account=0xeb9140bf07e4dd78af32e3375369177f8668e8ad294173edfc6d31daaa4fb804,10000000000000000000"
-  #   networks:
-  #     raidendemo:
-  #       aliases:
-  #         - ganache
-  parity:
-    image: parity/parity:v2.4.1
+  alice:
+    image: pisaresearch/raiden:nosupport
     ports:
-      - "8545:8545"
+      - "6660:5001"
+    entrypoint: "/opt/venv/bin/python3 -m raiden --gas-price fast --accept-disclaimer --network-id ropsten --eth-rpc-endpoint https://ropsten.infura.io/v3/6a750ee18d924477b219e6cea6de2215 --address 0xF0AFBed24d88cE4CB12828984Bb10d2f1ad0e185 --api-address http://0.0.0.0:5001 --keystore-path /.ethereum/keystore/ --password-file /home/password.txt"
     volumes:
-      - ${PWD}/test-chain.json/:/home/test-chain.json
-    command: '--config dev --chain "/home/test-chain.json" --jsonrpc-interface 0.0.0.0 --jsonrpc-port 8545 --jsonrpc-apis=eth,net,web3,parity --no-ws --network-id 3'
+      - ${PWD}/test-accounts/password--f0afbed24d88ce4cb12828984bb10d2f1ad0e185.txt:/home/password.txt
+      - ${PWD}/test-accounts/UTC--2019-01-30T12-27-45.607500912Z--f0afbed24d88ce4cb12828984bb10d2f1ad0e185:/.ethereum/keystore/UTC--2019-01-30T12-27-45.607500912Z--f0afbed24d88ce4cb12828984bb10d2f1ad0e185
     networks:
       raidendemo:
         aliases:
-          - parity
-  # alice:
-  #   image: pisaresearch/raiden:nosupport
-  #   ports:
-  #     - "6660:5001"
-  #   entrypoint: "/opt/venv/bin/python3 -m raiden --gas-price fast --accept-disclaimer --network-id ropsten --eth-rpc-endpoint https://ropsten.infura.io/v3/6a750ee18d924477b219e6cea6de2215 --address 0xF0AFBed24d88cE4CB12828984Bb10d2f1ad0e185 --api-address http://0.0.0.0:5001 --keystore-path /.ethereum/keystore/ --password-file /home/password.txt"
-  #   volumes:
-  #     - ${PWD}/test-accounts/password--f0afbed24d88ce4cb12828984bb10d2f1ad0e185.txt:/home/password.txt
-  #     - ${PWD}/test-accounts/UTC--2019-01-30T12-27-45.607500912Z--f0afbed24d88ce4cb12828984bb10d2f1ad0e185:/.ethereum/keystore/UTC--2019-01-30T12-27-45.607500912Z--f0afbed24d88ce4cb12828984bb10d2f1ad0e185
-  #   networks:
-  #     raidendemo:
-  #       aliases:
-  #         - alice
-  #   depends_on:
-  #     - ganache
+          - alice
   bob:
     image: pisaresearch/raiden:nosupport
     ports:
       - "6661:5001"
-    entrypoint: "/opt/venv/bin/python3 -m raiden --gas-price fast --accept-disclaimer --network-id ropsten --eth-rpc-endpoint http://parity:8545 --address 0xB457aed7A81D0428Fe54087af80099FcF27E2782 --api-address http://0.0.0.0:5001 --keystore-path /.ethereum/keystore/ --password-file /home/password.txt --no-sync-check"
+    entrypoint: "/opt/venv/bin/python3 -m raiden --gas-price fast --accept-disclaimer --network-id ropsten --eth-rpc-endpoint https://ropsten.infura.io/v3/6a750ee18d924477b219e6cea6de2215 --address 0xF0AFBed24d88cE4CB12828984Bb10d2f1ad0e185 --address 0xB457aed7A81D0428Fe54087af80099FcF27E2782 --api-address http://0.0.0.0:5001 --keystore-path /.ethereum/keystore/ --password-file /home/password.txt --no-sync-check"
     volumes:
       - ${PWD}/test-accounts/password--b457aed7a81d0428fe54087af80099fcf27e2782.txt:/home/password.txt
       - ${PWD}/test-accounts/UTC--2019-01-30T12-27-56.333660472Z--b457aed7a81d0428fe54087af80099fcf27e2782:/.ethereum/keystore/UTC--2019-01-30T12-27-56.333660472Z--b457aed7a81d0428fe54087af80099fcf27e2782
@@ -46,7 +24,5 @@ services:
       raidendemo:
         aliases:
           - bob
-    depends_on:
-      - parity
 networks:
   raidendemo:
