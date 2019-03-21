@@ -12,6 +12,7 @@ RUN ["npm", "ci"];
 
 # copy the src and the configs
 COPY ./src ./src
+COPY ./raiden_demo ./raiden_demo
 COPY ./test ./test
 COPY ./config.json ./config.json
 COPY ./tsconfig.json ./tsconfig.json
@@ -45,6 +46,7 @@ COPY ./configs/pisa.json ./build/config.json
 COPY ./statechannels/build ./build/statechannels/build
 # copy only the source code from the builder
 COPY --from=builder /usr/pisa/build/src ./build/src
+COPY --from=builder /usr/pisa/build/raiden_demo ./build/raiden_demo
 # copy node modules from production
 COPY --from=productionPackges ./usr/pisa/node_modules ./node_modules
 

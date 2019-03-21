@@ -7,7 +7,7 @@ import {
 import { KitsuneTools } from "./kitsuneTools";
 import { ethers } from "ethers";
 import { verifyMessage } from "ethers/utils";
-import { BalanceProofSigGroup } from "../raiden_demo/raiden-pisa-daemon/src/balanceProof";
+import { BalanceProofSigGroup } from "./balanceProof";
 import logger from "./logger";
 const RaidenContracts = require("../raiden_demo/raiden/raiden_contracts/data/contracts.json");
 const tokenNetworkAbi = RaidenContracts.contracts.TokenNetwork.abi;

@@ -1,0 +1,68 @@
+version: "3"
+volumes:
+  raiden:
+networks:
+  raidendemo:
+  pisanet:
+services:
+  alice:
+    image: pisaresearch/raiden:latest
+    ports:
+      - "6660:5001"
+    volumes:
+      - ${PWD}/test-accounts/password--aaa33fd8d0cc3bf0054fe3a11567b99ef9640b3a.txt:/home/password.txt
+      - ${PWD}/test-accounts/UTC--2019-03-21T11-36-09.624Z--0xaaa33fd8d0cc3bf0054fe3a11567b99ef9640b3a:/.ethereum/keystore/UTC--2019-03-21T11-36-09.624Z--0xaaa33fd8d0cc3bf0054fe3a11567b99ef9640b3a
+    networks:
+      raidendemo:
+        aliases:
+          - alice
+    entrypoint: "/opt/venv/bin/python3 -m raiden --gas-price fast --accept-disclaimer --network-id ropsten --eth-rpc-endpoint https://ropsten.infura.io/v3/6a750ee18d924477b219e6cea6de2215 --address 0xaaa33fD8D0cC3Bf0054Fe3a11567B99eF9640b3a --api-address http://0.0.0.0:5001 --keystore-path /.ethereum/keystore/ --password-file /home/password.txt"
+  bob:
+    image: pisaresearch/raiden:latest
+    ports:
+      - "6661:5001"
+    volumes:
+      - ${PWD}/test-accounts/password--bbb1c891ccd690ac0eaf850822750e9d189a0055.txt:/home/password.txt
+      - ${PWD}/test-accounts/UTC--2019-03-21T11-37-01.379Z--0xbbb1c891ccd690ac0eaf850822750e9d189a0055:/.ethereum/keystore/UTC--2019-03-21T11-37-01.379Z--0xbbb1c891ccd690ac0eaf850822750e9d189a0055
+      - raiden:/root/.raiden
+    networks:
+      raidendemo:
+        aliases:
+          - bob
+    entrypoint: "/opt/venv/bin/python3 -m raiden --gas-price fast --accept-disclaimer --network-id ropsten --eth-rpc-endpoint https://ropsten.infura.io/v3/6a750ee18d924477b219e6cea6de2215 --address 0xbbb1c891ccD690AC0EAF850822750e9D189A0055 --api-address http://0.0.0.0:5001 --keystore-path /.ethereum/keystore/ --password-file /home/password.txt"
+
+  ganache:
+    image: trufflesuite/ganache-cli:latest
+    networks:
+      pisanet:
+        aliases:
+          - ganache
+    ports:
+      - "6650:8545"
+    entrypoint: "node /app/ganache-core.docker.cli.js --mnemonic 'myth like bonus scare over problem client lizard pioneer submit female collect' -l 15000000 --allowUnlimitedContractSize --defaultBalanceEther 1000000 -b 10"
+  pisa:
+    image: pisaresearch/pisa:salvatore
+    ports:
+      - "3000:3000"
+    entrypoint: /bin/sh -c "sleep 5; npm run start"
+    networks:
+      pisanet:
+        aliases:
+          - pisa
+    depends_on:
+      - ganache
+      - bob
+  raiden-pisa-daemon:
+    image: pisaresearch/raiden-pisa-daemon:latest
+    volumes:
+      - ${PWD}/test-accounts/password--bbb1c891ccd690ac0eaf850822750e9d189a0055.txt:/home/password.txt
+      - ${PWD}/test-accounts/UTC--2019-03-21T11-37-01.379Z--0xbbb1c891ccd690ac0eaf850822750e9d189a0055:/.ethereum/keystore/UTC--2019-03-21T11-37-01.379Z--0xbbb1c891ccd690ac0eaf850822750e9d189a0055
+      - raiden:/root/.raiden
+    entrypoint: /bin/sh -c "sleep 7; npm run start -- --keyfile=/.ethereum/keystore/UTC--2019-03-21T11-37-01.379Z--0xbbb1c891ccd690ac0eaf850822750e9d189a0055 --password-file=/home/password.txt --db=/root/.raiden/node_bbb1c891/netid_3/network_40a5d15f/v19_log.db --pisa=pisa:3000"
+    networks:
+      pisanet:
+        aliases:
+          - raiden-pisa-daemon
+    depends_on:
+      - bob
+      - pisa

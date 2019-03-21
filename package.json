@@ -4,7 +4,7 @@
   "description": "Arbitration Outsourcing for State Channels",
   "main": "index.js",
   "scripts": {
-    "build": "tsc && cp config.json build/config.json",
+    "build": "tsc && cp config.json build/config.json && cp -r ./raiden_demo build/raiden_demo/",
     "build-kitsune": "cd statechannels && npm ci && npx truffle compile && mkdir -p ../build/statechannels && cp -R build/ ../build/statechannels/build",
     "init": "npm run submodule && npm run build-kitsune",
     "start": "node ./build/src/startUp.js",
