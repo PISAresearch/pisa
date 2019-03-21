@@ -17,12 +17,28 @@ export interface IDoubleSignedBalanceProof {
 export class PisaClient {
     constructor(private readonly hostAndPort: string) {}
 
-    async requestAppointment(appointmentRequest: IAppointmentRequest) {
-        await request.post(`http://${this.hostAndPort}/appointment`, { json: appointmentRequest });
+    requestAppointment(appointmentRequest: IAppointmentRequest): request.RequestPromise {
+        return request.post(
+            `http://${this.hostAndPort}/appointment`,
+            { json: appointmentRequest },
+            (err) => {
+                if (err) {
+                    console.log(err);
+                }
+            }
+        );
     }
 
-    async requestRaidenAppointment(appointmentRequest: IAppointmentRequest) {
-        await request.post(`http://${this.hostAndPort}/raidenAppointment`, { json: appointmentRequest });
+    requestRaidenAppointment(appointmentRequest: IAppointmentRequest): request.RequestPromise {
+        return request.post(
+            `http://${this.hostAndPort}/raidenAppointment`,
+            { json: appointmentRequest },
+            (err) => {
+                if (err) {
+                    console.log(err);
+                }
+            }
+        );
     }
 }
 
