@@ -30,16 +30,6 @@ services:
         aliases:
           - bob
     entrypoint: "/opt/venv/bin/python3 -m raiden --gas-price fast --accept-disclaimer --network-id ropsten --eth-rpc-endpoint https://ropsten.infura.io/v3/6a750ee18d924477b219e6cea6de2215 --address 0xbbb1c891ccD690AC0EAF850822750e9D189A0055 --api-address http://0.0.0.0:5001 --keystore-path /.ethereum/keystore/ --password-file /home/password.txt"
-
-  ganache:
-    image: trufflesuite/ganache-cli:latest
-    networks:
-      pisanet:
-        aliases:
-          - ganache
-    ports:
-      - "6650:8545"
-    entrypoint: "node /app/ganache-core.docker.cli.js --mnemonic 'myth like bonus scare over problem client lizard pioneer submit female collect' -l 15000000 --allowUnlimitedContractSize --defaultBalanceEther 1000000 -b 10"
   pisa:
     image: pisaresearch/pisa:salvatore
     ports:
