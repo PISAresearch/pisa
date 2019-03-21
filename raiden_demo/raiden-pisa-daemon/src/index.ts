@@ -26,7 +26,7 @@ const argv = require('yargs')
 
 const run = async (startingRowId: number) => {
     try {
-        const password = fs.readFileSync(argv.passwordFile).toString();
+        const password = fs.readFileSync(argv.passwordFile).toString().trim();
         const wallet = await getWallet(argv.keyfile, password);
         const pisaClient = new PisaClient(argv.pisa);
 
