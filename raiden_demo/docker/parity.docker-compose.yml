@@ -4,12 +4,50 @@ services:
     image: parity/parity:v2.4.1
     ports:
       - "8545:8545"
+      - "8546:8546"
+      - "30303:30303"
+      - "30303:30303/udp"
     volumes:
-      - ${PWD}/../docker/test-chain.json/:/home/test-chain.json
-    command: '--config dev --chain "/home/test-chain.json" --jsonrpc-interface 0.0.0.0 --jsonrpc-port 8545 --jsonrpc-apis=eth,net,web3,parity --no-ws --network-id 3'
+      - ${PWD}/test-chain.json/:/home/test-chain.json
+    hostname:
+      parity
+    command: '--config dev-insecure --chain "/home/test-chain.json" --jsonrpc-interface 0.0.0.0 --jsonrpc-port 8545 --jsonrpc-apis=eth,net,web3,parity --network-id 3 --jsonrpc-cors all --ws-interface 0.0.0.0'    
     networks:
       raidendemo:
         aliases:
-          - parity
+          - parity 
+  # autominer:
+  #   image: pisaresearch/autominer:latest
+  #   depends_on:
+  #     - parity
+  #   networks:
+  #     raidendemo:
+
+
+  # deployment:
+  #   image: pisaresearch/raiden-deploy-contracts:latest
+  #   volumes:
+  #     - ${PWD}/test-accounts/UTC--2019-01-28T15-15-04.627735332Z--28df43df07cf4b545279918490d02453f4936e0d:/home/keyfile
+  #   networks: 
+  #     raidendemo:
+  #       aliases:
+  #         - deployment
+  #   depends_on:
+  #     - parity
+
+
+  # geth:
+  #   image: ethereum/client-go
+  #   ports:
+  #     - "30303:30303"
+  #     - "8545:8545"
+  #   command: --datadir /home/datadir --rpcapi eth,net,web3,txpool --rpc --rpcaddr "0.0.0.0" --dev --rpcvhosts '*' --networkid 3 --dev.period 3 --password /home/password.txt
+  #   volumes:
+  #     - ${PWD}/gethData:/home/datadir
+  #     - ${PWD}/test-accounts/password--28df43df07cf4b545279918490d02453f4936e0d:/home/password.txt
+  #   networks:
+  #     raidendemo:
+  #       aliases:
+  #         - parity
 networks:
   raidendemo:

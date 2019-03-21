@@ -21,6 +21,3 @@ services:
       - ganache
 networks:
   pisanet:
-    
-
-    --hardfork byzantium --fork https://ropsten.infura.io/v3/6a750ee18d924477b219e6cea6de2215@5235582

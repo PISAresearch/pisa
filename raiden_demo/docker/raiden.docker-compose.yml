@@ -1,22 +1,24 @@
+# although I hoped it would, this doesnt work. Hosting raiden in docker causes problems for the UI
+
 version: "3"
 services:
   alice:
-    image: pisaresearch/raiden:latest
+    image: pisaresearch/raiden:nosupport
     ports:
-      - "6660:5001"
-    entrypoint: "/opt/venv/bin/python3 -m raiden --gas-price fast --accept-disclaimer --network-id ropsten --eth-rpc-endpoint https://ropsten.infura.io/v3/6a750ee18d924477b219e6cea6de2215 --address 0xF0AFBed24d88cE4CB12828984Bb10d2f1ad0e185 --api-address http://0.0.0.0:5001 --keystore-path /.ethereum/keystore/ --password-file /home/password.txt"
+      - "5001:5001"
+    entrypoint: "/opt/venv/bin/python3 -m raiden --gas-price fast --accept-disclaimer --network-id ropsten --eth-rpc-endpoint http://parity:8545 --address 0xF0AFBed24d88cE4CB12828984Bb10d2f1ad0e185 --api-address http://0.0.0.0:5001 --keystore-path /.ethereum/keystore/ --password-file /home/password.txt --no-sync-check --tokennetwork-registry-contract-address 0xCa70BfDEa6BD82e45d4fD26Dd9f36DB9fad61796 --secret-registry-contract-address 0xaFa1F14fe33940b22D7f9F9bf0d707860C9233e2 --endpoint-registry-contract-address 0xa4f842B60C8a21c54b16E7940aA16Dda80301d13 --rpc --web-ui"
     volumes:
       - ${PWD}/test-accounts/password--f0afbed24d88ce4cb12828984bb10d2f1ad0e185.txt:/home/password.txt
       - ${PWD}/test-accounts/UTC--2019-01-30T12-27-45.607500912Z--f0afbed24d88ce4cb12828984bb10d2f1ad0e185:/.ethereum/keystore/UTC--2019-01-30T12-27-45.607500912Z--f0afbed24d88ce4cb12828984bb10d2f1ad0e185
     networks:
       raidendemo:
         aliases:
-          - alice
+          - alice  
   bob:
-    image: pisaresearch/raiden:latest
+    image: raidennetwork/raiden:latest
     ports:
       - "6661:5001"
-    entrypoint: "/opt/venv/bin/python3 -m raiden --gas-price fast --accept-disclaimer --network-id ropsten --eth-rpc-endpoint https://ropsten.infura.io/v3/6a750ee18d924477b219e6cea6de2215 --address 0xF0AFBed24d88cE4CB12828984Bb10d2f1ad0e185 --address 0xB457aed7A81D0428Fe54087af80099FcF27E2782 --api-address http://0.0.0.0:5001 --keystore-path /.ethereum/keystore/ --password-file /home/password.txt --no-sync-check"
+    entrypoint: "/opt/venv/bin/python3 -m raiden --gas-price fast --accept-disclaimer --network-id ropsten --eth-rpc-endpoint http://parity:8545 --address 0xB457aed7A81D0428Fe54087af80099FcF27E2782 --api-address http://0.0.0.0:5001 --keystore-path /.ethereum/keystore/ --password-file /home/password.txt --no-sync-check --tokennetwork-registry-contract-address 0xCa70BfDEa6BD82e45d4fD26Dd9f36DB9fad61796 --secret-registry-contract-address 0xaFa1F14fe33940b22D7f9F9bf0d707860C9233e2 --endpoint-registry-contract-address 0xa4f842B60C8a21c54b16E7940aA16Dda80301d13"
     volumes:
       - ${PWD}/test-accounts/password--b457aed7a81d0428fe54087af80099fcf27e2782.txt:/home/password.txt
       - ${PWD}/test-accounts/UTC--2019-01-30T12-27-56.333660472Z--b457aed7a81d0428fe54087af80099fcf27e2782:/.ethereum/keystore/UTC--2019-01-30T12-27-56.333660472Z--b457aed7a81d0428fe54087af80099fcf27e2782

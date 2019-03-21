@@ -8,7 +8,7 @@
         "accountStartNonce": "0x0",
         "maximumExtraDataSize": "0x20",
         "minGasLimit": "0x1388",
-        "networkID" : "0x11",
+        "networkID" : "0x03",
         "registrar" : "0x0000000000000000000000000000000000001337",
         "eip150Transition": "0x0",
         "eip160Transition": "0x0",
@@ -28,7 +28,7 @@
         "seal": {
             "generic": "0x0"
         },
-        "difficulty": "0x20000",
+        "difficulty": "0x10000",
         "author": "0x0000000000000000000000000000000000000000",
         "timestamp": "0x00",
         "parentHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -46,6 +46,7 @@
         "0000000000000000000000000000000000000008": { "balance": "1", "builtin": { "name": "alt_bn128_pairing", "activate_at": 0, "pricing": { "alt_bn128_pairing": { "base": 100000, "pair": 80000 } } } },
         "0xf0afbed24d88ce4cb12828984bb10d2f1ad0e185": { "balance": "10000000000000000000" },
         "0xb457aed7a81d0428fe54087af80099fcf27e2782": { "balance": "10000000000000000000" },
-        "0x28df43df07cf4b545279918490d02453f4936e0d": { "balance": "10000000000000000000" }
+        "0x28df43df07cf4b545279918490d02453f4936e0d": { "balance": "10000000000000000000" },
+        "0x9016D27e1295Ec51c2a1B81F8FBA057594eC56E9": { "balance": "10000000000000000000" }
     }
 }
