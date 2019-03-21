@@ -1,0 +1,22 @@
+version: "3"
+services:
+  parity:
+    image: pisaresearch/parity:preloaded
+    ports:
+      - "8545:8545"
+      - "8546:8546"
+      - "30303:30303"
+      - "30303:30303/udp"
+    command: '--config dev-insecure --chain "/home/test-chain.json" --jsonrpc-interface 0.0.0.0 --jsonrpc-port 8545 --jsonrpc-apis=eth,net,web3,parity --network-id 3 --jsonrpc-cors all --ws-interface 0.0.0.0'
+    networks:
+      raidendemo:
+        aliases:
+          - parity 
+  autominer:
+    image: pisaresearch/autominer:latest
+    depends_on:
+      - parity
+    networks:
+      raidendemo:
+networks:
+  raidendemo:

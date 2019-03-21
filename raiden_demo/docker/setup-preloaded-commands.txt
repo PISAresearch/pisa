@@ -1,0 +1,14 @@
+
+
+# RUN the parity node with some pre-configured data
+# "EndpointRegistry": "0xCC7267b60e341b167445bB8dD306cc6da5030C11",
+# "SecretRegistry": "0x84aB0b07444A3FD5262BCC421740A5B87f6ec932",
+# "TokenNetworkRegistry": "0x46a1B173Ff35E96600A69B0aEB90CB617eCf1b73"
+# "CustomToken": "0xec426Fe74F86a5528B3e357F3477fB99b1D4F078"
+docker-compose -f parity-loaded.docker-compose.yml up
+
+# Start the raiden nodes
+./raidenStartup.local.sh 0xCC7267b60e341b167445bB8dD306cc6da5030C11 0x84aB0b07444A3FD5262BCC421740A5B87f6ec932 0x46a1B173Ff35E96600A69B0aEB90CB617eCf1b73
+
+
+    
