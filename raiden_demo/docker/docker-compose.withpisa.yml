@@ -40,7 +40,6 @@ services:
         aliases:
           - pisa
     depends_on:
-      - ganache
       - bob
   raiden-pisa-daemon:
     image: pisaresearch/raiden-pisa-daemon:latest
@@ -48,7 +47,7 @@ services:
       - ${PWD}/test-accounts/password--bbb1c891ccd690ac0eaf850822750e9d189a0055.txt:/home/password.txt
       - ${PWD}/test-accounts/UTC--2019-03-21T11-37-01.379Z--0xbbb1c891ccd690ac0eaf850822750e9d189a0055:/.ethereum/keystore/UTC--2019-03-21T11-37-01.379Z--0xbbb1c891ccd690ac0eaf850822750e9d189a0055
       - raiden:/root/.raiden
-    entrypoint: /bin/sh -c "sleep 7; npm run start -- --keyfile=/.ethereum/keystore/UTC--2019-03-21T11-37-01.379Z--0xbbb1c891ccd690ac0eaf850822750e9d189a0055 --password-file=/home/password.txt --db=/root/.raiden/node_bbb1c891/netid_3/network_40a5d15f/v19_log.db --pisa=pisa:3000"
+    entrypoint: /bin/sh -c "sleep 10; npm run start -- --keyfile=/.ethereum/keystore/UTC--2019-03-21T11-37-01.379Z--0xbbb1c891ccd690ac0eaf850822750e9d189a0055 --password-file=/home/password.txt --db=/root/.raiden/node_bbb1c891/netid_3/network_40a5d15f/v19_log.db --pisa=pisa:3000"
     networks:
       pisanet:
         aliases:
