@@ -1,3 +1,5 @@
+const config = require("../../configs.json") as IConfig;
+
 export interface IConfig {
     jsonRpcUrl: string;
     host: {
@@ -5,15 +7,6 @@ export interface IConfig {
         port: number;
     },
     watcherKey: string;
-    infura?: {
-        currentNetwork: string
-        ropsten: {
-            apikey: string;
-            url: string
-        },
-        rinkeby: {
-            apikey: string;
-            url: string
-        }
-    }
 }
+
+export default config;

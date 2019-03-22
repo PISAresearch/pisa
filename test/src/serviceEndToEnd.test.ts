@@ -6,7 +6,7 @@ import { ethers } from "ethers";
 import { KitsuneInspector } from "../../src/inspector";
 import { KitsuneWatcher } from "../../src/watcher";
 import { PisaService } from "../../src/service";
-import { IConfig } from "../../src/dataEntities/config";
+import config from "../../src/dataEntities/config";
 import Ganache from "ganache-core";
 import { IAppointmentRequest } from "../../src/dataEntities/appointment";
 import logger from "../../src/logger";
@@ -16,14 +16,13 @@ logger.transports.forEach(l => (l.level = "max"));
 const ganache = Ganache.provider({
     mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect"
 });
-const config: IConfig = {
-    host: {
-        name: "localhost",
-        port: 3000
-    },
-    jsonRpcUrl: "http://localhost:8545",
-    watcherKey: "0x6370fd033278c143179d81c5526140625662b8daa446c22ee2d73db3707e620c"
+config.host = {
+    name: "localhost",
+    port: 3000
 };
+config.jsonRpcUrl = "http://localhost:8545";
+config.watcherKey = "0x6370fd033278c143179d81c5526140625662b8daa446c22ee2d73db3707e620c";
+
 const provider = new ethers.providers.Web3Provider(ganache);
 provider.pollingInterval = 100;
 
@@ -211,7 +210,7 @@ describe("Service end-to-end", () => {
             provider.getSigner()
         );
         const channelFactoryContract = await channelContractFactoryFactory.deploy();
-        
+
         const round = 1,
             setStateHash = KitsuneTools.hashForSetState(hashState, round, channelContract.address),
             sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash)),

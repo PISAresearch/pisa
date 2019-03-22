@@ -1,6 +1,5 @@
 import { ethers } from "ethers";
-import { IConfig } from "./dataEntities/config";
-const config = require("../config.json") as IConfig;
+import config from "./dataEntities/config";
 // provide the ability to get different providers
 
 export const getJsonRPCProvider = async (url?: string) => {
@@ -8,19 +7,6 @@ export const getJsonRPCProvider = async (url?: string) => {
     provider.pollingInterval = 100;
     await validateProvider(provider);
     return provider;
-};
-
-export const getInfuraProvider = async () => {
-    const infura: any = config.infura;
-    const infuraProvider = new ethers.providers.InfuraProvider(
-        config.infura.currentNetwork,
-        infura[`${config.infura.currentNetwork}`].apikey
-    );
-    infuraProvider.pollingInterval = 100;
-
-    await validateProvider(infuraProvider);
-
-    return infuraProvider;
 };
 
 export async function validateProvider(provider: ethers.providers.Provider) {

@@ -1,9 +1,8 @@
 import request from "request-promise";
 import { KitsuneTools } from "../../src/kitsuneTools";
 import { ethers } from "ethers";
-import { IConfig } from "../../src/dataEntities/config";
+import config from "../../src/dataEntities/config";
 import { getJsonRPCProvider } from "../../src/provider";
-const config = require("../../config.json") as IConfig;
 let account0: string, account1: string, channelContract: ethers.Contract, hashState: string, disputePeriod: number;
 
 let setup = async () => {
