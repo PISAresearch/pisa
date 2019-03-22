@@ -1,9 +1,29 @@
 import { PisaService } from "./service";
 import { ethers } from "ethers";
-import config  from "./dataEntities/config";
+import config from "./dataEntities/config";
 import { KitsuneWatcher } from "./watcher";
 import { KitsuneInspector } from "./inspector";
 import { getJsonRPCProvider } from "./provider";
+
+const argv = require('yargs')
+    .scriptName("pisa")
+    .usage('$0 [args]')
+    .describe('json-rpc-url', 'Overrides jsonRpcUrl from config.json.')
+    .describe('host-name', 'Overrides host.name from config.json')
+    .describe('host-port', 'Overrides host.porg from config.json')
+    .option('watcher-key', {
+        description: 'Overrides watcherKey from config.json',
+        string: true
+    })
+    .help()
+    .argv;
+
+//Override config.json if arguments are provided
+if (argv.jsonRpcUrl) config.jsonRpcUrl = argv.jsonRpcUrl;
+if (argv.hostName) config.host.name = argv.hostName;
+if (argv.hostPort) config.host.port = argv.hostPort;
+if (argv.watcherKey) config.watcherKey = argv.watcherKey;
+
 getJsonRPCProvider().then(
     provider => {
         const watcherWallet = new ethers.Wallet(config.watcherKey, provider);
