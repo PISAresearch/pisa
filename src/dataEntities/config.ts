@@ -1,4 +1,4 @@
-const config = require("../../configs.json") as IConfig;
+const config = require("../../config.json") as IConfig;
 
 export interface IConfig {
     jsonRpcUrl: string;
