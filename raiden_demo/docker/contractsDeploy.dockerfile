@@ -1,12 +1,12 @@
 FROM python:3.6.8-stretch
 WORKDIR /usr/raiden
 
-RUN ["git", "clone", "https://github.com/raiden-network/raiden-contracts.git"]
+RUN ["git", "clone", "https://github.com/pisaresearch/raiden-contracts.git"]
 
 WORKDIR /usr/raiden/raiden-contracts
 
 # checkout the red eyes tag
-RUN ["git", "checkout", "fac73623d5b92b7c070fdde2b446648ec9117474"]
+RUN ["git", "checkout", "settlement-min-5"]
 
 # install a specific version of solc
 RUN curl -o /usr/bin/solc -fL https://github.com/ethereum/solidity/releases/download/v0.4.24/solc-static-linux \

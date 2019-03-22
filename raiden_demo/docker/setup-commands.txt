@@ -21,3 +21,5 @@ docker run -it --network docker_raidendemo pisaresearch/autominer:latest
 
 # Start the raiden nodes
 ./raidenStartup.local.sh <endpoint-registry> <secret-registry> <tokennetwork-registry>
+
+# To take a copy of the parity db: docker cp <container-id>:/home/parity/.local/share/io.parity.ethereum <destination>

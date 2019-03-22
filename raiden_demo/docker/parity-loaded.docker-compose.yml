@@ -1,7 +1,7 @@
 version: "3"
 services:
   parity:
-    image: pisaresearch/parity:preloaded
+    image: pisaresearch/parity:preloaded-5
     ports:
       - "8545:8545"
       - "8546:8546"
