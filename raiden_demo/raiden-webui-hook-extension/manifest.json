@@ -1,0 +1,24 @@
+{
+  "manifest_version": 2,
+
+  "name": "Raiden WebUI Hook",
+  "description": "Customize Raiden's WebUI for Pisa's demo!",
+  "version": "0.1",
+
+  "browser_action": {
+    "default_icon": "images/icon.png"
+  },
+  "permissions": [
+    "activeTab"
+  ],
+  "web_accessible_resources": [
+    "images/pisa.png"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["http://localhost:6660/*/*", "http://localhost:6661/*/*"],
+      "css": ["ruihook.css"],
+      "js": ["jquery-3.2.1.min.js", "ruihook.js"]
+    }
+  ]
+}
