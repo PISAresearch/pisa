@@ -1,7 +1,8 @@
 # all of these commands are designed to be run at /pisa/raiden_demo
 # before running scenario commands ensure that 
-# docker-compose -f docker/parity-loaded.docker-compose.up has
-# already been called to start parity
+#   docker-compose -f docker/parity-loaded.docker-compose.yml up
+# has already been called to start parity
+
 cd dev/pisa/raiden_demo/
 
 ## start alice 0xaaa33fD8D0cC3Bf0054Fe3a11567B99eF9640b3a
