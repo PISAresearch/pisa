@@ -12,7 +12,7 @@
     console.log($account);
     if ($account.length) {
       const accountAddr = $account.text().trim();
-      if (accountAddr == '0xbbb1c891ccD690AC0EAF850822750e9D189A0055') {
+      if (accountAddr == '0xccca21b97b27defc210f01a7e64119a784424d26s') {
         $account.before('<div id="pisaLogo"></div>');
         console.log('WebUI hook loaded');
       } else {

@@ -28,7 +28,8 @@ getJsonRPCProvider().then(
     provider => {
         const watcherWallet = new ethers.Wallet(config.watcherKey, provider);
         const watcher = new KitsuneWatcher(provider, watcherWallet);
-        const inspector = new KitsuneInspector(10, provider);
+        // TODO: need test/production settings for the inspector
+        const inspector = new KitsuneInspector(4, provider);
 
         // start the pisa service
         const service = new PisaService(config.host.name, config.host.port, inspector, watcher);

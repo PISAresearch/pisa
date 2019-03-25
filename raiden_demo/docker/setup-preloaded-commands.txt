@@ -9,6 +9,3 @@ docker-compose -f parity-loaded.docker-compose.yml up
 
 # Start the raiden nodes
 ./raidenStartup.local.sh 0xa4f842B60C8a21c54b16E7940aA16Dda80301d13 0xaFa1F14fe33940b22D7f9F9bf0d707860C9233e2 0xCa70BfDEa6BD82e45d4fD26Dd9f36DB9fad61796
-
-
-    

@@ -1,0 +1,17 @@
+# all of these commands are designed to be run at /pisa/raiden_demo
+cd dev/pisa/raiden_demo/
+
+## start alice 0xccca21b97b27DefC210f01A7e64119A784424D26
+raiden --gas-price fast --accept-disclaimer --keystore-path ${PWD}/docker/test-accounts --datadir ${PWD}/.raiden --network-id ropsten --eth-rpc-endpoint https://ropsten.infura.io/v3/268eda053b8a44cb846ff997fb879282 --address 0xccca21b97b27DefC210f01A7e64119A784424D26 --api-address http://0.0.0.0:6662 --password-file ${PWD}/docker/test-accounts/password--ccca21b97b27defc210f01a7e64119a784424d26.txt  --no-sync-check --disable-debug-logfile --tokennetwork-registry-contract-address 0xBDCAA7F5021391EC159423E65C1F6726Fb540c4E --secret-registry-contract-address 0x390826025CDe5FC6d0BC143C62C036500D2061E6 --endpoint-registry-contract-address 0xB2B506fa29DE60E21A9406c82c1B9F0da8D9cAF1
+
+## start bob 0xdddEC4D561eE68F37855fa3245Cb878b10Eb1fA0
+raiden --gas-price fast --accept-disclaimer --keystore-path ${PWD}/docker/test-accounts --datadir ${PWD}/.raiden --network-id ropsten --eth-rpc-endpoint https://ropsten.infura.io/v3/268eda053b8a44cb846ff997fb879282 --address 0xdddEC4D561eE68F37855fa3245Cb878b10Eb1fA0 --api-address http://0.0.0.0:6663 --password-file ${PWD}/docker/test-accounts/password--dddec4d561ee68f37855fa3245cb878b10eb1fa0.txt  --no-sync-check --disable-debug-logfile --tokennetwork-registry-contract-address 0xBDCAA7F5021391EC159423E65C1F6726Fb540c4E --secret-registry-contract-address 0x390826025CDe5FC6d0BC143C62C036500D2061E6 --endpoint-registry-contract-address 0xB2B506fa29DE60E21A9406c82c1B9F0da8D9cAF1
+
+## start pisa
+# running on 0xC6d1a9b65bEFDCe82f92eF363Bcb06EE02f85619
+docker run -it -p 3000:3000 --network docker_raidendemo --network-alias pisa -v ${PWD}/../configs/pisa.json:/usr/pisa/build/config.json pisaresearch/pisa:chris
+
+## start the raiden-pisa-daemon for alice
+docker run -it -v ${PWD}/docker/test-accounts/password--ccca21b97b27defc210f01a7e64119a784424d26.txt:/home/password.txt -v ${PWD}/docker/test-accounts/UTC--2019-03-22T10-39-56.702Z--0xccca21b97b27defc210f01a7e64119a784424d26:/.ethereum/keystore/UTC--2019-03-22T10-39-56.702Z--0xccca21b97b27defc210f01a7e64119a784424d26 -v ${PWD}/.raiden/node_ccca21b9/netid_3/network_bdcaa7f5/v16_log.db:/home/db --network docker_raidendemo --entrypoint "npm" pisaresearch/raiden-pisa-daemon:latest run start -- --pisa=pisa:3000 --keyfile=/.ethereum/keystore/UTC--2019-03-22T10-39-56.702Z--0xccca21b97b27defc210f01a7e64119a784424d26  --password-file=/home/password.txt --db=/home/db
+
+

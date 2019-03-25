@@ -269,7 +269,8 @@ export class RaidenInspector {
         // this isn't strictly necessary but it might catch some mistakes
         // if a client submits a request for an appointment that will always expire before a dispute can complete then
         // there is never any recourse against PISA.
-        if (appointmentRequest.expiryPeriod <= channelDisputePeriod) {
+        const currentBlockNumber = await this.provider.getBlockNumber()
+        if (appointmentRequest.expiryPeriod <= channelDisputePeriod - currentBlockNumber) {
             throw new PublicInspectionError(
                 `Supplied appointment expiryPeriod ${
                     appointmentRequest.expiryPeriod
