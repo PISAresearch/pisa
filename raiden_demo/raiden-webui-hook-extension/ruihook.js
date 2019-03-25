@@ -13,7 +13,7 @@
     if ($account.length) {
       const accountAddr = $account.text().trim();
       if (accountAddr == '0xccca21b97b27DefC210f01A7e64119A784424D26') {
-        $account.before('<div id="pisaLogo"></div>');
+        $account.before('<img id="pisaLogo"></img>');
         console.log('WebUI hook loaded');
       } else {
         console.log(`Not the right account: ${accountAddr}`);

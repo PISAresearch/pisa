@@ -12,7 +12,7 @@
     "activeTab"
   ],
   "web_accessible_resources": [
-    "images/pisa.png"
+    "images/pisa-transparent-background-white.png"
   ],
   "content_scripts": [
     {

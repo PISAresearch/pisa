@@ -1,8 +1,10 @@
 
 #pisaLogo {
-  background-image: url('chrome-extension://__MSG_@@extension_id__/images/pisa.png');
-  width: 180px;
-  height: 64px;
+  background-image: url('chrome-extension://__MSG_@@extension_id__/images/pisa-transparent-background-white.png');
+  background-repeat: no-repeat;
+  background-size: contain;
+  width: 90px;
+  height: 30px;
   margin-left: 64px;
   margin-right: 64px;
 }
