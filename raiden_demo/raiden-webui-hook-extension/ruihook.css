@@ -1,6 +1,6 @@
 
 #pisaLogo {
-  background-image: url('chrome-extension://__MSG_@@extension_id__/images/images/pisa-transparent-background-white.png');
+  background-image: url('chrome-extension://__MSG_@@extension_id__/images/pisa-transparent-background-white.png');
   background-repeat: no-repeat;
   background-size: contain;
   width: 90px;
