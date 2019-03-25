@@ -16,7 +16,7 @@
   ],
   "content_scripts": [
     {
-      "matches": ["http://localhost:6660/*/*", "http://localhost:6661/*/*"],
+      "matches": ["http://localhost:6660/*/*", "http://localhost:6661/*/*", "http://localhost:6662/*/*", "http://localhost:6663/*/*"],
       "css": ["ruihook.css"],
       "js": ["jquery-3.2.1.min.js", "ruihook.js"]
     }
