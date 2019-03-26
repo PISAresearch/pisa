@@ -1,30 +1,45 @@
 import { utils } from "ethers";
 
+export enum ChannelType {
+    Kitsune = 1,
+    Raiden = 2
+}
+
 export interface IAppointmentRequest {
-    stateUpdate: IStateUpdate;
     expiryPeriod: number;
+    type: ChannelType;
 }
 
-export interface IRaidenAppointmentRequest {
-    stateUpdate: IRaidenStateUpdate;
-    expiryPeriod: number;
-}
-// TODO: documentation in these classes
 export interface IAppointment {
-    stateUpdate: IStateUpdate;
     startTime: number;
     endTime: number;
     inspectionTime: number;
+    type: ChannelType
 }
 
-export interface IRaidenAppointment {
+export interface IKitsuneAppointmentRequest extends IAppointmentRequest {
+    stateUpdate: IKitsuneStateUpdate;
+    type: ChannelType.Kitsune;
+}
+
+export interface IRaidenAppointmentRequest extends IAppointmentRequest {
     stateUpdate: IRaidenStateUpdate;
-    startTime: number;
-    endTime: number;
-    inspectionTime: number;
+    type: ChannelType.Raiden;
 }
 
-export interface IStateUpdate {
+// PISA: documentation in these classes
+// PISA: sort these out as well - we could use generics?
+export interface IKitsuneAppointment extends IAppointment {
+    stateUpdate: IKitsuneStateUpdate;
+    type: ChannelType.Kitsune;
+}
+
+export interface IRaidenAppointment extends IAppointment {
+    stateUpdate: IRaidenStateUpdate;
+    type: ChannelType.Raiden;
+}
+
+export interface IKitsuneStateUpdate {
     signatures: string[];
     hashState: string;
     round: number;
@@ -51,7 +66,7 @@ export function parseAppointment(obj: any) {
     propertyExistsAndIsOfType("expiryPeriod", "number", obj);
     doesPropertyExist("stateUpdate", obj);
     isStateUpdate(obj["stateUpdate"]);
-    return obj as IAppointmentRequest;
+    return obj as IKitsuneAppointmentRequest;
 }
 
 export function parseRaidenAppointment(obj: any) {

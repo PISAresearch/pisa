@@ -4,6 +4,7 @@ import { KitsuneInspector } from "../../src/inspector/kitsune";
 import { KitsuneTools } from "../../src/kitsuneTools";
 import { ethers } from "ethers";
 import Ganache from "ganache-core";
+import { ChannelType } from "../../src/dataEntities/appointment";
 const ganache = Ganache.provider({
     mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect"
 });
@@ -52,6 +53,7 @@ describe("Inspector", () => {
         const inspector = new KitsuneInspector(10, provider);
         await inspector.inspect({
             expiryPeriod,
+            type: ChannelType.Kitsune,
             stateUpdate: {
                 contractAddress: channelContract.address,
                 hashState,
@@ -73,6 +75,7 @@ describe("Inspector", () => {
         await isRejected(
             inspector.inspect({
                 expiryPeriod,
+                type: ChannelType.Kitsune,
                 stateUpdate: {
                     contractAddress: channelContract.address,
                     hashState,
@@ -94,6 +97,7 @@ describe("Inspector", () => {
         await isRejected(
             inspector.inspect({
                 expiryPeriod,
+                type: ChannelType.Kitsune,
                 stateUpdate: {
                     contractAddress: channelContract.address,
                     hashState,
@@ -115,6 +119,7 @@ describe("Inspector", () => {
         await isRejected(
             inspector.inspect({
                 expiryPeriod,
+                type: ChannelType.Kitsune,
                 stateUpdate: {
                     contractAddress: channelContract.address,
                     hashState,
@@ -136,6 +141,7 @@ describe("Inspector", () => {
         await isRejected(
             inspector.inspect({
                 expiryPeriod,
+                type: ChannelType.Kitsune,
                 stateUpdate: {
                     // random address
                     contractAddress: "0x4bf3A7dFB3b76b5B3E169ACE65f888A4b4FCa5Ee",
@@ -159,6 +165,7 @@ describe("Inspector", () => {
         await isRejected(
             inspector.inspect({
                 expiryPeriod,
+                type: ChannelType.Kitsune,
                 stateUpdate: {
                     // invalid address
                     contractAddress: "0x4bf3A7dFB3b76b",
@@ -181,6 +188,7 @@ describe("Inspector", () => {
         await isRejected(
             inspector.inspect({
                 expiryPeriod,
+                type: ChannelType.Kitsune,
                 stateUpdate: {
                     contractAddress: channelContract.address,
                     // invalid hash state
@@ -203,6 +211,7 @@ describe("Inspector", () => {
         await isRejected(
             inspector.inspect({
                 expiryPeriod,
+                type: ChannelType.Kitsune,
                 stateUpdate: {
                     contractAddress: channelContract.address,
                     // substute the state hash for the set state hash
@@ -226,6 +235,7 @@ describe("Inspector", () => {
         await isRejected(
             inspector.inspect({
                 expiryPeriod,
+                type: ChannelType.Kitsune,
                 stateUpdate: {
                     contractAddress: channelContract.address,
                     hashState,
@@ -248,6 +258,7 @@ describe("Inspector", () => {
         await isRejected(
             inspector.inspect({
                 expiryPeriod,
+                type: ChannelType.Kitsune,
                 stateUpdate: {
                     contractAddress: channelContract.address,
                     hashState,
@@ -269,6 +280,7 @@ describe("Inspector", () => {
         await isRejected(
             inspector.inspect({
                 expiryPeriod,
+                type: ChannelType.Kitsune,
                 stateUpdate: {
                     contractAddress: channelContract.address,
                     hashState,
@@ -289,6 +301,7 @@ describe("Inspector", () => {
         const inspector = new KitsuneInspector(10, provider);
         await inspector.inspect({
             expiryPeriod,
+            type: ChannelType.Kitsune,
             stateUpdate: {
                 contractAddress: channelContract.address,
                 hashState,

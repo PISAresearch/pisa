@@ -1,4 +1,4 @@
-import { IAppointment, IRaidenAppointment } from "./dataEntities/appointment";
+import { IKitsuneAppointment, IRaidenAppointment, ChannelType, IAppointment } from "./dataEntities/appointment";
 import { ethers } from "ethers";
 import { KitsuneTools } from "./kitsuneTools";
 import logger from "./logger";
@@ -6,82 +6,186 @@ import { inspect } from "util";
 import RaidenContracts from "./raiden_data.json";
 const tokenNetworkAbi = RaidenContracts.contracts.TokenNetwork.abi;
 
-/**
- * A watcher is responsible for watching for, and responding to, events emitted on-chain.
- */
-export class Watcher {
-    constructor(
+// PISA: docs on the new watcher classes
+
+export abstract class MergedWatcher implements IWatcher {
+    protected constructor(
         public readonly provider: ethers.providers.Provider,
         public readonly signer: ethers.Signer,
-        private readonly channelAbi: any,
-        private readonly eventName: string,
-        private readonly eventCallback: (
-            contract: ethers.Contract,
-            appointment: IAppointment,
-            ...args: any[]
-        ) => Promise<any>
+        public readonly channelType: ChannelType
     ) {}
+
+    // we need to keep a list of appointments - against each contract, so can it have one appointment or
+
+    // get previous appointment
+    abstract getEventName(appointment: IAppointment): string;
+    abstract getExistingContract(appointment: IAppointment): ethers.Contract;
+    abstract getPreviousAppointment(
+        appointment: IAppointment
+    ): { appointment: IAppointment; listener: ethers.providers.Listener };
+    abstract getEventFilter(contract: ethers.Contract, appointment: IAppointment): ethers.EventFilter;
+    abstract getNewContract(appointment: IAppointment): ethers.Contract;
+    abstract respond(contract: ethers.Contract, appointment: IAppointment, ...args: any[]);
+    abstract addContract(appointment: IAppointment, contract: ethers.Contract);
+    abstract addAppointment(appointment: IAppointment, listener: ethers.providers.Listener);
+
+    // getNonce() : number {
+    //      PISA add this to appointment
+    // }
+
+    // getContractAddress() : number {
+    //      PISA add this to appointment
+    // }
 
     /**
      * Watch for an event specified by the appointment, and respond if it the event is raised.
      * @param appointment Contains information about where to watch for events, and what information to suppli as part of a response
      */
     async watch(appointment: IAppointment) {
+        if (appointment.type !== this.channelType)
+            throw new Error(`Incorrect appointment type ${appointment.type} in watcher type ${this.channelType}`);
+
         // PISA: safety check the appointment - check the inspection time?
+        let eventName = this.getEventName(appointment);
 
         // create a contract
-        logger.info(
-            `Begin watching for event ${this.eventName} in contract ${appointment.stateUpdate.contractAddress}.`
-        );
+        // PISA: logging should include!!!!!! appointment.stateUpdate.contractAddress
+        // PISA: also this would need inspect
+        logger.info(`Begin watching for event ${eventName} in appointment ${appointment}.`);
         logger.debug(`Watching appointment: ${appointment}.`);
 
-        const contract = new ethers.Contract(
-            appointment.stateUpdate.contractAddress,
-            this.channelAbi,
-            this.provider
-        ).connect(this.signer);
+        let existingContract = this.getExistingContract(appointment);
+        if (existingContract) {
+            // is there a previous appointment
+            const existingAppointment = this.getPreviousAppointment(appointment);
+            const filter = this.getEventFilter(existingContract, appointment);
+            // PISA: need check the nonces are increasing here
+            existingContract.removeListener(filter, existingAppointment.listener);
+            logger.info(
+                //PISA: better message here - include nonces, contract address and channel identifier
+                // PISA: this needs inspect() atm
+                `Stopped watching ${existingAppointment.appointment}`
+            );
+        }
 
-        // watch the supplied event
-        contract.on(this.eventName, async (...args: any[]) => {
+        const contract = existingContract || this.getNewContract(appointment);
+        // PISA: called filter here twice - restructure
+        const filter = this.getEventFilter(contract, appointment);
+
+        const listener: ethers.providers.Listener = async (...args: any[]) => {
             // this callback should not throw exceptions as they cannot be handled elsewhere
 
-            // call the callback
             try {
                 logger.info(
-                    `Observed event ${this.eventName} in contract ${contract.address} with arguments : ${args.slice(
+                    `Observed event ${eventName} in contract ${contract.address} with arguments : ${args.slice(
                         0,
                         args.length - 1
                     )}. Beginning response.`
+                    // PISA: interesting slice here - debug this and maybe do it another way - or at least encapsulate it
                 );
                 logger.debug(`Event info ${inspect(args[1])}`);
-                await this.eventCallback(contract, appointment, ...args);
+                this.respond(contract, appointment, args);
             } catch (doh) {
                 // an error occured whilst responding to the callback - this is serious and the problem needs to be correctly diagnosed
                 logger.error(doh);
-                logger.error(
-                    `Error occured whilst responding to event ${this.eventName} in contract ${contract.address}.`
-                );
+                logger.error(`Error occured whilst responding to event ${eventName} in contract ${contract.address}.`);
             }
+        };
 
-            // remove subscription - we've satisfied our appointment
-            try {
-                logger.info(`Reponse successful, removing listener.`);
-                contract.removeAllListeners(this.eventName);
-                logger.info(`Listener removed.`);
-            } catch (doh) {
-                logger.error(`Failed to remove listener on event ${this.eventName} in contract ${contract.address}.`);
-            }
-        });
+        // watch the supplied event
+        contract.once(filter, listener);
+
+        // add the appointment and the contract for later lookup
+        this.addContract(appointment, contract);
+        this.addAppointment(appointment, listener);
     }
 }
 
 /**
  * A watcher is responsible for watching for, and responding to, events emitted on-chain.
  */
-export class RaidenWatcher {
-    // a list of the current appointments this watcher is watching
-    // it only needs to keep the latest appointment per channel - so it replaces appointments in this list and removes listeners
+export class KitsuneWatcher extends MergedWatcher {
+    contracts: {
+        [channelAddress: string]: {
+            contract: ethers.Contract;
+            appointment: { appointment: IAppointment; listener: ethers.providers.Listener };
+        };
+    } = {};
 
+    constructor(
+        public readonly provider: ethers.providers.Provider,
+        public readonly signer: ethers.Signer // private readonly eventCallback: ( //     contract: ethers.Contract, //     appointment: IAppointment, //     ...args: any[] // ) => Promise<any>
+    ) {
+        super(provider, signer, ChannelType.Kitsune);
+    }
+
+    getEventName(appointment: IAppointment) {
+        return "EventDispute(uint256)";
+    }
+
+    getExistingContract(appointment: IAppointment) {
+        const kitsuneAppointment = appointment as IKitsuneAppointment;
+        // PISA: undefined?
+        let lookup = this.contracts[kitsuneAppointment.stateUpdate.contractAddress];
+        if (lookup) return lookup.contract;
+    }
+
+    getPreviousAppointment(appointment: IAppointment) {
+        const kitsuneAppointment = appointment as IKitsuneAppointment;
+        // PISA: undefined?
+        let lookup = this.contracts[kitsuneAppointment.stateUpdate.contractAddress];
+        if (lookup) return lookup.appointment;
+    }
+
+    getEventFilter(contract: ethers.Contract, appointment: IAppointment) {
+        return contract.filters.EventDispute(null);
+    }
+
+    getNewContract(appointment: IAppointment) {
+        const kitsuneAppointment = appointment as IKitsuneAppointment;
+        return new ethers.Contract(
+            kitsuneAppointment.stateUpdate.contractAddress,
+            KitsuneTools.ContractAbi,
+            this.provider
+        ).connect(this.signer);
+    }
+
+    async respond(contract: ethers.Contract, appointment: IAppointment, ...args: any[]) {
+        const kitsuneAppointment = appointment as IKitsuneAppointment;
+        await KitsuneTools.respond(contract, kitsuneAppointment, ...args);
+    }
+
+    addContract(appointment: IAppointment, contract: ethers.Contract) {
+        const kitsuneAppointment = appointment as IKitsuneAppointment;
+        this.contracts[kitsuneAppointment.stateUpdate.contractAddress] = {
+            contract: contract,
+            appointment: { appointment: undefined, listener: undefined }
+        };
+    }
+
+    addAppointment(appointment: IAppointment, listener: ethers.providers.Listener) {
+        const kitsuneAppointment = appointment as IKitsuneAppointment;
+        this.contracts[kitsuneAppointment.stateUpdate.contractAddress].appointment = {
+            appointment: appointment,
+            listener: listener
+        };
+    }
+}
+
+interface IWatcher {
+    getEventName(appointment: IAppointment): string;
+    getExistingContract(appointment: IAppointment): ethers.Contract;
+    getPreviousAppointment(
+        appointment: IAppointment
+    ): { appointment: IAppointment; listener: ethers.providers.Listener };
+    getEventFilter(contract: ethers.Contract, appointment: IAppointment): ethers.EventFilter;
+    getNewContract(appointment: IAppointment): ethers.Contract;
+    respond(contract: ethers.Contract, appointment: IAppointment, ...args: any[]);
+    addContract(appointment: IAppointment, contract: ethers.Contract);
+    addAppointment(appointment: IAppointment, listener: ethers.providers.Listener);
+}
+
+export class RaidenWatcher extends MergedWatcher implements IWatcher {
     contracts: {
         [tokenNetworkIdentifier: string]: {
             contract: ethers.Contract;
@@ -91,134 +195,87 @@ export class RaidenWatcher {
         };
     } = {};
 
-    constructor(
-        private readonly provider: ethers.providers.Provider,
-        private readonly signer: ethers.Signer //private readonly channelAbi: any, // private readonly eventName: string, // private readonly eventCallback: ( //     contract: ethers.Contract, //     appointment: IAppointment, //     ...args: any[]
-    ) // ) => Promise<any>
-    {}
+    // PISA: is this constructor really necessary? should be, because of the protected base
+    constructor(readonly provider: ethers.providers.Provider, readonly signer: ethers.Signer) {
+        super(provider, signer, ChannelType.Raiden);
+    }
 
-    /**
-     * Watch for an event specified by the appointment, and respond if it the event is raised.
-     * @param appointment Contains information about where to watch for events, and what information to suppli as part of a response
-     */
-    watch(appointment: IRaidenAppointment) {
-        const eventName = (channelIdentifier: number, closingParticipant: string, nonce: number) => {
-            return `ChannelClosed - ${channelIdentifier} - ${closingParticipant} - ${nonce}`;
-        };
+    getEventName(appointment: IRaidenAppointment): string {
+        //PISA: can these be safely removed? seems like very weak typing...
+        let raidenAppointment = appointment as IRaidenAppointment;
+        return `ChannelClosed - ${raidenAppointment.stateUpdate.channel_identifier} - ${
+            raidenAppointment.stateUpdate.closing_participant
+        } - ${raidenAppointment.stateUpdate.nonce}`;
+    }
 
-        // PISA: safety check the appointment - check the inspection time?
+    getExistingContract(appointment: IAppointment): ethers.Contract {
+        const raidenAppointment = appointment as IRaidenAppointment;
+        let lookup = this.contracts[raidenAppointment.stateUpdate.token_network_identifier];
 
-        // create a contract
-        logger.info(
-            `Begin watching for event ${eventName(
-                appointment.stateUpdate.channel_identifier,
-                appointment.stateUpdate.closing_participant,
-                appointment.stateUpdate.nonce
-            )} in contract ${appointment.stateUpdate.token_network_identifier}.`
-        );
+        // PISA: create a type for the lookup - return that
+        if (lookup) return lookup.contract;
+    }
 
-        logger.debug(`Watching appointment: ${appointment}.`);
-        let tokenNetwork = this.contracts[appointment.stateUpdate.token_network_identifier];
-        let contract;
-        if(tokenNetwork) {
-            contract = tokenNetwork.contract
-        }
-        else {
-            contract = new ethers.Contract(
-                appointment.stateUpdate.token_network_identifier,
-                tokenNetworkAbi,
-                this.provider
-            ).connect(this.signer);
-            
-            // set the token network at this stage
-            tokenNetwork = this.contracts[appointment.stateUpdate.token_network_identifier] = { contract: contract, appointments: {} };
-        }
+    getPreviousAppointment(appointment: IAppointment) {
+        const raidenAppointment = appointment as IRaidenAppointment;
+        let lookup = this.contracts[raidenAppointment.stateUpdate.token_network_identifier];
 
-        const filter = contract.filters.ChannelClosed(
-            appointment.stateUpdate.channel_identifier,
-            appointment.stateUpdate.closing_participant,
+        //PISA: unsafe
+        return lookup.appointments[raidenAppointment.stateUpdate.channel_identifier];
+    }
+
+    getEventFilter(contract: ethers.Contract, appointment: IAppointment) {
+        const raidenAppointment = appointment as IRaidenAppointment;
+        return contract.filters.ChannelClosed(
+            raidenAppointment.stateUpdate.channel_identifier,
+            raidenAppointment.stateUpdate.closing_participant,
             null
         );
+    }
 
-        // we only want one watcher per channel - for the highest nonce
-        // so we replace the watcher if we witness a higher nonce
-        // PISA: race conditions abound here  - this isn't safe. But it'll do for the demo purposes
-        const currentAppointment = tokenNetwork.appointments[appointment.stateUpdate.channel_identifier];
-        if (currentAppointment) {
-            // should check the nonces here
-            contract.removeListener(filter, currentAppointment.listener);
-            logger.info(
-                `Stopped watching nonce: ${currentAppointment.appointment.stateUpdate.nonce} on channel ${
-                    currentAppointment.appointment.stateUpdate.channel_identifier
-                }`
-            );
-        }
+    getNewContract(appointment: IAppointment) {
+        const raidenAppointment = appointment as IRaidenAppointment;
+        return new ethers.Contract(
+            raidenAppointment.stateUpdate.token_network_identifier,
+            tokenNetworkAbi,
+            this.provider
+        ).connect(this.signer);
+    }
 
-        const listener: ethers.providers.Listener = async (
-            channelIdentifier: number,
-            closingParticipant: string,
-            nonce: number
-        ) => {
-            // this callback should not throw exceptions as they cannot be handled elsewhere
+    async respond(contract: ethers.Contract, appointment: IAppointment, ...args: any[]) {
+        const raidenAppointment = appointment as IRaidenAppointment;
 
-            // call the callback
-            try {
-                logger.info(
-                    `Observed event ${eventName(channelIdentifier, closingParticipant, nonce)} in contract ${
-                        contract.address
-                    }. Beginning response.`
-                );
+        // PISA: pass this to the responder
+        let tx = await contract.updateNonClosingBalanceProof(
+            raidenAppointment.stateUpdate.channel_identifier,
+            raidenAppointment.stateUpdate.closing_participant,
+            raidenAppointment.stateUpdate.non_closing_participant,
+            raidenAppointment.stateUpdate.balance_hash,
+            raidenAppointment.stateUpdate.nonce,
+            raidenAppointment.stateUpdate.additional_hash,
+            raidenAppointment.stateUpdate.closing_signature,
+            raidenAppointment.stateUpdate.non_closing_signature
+        );
+        await tx.wait();
+    }
 
-                // some very basic retry behaviour
-                let trying = true;
-                let tries = 0;
-                let tx;
-                while (trying && tries < 10) {
-                    try {
-                        tx = await contract.updateNonClosingBalanceProof(
-                            appointment.stateUpdate.channel_identifier,
-                            appointment.stateUpdate.closing_participant,
-                            appointment.stateUpdate.non_closing_participant,
-                            appointment.stateUpdate.balance_hash,
-                            appointment.stateUpdate.nonce,
-                            appointment.stateUpdate.additional_hash,
-                            appointment.stateUpdate.closing_signature,
-                            appointment.stateUpdate.non_closing_signature
-                        );
-                        trying = false;
-                    } catch (exe) {
-                        // lets retry this hard until we can no longer
-                        logger.error(`Failed to set state for contract ${contract.address}, re-tries ${tries}`);
-                        tries++;
-                        await wait(1000);
-                    }
-                }
-
-                if (trying) throw new Error("Failed after 10 tries.");
-                else {
-                    logger.info(`Successful response to ${contract.address} for channel ${appointment.stateUpdate.channel_identifier} after ${tries + 1} tr${tries + 1 === 1 ? "y" : "ies"}.`);
-                }
-                await tx.wait();
-            } catch (doh) {
-                // an error occured whilst responding to the callback - this is serious and the problem needs to be correctly diagnosed
-                logger.error(doh);
-                logger.error(
-                    `Error occured whilst responding to event ${eventName(
-                        channelIdentifier,
-                        closingParticipant,
-                        nonce
-                    )} in contract ${contract.address}.`
-                );
-            }
+    addContract(appointment: IAppointment, contract: ethers.Contract) {
+        // PISA: this doesnt need to be called if the contract is already in the list!
+        const raidenAppointment = appointment as IRaidenAppointment;
+        this.contracts[raidenAppointment.stateUpdate.token_network_identifier] = {
+            contract: contract,
+            appointments: {}
         };
+    }
 
-        // watch the supplied event
-        contract.once(filter, listener);
+    addAppointment(appointment: IAppointment, listener: ethers.providers.Listener) {
+        const raidenAppointment = appointment as IRaidenAppointment;
+        const appointments = this.contracts[raidenAppointment.stateUpdate.token_network_identifier].appointments;
 
-        // add this listener to the current appointments
-        tokenNetwork.appointments[appointment.stateUpdate.channel_identifier] = {
-            listener: listener,
-            appointment: appointment
+        // PISA: unsafe - currently dependent on .contract existing
+        appointments[raidenAppointment.stateUpdate.channel_identifier] = {
+            appointment: raidenAppointment,
+            listener: listener
         };
     }
 }
@@ -230,9 +287,3 @@ const wait = (timeout: number) => {
         }, timeout);
     });
 };
-
-export class KitsuneWatcher extends Watcher {
-    constructor(provider: ethers.providers.Provider, signer: ethers.Signer) {
-        super(provider, signer, KitsuneTools.ContractAbi, "EventDispute(uint256)", KitsuneTools.respond);
-    }
-}

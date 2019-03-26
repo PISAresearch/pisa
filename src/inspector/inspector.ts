@@ -1,4 +1,4 @@
-import { IAppointmentRequest, IAppointment } from "../dataEntities/appointment";
+import { IKitsuneAppointmentRequest, IKitsuneAppointment } from "../dataEntities/appointment";
 
 /**
  * Thrown when an appointment fails inspection
@@ -12,6 +12,6 @@ export class PublicInspectionError extends Error {
 
 export interface IInspector {
     // PISA:  this should return a bool
-    inspect(appointmentRequest: IAppointmentRequest): IAppointment | Promise<IAppointment>;
+    inspect(appointmentRequest: IKitsuneAppointmentRequest): IKitsuneAppointment | Promise<IKitsuneAppointment>;
 }
 

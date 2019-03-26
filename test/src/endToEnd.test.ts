@@ -4,6 +4,7 @@ import { KitsuneWatcher } from "../../src/watcher";
 import { KitsuneTools } from "../../src/kitsuneTools";
 import { ethers } from "ethers";
 import Ganache from "ganache-core";
+import { ChannelType, IKitsuneAppointmentRequest } from "../../src/dataEntities/appointment";
 const ganache = Ganache.provider({ 
     mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect"
 });
@@ -47,13 +48,14 @@ describe("End to end", () => {
     it("inspect and watch a contract", async () => {
         const inspector = new KitsuneInspector(10, provider);
         // 1. Verify appointment
-        const appointmentRequest = {
+        const appointmentRequest: IKitsuneAppointmentRequest = {
             stateUpdate: {
                 contractAddress: channelContract.address,
                 hashState: hashState,
                 round: 1,
                 signatures: [sig0, sig1]
             },
+            type: ChannelType.Kitsune,
             expiryPeriod: 12
         };
         const appointment = await inspector.inspect(appointmentRequest);         

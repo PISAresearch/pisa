@@ -171,6 +171,7 @@ export class RaidenInspector {
 
         return {
             stateUpdate: request.stateUpdate,
+            type: request.type,
             startTime: startTime,
             endTime: startTime + request.expiryPeriod,
             inspectionTime: Date.now()

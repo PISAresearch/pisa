@@ -97,6 +97,7 @@ export class PisaService {
     }
 
     private logAndSend(code: number, responseMessage: string, error: Error, res: Response) {
+        if(code === 500) console.log(error)
         logger.error(`HTTP Status: ${code}.`);
         logger.error(error.stack);
         res.status(code);
