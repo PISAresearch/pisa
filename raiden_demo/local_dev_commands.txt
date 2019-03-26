@@ -1,0 +1,5 @@
+# start daemon
+docker run -it -v ${PWD}/docker/test-accounts/password--ccca21b97b27defc210f01a7e64119a784424d26.txt:/home/password.txt -v ${PWD}/docker/test-accounts/UTC--2019-03-22T10-39-56.702Z--0xccca21b97b27defc210f01a7e64119a784424d26:/.ethereum/keystore/UTC--2019-03-22T10-39-56.702Z--0xccca21b97b27defc210f01a7e64119a784424d26 -v ${PWD}/.raiden/node_ccca21b9/netid_3/network_ca70bfde/v16_log.db:/home/db --network docker_raidendemo --entrypoint "npm" pisaresearch/raiden-pisa-daemon:latest run start -- --pisa=pisa:3000 --keyfile=/.ethereum/keystore/UTC--2019-03-22T10-39-56.702Z--0xccca21b97b27defc210f01a7e64119a784424d26  --password-file=/home/password.txt --db=/home/db
+
+# start pisa
+npm run start -- --pisa=localhost:3000 --keyfile=${PWD}/../docker/test-accounts/UTC--2019-03-22T10-39-56.702Z--0xccca21b97b27defc210f01a7e64119a784424d26  --password-file="${PWD}/../docker/test-accounts/password--ccca21b97b27defc210f01a7e64119a784424d26.txt" --db=${PWD}/../.raiden/node_ccca21b9/netid_3/network_ca70bfde/v16_log.db

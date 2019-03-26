@@ -37,7 +37,7 @@ export class Inspector {
 
         // log the appointment we're inspecting
         logger.info(
-            `Inspecting appointment ${appointmentRequest.stateUpdate.hashState} for contract ${contractAddress}.`
+            `Inspecting appointment ${JSON.stringify(appointmentRequest.stateUpdate.hashState)} for contract ${contractAddress}.`
         );
         logger.debug("Appointment request: " + JSON.stringify(appointmentRequest));
         const code: string = await this.provider.getCode(contractAddress);
@@ -198,10 +198,13 @@ export class RaidenInspector {
      * @param appointmentRequest
      */
     public async inspect(appointmentRequest: IRaidenAppointmentRequest) {
+        let start = Date.now();
+
+
         const contractAddress: string = appointmentRequest.stateUpdate.token_network_identifier;
 
         // log the appointment we're inspecting
-        logger.info(`Inspecting appointment ${appointmentRequest.stateUpdate} for contract ${contractAddress}.`);
+        logger.info(`Inspecting appointment ${appointmentRequest.stateUpdate.channel_identifier} for contract ${contractAddress}.`);
         logger.debug("Appointment request: " + JSON.stringify(appointmentRequest));
         const code: string = await this.provider.getCode(contractAddress);
         // check that the channel is a contract
@@ -224,7 +227,7 @@ export class RaidenInspector {
 
         // check that the channel round is greater than the current round
         // get the channel identifier, and the participant info for the counterparty
-
+        
         const participantInfo = await contract.getChannelParticipantInfo(
             appointmentRequest.stateUpdate.channel_identifier,
             appointmentRequest.stateUpdate.closing_participant,
@@ -236,7 +239,6 @@ export class RaidenInspector {
             appointmentRequest.stateUpdate.closing_participant,
             appointmentRequest.stateUpdate.non_closing_participant
         );
-        
         const settleBlockNumber = channelInfo[0];
         const status = channelInfo[1];
 

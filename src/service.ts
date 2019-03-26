@@ -71,7 +71,7 @@ export class PisaService {
                 const appointment = await inspector.inspect(appointmentRequest);
 
                 // start watching it if it passed inspection
-                await watcher.watch(appointment);
+                watcher.watch(appointment);
 
                 // return the appointment
                 res.status(200);

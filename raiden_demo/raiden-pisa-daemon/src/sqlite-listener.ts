@@ -68,8 +68,7 @@ export class SqliteListener {
                 for (let i = 0; i < results.length; i++) {
                     const result = results[i];
                     await listener.balanceProofCallback(result.balance_proof);
-                    console.log("ROW ID", listener.lastRowId)
-                    console.log("ROW ID", result.identifier)
+                    console.log(`Current row id ${result.identifier}`)
                     listener.lastRowId = result.identifier;
                 }
             } catch (err) {

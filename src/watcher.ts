@@ -75,34 +75,33 @@ export class Watcher {
     }
 }
 
-interface IRaidenAppointmentAndListener {
-    appointment: IRaidenAppointment;
-    listener: ethers.providers.Listener;
-    
-}
-
 /**
  * A watcher is responsible for watching for, and responding to, events emitted on-chain.
  */
 export class RaidenWatcher {
-    currentAppointments: IRaidenAppointmentAndListener[];
+    // a list of the current appointments this watcher is watching
+    // it only needs to keep the latest appointment per channel - so it replaces appointments in this list and removes listeners
+
+    contracts: {
+        [tokenNetworkIdentifier: string]: {
+            contract: ethers.Contract;
+            appointments: {
+                [channelIdentifier: number]: { appointment: IRaidenAppointment; listener: ethers.providers.Listener };
+            };
+        };
+    } = {};
 
     constructor(
         private readonly provider: ethers.providers.BaseProvider,
-        private readonly signer: ethers.Signer //private readonly channelAbi: any,
-    ) // private readonly eventName: string,
-    // private readonly eventCallback: (
-    //     contract: ethers.Contract,
-    //     appointment: IAppointment,
-    //     ...args: any[]
-    // ) => Promise<any>
+        private readonly signer: ethers.Signer //private readonly channelAbi: any, // private readonly eventName: string, // private readonly eventCallback: ( //     contract: ethers.Contract, //     appointment: IAppointment, //     ...args: any[]
+    ) // ) => Promise<any>
     {}
 
     /**
      * Watch for an event specified by the appointment, and respond if it the event is raised.
      * @param appointment Contains information about where to watch for events, and what information to suppli as part of a response
      */
-    async watch(appointment: IRaidenAppointment) {
+    watch(appointment: IRaidenAppointment) {
         const eventName = (channelIdentifier: number, closingParticipant: string, nonce: number) => {
             return `ChannelClosed - ${channelIdentifier} - ${closingParticipant} - ${nonce}`;
         };
@@ -119,12 +118,21 @@ export class RaidenWatcher {
         );
 
         logger.debug(`Watching appointment: ${appointment}.`);
-
-        const contract = new ethers.Contract(
-            appointment.stateUpdate.token_network_identifier,
-            tokenNetworkAbi,
-            this.provider
-        ).connect(this.signer);
+        let tokenNetwork = this.contracts[appointment.stateUpdate.token_network_identifier];
+        let contract;
+        if(tokenNetwork) {
+            contract = tokenNetwork.contract
+        }
+        else {
+            contract = new ethers.Contract(
+                appointment.stateUpdate.token_network_identifier,
+                tokenNetworkAbi,
+                this.provider
+            ).connect(this.signer);
+            
+            // set the token network at this stage
+            tokenNetwork = this.contracts[appointment.stateUpdate.token_network_identifier] = { contract: contract, appointments: {} };
+        }
 
         const filter = contract.filters.ChannelClosed(
             appointment.stateUpdate.channel_identifier,
@@ -132,10 +140,27 @@ export class RaidenWatcher {
             null
         );
 
-        
-        const listener: ethers.providers.Listener = async (channelIdentifier: number, closingParticipant: string, nonce: number) => {
+        // we only want one watcher per channel - for the highest nonce
+        // so we replace the watcher if we witness a higher nonce
+        // TODO: race conditions abound here  - this isn't safe. But it'll do for the demo purposes
+        const currentAppointment = tokenNetwork.appointments[appointment.stateUpdate.channel_identifier];
+        if (currentAppointment) {
+            // should check the nonces here
+            contract.removeListener(filter, currentAppointment.listener);
+            logger.info(
+                `Stopped watching nonce: ${currentAppointment.appointment.stateUpdate.nonce} on channel ${
+                    currentAppointment.appointment.stateUpdate.channel_identifier
+                }`
+            );
+        }
+
+        const listener: ethers.providers.Listener = async (
+            channelIdentifier: number,
+            closingParticipant: string,
+            nonce: number
+        ) => {
             // this callback should not throw exceptions as they cannot be handled elsewhere
-            
+
             // call the callback
             try {
                 logger.info(
@@ -171,7 +196,7 @@ export class RaidenWatcher {
 
                 if (trying) throw new Error("Failed after 10 tries.");
                 else {
-                    logger.info(`success after ${tries} tries.`);
+                    logger.info(`Successful response to ${contract.address} for channel ${appointment.stateUpdate.channel_identifier} after ${tries + 1} tr${tries + 1 === 1 ? "y" : "ies"}.`);
                 }
                 await tx.wait();
             } catch (doh) {
@@ -185,21 +210,16 @@ export class RaidenWatcher {
                     )} in contract ${contract.address}.`
                 );
             }
-
-            // // remove subscription - we've satisfied our appointment
-            // try {
-            //     logger.info(`Reponse successful, removing listener.`);
-            //     // TODO: just remove the current listener -
-            //     // TODO: we can do this since we have a reference to the with 'this'
-            //     contract.removeAllListeners(this.eventName);
-            //     logger.info(`Listener removed.`);
-            // } catch (doh) {
-            //     logger.error(`Failed to remove listener on event ${this.eventName} in contract ${contract.address}.`);
-            // }
-        }
+        };
 
         // watch the supplied event
         contract.once(filter, listener);
+
+        // add this listener to the current appointments
+        tokenNetwork.appointments[appointment.stateUpdate.channel_identifier] = {
+            listener: listener,
+            appointment: appointment
+        };
     }
 }
 
