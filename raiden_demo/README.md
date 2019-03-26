@@ -1,9 +1,9 @@
 # Raiden Demo
 :warning: This integration is for demo purposes only. It follows a specific script, is built for a specific purpose. It is not a full integration between Raiden and PISA and should not be used as such :warning:
 
-The raiden demo shows a POC integration with the Raiden node. It involves two demo scenarios:
-1) Closing a channel with one participant offline without PISA
-2) Closing a channel with one participant offline with PISA
+The raiden demo shows a POC integration of PISA with the Raiden. It involves two demo scenarios:
+1) Closing a Raiden channel with one participant offline without PISA
+2) Closing a Raiden channel with one participant offline with PISA
 
 In the first the offline participant will lose any funds that had been sent to them by their counterparty. In the second they won't as PISA will submit their latest balance proof.
 
