@@ -72,6 +72,19 @@ export class RaidenInspector {
             );
         }
 
+        // check that the channel is currently in the ON state
+        const channelStatus: number = await status;
+        logger.info(`Channel status at ${contract.address}: ${JSON.stringify(channelStatus)}`);
+
+        //     NonExistent, // 0
+        //     Opened,      // 1
+        //     Closed,      // 2
+        //     Settled,     // 3
+        //     Removed      // 4
+        if (channelStatus != 1) {
+            throw new PublicInspectionError(`Channel status is ${channelStatus} not "Opened".`);
+        }
+
         //check that the channel has a reasonable dispute period
 
         // settle block number is used for two purposes:
@@ -99,19 +112,6 @@ export class RaidenInspector {
                     appointmentRequest.expiryPeriod
                 } is not greater than the channel dispute period ${channelDisputePeriod}`
             );
-        }
-
-        // check that the channel is currently in the ON state
-        const channelStatus: number = await status;
-        logger.info(`Channel status at ${contract.address}: ${JSON.stringify(channelStatus)}`);
-
-        //     NonExistent, // 0
-        //     Opened,      // 1
-        //     Closed,      // 2
-        //     Settled,     // 3
-        //     Removed      // 4
-        if (channelStatus != 1) {
-            throw new PublicInspectionError(`Channel status is ${channelStatus} not "Opened".`);
         }
 
         // form the data required to verify raiden sigs
