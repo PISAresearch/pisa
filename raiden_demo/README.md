@@ -1,4 +1,5 @@
 # Raiden Demo
+⚠ This integration is for demo purposes only. It follows a specific script, is built for a specific purpose. It is not a full integration between Raiden and PISA and should not be used as such ⚠
 
 The raiden demo shows a POC integration with the Raiden node. It involves two demo scenarios:
 1) Closing a channel with one participant offline without PISA
@@ -16,7 +17,7 @@ If a party is offline when their counterparty calls 'close' they will not be abl
 2) If they go offline and the channel is closed then PISA will submit balance proofs on their behalf.
 
 ## Demo overview
-### Scenario 1
+### Scenario 1 - Alice is not protected
 1) Alice sets up a Raiden node
 2) Bob sets up a Raiden node
 3) Alice sets up a channel with Bob
@@ -26,76 +27,51 @@ If a party is offline when their counterparty calls 'close' they will not be abl
 7) Alice waits for the settle timeout, then calls settle
 8) Bob comes back online, checks his balance, and sees that the funds are gone
 
-### Scenario 2
-1) Alice sets up a Raiden node
-2) Bob sets up a Raiden node
-3) Bob runs a RaidenPisaDaemon alongside his Raiden node, this daemon has access to a PISA tower
-4) Alice sets up a channel with Bob
-5) Alice sends some funds to Bob
-6) Bob goes offline
-7) Alice closes the channel
-8) Alice waits for the settle timeout, then calls settle
-9) Bob comes back online, checks his balance, and sees that the funds are there
+### Scenario 2 - Carol is Pisa protected
+1) Carol sets up a Raiden node
+2) Dave sets up a Raiden node
+3) Carol runs a RaidenPisaDaemon alongside his Raiden node, this daemon has access to a PISA tower
+4) Dave sets up a channel with Bob
+5) Dave sends some funds to Bob
+6) Carol goes offline
+7) Dave closes the channel
+8) Carol waits for the settle timeout, then calls settle
+9) Carol comes back online, checks his balance, and sees that the funds from the payment are there
 
 ## Components
 
 ## Alterations to Raiden
 
-## Alterations to PISA
+The raiden-contracts repo needs to be altered to reduce the settlement timeout. The current minimum settlement timeout for raiden is 500 blocks = ~2 hours which is too long for a demo. There an altered set of contracts with a minimum settlement period of 5 blocks must be deployed. 
 
-## Setup
+Adjust the following before deploying: https://github.com/raiden-network/raiden-contracts/blob/master/raiden_contracts/constants.py#L26
 
-## Running Scenario 2 on Ropsten
+The raiden node then needs an update to reflect this. Due to a relationship between reveal timeout and settlement timeout: that settle > 2 * reveal, we need to reduce the reveal timeout in the following place to 2: https://github.com/raiden-network/raiden/blob/master/raiden/settings.py#L29
 
-1. Download [raiden binaries](https://github.com/raiden-network/raiden/releases) and unzip it.
+## Running the demo on localhost - blocks mine at 1 per second
 
-2. Download geth (no need to sync). NOTE: Instructions here assume there are no previous Ropsten accounts.
+0. Install docker and docker-compose
+1. Download the pisa source code
+2. Navigate to the /raiden_demo/
+3. ```rm -rf .raiden```
+4. docker-compose -f docker/parity-preloaded.docker-compose.yml
+5. execute each of the commands in scenarios/local_1.txt in a new terminal tab
+6. open a new terminal window and execture each of the commands in scenarios/local_2.txt in new terminal tabs
+7. Install the demo chrome extension by browsing to chrome://extensions, selecting Developer Mode in the top right, the clicking Load Unpacked in the top left. From the select the raiden-webui-hook-extension folder.
+8. Open each of localhost:6660 (Alice), localhost:6661 (Bob), localhost:6662 (Carol), localhost:6663 (Dave) in new chrome windows. Carol's window should show + PISA in the title bar due to the chrome extension.
+9. Check that all parties have balance in the correct token by selecting Tokens in the UI.
+10. For Bob and Dave, navigate to Channels. Click the + to make a new channel to Aice and Carol respectively. Choose a settlement timeout of 5.
+11. Now the demo is setup and ready to go
+12. Make a payment from Bob to Alice, and then from Dave to Carol
+13. Take the Alice and Carol nodes offline by stopping those processes in the terminal
+14. Use Bob and Dave's UI to close the channels
+15. Wait for the settlement period to expire - this will be reflected in the UI
+16. Restart the Alice and Carol nodes
+17. Navigate to the Tokens tab for Alice and Carol to see the different balances
 
-3. Create two accounts (say A and B) from geth:
-   ```geth --testnet account add```
+## Running the demo on Ropsten - blocks mine 1 per 15 sec
 
-   Run the above twice and follow instructions; remember the passwords.
-
-4. Take note of addresses and keyfile location of the new accounts; the addresses need to be checksummed. Enter `geth --testnet console`, then take note of the results of: `web3.toChecksumAddress(eth.accounts[0])` and `web3.toChecksumAddress(eth.accounts[1])`.
-
-5. Get Ropsten ether for A and B from a [ropsten faucet](https://faucet.ropsten.be/).
-
-6. Get WETH for A and B. (Contract address on Ropsten: 0xc778417E063141139Fce010982780140Aa0cD5Ab)
-   By importing the accounts on Metamask, you can do this [here](https://ropsten.etherscan.io/address/0xc778417e063141139fce010982780140aa0cd5ab#writeContract) by sending ether to the deposit() function.
-
-7. Create files `password-a.txt` and `password-b.txt` containing each one line with the corresponding password.
-
-8. Start a raiden node for A:
-   ```./raiden --gas-price fast --accept-disclaimer --api-address 127.0.0.1:<port-a> --network-id ropsten --eth-rpc-endpoint https://ropsten.infura.io/v3/6a750ee18d924477b219e6cea6de2215 --address <address-a> --password-file ./password-a.txt```
-
-   (NOTE: assuming default locations for the keystore files; check `./raiden --help` otherwise).
-
-   Take note of the location of the sqlite database when raiden is loading.
-
-9. Start a raiden node for B as above.
-
-10. Using B's raiden UI, open an channel with A, for some small amount of WETH. The GUI is at 127.0.0.1:<port-b> .
-
-11. Navigate to /pisa. Build if needed:
-
-    ```npm install && npm run build```
-
-    Start pisa:
-
-    ```npm run start-dev```
-
-12. Navigate to /pisa/raiden_demo/raiden-pisa-daemon. Install dependencies with `npm install` and start the raiden-pisa-damon:
-
-    ```npm start -- --keyfile=<keyfile for A> --p=<password of the keyfile> --db=<dblocation> --pisa=pisahost:pisaport ```
-
-13. Make a payment from B to A using the raiden GUI. After some time (~15 secs) you should notice that the daemon registers an update, and that it calls pisa.
-
-14. Now stop the raiden node for A.
-
-15. Now use B to close the channel.
-
-16. Pisa will now supply the latest balance update for A.
-
-17. Now wait 500 blocks for the settlement period to endpoint.
-
-18. Now turn on raiden node A again, and notice that their balance includes the payment made in 13.
+Does as for local, except:
+1. Use the commands in scenarios/remote_1.txt and scenarios/remote_2.txt
+2. Be careful about clearing out the .raiden directory, always start the raiden nodes to check if any channels are open before doing this. If this dir is deleted whilst a channel is in the settlement period it cannot be recovered.
+3. On Ropsten each of the accounts has 0.5 WETH, sending WETH in the channel will change these balances. After doing a demo send some WETH backwards from Carol to Dave to reset the balances - the easiest way to do this is to open a channel, send the funds and close it.
