@@ -50,7 +50,7 @@ The raiden node then needs an update to reflect this. Due to a relationship betw
 
 ## Running the demo on localhost - blocks mine at 1 per second
 
-0. Install docker and docker-compose
+0. Install docker, docker-compose and python3
 1. Download the pisa source code
 2. Navigate to the /raiden_demo/
 3. ```rm -rf .raiden```
