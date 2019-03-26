@@ -3,7 +3,7 @@ import { ethers } from "ethers";
 import { KitsuneTools } from "./kitsuneTools";
 import logger from "./logger";
 import { inspect } from "util";
-const RaidenContracts = require("../raiden_demo/raiden/raiden_contracts/data/contracts.json");
+import RaidenContracts from "./raiden_data.json";
 const tokenNetworkAbi = RaidenContracts.contracts.TokenNetwork.abi;
 
 /**
