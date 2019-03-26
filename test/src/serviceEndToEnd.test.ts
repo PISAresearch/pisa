@@ -3,14 +3,14 @@ import "mocha";
 import request from "request-promise";
 import { KitsuneTools } from "../../src/kitsuneTools";
 import { ethers } from "ethers";
-import { KitsuneInspector } from "../../src/inspector";
+import { KitsuneInspector } from "../../src/inspector/kitsune";
 import { KitsuneWatcher } from "../../src/watcher";
 import { PisaService } from "../../src/service";
 import config from "../../src/dataEntities/config";
 import Ganache from "ganache-core";
 import { IAppointmentRequest } from "../../src/dataEntities/appointment";
 import logger from "../../src/logger";
-const StateChannelFactory = require("../../statechannels/build/contracts/StateChannelFactory.json");
+import StateChannelFactory  from "../../statechannels/build/contracts/StateChannelFactory.json";
 logger.transports.forEach(l => (l.level = "max"));
 
 const ganache = Ganache.provider({

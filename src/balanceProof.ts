@@ -1,6 +1,6 @@
 // DO NOT EDIT
 // Cloned from raiden_demo/raiden-pisa-daemon/src/balanceProof.ts.
-// TODO: refactor the shared code
+// PISA: refactor the shared code
 
 
 import { ethers } from "ethers";

@@ -142,7 +142,7 @@ export class RaidenWatcher {
 
         // we only want one watcher per channel - for the highest nonce
         // so we replace the watcher if we witness a higher nonce
-        // TODO: race conditions abound here  - this isn't safe. But it'll do for the demo purposes
+        // PISA: race conditions abound here  - this isn't safe. But it'll do for the demo purposes
         const currentAppointment = tokenNetwork.appointments[appointment.stateUpdate.channel_identifier];
         if (currentAppointment) {
             // should check the nonces here

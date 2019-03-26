@@ -4,7 +4,7 @@
   "description": "Arbitration Outsourcing for State Channels",
   "main": "index.js",
   "scripts": {
-    "build": "tsc && cp config.json build/config.json && cp -r ./raiden_demo build/raiden_demo/",
+    "build": "tsc && cp config.json build/config.json",
     "build-kitsune": "cd statechannels && npm ci && npx truffle compile && mkdir -p ../build/statechannels && cp -R build/ ../build/statechannels/build",
     "init": "npm run submodule && npm run build-kitsune",
     "start": "node ./build/src/startUp.js",
@@ -28,7 +28,6 @@
   },
   "homepage": "https://github.com/PISAresearch/pisa#readme",
   "dependencies": {
-    "@types/yargs": "^12.0.10",
     "ethers": "^4.0.7",
     "express": "^4.16.4",
     "express-http-context": "^1.2.0",
@@ -46,6 +45,7 @@
     "@types/mocha": "^5.2.5",
     "@types/request-promise": "^4.1.42",
     "@types/uuid": "^3.4.4",
+    "@types/yargs": "^12.0.10",
     "chai": "^4.2.0",
     "ganache-core": "^2.3.3",
     "mocha": "^5.2.0",

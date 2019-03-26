@@ -1,5 +1,5 @@
 import "mocha";
-import { KitsuneInspector } from "../../src/inspector";
+import { KitsuneInspector } from "../../src/inspector/kitsune";
 import { KitsuneWatcher } from "../../src/watcher";
 import { KitsuneTools } from "../../src/kitsuneTools";
 import { ethers } from "ethers";

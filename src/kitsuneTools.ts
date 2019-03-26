@@ -2,7 +2,7 @@ import { solidityKeccak256 } from "ethers/utils";
 import { IAppointment } from "./dataEntities/appointment";
 import { Contract, utils } from "ethers";
 import logger from "./logger";
-const StateChannel = require("../statechannels/build/contracts/StateChannel.json");
+import StateChannel from "../statechannels/build/contracts/StateChannel.json";
 
 // quick wait
 const wait = (timeout: number) => {

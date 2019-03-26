@@ -1,12 +1,12 @@
 import express, { Response } from "express";
 import httpContext from "express-http-context";
 import logger from "./logger";
-import { parseAppointment, PublicValidationError, 
-    parseRaidenAppointment 
-} from "./dataEntities/appointment";
-import { Inspector, PublicInspectionError, RaidenInspector } from "./inspector";
+import { parseAppointment, PublicValidationError, parseRaidenAppointment } from "./dataEntities/appointment";
+import { KitsuneInspector } from "./inspector/kitsune";
+import { RaidenInspector } from "./inspector/raiden";
+import { PublicInspectionError } from "./inspector/inspector";
 import { Watcher, RaidenWatcher } from "./watcher";
-// TODO: this isn working properly, it seems that watchers are sharing the last set value...
+// PISA: this isn working properly, it seems that watchers are sharing the last set value...
 import { setRequestId } from "./customExpressHttpContext";
 import { Server } from "http";
 import { inspect } from "util";
@@ -16,7 +16,7 @@ import { inspect } from "util";
  */
 export class PisaService {
     private readonly server: Server;
-    constructor(hostname: string, port: number, inspector: Inspector, watcher: Watcher) {
+    constructor(hostname: string, port: number, inspector: KitsuneInspector, watcher: Watcher) {
         const app = express();
         // accept json request bodies
         app.use(express.json());
@@ -30,14 +30,14 @@ export class PisaService {
 
         const raidenInspector = new RaidenInspector(inspector.minimumDisputePeriod, inspector.provider);
         const raidenWatcher = new RaidenWatcher(watcher.provider, watcher.signer);
-        app.post("/raidenAppointment", this.raidenAppointment(raidenInspector, raidenWatcher))
+        app.post("/raidenAppointment", this.raidenAppointment(raidenInspector, raidenWatcher));
 
         const service = app.listen(port, hostname);
         logger.info(`PISA listening on: ${hostname}:${port}.`);
         this.server = service;
     }
 
-    private appointment(inspector: Inspector, watcher: Watcher) {
+    private appointment(inspector: KitsuneInspector, watcher: Watcher) {
         return async (req: express.Request, res: express.Response, next: express.NextFunction) => {
             try {
                 const appointmentRequest = parseAppointment(req.body);
