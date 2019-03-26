@@ -1,5 +1,5 @@
 # Raiden Demo
-⚠ This integration is for demo purposes only. It follows a specific script, is built for a specific purpose. It is not a full integration between Raiden and PISA and should not be used as such ⚠
+:warning This integration is for demo purposes only. It follows a specific script, is built for a specific purpose. It is not a full integration between Raiden and PISA and should not be used as such :warning
 
 The raiden demo shows a POC integration with the Raiden node. It involves two demo scenarios:
 1) Closing a channel with one participant offline without PISA
