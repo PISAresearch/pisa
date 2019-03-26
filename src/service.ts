@@ -5,7 +5,7 @@ import { parseAppointment, PublicValidationError, parseRaidenAppointment } from 
 import { KitsuneInspector } from "./inspector/kitsune";
 import { RaidenInspector } from "./inspector/raiden";
 import { PublicInspectionError } from "./inspector/inspector";
-import { Watcher, RaidenWatcher, KitsuneWatcher } from "./watcher";
+import { RaidenWatcher, KitsuneWatcher } from "./watcher";
 // PISA: this isn working properly, it seems that watchers are sharing the last set value...
 import { setRequestId } from "./customExpressHttpContext";
 import { Server } from "http";
@@ -44,7 +44,7 @@ export class PisaService {
         this.server = service;
     }
 
-    private appointment(inspector: KitsuneInspector, watcher: Watcher) {
+    private appointment(inspector: KitsuneInspector, watcher: KitsuneWatcher) {
         return async (req: express.Request, res: express.Response, next: express.NextFunction) => {
             try {
                 const appointmentRequest = parseAppointment(req.body);

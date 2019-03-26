@@ -8,7 +8,7 @@ const tokenNetworkAbi = RaidenContracts.contracts.TokenNetwork.abi;
 
 // PISA: docs on the new watcher classes
 
-export abstract class MergedWatcher implements IWatcher {
+export abstract class Watcher implements IWatcher {
     protected constructor(
         public readonly provider: ethers.providers.Provider,
         public readonly signer: ethers.Signer,
@@ -104,7 +104,7 @@ export abstract class MergedWatcher implements IWatcher {
 /**
  * A watcher is responsible for watching for, and responding to, events emitted on-chain.
  */
-export class KitsuneWatcher extends MergedWatcher {
+export class KitsuneWatcher extends Watcher {
     contracts: {
         [channelAddress: string]: {
             contract: ethers.Contract;
@@ -123,10 +123,9 @@ export class KitsuneWatcher extends MergedWatcher {
         return "EventDispute(uint256)";
     }
 
-    getExistingContract(appointment: IAppointment) {
-        const kitsuneAppointment = appointment as IKitsuneAppointment;
+    getExistingContract(appointment: IKitsuneAppointment) {
+        let lookup = this.contracts[appointment.stateUpdate.contractAddress];
         // PISA: undefined?
-        let lookup = this.contracts[kitsuneAppointment.stateUpdate.contractAddress];
         if (lookup) return lookup.contract;
     }
 
@@ -185,7 +184,7 @@ interface IWatcher {
     addAppointment(appointment: IAppointment, listener: ethers.providers.Listener);
 }
 
-export class RaidenWatcher extends MergedWatcher implements IWatcher {
+export class RaidenWatcher extends Watcher implements IWatcher {
     contracts: {
         [tokenNetworkIdentifier: string]: {
             contract: ethers.Contract;
