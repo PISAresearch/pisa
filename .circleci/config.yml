@@ -15,6 +15,10 @@ jobs:
       - run:
           name: install
           command: npm install
+      - save_cache:
+          key: dependency-cache-{{ checksum "package.json" }}
+          paths:
+            - ./node_modules
       - run:
           name: build typescipt
           command: npm run build
