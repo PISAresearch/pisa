@@ -20,7 +20,7 @@ jobs:
           command: npm run build-kitsune
       - run:
           name: build pisa
-          command: npm run build      
+          command: npm run build
       - run:
           name: test
           command: npm run test

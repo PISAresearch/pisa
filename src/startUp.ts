@@ -27,12 +27,9 @@ if (argv.watcherKey) config.watcherKey = argv.watcherKey;
 getJsonRPCProvider().then(
     provider => {
         const watcherWallet = new ethers.Wallet(config.watcherKey, provider);
-        const watcher = new KitsuneWatcher(provider, watcherWallet);
-        // PISA: need test/production settings for the inspector
-        const inspector = new KitsuneInspector(4, provider);
-
+        
         // start the pisa service
-        const service = new PisaService(config.host.name, config.host.port, inspector, watcher);
+        const service = new PisaService(config.host.name, config.host.port, provider, watcherWallet);
 
         // wait for a stop signal
         waitForStop(service);

@@ -5,18 +5,21 @@ import { parseAppointment, PublicValidationError, parseRaidenAppointment } from 
 import { KitsuneInspector } from "./inspector/kitsune";
 import { RaidenInspector } from "./inspector/raiden";
 import { PublicInspectionError } from "./inspector/inspector";
-import { Watcher, RaidenWatcher } from "./watcher";
+import { Watcher, RaidenWatcher, KitsuneWatcher } from "./watcher";
 // PISA: this isn working properly, it seems that watchers are sharing the last set value...
 import { setRequestId } from "./customExpressHttpContext";
 import { Server } from "http";
 import { inspect } from "util";
+import { ethers } from "ethers";
 
 /**
  * Hosts a PISA service at the endpoint.
  */
 export class PisaService {
     private readonly server: Server;
-    constructor(hostname: string, port: number, inspector: KitsuneInspector, watcher: Watcher) {
+
+    //PISA: arg documentation
+    constructor(hostname: string, port: number, provider: ethers.providers.Provider, wallet: ethers.Wallet) {
         const app = express();
         // accept json request bodies
         app.use(express.json());
@@ -26,10 +29,14 @@ export class PisaService {
             setRequestId();
             next();
         });
-        app.post("/appointment", this.appointment(inspector, watcher));
 
-        const raidenInspector = new RaidenInspector(inspector.minimumDisputePeriod, inspector.provider);
-        const raidenWatcher = new RaidenWatcher(watcher.provider, watcher.signer);
+        const kitsuneInspector = new KitsuneInspector(10, provider);
+        const kitsuneWatcher = new KitsuneWatcher(provider, wallet);
+        app.post("/appointment", this.appointment(kitsuneInspector, kitsuneWatcher));
+
+        // PISA: currently set to 4 for demo purposes - this should be a commandline/config arg
+        const raidenInspector = new RaidenInspector(4, provider);
+        const raidenWatcher = new RaidenWatcher(provider, wallet);
         app.post("/raidenAppointment", this.raidenAppointment(raidenInspector, raidenWatcher));
 
         const service = app.listen(port, hostname);

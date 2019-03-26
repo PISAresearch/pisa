@@ -11,7 +11,7 @@ const tokenNetworkAbi = RaidenContracts.contracts.TokenNetwork.abi;
  */
 export class Watcher {
     constructor(
-        public readonly provider: ethers.providers.BaseProvider,
+        public readonly provider: ethers.providers.Provider,
         public readonly signer: ethers.Signer,
         private readonly channelAbi: any,
         private readonly eventName: string,
@@ -92,7 +92,7 @@ export class RaidenWatcher {
     } = {};
 
     constructor(
-        private readonly provider: ethers.providers.BaseProvider,
+        private readonly provider: ethers.providers.Provider,
         private readonly signer: ethers.Signer //private readonly channelAbi: any, // private readonly eventName: string, // private readonly eventCallback: ( //     contract: ethers.Contract, //     appointment: IAppointment, //     ...args: any[]
     ) // ) => Promise<any>
     {}
@@ -232,7 +232,7 @@ const wait = (timeout: number) => {
 };
 
 export class KitsuneWatcher extends Watcher {
-    constructor(provider: ethers.providers.BaseProvider, signer: ethers.Signer) {
+    constructor(provider: ethers.providers.Provider, signer: ethers.Signer) {
         super(provider, signer, KitsuneTools.ContractAbi, "EventDispute(uint256)", KitsuneTools.respond);
     }
 }

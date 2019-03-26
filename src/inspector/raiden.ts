@@ -1,7 +1,4 @@
-import {
-    IRaidenAppointmentRequest,
-    IRaidenAppointment
-} from "../dataEntities/appointment";
+import { IRaidenAppointmentRequest, IRaidenAppointment } from "../dataEntities/appointment";
 import { ethers } from "ethers";
 import { verifyMessage } from "ethers/utils";
 import { BalanceProofSigGroup } from "../balanceProof";
@@ -10,29 +7,25 @@ import RaidenContracts from "../raiden_data.json";
 import { PublicInspectionError } from "../inspector/inspector";
 const tokenNetworkAbi = RaidenContracts.contracts.TokenNetwork.abi;
 
-
 /**
  * Responsible for deciding whether to accept appointments
  */
 export class RaidenInspector {
-    constructor(
-        private readonly minimumDisputePeriod: number,
-        private readonly provider: ethers.providers.BaseProvider,
-    ) //private readonly status: (contract: ethers.Contract) => Promise<number> // private readonly deployedBytecode: string
-    {}
+    constructor(private readonly minimumDisputePeriod: number, private readonly provider: ethers.providers.Provider) {}
 
     /**
      * Inspects an appointment to decide whether to accept it. Throws on reject.
      * @param appointmentRequest
      */
     public async inspect(appointmentRequest: IRaidenAppointmentRequest) {
-        let start = Date.now();
-
-
         const contractAddress: string = appointmentRequest.stateUpdate.token_network_identifier;
 
         // log the appointment we're inspecting
-        logger.info(`Inspecting appointment ${appointmentRequest.stateUpdate.channel_identifier} for contract ${contractAddress}.`);
+        logger.info(
+            `Inspecting appointment ${
+                appointmentRequest.stateUpdate.channel_identifier
+            } for contract ${contractAddress}.`
+        );
         logger.debug("Appointment request: " + JSON.stringify(appointmentRequest));
         const code: string = await this.provider.getCode(contractAddress);
         // check that the channel is a contract
@@ -55,7 +48,7 @@ export class RaidenInspector {
 
         // check that the channel round is greater than the current round
         // get the channel identifier, and the participant info for the counterparty
-        
+
         const participantInfo = await contract.getChannelParticipantInfo(
             appointmentRequest.stateUpdate.channel_identifier,
             appointmentRequest.stateUpdate.closing_participant,
@@ -99,7 +92,7 @@ export class RaidenInspector {
         // this isn't strictly necessary but it might catch some mistakes
         // if a client submits a request for an appointment that will always expire before a dispute can complete then
         // there is never any recourse against PISA.
-        const currentBlockNumber = await this.provider.getBlockNumber()
+        const currentBlockNumber = await this.provider.getBlockNumber();
         if (appointmentRequest.expiryPeriod <= channelDisputePeriod - currentBlockNumber) {
             throw new PublicInspectionError(
                 `Supplied appointment expiryPeriod ${
@@ -111,18 +104,17 @@ export class RaidenInspector {
         // check that the channel is currently in the ON state
         const channelStatus: number = await status;
         logger.info(`Channel status at ${contract.address}: ${JSON.stringify(channelStatus)}`);
-        // enum ChannelState {
+
         //     NonExistent, // 0
         //     Opened,      // 1
         //     Closed,      // 2
-        //     Settled,     // 3; Note: The channel has at least one pending unlock
-        //     Removed      // 4; Note: Channel data is removed, there are no pending unlocks
-        // }
+        //     Settled,     // 3
+        //     Removed      // 4
         if (channelStatus != 1) {
             throw new PublicInspectionError(`Channel status is ${channelStatus} not "Opened".`);
         }
 
-        // PISA: sigs from here on down
+        // form the data required to verify raiden sigs
         let sigGroup: BalanceProofSigGroup = new BalanceProofSigGroup(
             appointmentRequest.stateUpdate.token_network_identifier,
             appointmentRequest.stateUpdate.chain_id,

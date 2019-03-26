@@ -11,7 +11,7 @@ import logger from "./../logger";
 export class KitsuneInspector implements IInspector {
     constructor(
         public readonly minimumDisputePeriod: number,
-        public readonly provider: ethers.providers.BaseProvider
+        public readonly provider: ethers.providers.Provider
     ) {}
 
     /**
