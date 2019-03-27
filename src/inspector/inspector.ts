@@ -1,6 +1,4 @@
 import { IAppointmentRequest, IAppointment, ChannelType } from "../dataEntities/appointment";
-import { KitsuneInspector } from "./kitsune";
-import { RaidenInspector } from "./raiden";
 
 /**
  * Thrown when an appointment fails inspection

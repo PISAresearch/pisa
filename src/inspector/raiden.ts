@@ -1,10 +1,10 @@
 import { RaidenAppointmentRequest, RaidenAppointment, ChannelType } from "../dataEntities/appointment";
 import { ethers } from "ethers";
 import { verifyMessage } from "ethers/utils";
-import { BalanceProofSigGroup } from "../balanceProof";
+import { BalanceProofSigGroup } from "../integrations/raiden/balanceProof";
 import logger from "../logger";
-import RaidenContracts from "../raiden_data.json";
-import { PublicInspectionError, IInspector } from "../inspector/inspector";
+import RaidenContracts from "../integrations/raiden/raiden_data.json";
+import { PublicInspectionError, IInspector } from "./inspector";
 const tokenNetworkAbi = RaidenContracts.contracts.TokenNetwork.abi;
 
 /**

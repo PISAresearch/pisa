@@ -1,21 +1,17 @@
 import express, { Response } from "express";
 import httpContext from "express-http-context";
 import logger from "./logger";
-import {
-    parseKitsuneAppointment,
-    PublicValidationError,
-    parseRaidenAppointment,
-    AppointmentRequest
-} from "./dataEntities/appointment";
+import { PublicValidationError, AppointmentRequest } from "./dataEntities/appointment";
 import { PublicInspectionError, IInspector, MultiInspector } from "./inspector/inspector";
-import { KitsuneInspector } from "./inspector/kitsune";
-import { RaidenInspector } from "./inspector/raiden";
+import { KitsuneInspector } from "./inspector/kitsune"
+import { RaidenInspector } from "./inspector/raiden"
 import { Watcher } from "./watcher";
 // PISA: this isn working properly, it seems that watchers are sharing the last set value...
 import { setRequestId } from "./customExpressHttpContext";
 import { Server } from "http";
 import { inspect } from "util";
 import { ethers } from "ethers";
+import { Responder } from "./responder";
 
 /**
  * Hosts a PISA service at the endpoint.
@@ -35,8 +31,8 @@ export class PisaService {
             next();
         });
 
-        const watcher = new Watcher(provider, wallet);
-
+        const responder = new Responder(10);
+        const watcher = new Watcher(provider, wallet, responder);
         const kitsuneInspector = new KitsuneInspector(10, provider);
         // PISA: currently set to 4 for demo purposes - this should be a commandline/config arg
         const raidenInspector = new RaidenInspector(4, provider);

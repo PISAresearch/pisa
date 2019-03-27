@@ -1,9 +1,9 @@
-import { KitsuneAppointmentRequest, KitsuneAppointment, ChannelType } from "./../dataEntities/appointment";
+import { KitsuneAppointmentRequest, KitsuneAppointment, ChannelType } from "../dataEntities/appointment";
 import { PublicInspectionError, IInspector } from "./inspector";
-import { KitsuneTools } from "./../kitsuneTools";
+import { KitsuneTools } from "../integrations/kitsune/tools";
 import { ethers } from "ethers";
 import { verifyMessage } from "ethers/utils";
-import logger from "./../logger";
+import logger from "../logger";
 
 /**
  * Responsible for deciding whether to accept Kitsune appointments
@@ -51,7 +51,7 @@ export class KitsuneInspector implements IInspector {
         // this isn't strictly necessary but it might catch some mistakes
         // if a client submits a request for an appointment that will always expire before a dispute can complete then
         // there is never any recourse against PISA.
-        const channelDisputePeriod: number = await KitsuneTools.disputePeriod(contract);
+        const channelDisputePeriod: number = await contract.disputePeriod();
         logger.info(`Dispute period at ${contract.address}: ${channelDisputePeriod.toString(10)}`);
         if (appointmentRequest.expiryPeriod <= channelDisputePeriod) {
             throw new PublicInspectionError(
@@ -62,6 +62,7 @@ export class KitsuneInspector implements IInspector {
         }
 
         const appointment = this.createAppointment(appointmentRequest);
+        // PISA: inspect
         logger.debug("Appointment: ", appointment);
         return appointment;
     }
@@ -84,7 +85,7 @@ export class KitsuneInspector implements IInspector {
         minimumDisputePeriod: number
     ) {
         // check that the channel round is greater than the current round
-        const currentChannelRound: number = await KitsuneTools.round(contract);
+        const currentChannelRound: number =  await contract.bestRound();
         logger.info(`Round at ${contract.address}: ${currentChannelRound.toString(10)}`);
         if (appointmentRound <= currentChannelRound) {
             throw new PublicInspectionError(
@@ -93,7 +94,7 @@ export class KitsuneInspector implements IInspector {
         }
 
         // check that the channel has a reasonable dispute period
-        const channelDisputePeriod: number = await KitsuneTools.disputePeriod(contract);
+        const channelDisputePeriod: number = await contract.disputePeriod();
         logger.info(`Dispute period at ${contract.address}: ${channelDisputePeriod.toString(10)}`);
         if (channelDisputePeriod <= minimumDisputePeriod) {
             throw new PublicInspectionError(
@@ -102,7 +103,7 @@ export class KitsuneInspector implements IInspector {
         }
 
         // check that the channel is currently in the ON state
-        const channelStatus: number = await KitsuneTools.status(contract);
+        const channelStatus: number = await contract.status();
         logger.info(`Channel status at ${contract.address}: ${JSON.stringify(channelStatus)}`);
         // ON = 0, DISPUTE = 1, OFF = 2
         if (channelStatus != 0) {
@@ -111,7 +112,7 @@ export class KitsuneInspector implements IInspector {
 
         //verify all the signatures
         // get the participants
-        let participants: string[] = await KitsuneTools.participants(contract);
+        let participants: string[] = await [await contract.plist(0), await contract.plist(1)] as string[];
         logger.info(`Participants at ${contract.address}: ${JSON.stringify(participants)}`);
 
         // form the hash

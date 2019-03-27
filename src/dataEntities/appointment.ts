@@ -1,7 +1,7 @@
 import { utils, ethers } from "ethers";
-import RaidenContracts from "./../raiden_data.json";
+import RaidenContracts from "./../integrations/raiden/raiden_data.json";
 const tokenNetworkAbi = RaidenContracts.contracts.TokenNetwork.abi;
-import { KitsuneTools } from "./../kitsuneTools";
+import { KitsuneTools } from "./../integrations/kitsune/tools";
 
 export enum ChannelType {
     None = 0,

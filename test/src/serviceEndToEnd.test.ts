@@ -1,7 +1,7 @@
 import * as chai from "chai";
 import "mocha";
 import request from "request-promise";
-import { KitsuneTools } from "../../src/kitsuneTools";
+import { KitsuneTools } from "../../src/integrations/kitsune/tools";
 import { ethers } from "ethers";
 import { PisaService } from "../../src/service";
 import config from "../../src/dataEntities/config";

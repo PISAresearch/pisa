@@ -1,8 +1,8 @@
 import { solidityKeccak256 } from "ethers/utils";
-import { KitsuneAppointment } from "./dataEntities/appointment";
+import { KitsuneAppointment } from "../../dataEntities/appointment";
 import { Contract, utils } from "ethers";
-import logger from "./logger";
-import StateChannel from "../statechannels/build/contracts/StateChannel.json";
+import logger from "../../logger";
+import StateChannel from "./StateChannel.json";
 
 // quick wait
 const wait = (timeout: number) => {
@@ -27,8 +27,6 @@ export class KitsuneTools {
         let sig1 = utils.splitSignature(appointment.stateUpdate.signatures[1]);
 
         try {
-            logger.debug("a1");
-
             let trying = true;
             let tries = 0;
             let tx;
@@ -57,22 +55,6 @@ export class KitsuneTools {
             logger.error(soh);
             throw soh;
         }
-    }
-
-    public static async participants(contract: Contract) {
-        return [await contract.plist(0), await contract.plist(1)] as string[];
-    }
-
-    public static async round(contract: Contract) {
-        return await contract.bestRound();
-    }
-
-    public static async disputePeriod(contract: Contract) {
-        return await contract.disputePeriod();
-    }
-
-    public static async status(contract: Contract) {
-        return await contract.status();
     }
 
     public static ContractBytecode = StateChannel.bytecode;

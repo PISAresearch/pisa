@@ -1,7 +1,7 @@
 import * as chai from "chai";
 import "mocha";
 import { KitsuneInspector } from "../../src/inspector/kitsune";
-import { KitsuneTools } from "../../src/kitsuneTools";
+import { KitsuneTools } from "../../src/integrations/kitsune/tools";
 import { ethers } from "ethers";
 import Ganache from "ganache-core";
 import { ChannelType } from "../../src/dataEntities/appointment";
