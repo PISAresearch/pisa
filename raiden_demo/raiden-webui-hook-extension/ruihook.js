@@ -1,7 +1,10 @@
 
 "use strict";
+
 (function($) {
   let loaded = false;
+
+  let accountAddr = null;
 
   function load() {
     if (loaded) {
@@ -9,22 +12,44 @@
     }
 
     const $account = $(".account");
-    console.log($account);
     if ($account.length) {
-      const accountAddr = $account.text().trim();
-      if (accountAddr == '0xccca21b97b27DefC210f01A7e64119A784424D26') {
-        $account.before('<span id="plusWhite"></span>');
-        $account.before('<span id="pisaLogo"></span>');
-        console.log('WebUI hook loaded');
-      } else {
-        console.log(`Not the right account: ${accountAddr}`);
-      }
       loaded = true;
+
+      accountAddr = $account.text().trim();
+
+      const res = chrome.storage.local.get([
+        `showPisa-${accountAddr}`,
+        `name-${accountAddr}`
+      ], (result => {
+        const showPisa = !!result[`showPisa-${accountAddr}`];
+        const currentName = result[`name-${accountAddr}`] || null;
+  
+        if (showPisa) {
+          $account.before('<span id="plusWhite"></span>');
+          $account.before('<span id="pisaLogo"></span>');
+        }
+  
+        if (!!currentName) {
+          $account.text(currentName);
+        }
+        console.log(`Name is ${currentName}`);
+      }));
     } else {
-      console.log('Failed loading');
+      console.log('Failed loading; will try again');
       setTimeout(load, 1000); // try again later
     }
   }
 
   $(load);
+
+  chrome.runtime.onMessage.addListener(
+    function(message, sender, sendResponse) {
+        switch(message.type) {
+            case "getCurrentUserAddress":
+                sendResponse(accountAddr);
+            break;
+        }
+    }
+  );
+
 })(jQuery);

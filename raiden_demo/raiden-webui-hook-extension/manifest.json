@@ -6,10 +6,12 @@
   "version": "0.1",
 
   "browser_action": {
+    "default_popup": "popup.html",
     "default_icon": "images/icon.png"
   },
   "permissions": [
-    "activeTab"
+    "activeTab",
+    "storage"
   ],
   "web_accessible_resources": [
     "images/pisa-transparent-background-white.png",
