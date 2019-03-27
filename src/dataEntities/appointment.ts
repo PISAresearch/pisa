@@ -10,14 +10,6 @@ export interface IAppointmentRequest {
     type: ChannelType;
 }
 
-export interface IAppointment {
-    startTime: number;
-    endTime: number;
-    inspectionTime: number;
-    type: ChannelType;
-    contractAddress(): string;
-}
-
 export interface IKitsuneAppointmentRequest extends IAppointmentRequest {
     stateUpdate: IKitsuneStateUpdate;
     type: ChannelType.Kitsune;
@@ -28,34 +20,54 @@ export interface IRaidenAppointmentRequest extends IAppointmentRequest {
     type: ChannelType.Raiden;
 }
 
-abstract class AppointmentBase {
+export interface IAppointment {
+    startTime: number;
+    endTime: number;
+    inspectionTime: number;
+    type: ChannelType;
+    contractAddress(): string;
+    channelIdentifier(): string;
+}
+
+abstract class AppointmentBase implements IAppointment {
     constructor(
         readonly startTime: number,
         readonly endTime: number,
         readonly inspectionTime: number,
         readonly type: ChannelType
     ) {}
+    abstract contractAddress();
+    abstract channelIdentifier();
 }
 
 // PISA: documentation in these classes
 // PISA: sort these out as well - we could use generics?
-export class KitsuneAppointment extends AppointmentBase implements IAppointment {
+export class KitsuneAppointment extends AppointmentBase {
     constructor(readonly stateUpdate: IKitsuneStateUpdate, startTime: number, endTime: number, inspectionTime: number) {
         super(startTime, endTime, inspectionTime, ChannelType.Kitsune);
     }
 
+    // PISA: still used?
     contractAddress() {
+        return this.stateUpdate.contractAddress;
+    }
+
+    channelIdentifier() {
         return this.stateUpdate.contractAddress;
     }
 }
 
-export class RaidenAppointment extends AppointmentBase implements IAppointment {
+export class RaidenAppointment extends AppointmentBase {
     constructor(readonly stateUpdate: IRaidenStateUpdate, startTime: number, endTime: number, inspectionTime: number) {
         super(startTime, endTime, inspectionTime, ChannelType.Raiden);
     }
 
     contractAddress() {
         return this.stateUpdate.token_network_identifier;
+    }
+
+    channelIdentifier() {
+        return `${this.stateUpdate.token_network_identifier}:${this.stateUpdate.channel_identifier}`;
     }
 }
 
