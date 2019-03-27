@@ -1,6 +1,10 @@
-import { utils } from "ethers";
+import { utils, ethers } from "ethers";
+import RaidenContracts from "./../raiden_data.json";
+const tokenNetworkAbi = RaidenContracts.contracts.TokenNetwork.abi;
+import { KitsuneTools } from "./../kitsuneTools";
 
 export enum ChannelType {
+    None = 0,
     Kitsune = 1,
     Raiden = 2
 }
@@ -10,23 +14,47 @@ export interface IAppointmentRequest {
     type: ChannelType;
 }
 
-export interface IKitsuneAppointmentRequest extends IAppointmentRequest {
-    stateUpdate: IKitsuneStateUpdate;
-    type: ChannelType.Kitsune;
+export abstract class AppointmentRequest implements IAppointmentRequest {
+    constructor(public readonly type: ChannelType.Kitsune, public readonly expiryPeriod: number) {}
+
+    static parse(obj: any) {
+        // look for a type argument
+        const type = obj["type"];
+        switch (type) {
+            case ChannelType.Kitsune:
+                return parseKitsuneAppointment(obj);
+            case ChannelType.Raiden:
+                return parseRaidenAppointment(obj);
+            default:
+                throw new PublicValidationError(`Unknown appotiment request type ${type}.`);
+        }
+    }
 }
 
-export interface IRaidenAppointmentRequest extends IAppointmentRequest {
-    stateUpdate: IRaidenStateUpdate;
-    type: ChannelType.Raiden;
+export class KitsuneAppointmentRequest extends AppointmentRequest {
+    constructor(public readonly stateUpdate: IKitsuneStateUpdate, type: ChannelType.Kitsune, expiryPeriod: number) {
+        super(type, expiryPeriod);
+    }
 }
 
+export class RaidenAppointmentRequest extends AppointmentRequest {
+    constructor(public readonly stateUpdate: IRaidenStateUpdate, type: ChannelType.Kitsune, expiryPeriod: number) {
+        super(type, expiryPeriod);
+    }
+}
+
+// PISA: docs in here
 export interface IAppointment {
     startTime: number;
     endTime: number;
     inspectionTime: number;
     type: ChannelType;
-    contractAddress(): string;
-    channelIdentifier(): string;
+    getContractAddress(): string;
+    getChannelIdentifier(): string;
+    getEventFilter(contract: ethers.Contract): ethers.EventFilter;
+    getEventName(): string;
+    getContractAbi(): any;
+    getSubmitStateFunction(): (contract: ethers.Contract, ...args: any[]) => Promise<void>;
 }
 
 abstract class AppointmentBase implements IAppointment {
@@ -36,24 +64,43 @@ abstract class AppointmentBase implements IAppointment {
         readonly inspectionTime: number,
         readonly type: ChannelType
     ) {}
-    abstract contractAddress();
-    abstract channelIdentifier();
+    abstract getContractAddress();
+    abstract getChannelIdentifier();
+    abstract getEventFilter(contract: ethers.Contract);
+    abstract getEventName();
+    abstract getContractAbi(): any;
+    abstract getSubmitStateFunction(): (contract: ethers.Contract, ...args: any[]) => Promise<void>;
 }
 
 // PISA: documentation in these classes
-// PISA: sort these out as well - we could use generics?
 export class KitsuneAppointment extends AppointmentBase {
     constructor(readonly stateUpdate: IKitsuneStateUpdate, startTime: number, endTime: number, inspectionTime: number) {
         super(startTime, endTime, inspectionTime, ChannelType.Kitsune);
     }
 
     // PISA: still used?
-    contractAddress() {
+    getContractAddress() {
         return this.stateUpdate.contractAddress;
     }
 
-    channelIdentifier() {
+    getChannelIdentifier() {
         return this.stateUpdate.contractAddress;
+    }
+
+    getEventFilter(contract: ethers.Contract) {
+        return contract.filters.EventDispute(null);
+    }
+
+    getEventName() {
+        return "EventDispute(uint256)";
+    }
+
+    getContractAbi() {
+        return KitsuneTools.ContractAbi;
+    }
+
+    getSubmitStateFunction() {
+        return async (contract: ethers.Contract, ...args: any[]) => await KitsuneTools.respond(contract, this, ...args);
     }
 }
 
@@ -62,12 +109,44 @@ export class RaidenAppointment extends AppointmentBase {
         super(startTime, endTime, inspectionTime, ChannelType.Raiden);
     }
 
-    contractAddress() {
+    getContractAddress() {
         return this.stateUpdate.token_network_identifier;
     }
 
-    channelIdentifier() {
+    getChannelIdentifier() {
         return `${this.stateUpdate.token_network_identifier}:${this.stateUpdate.channel_identifier}`;
+    }
+
+    getEventFilter(contract: ethers.Contract) {
+        return contract.filters.ChannelClosed(
+            this.stateUpdate.channel_identifier,
+            this.stateUpdate.closing_participant,
+            null
+        );
+    }
+
+    getEventName() {
+        return `ChannelClosed - ${this.stateUpdate.channel_identifier} - ${this.stateUpdate.closing_participant} - ${
+            this.stateUpdate.nonce
+        }`;
+    }
+
+    getContractAbi() {
+        return tokenNetworkAbi;
+    }
+
+    getSubmitStateFunction() {
+        return async (contract: ethers.Contract, ...args: any[]) =>
+            await contract.updateNonClosingBalanceProof(
+                this.stateUpdate.channel_identifier,
+                this.stateUpdate.closing_participant,
+                this.stateUpdate.non_closing_participant,
+                this.stateUpdate.balance_hash,
+                this.stateUpdate.nonce,
+                this.stateUpdate.additional_hash,
+                this.stateUpdate.closing_signature,
+                this.stateUpdate.non_closing_signature
+            );
     }
 }
 
@@ -93,12 +172,18 @@ export interface IRaidenStateUpdate {
 
 export class PublicValidationError extends Error {}
 
-export function parseAppointment(obj: any) {
+// PISA: normalise below
+
+export function parseKitsuneAppointment(obj: any) {
     if (!obj) throw new PublicValidationError("Appointment not defined.");
     propertyExistsAndIsOfType("expiryPeriod", "number", obj);
     doesPropertyExist("stateUpdate", obj);
-    isStateUpdate(obj["stateUpdate"]);
-    return obj as IKitsuneAppointmentRequest;
+    isKitsuneStateUpdate(obj["stateUpdate"]);
+
+    propertyExistsAndIsOfType("type", "number", obj);
+    if (obj["type"] !== ChannelType.Kitsune) throw new PublicValidationError(`Appointment is of type ${obj["type"]}`);
+
+    return new KitsuneAppointmentRequest(obj["stateUpdate"], obj["type"], obj["expiryPeriod"]);
 }
 
 export function parseRaidenAppointment(obj: any) {
@@ -106,7 +191,11 @@ export function parseRaidenAppointment(obj: any) {
     propertyExistsAndIsOfType("expiryPeriod", "number", obj);
     doesPropertyExist("stateUpdate", obj);
     isRaidenStateUpdate(obj["stateUpdate"]);
-    return obj as IRaidenAppointmentRequest;
+
+    propertyExistsAndIsOfType("type", "number", obj);
+    if (obj["type"] !== ChannelType.Raiden) throw new PublicValidationError(`Appointment is of type ${obj["type"]}`);
+
+    return new RaidenAppointmentRequest(obj["stateUpdate"], obj["type"], obj["expiryPeriod"]);
 }
 
 function isRaidenStateUpdate(obj: any) {
@@ -157,7 +246,7 @@ function isRaidenStateUpdate(obj: any) {
     }
 }
 
-function isStateUpdate(obj: any) {
+function isKitsuneStateUpdate(obj: any) {
     if (!obj) throw new PublicValidationError("stateUpdate does not exist.");
     propertyExistsAndIsOfType("hashState", "string", obj);
     const hexLength = utils.hexDataLength(obj.hashState);

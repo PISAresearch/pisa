@@ -1,4 +1,4 @@
-import { IKitsuneAppointmentRequest, KitsuneAppointment } from "./../dataEntities/appointment";
+import { KitsuneAppointmentRequest, KitsuneAppointment, ChannelType } from "./../dataEntities/appointment";
 import { PublicInspectionError, IInspector } from "./inspector";
 import { KitsuneTools } from "./../kitsuneTools";
 import { ethers } from "ethers";
@@ -10,12 +10,13 @@ import logger from "./../logger";
  */
 export class KitsuneInspector implements IInspector {
     constructor(public readonly minimumDisputePeriod: number, public readonly provider: ethers.providers.Provider) {}
+    public readonly channelType = ChannelType.Kitsune;
 
     /**
      * Inspects an appointment to decide whether to accept it. Throws on reject.
      * @param appointmentRequest
      */
-    public async inspect(appointmentRequest: IKitsuneAppointmentRequest) {
+    public async inspect(appointmentRequest: KitsuneAppointmentRequest) {
         const contractAddress: string = appointmentRequest.stateUpdate.contractAddress;
 
         // log the appointment we're inspecting
@@ -125,7 +126,7 @@ export class KitsuneInspector implements IInspector {
      * Converts an appointment request into an appointment
      * @param request
      */
-    private createAppointment(request: IKitsuneAppointmentRequest): KitsuneAppointment {
+    private createAppointment(request: KitsuneAppointmentRequest): KitsuneAppointment {
         const startTime = Date.now();
 
         return new KitsuneAppointment(request.stateUpdate, startTime, startTime + request.expiryPeriod, Date.now());

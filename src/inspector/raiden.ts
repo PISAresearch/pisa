@@ -1,23 +1,24 @@
-import { IRaidenAppointmentRequest, RaidenAppointment } from "../dataEntities/appointment";
+import { RaidenAppointmentRequest, RaidenAppointment, ChannelType } from "../dataEntities/appointment";
 import { ethers } from "ethers";
 import { verifyMessage } from "ethers/utils";
 import { BalanceProofSigGroup } from "../balanceProof";
 import logger from "../logger";
 import RaidenContracts from "../raiden_data.json";
-import { PublicInspectionError } from "../inspector/inspector";
+import { PublicInspectionError, IInspector } from "../inspector/inspector";
 const tokenNetworkAbi = RaidenContracts.contracts.TokenNetwork.abi;
 
 /**
  * Responsible for deciding whether to accept appointments
  */
-export class RaidenInspector {
+export class RaidenInspector implements IInspector {
     constructor(private readonly minimumDisputePeriod: number, private readonly provider: ethers.providers.Provider) {}
+    public readonly channelType = ChannelType.Raiden;
 
     /**
      * Inspects an appointment to decide whether to accept it. Throws on reject.
      * @param appointmentRequest
      */
-    public async inspect(appointmentRequest: IRaidenAppointmentRequest) {
+    public async inspect(appointmentRequest: RaidenAppointmentRequest) {
         const contractAddress: string = appointmentRequest.stateUpdate.token_network_identifier;
 
         // log the appointment we're inspecting
@@ -166,7 +167,7 @@ export class RaidenInspector {
      * Converts an appointment request into an appointment
      * @param request
      */
-    private createAppointment(request: IRaidenAppointmentRequest): RaidenAppointment {
+    private createAppointment(request: RaidenAppointmentRequest): RaidenAppointment {
         const startTime = Date.now();
 
         // PISA: just factory this

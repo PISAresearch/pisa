@@ -6,7 +6,7 @@ import { ethers } from "ethers";
 import { PisaService } from "../../src/service";
 import config from "../../src/dataEntities/config";
 import Ganache from "ganache-core";
-import { IKitsuneAppointmentRequest, ChannelType } from "../../src/dataEntities/appointment";
+import { KitsuneAppointmentRequest, ChannelType } from "../../src/dataEntities/appointment";
 import logger from "../../src/logger";
 import StateChannelFactory from "../../statechannels/build/contracts/StateChannelFactory.json";
 logger.transports.forEach(l => (l.level = "max"));
@@ -64,7 +64,7 @@ describe("Service end-to-end", () => {
             sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash)),
             sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash)),
             expiryPeriod = disputePeriod + 1;
-        const appointmentRequest: IKitsuneAppointmentRequest = {
+        const appointmentRequest: KitsuneAppointmentRequest = {
             expiryPeriod,
             type: ChannelType.Kitsune,
             stateUpdate: {
@@ -104,7 +104,7 @@ describe("Service end-to-end", () => {
             sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash)),
             sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash)),
             expiryPeriod = disputePeriod + 1;
-        const appointmentRequest: IKitsuneAppointmentRequest = {
+        const appointmentRequest: KitsuneAppointmentRequest = {
             expiryPeriod,
             type: ChannelType.Kitsune,
             stateUpdate: {
@@ -124,7 +124,7 @@ describe("Service end-to-end", () => {
             sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash)),
             sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash)),
             expiryPeriod = disputePeriod + 1;
-        const appointmentRequest: IKitsuneAppointmentRequest = {
+        const appointmentRequest: KitsuneAppointmentRequest = {
             expiryPeriod,
             type: ChannelType.Kitsune,
             stateUpdate: {
@@ -144,7 +144,7 @@ describe("Service end-to-end", () => {
             sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash)),
             sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash)),
             expiryPeriod = disputePeriod;
-        const appointmentRequest: IKitsuneAppointmentRequest = {
+        const appointmentRequest: KitsuneAppointmentRequest = {
             expiryPeriod,
             type: ChannelType.Kitsune,
             stateUpdate: {
@@ -164,7 +164,7 @@ describe("Service end-to-end", () => {
             sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash)),
             sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash)),
             expiryPeriod = disputePeriod - 1;
-        const appointmentRequest: IKitsuneAppointmentRequest = {
+        const appointmentRequest: KitsuneAppointmentRequest = {
             expiryPeriod,
             type: ChannelType.Kitsune,
             stateUpdate: {
@@ -184,7 +184,7 @@ describe("Service end-to-end", () => {
             sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash)),
             sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash)),
             expiryPeriod = disputePeriod + 1;
-        const appointmentRequest: IKitsuneAppointmentRequest = {
+        const appointmentRequest: KitsuneAppointmentRequest = {
             expiryPeriod,
             type: ChannelType.Kitsune,
             stateUpdate: {
@@ -218,7 +218,7 @@ describe("Service end-to-end", () => {
             sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash)),
             sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash)),
             expiryPeriod = disputePeriod + 1;
-        const appointmentRequest: IKitsuneAppointmentRequest = {
+        const appointmentRequest: KitsuneAppointmentRequest = {
             expiryPeriod,
             type: ChannelType.Kitsune,
             stateUpdate: {
@@ -242,7 +242,7 @@ describe("Service end-to-end", () => {
             sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash)),
             sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash)),
             expiryPeriod = disputePeriod + 1;
-        const appointmentRequest: IKitsuneAppointmentRequest = {
+        const appointmentRequest: KitsuneAppointmentRequest = {
             expiryPeriod,
             type: ChannelType.Kitsune,
             stateUpdate: {
@@ -266,7 +266,7 @@ describe("Service end-to-end", () => {
             sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash)),
             sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash)),
             expiryPeriod = disputePeriod + 1;
-        const appointmentRequest: IKitsuneAppointmentRequest = {
+        const appointmentRequest: KitsuneAppointmentRequest = {
             expiryPeriod,
             type: ChannelType.Kitsune,
             stateUpdate: {
@@ -287,7 +287,7 @@ describe("Service end-to-end", () => {
             sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash)),
             sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash)),
             expiryPeriod = disputePeriod + 1;
-        const appointmentRequest: IKitsuneAppointmentRequest = {
+        const appointmentRequest: KitsuneAppointmentRequest = {
             expiryPeriod,
             type: ChannelType.Kitsune,
             stateUpdate: {
@@ -312,7 +312,7 @@ describe("Service end-to-end", () => {
             // sign the wrong hash
             sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(hashState)),
             sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(hashState));
-        const appointmentRequest: IKitsuneAppointmentRequest = {
+        const appointmentRequest: KitsuneAppointmentRequest = {
             expiryPeriod,
             type: ChannelType.Kitsune,
             stateUpdate: {
@@ -337,7 +337,7 @@ describe("Service end-to-end", () => {
             sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash)),
             sig1 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash));
 
-        const appointmentRequest: IKitsuneAppointmentRequest = {
+        const appointmentRequest: KitsuneAppointmentRequest = {
             expiryPeriod,
             type: ChannelType.Kitsune,
             stateUpdate: {
@@ -361,7 +361,7 @@ describe("Service end-to-end", () => {
             //sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash)),
             sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash));
 
-        const appointmentRequest: IKitsuneAppointmentRequest = {
+        const appointmentRequest: KitsuneAppointmentRequest = {
             expiryPeriod,
             type: ChannelType.Kitsune,
             stateUpdate: {
@@ -381,7 +381,7 @@ describe("Service end-to-end", () => {
             sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash)),
             sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash)),
             expiryPeriod = disputePeriod + 1;
-        const appointmentRequest: IKitsuneAppointmentRequest = {
+        const appointmentRequest: KitsuneAppointmentRequest = {
             expiryPeriod,
             type: ChannelType.Kitsune,
             stateUpdate: {
@@ -400,7 +400,7 @@ describe("Service end-to-end", () => {
         }
     }).timeout(3000);
 
-    const failWithCode = async (errorMessage: string, appointmentRequest: IKitsuneAppointmentRequest) => {
+    const failWithCode = async (errorMessage: string, appointmentRequest: KitsuneAppointmentRequest) => {
         try {
             await request.post(`http://${config.host.name}:${config.host.port}/appointment`, {
                 json: appointmentRequest

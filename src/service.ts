@@ -1,11 +1,16 @@
 import express, { Response } from "express";
 import httpContext from "express-http-context";
 import logger from "./logger";
-import { parseAppointment, PublicValidationError, parseRaidenAppointment } from "./dataEntities/appointment";
+import {
+    parseKitsuneAppointment,
+    PublicValidationError,
+    parseRaidenAppointment,
+    AppointmentRequest
+} from "./dataEntities/appointment";
+import { PublicInspectionError, IInspector, MultiInspector } from "./inspector/inspector";
 import { KitsuneInspector } from "./inspector/kitsune";
 import { RaidenInspector } from "./inspector/raiden";
-import { PublicInspectionError } from "./inspector/inspector";
-import { RaidenWatcher, KitsuneWatcher } from "./watcher";
+import { Watcher } from "./watcher";
 // PISA: this isn working properly, it seems that watchers are sharing the last set value...
 import { setRequestId } from "./customExpressHttpContext";
 import { Server } from "http";
@@ -30,24 +35,24 @@ export class PisaService {
             next();
         });
 
-        const kitsuneInspector = new KitsuneInspector(10, provider);
-        const kitsuneWatcher = new KitsuneWatcher(provider, wallet);
-        app.post("/appointment", this.appointment(kitsuneInspector, kitsuneWatcher));
+        const watcher = new Watcher(provider, wallet);
 
+        const kitsuneInspector = new KitsuneInspector(10, provider);
         // PISA: currently set to 4 for demo purposes - this should be a commandline/config arg
         const raidenInspector = new RaidenInspector(4, provider);
-        const raidenWatcher = new RaidenWatcher(provider, wallet);
-        app.post("/raidenAppointment", this.raidenAppointment(raidenInspector, raidenWatcher));
+        const multiInspector = new MultiInspector([kitsuneInspector, raidenInspector]);
+
+        app.post("/appointment", this.appointment(multiInspector, watcher));
 
         const service = app.listen(port, hostname);
         logger.info(`PISA listening on: ${hostname}:${port}.`);
         this.server = service;
     }
 
-    private appointment(inspector: KitsuneInspector, watcher: KitsuneWatcher) {
+    private appointment(inspector: IInspector, watcher: Watcher) {
         return async (req: express.Request, res: express.Response, next: express.NextFunction) => {
             try {
-                const appointmentRequest = parseAppointment(req.body);
+                const appointmentRequest = AppointmentRequest.parse(req.body);
                 // inspect this appointment
                 const appointment = await inspector.inspect(appointmentRequest);
 
@@ -70,34 +75,8 @@ export class PisaService {
         };
     }
 
-    private raidenAppointment(inspector: RaidenInspector, watcher: RaidenWatcher) {
-        return async (req: express.Request, res: express.Response, next: express.NextFunction) => {
-            try {
-                const appointmentRequest = parseRaidenAppointment(req.body);
-                // inspect this appointment
-                const appointment = await inspector.inspect(appointmentRequest);
-
-                // start watching it if it passed inspection
-                watcher.watch(appointment);
-
-                // return the appointment
-                res.status(200);
-                res.send(appointment);
-            } catch (doh) {
-                if (doh instanceof PublicInspectionError) this.logAndSend(400, doh.message, doh, res);
-                else if (doh instanceof PublicValidationError) this.logAndSend(400, doh.message, doh, res);
-                else if (doh instanceof Error) this.logAndSend(500, "Internal server error.", doh, res);
-                else {
-                    logger.error("Error: 500. " + inspect(doh));
-                    res.status(500);
-                    res.send("Internal server error.");
-                }
-            }
-        };
-    }
-
     private logAndSend(code: number, responseMessage: string, error: Error, res: Response) {
-        if(code === 500) console.log(error)
+        if (code === 500) console.log(error);
         logger.error(`HTTP Status: ${code}.`);
         logger.error(error.stack);
         res.status(code);

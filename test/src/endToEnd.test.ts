@@ -1,10 +1,10 @@
 import "mocha";
 import { KitsuneInspector } from "../../src/inspector/kitsune";
-import { KitsuneWatcher } from "../../src/watcher";
+import { Watcher } from "../../src/watcher";
 import { KitsuneTools } from "../../src/kitsuneTools";
 import { ethers } from "ethers";
 import Ganache from "ganache-core";
-import { ChannelType, IKitsuneAppointmentRequest } from "../../src/dataEntities/appointment";
+import { ChannelType, KitsuneAppointmentRequest } from "../../src/dataEntities/appointment";
 const ganache = Ganache.provider({ 
     mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect"
 });
@@ -48,7 +48,7 @@ describe("End to end", () => {
     it("inspect and watch a contract", async () => {
         const inspector = new KitsuneInspector(10, provider);
         // 1. Verify appointment
-        const appointmentRequest: IKitsuneAppointmentRequest = {
+        const appointmentRequest: KitsuneAppointmentRequest = {
             stateUpdate: {
                 contractAddress: channelContract.address,
                 hashState: hashState,
@@ -61,7 +61,7 @@ describe("End to end", () => {
         const appointment = await inspector.inspect(appointmentRequest);         
 
         // 2. pass this appointment to the watcher
-        const watcher = new KitsuneWatcher(provider, provider.getSigner(pisaAccount));
+        const watcher = new Watcher(provider, provider.getSigner(pisaAccount));
         const player0Contract = channelContract.connect(provider.getSigner(player0));
         await watcher.watch(appointment);
         

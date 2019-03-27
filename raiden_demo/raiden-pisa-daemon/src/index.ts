@@ -53,7 +53,7 @@ const run = async (startingRowId: number) => {
                 }
             };
             console.log(appointmentRequest)
-            await pisaClient.requestRaidenAppointment(appointmentRequest);
+            await pisaClient.requestAppointment(appointmentRequest);
 
         };
 

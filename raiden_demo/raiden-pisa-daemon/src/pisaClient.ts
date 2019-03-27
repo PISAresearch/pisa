@@ -28,18 +28,6 @@ export class PisaClient {
             }
         );
     }
-
-    requestRaidenAppointment(appointmentRequest: IAppointmentRequest): request.RequestPromise {
-        return request.post(
-            `http://${this.hostAndPort}/raidenAppointment`,
-            { json: appointmentRequest },
-            (err) => {
-                if (err) {
-                    console.log(err);
-                }
-            }
-        );
-    }
 }
 
 export interface IAppointmentRequest {

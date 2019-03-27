@@ -1,8 +1,6 @@
 import { PisaService } from "./service";
 import { ethers } from "ethers";
 import config from "./dataEntities/config";
-import { KitsuneWatcher } from "./watcher";
-import { KitsuneInspector } from "./inspector/kitsune";
 import { getJsonRPCProvider } from "./provider";
 
 const argv = require('yargs')
@@ -27,7 +25,7 @@ if (argv.watcherKey) config.watcherKey = argv.watcherKey;
 getJsonRPCProvider().then(
     provider => {
         const watcherWallet = new ethers.Wallet(config.watcherKey, provider);
-        
+
         // start the pisa service
         const service = new PisaService(config.host.name, config.host.port, provider, watcherWallet);
 

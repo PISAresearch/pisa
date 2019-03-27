@@ -1,4 +1,6 @@
-import { IKitsuneAppointmentRequest, KitsuneAppointment } from "../dataEntities/appointment";
+import { IAppointmentRequest, IAppointment, ChannelType } from "../dataEntities/appointment";
+import { KitsuneInspector } from "./kitsune";
+import { RaidenInspector } from "./raiden";
 
 /**
  * Thrown when an appointment fails inspection
@@ -11,7 +13,28 @@ export class PublicInspectionError extends Error {
 }
 
 export interface IInspector {
+    readonly channelType: ChannelType;
     // PISA:  this should return a bool
-    inspect(appointmentRequest: IKitsuneAppointmentRequest): KitsuneAppointment | Promise<KitsuneAppointment>;
+    inspect(appointmentRequest: IAppointmentRequest): IAppointment | Promise<IAppointment>;
 }
 
+export class MultiInspector implements IInspector {
+    constructor(inspectors: IInspector[]) {
+        inspectors.forEach(i => (this.inspectorLookup[i.channelType] = i));
+    }
+    public readonly channelType = ChannelType.None;
+    private readonly inspectorLookup: {
+        [type: number]: IInspector;
+    } = {};
+
+    inspect(appointmentRequest: IAppointmentRequest) {
+        const inspector = this.inspectorLookup[appointmentRequest.type];
+        if (!inspector) {
+            throw new ConfigurationError(`Unregistered inspector type ${appointmentRequest.type}.`);
+        }
+        return inspector.inspect(appointmentRequest);
+    }
+}
+
+// PISA: error handling for this + docs
+class ConfigurationError extends Error {}
