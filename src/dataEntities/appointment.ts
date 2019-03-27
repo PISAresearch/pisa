@@ -14,7 +14,8 @@ export interface IAppointment {
     startTime: number;
     endTime: number;
     inspectionTime: number;
-    type: ChannelType
+    type: ChannelType;
+    contractAddress(): string;
 }
 
 export interface IKitsuneAppointmentRequest extends IAppointmentRequest {
@@ -27,16 +28,35 @@ export interface IRaidenAppointmentRequest extends IAppointmentRequest {
     type: ChannelType.Raiden;
 }
 
-// PISA: documentation in these classes
-// PISA: sort these out as well - we could use generics?
-export interface IKitsuneAppointment extends IAppointment {
-    stateUpdate: IKitsuneStateUpdate;
-    type: ChannelType.Kitsune;
+abstract class AppointmentBase {
+    constructor(
+        readonly startTime: number,
+        readonly endTime: number,
+        readonly inspectionTime: number,
+        readonly type: ChannelType
+    ) {}
 }
 
-export interface IRaidenAppointment extends IAppointment {
-    stateUpdate: IRaidenStateUpdate;
-    type: ChannelType.Raiden;
+// PISA: documentation in these classes
+// PISA: sort these out as well - we could use generics?
+export class KitsuneAppointment extends AppointmentBase implements IAppointment {
+    constructor(readonly stateUpdate: IKitsuneStateUpdate, startTime: number, endTime: number, inspectionTime: number) {
+        super(startTime, endTime, inspectionTime, ChannelType.Kitsune);
+    }
+
+    contractAddress() {
+        return this.stateUpdate.contractAddress;
+    }
+}
+
+export class RaidenAppointment extends AppointmentBase implements IAppointment {
+    constructor(readonly stateUpdate: IRaidenStateUpdate, startTime: number, endTime: number, inspectionTime: number) {
+        super(startTime, endTime, inspectionTime, ChannelType.Raiden);
+    }
+
+    contractAddress() {
+        return this.stateUpdate.token_network_identifier;
+    }
 }
 
 export interface IKitsuneStateUpdate {

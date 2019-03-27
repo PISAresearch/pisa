@@ -1,5 +1,5 @@
 import { solidityKeccak256 } from "ethers/utils";
-import { IKitsuneAppointment } from "./dataEntities/appointment";
+import { KitsuneAppointment } from "./dataEntities/appointment";
 import { Contract, utils } from "ethers";
 import logger from "./logger";
 import StateChannel from "../statechannels/build/contracts/StateChannel.json";
@@ -22,7 +22,7 @@ export class KitsuneTools {
     }
 
     public static disputeEvent = "EventDispute(uint256)";
-    public static async respond(contract: Contract, appointment: IKitsuneAppointment, ...args: any[]) {
+    public static async respond(contract: Contract, appointment: KitsuneAppointment, ...args: any[]) {
         let sig0 = utils.splitSignature(appointment.stateUpdate.signatures[0]);
         let sig1 = utils.splitSignature(appointment.stateUpdate.signatures[1]);
 

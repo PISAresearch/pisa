@@ -1,4 +1,4 @@
-import { IRaidenAppointmentRequest, IRaidenAppointment } from "../dataEntities/appointment";
+import { IRaidenAppointmentRequest, RaidenAppointment } from "../dataEntities/appointment";
 import { ethers } from "ethers";
 import { verifyMessage } from "ethers/utils";
 import { BalanceProofSigGroup } from "../balanceProof";
@@ -166,15 +166,10 @@ export class RaidenInspector {
      * Converts an appointment request into an appointment
      * @param request
      */
-    private createAppointment(request: IRaidenAppointmentRequest): IRaidenAppointment {
+    private createAppointment(request: IRaidenAppointmentRequest): RaidenAppointment {
         const startTime = Date.now();
 
-        return {
-            stateUpdate: request.stateUpdate,
-            type: request.type,
-            startTime: startTime,
-            endTime: startTime + request.expiryPeriod,
-            inspectionTime: Date.now()
-        };
+        // PISA: just factory this
+        return new RaidenAppointment(request.stateUpdate, startTime, startTime + request.expiryPeriod, Date.now());
     }
 }

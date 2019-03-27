@@ -1,4 +1,4 @@
-import { IKitsuneAppointment, IRaidenAppointment, ChannelType, IAppointment } from "./dataEntities/appointment";
+import { KitsuneAppointment, RaidenAppointment, ChannelType, IAppointment } from "./dataEntities/appointment";
 import { ethers } from "ethers";
 import { KitsuneTools } from "./kitsuneTools";
 import logger from "./logger";
@@ -16,15 +16,12 @@ class WatchStore {
         };
     } = {};
 
-    addAppointment(appointment: IAppointment, contract: ethers.Contract) {
-
-    }
-
-    getPreviousContract(appointment: IAppointment) {
-
-    }
-
+    addAppointment(appointment: IAppointment, contract: ethers.Contract) {}
+    removeAppointment(appointment: IAppointment) {};
     getPreviousAppointment(appointment: IAppointment) {
+        // does the contract for this appointment exist?
+        
+
 
     }
 }
@@ -40,7 +37,7 @@ export abstract class Watcher implements IWatcher {
 
     // we need to keep a list of appointments - against each contract, so can it have one appointment or
 
-    abstract getEventName(appointment: IAppointment): string;    
+    abstract getEventName(appointment: IAppointment): string;
     abstract getExistingContract(appointment: IAppointment): ethers.Contract;
     abstract getPreviousAppointment(
         appointment: IAppointment
@@ -149,14 +146,14 @@ export class KitsuneWatcher extends Watcher {
         return "EventDispute(uint256)";
     }
 
-    getExistingContract(appointment: IKitsuneAppointment) {
+    getExistingContract(appointment: KitsuneAppointment) {
         let lookup = this.contracts[appointment.stateUpdate.contractAddress];
         // PISA: undefined?
         if (lookup) return lookup.contract;
     }
 
     getPreviousAppointment(appointment: IAppointment) {
-        const kitsuneAppointment = appointment as IKitsuneAppointment;
+        const kitsuneAppointment = appointment as KitsuneAppointment;
         // PISA: undefined?
         let lookup = this.contracts[kitsuneAppointment.stateUpdate.contractAddress];
         if (lookup) return lookup.appointment;
@@ -167,7 +164,7 @@ export class KitsuneWatcher extends Watcher {
     }
 
     getNewContract(appointment: IAppointment) {
-        const kitsuneAppointment = appointment as IKitsuneAppointment;
+        const kitsuneAppointment = appointment as KitsuneAppointment;
         return new ethers.Contract(
             kitsuneAppointment.stateUpdate.contractAddress,
             KitsuneTools.ContractAbi,
@@ -176,12 +173,12 @@ export class KitsuneWatcher extends Watcher {
     }
 
     async respond(contract: ethers.Contract, appointment: IAppointment, ...args: any[]) {
-        const kitsuneAppointment = appointment as IKitsuneAppointment;
+        const kitsuneAppointment = appointment as KitsuneAppointment;
         await KitsuneTools.respond(contract, kitsuneAppointment, ...args);
     }
 
     addContract(appointment: IAppointment, contract: ethers.Contract) {
-        const kitsuneAppointment = appointment as IKitsuneAppointment;
+        const kitsuneAppointment = appointment as KitsuneAppointment;
         this.contracts[kitsuneAppointment.stateUpdate.contractAddress] = {
             contract: contract,
             appointment: { appointment: undefined, listener: undefined }
@@ -189,7 +186,7 @@ export class KitsuneWatcher extends Watcher {
     }
 
     addAppointment(appointment: IAppointment, listener: ethers.providers.Listener) {
-        const kitsuneAppointment = appointment as IKitsuneAppointment;
+        const kitsuneAppointment = appointment as KitsuneAppointment;
         this.contracts[kitsuneAppointment.stateUpdate.contractAddress].appointment = {
             appointment: appointment,
             listener: listener
@@ -215,7 +212,7 @@ export class RaidenWatcher extends Watcher implements IWatcher {
         [tokenNetworkIdentifier: string]: {
             contract: ethers.Contract;
             appointments: {
-                [channelIdentifier: number]: { appointment: IRaidenAppointment; listener: ethers.providers.Listener };
+                [channelIdentifier: number]: { appointment: RaidenAppointment; listener: ethers.providers.Listener };
             };
         };
     } = {};
@@ -225,16 +222,16 @@ export class RaidenWatcher extends Watcher implements IWatcher {
         super(provider, signer, ChannelType.Raiden);
     }
 
-    getEventName(appointment: IRaidenAppointment): string {
+    getEventName(appointment: RaidenAppointment): string {
         //PISA: can these be safely removed? seems like very weak typing...
-        let raidenAppointment = appointment as IRaidenAppointment;
+        let raidenAppointment = appointment as RaidenAppointment;
         return `ChannelClosed - ${raidenAppointment.stateUpdate.channel_identifier} - ${
             raidenAppointment.stateUpdate.closing_participant
         } - ${raidenAppointment.stateUpdate.nonce}`;
     }
 
     getExistingContract(appointment: IAppointment): ethers.Contract {
-        const raidenAppointment = appointment as IRaidenAppointment;
+        const raidenAppointment = appointment as RaidenAppointment;
         let lookup = this.contracts[raidenAppointment.stateUpdate.token_network_identifier];
 
         // PISA: create a type for the lookup - return that
@@ -242,7 +239,7 @@ export class RaidenWatcher extends Watcher implements IWatcher {
     }
 
     getPreviousAppointment(appointment: IAppointment) {
-        const raidenAppointment = appointment as IRaidenAppointment;
+        const raidenAppointment = appointment as RaidenAppointment;
         let lookup = this.contracts[raidenAppointment.stateUpdate.token_network_identifier];
 
         //PISA: unsafe
@@ -250,7 +247,7 @@ export class RaidenWatcher extends Watcher implements IWatcher {
     }
 
     getEventFilter(contract: ethers.Contract, appointment: IAppointment) {
-        const raidenAppointment = appointment as IRaidenAppointment;
+        const raidenAppointment = appointment as RaidenAppointment;
         return contract.filters.ChannelClosed(
             raidenAppointment.stateUpdate.channel_identifier,
             raidenAppointment.stateUpdate.closing_participant,
@@ -259,7 +256,7 @@ export class RaidenWatcher extends Watcher implements IWatcher {
     }
 
     getNewContract(appointment: IAppointment) {
-        const raidenAppointment = appointment as IRaidenAppointment;
+        const raidenAppointment = appointment as RaidenAppointment;
         return new ethers.Contract(
             raidenAppointment.stateUpdate.token_network_identifier,
             tokenNetworkAbi,
@@ -268,7 +265,7 @@ export class RaidenWatcher extends Watcher implements IWatcher {
     }
 
     async respond(contract: ethers.Contract, appointment: IAppointment, ...args: any[]) {
-        const raidenAppointment = appointment as IRaidenAppointment;
+        const raidenAppointment = appointment as RaidenAppointment;
 
         // PISA: pass this to the responder
         let tx = await contract.updateNonClosingBalanceProof(
@@ -286,7 +283,7 @@ export class RaidenWatcher extends Watcher implements IWatcher {
 
     addContract(appointment: IAppointment, contract: ethers.Contract) {
         // PISA: this doesnt need to be called if the contract is already in the list!
-        const raidenAppointment = appointment as IRaidenAppointment;
+        const raidenAppointment = appointment as RaidenAppointment;
         this.contracts[raidenAppointment.stateUpdate.token_network_identifier] = {
             contract: contract,
             appointments: {}
@@ -294,7 +291,7 @@ export class RaidenWatcher extends Watcher implements IWatcher {
     }
 
     addAppointment(appointment: IAppointment, listener: ethers.providers.Listener) {
-        const raidenAppointment = appointment as IRaidenAppointment;
+        const raidenAppointment = appointment as RaidenAppointment;
         const appointments = this.contracts[raidenAppointment.stateUpdate.token_network_identifier].appointments;
 
         // PISA: unsafe - currently dependent on .contract existing

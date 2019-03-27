@@ -1,4 +1,4 @@
-import { IKitsuneAppointmentRequest, IKitsuneAppointment } from "./../dataEntities/appointment";
+import { IKitsuneAppointmentRequest, KitsuneAppointment } from "./../dataEntities/appointment";
 import { PublicInspectionError, IInspector } from "./inspector";
 import { KitsuneTools } from "./../kitsuneTools";
 import { ethers } from "ethers";
@@ -9,10 +9,7 @@ import logger from "./../logger";
  * Responsible for deciding whether to accept Kitsune appointments
  */
 export class KitsuneInspector implements IInspector {
-    constructor(
-        public readonly minimumDisputePeriod: number,
-        public readonly provider: ethers.providers.Provider
-    ) {}
+    constructor(public readonly minimumDisputePeriod: number, public readonly provider: ethers.providers.Provider) {}
 
     /**
      * Inspects an appointment to decide whether to accept it. Throws on reject.
@@ -128,16 +125,10 @@ export class KitsuneInspector implements IInspector {
      * Converts an appointment request into an appointment
      * @param request
      */
-    private createAppointment(request: IKitsuneAppointmentRequest): IKitsuneAppointment {
+    private createAppointment(request: IKitsuneAppointmentRequest): KitsuneAppointment {
         const startTime = Date.now();
 
-        return {
-            stateUpdate: request.stateUpdate,
-            type: request.type,
-            startTime: startTime,
-            endTime: startTime + request.expiryPeriod,
-            inspectionTime: Date.now()
-        };
+        return new KitsuneAppointment(request.stateUpdate, startTime, startTime + request.expiryPeriod, Date.now());
     }
 
     /**
