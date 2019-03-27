@@ -44,5 +44,11 @@ export class PisaClient {
 
 export interface IAppointmentRequest {
     expiryPeriod: number;
+    type: ChannelType.Raiden,
     stateUpdate: IDoubleSignedBalanceProof
+}
+
+export enum ChannelType {
+    Kitsune = 1,
+    Raiden = 2
 }

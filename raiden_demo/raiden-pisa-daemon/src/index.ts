@@ -4,7 +4,7 @@ import { SqliteListener } from "./sqlite-listener";
 import { BalanceProofSigGroup, IRawBalanceProof } from "./balanceProof";
 import { getWallet } from "./wallet";
 import { PisaClient } from "./pisaClient";
-import { IAppointmentRequest } from "./pisaClient";
+import { IAppointmentRequest, ChannelType } from "./pisaClient";
 
 const argv = require('yargs')
     .scriptName("raiden-pisa-daemon")
@@ -38,6 +38,7 @@ const run = async (startingRowId: number) => {
             const appointmentRequest: IAppointmentRequest = {
                 // settlement is 500, so lets take 20 of those
                 expiryPeriod: 10000,
+                type: ChannelType.Raiden,
                 stateUpdate: {
                     additional_hash: sigGroup.additional_hash,
                     balance_hash: sigGroup.balance_hash,

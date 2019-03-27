@@ -6,6 +6,29 @@ import { inspect } from "util";
 import RaidenContracts from "./raiden_data.json";
 const tokenNetworkAbi = RaidenContracts.contracts.TokenNetwork.abi;
 
+// A storage location
+class WatchStore {
+    // a list of contracts - each has a list of appointments
+    contracts: {
+        [channelAddress: string]: {
+            contract: ethers.Contract;
+            appointment: { appointment: IAppointment; listener: ethers.providers.Listener };
+        };
+    } = {};
+
+    addAppointment(appointment: IAppointment, contract: ethers.Contract) {
+
+    }
+
+    getPreviousContract(appointment: IAppointment) {
+
+    }
+
+    getPreviousAppointment(appointment: IAppointment) {
+
+    }
+}
+
 // PISA: docs on the new watcher classes
 
 export abstract class Watcher implements IWatcher {
@@ -17,15 +40,16 @@ export abstract class Watcher implements IWatcher {
 
     // we need to keep a list of appointments - against each contract, so can it have one appointment or
 
-    // get previous appointment
-    abstract getEventName(appointment: IAppointment): string;
+    abstract getEventName(appointment: IAppointment): string;    
     abstract getExistingContract(appointment: IAppointment): ethers.Contract;
     abstract getPreviousAppointment(
         appointment: IAppointment
     ): { appointment: IAppointment; listener: ethers.providers.Listener };
+
     abstract getEventFilter(contract: ethers.Contract, appointment: IAppointment): ethers.EventFilter;
     abstract getNewContract(appointment: IAppointment): ethers.Contract;
     abstract respond(contract: ethers.Contract, appointment: IAppointment, ...args: any[]);
+
     abstract addContract(appointment: IAppointment, contract: ethers.Contract);
     abstract addAppointment(appointment: IAppointment, listener: ethers.providers.Listener);
 
@@ -90,6 +114,8 @@ export abstract class Watcher implements IWatcher {
                 logger.error(doh);
                 logger.error(`Error occured whilst responding to event ${eventName} in contract ${contract.address}.`);
             }
+
+            logger.info(`Successfully responded to ${eventName} in contract ${contract.address}`);
         };
 
         // watch the supplied event
