@@ -168,11 +168,6 @@ describe("Raiden end-to-end tests for scenario 2 (with Pisa)", function() {
     });
 
     it("completes scenario 2 correctly", async () => {
-        process
-            .on('uncaughtException', err => {
-                console.error(err, 'Uncaught Exception thrown');
-                process.exit(1);
-            });
 
         // Open a channel from Bob to Alice
         const openChannelResult = await request({
