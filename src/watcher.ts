@@ -25,7 +25,7 @@ export class Watcher {
      * @param appointment Contains information about where to watch for events, and what information to suppli as part of a response
      */
     addAppointment(appointment: IAppointment) {
-        // PISA: this is the hammer approach. Really we should more carefully consider the critical sections below,
+        // PISA: this lock is the hammer approach. Really we should more carefully consider the critical sections below,
         // PISA: but for now we just allow one appointment to be added at a time
         this.lock.writeLock(release => {
             logger.info(
