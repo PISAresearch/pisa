@@ -3,13 +3,14 @@ import { assert } from "chai";
 import * as path from "path";
 import * as fse from "fs-extra";
 
-import kill from 'tree-kill';
+import waitPort from "wait-port";
+import kill from "tree-kill";
 
 import request from "request-promise";
 
 import { ethers, Contract } from "ethers";
 
-import { exec, ChildProcess } from 'child_process';
+import { exec, ChildProcess } from "child_process";
 import { BigNumber } from "ethers/utils";
 
 function timeout(ms: number): Promise<any> {
@@ -71,7 +72,7 @@ describe("Raiden end-to-end tests for scenario 2 (with Pisa)", function() {
     beforeEach(async () => {
 
         //make sure any old raiden db is deleted and recreated empty
-        //(docker create the folder from root if not existing, which breaks things)
+        //(docker creates the folder from root if not existing, which breaks things)
         await fse.removeSync(`${demoDir}/.raiden`);
         await fse.mkdirSync(`${demoDir}/.raiden`);
 
@@ -81,15 +82,16 @@ describe("Raiden end-to-end tests for scenario 2 (with Pisa)", function() {
         parity.stdout.pipe(parityLogStream);
         parity.stderr.pipe(parityLogStream);
 
-        await timeout(5000);
+        //wait for parity to be ready
+        await waitPort({host: "0.0.0.0", port: 8545});
 
         // args are redundant, but if they are removed the provider unpredictably fails
         // throwing "Error: invalid response - 0"; see https://github.com/ethers-io/ethers.js/issues/362
-        provider = new ethers.providers.JsonRpcProvider('http://localhost:8545', "ropsten");
+        provider = new ethers.providers.JsonRpcProvider('http://0.0.0.0:8545', "ropsten");
 
         //Start raiden node for Alice
         console.log("Starting Alice");
-        const aliceCmd = `${demoDir}/raiden --gas-price fast --accept-disclaimer --keystore-path ${demoDir}/docker/test-accounts --datadir ${demoDir}/.raiden --network-id ropsten --eth-rpc-endpoint http://localhost:8545 --address 0x${aliceAddr} --api-address http://0.0.0.0:6662 --password-file ${demoDir}/docker/test-accounts/password--${aliceAddrLow}.txt  --no-sync-check --disable-debug-logfile --tokennetwork-registry-contract-address 0xCa70BfDEa6BD82e45d4fD26Dd9f36DB9fad61796 --secret-registry-contract-address 0xaFa1F14fe33940b22D7f9F9bf0d707860C9233e2 --endpoint-registry-contract-address 0xa4f842B60C8a21c54b16E7940aA16Dda80301d13`;
+        const aliceCmd = `${demoDir}/raiden --gas-price fast --accept-disclaimer --keystore-path ${demoDir}/docker/test-accounts --datadir ${demoDir}/.raiden --network-id ropsten --eth-rpc-endpoint http://0.0.0.0:8545 --address 0x${aliceAddr} --api-address http://0.0.0.0:6662 --password-file ${demoDir}/docker/test-accounts/password--${aliceAddrLow}.txt  --no-sync-check --disable-debug-logfile --tokennetwork-registry-contract-address 0xCa70BfDEa6BD82e45d4fD26Dd9f36DB9fad61796 --secret-registry-contract-address 0xaFa1F14fe33940b22D7f9F9bf0d707860C9233e2 --endpoint-registry-contract-address 0xa4f842B60C8a21c54b16E7940aA16Dda80301d13`;
         alice = exec(aliceCmd);
         subprocesses.push(alice);
         const aliceLogStream = await fse.createWriteStream(`${pisaRoot}/logs/alice.test.log`, {flags: 'a'});
@@ -99,31 +101,39 @@ describe("Raiden end-to-end tests for scenario 2 (with Pisa)", function() {
 
         //Start raiden node for Bob
         console.log("Starting Bob");
-        const bobCmd = `${demoDir}/raiden --gas-price fast --accept-disclaimer --keystore-path ${demoDir}/docker/test-accounts --datadir ${demoDir}/.raiden --network-id ropsten --eth-rpc-endpoint http://localhost:8545 --address 0x${bobAddr} --api-address http://0.0.0.0:6663 --password-file ${demoDir}/docker/test-accounts/password--${bobAddrLow}.txt  --no-sync-check --disable-debug-logfile --tokennetwork-registry-contract-address 0xCa70BfDEa6BD82e45d4fD26Dd9f36DB9fad61796 --secret-registry-contract-address 0xaFa1F14fe33940b22D7f9F9bf0d707860C9233e2 --endpoint-registry-contract-address 0xa4f842B60C8a21c54b16E7940aA16Dda80301d13`;
+        const bobCmd = `${demoDir}/raiden --gas-price fast --accept-disclaimer --keystore-path ${demoDir}/docker/test-accounts --datadir ${demoDir}/.raiden --network-id ropsten --eth-rpc-endpoint http://0.0.0.0:8545 --address 0x${bobAddr} --api-address http://0.0.0.0:6663 --password-file ${demoDir}/docker/test-accounts/password--${bobAddrLow}.txt  --no-sync-check --disable-debug-logfile --tokennetwork-registry-contract-address 0xCa70BfDEa6BD82e45d4fD26Dd9f36DB9fad61796 --secret-registry-contract-address 0xaFa1F14fe33940b22D7f9F9bf0d707860C9233e2 --endpoint-registry-contract-address 0xa4f842B60C8a21c54b16E7940aA16Dda80301d13`;
         bob = exec(bobCmd);
         subprocesses.push(bob);
         const bobLogStream = await fse.createWriteStream(`${pisaRoot}/logs/bob.test.log`, {flags: 'a'});
         bob.stdout.pipe(bobLogStream);
         bob.stderr.pipe(bobLogStream);
 
+        await(timeout(10000));
+
         //Start Pisa
         console.log("Starting Pisa");
-        pisa = exec(`docker run -p 3000:3000 --network docker_raidendemo --network-alias pisa -v ${pisaRoot}/configs/parity.json:/usr/pisa/build/config.json pisaresearch/pisa:latest`, (err) => {
-            throw err;
-        });
+        pisa = exec(
+            `node ${pisaRoot}/build/src/startUp.js -- --json-rpc-url=localhost:8545 --host-name=0.0.0.0 --host-port:3000 --watcher-key=0xc364a5ea32a4c267263e99ddda36e05bcb0e5724601c57d6504cccb68e1fe6ae`,
+            (err) => {
+                throw err;
+            }
+        );
         subprocesses.push(pisa);
         const pisaLogStream = await fse.createWriteStream(`${pisaRoot}/logs/pisa.test.log`, {flags: 'a'});
         pisa.stdout.pipe(pisaLogStream);
         pisa.stderr.pipe(pisaLogStream);
 
-        //Wait so that Alice creates the db
-        await timeout(10000);
+        //Wait so that we are sure Alice is loaded
+        await waitPort({host: "0.0.0.0", port: 6662});
 
         console.log("Starting the daemon");
         //Start raiden-pisa-daemon for Alice
-        daemon = exec(`docker run -v ${demoDir}/docker/test-accounts/password--${aliceAddrLow}.txt:/home/password.txt -v ${demoDir}/docker/test-accounts/UTC--2019-03-22T10-39-56.702Z--0x${aliceAddrLow}:/.ethereum/keystore/UTC--2019-03-22T10-39-56.702Z--0x${aliceAddrLow} -v ${demoDir}/${dbFileName}:/home/db --network docker_raidendemo --entrypoint "npm" pisaresearch/raiden-pisa-daemon:latest run start -- --pisa=pisa:3000 --keyfile=/.ethereum/keystore/UTC--2019-03-22T10-39-56.702Z--0x${aliceAddrLow}  --password-file=/home/password.txt --db=/home/db`, (err) => {
-            throw err;
-        });
+        daemon = exec(
+            `docker run -v ${demoDir}/docker/test-accounts/password--${aliceAddrLow}.txt:/home/password.txt -v ${demoDir}/docker/test-accounts/UTC--2019-03-22T10-39-56.702Z--0x${aliceAddrLow}:/.ethereum/keystore/UTC--2019-03-22T10-39-56.702Z--0x${aliceAddrLow} -v ${demoDir}/${dbFileName}:/home/db --network host --entrypoint "npm" pisaresearch/raiden-pisa-daemon:latest run start -- --pisa=0.0.0.0:3000 --keyfile=/.ethereum/keystore/UTC--2019-03-22T10-39-56.702Z--0x${aliceAddrLow}  --password-file=/home/password.txt --db=/home/db`,
+            (err) => {
+                throw err;
+            }
+        );
         subprocesses.push(daemon);
         const daemonLogStream = await fse.createWriteStream(`${pisaRoot}/logs/daemon.test.log`, {flags: 'a'});
         daemon.stdout.pipe(daemonLogStream);
@@ -133,11 +143,19 @@ describe("Raiden end-to-end tests for scenario 2 (with Pisa)", function() {
 
         console.log("Waiting for everyone to be ready.");
 
-        await timeout(3000);
+        //We aready waited for parity and Alice.
+
+        await waitPort({host: "0.0.0.0", port: 6663}); //Wait for Bob
+        await waitPort({host: "0.0.0.0", port: 3000}); //Wait for Pisa
+
+        //Wait for the daemon
+        await timeout(1000);
 
         console.log("Starting scenario.");
 
-        //TODO: get initial token balances for Alice and Bob#
+
+        console.log("Getting Eth balances.");
+        //TODO: get initial eth balances for Alice and Bob
         const aliceBalance = await provider.getBalance(`0x${aliceAddr}`);
         const bobBalance = await provider.getBalance(`0x${bobAddr}`);
         console.log("Eth balances:", aliceBalance, bobBalance);
@@ -177,7 +195,13 @@ describe("Raiden end-to-end tests for scenario 2 (with Pisa)", function() {
         subprocesses = [];
 
         //TODO: figure out why this is not completely shutting off the containers
-        exec(`docker-compose -f ${demoDir}/docker/parity-loaded.docker-compose.yml down --rmi all`);
+        const dockerComposeDown = exec(`docker-compose -f ${demoDir}/docker/parity-loaded.docker-compose.yml down --rmi all`);
+        dockerComposeDown.stdout.on('data', function (data) {
+            console.log('stdout: ' + data.toString());
+        });
+        dockerComposeDown.stderr.on('data', function (data) {
+            console.log('stdout: ' + data.toString());
+        });
     });
 
     it("completes scenario 2 correctly", async () => {
