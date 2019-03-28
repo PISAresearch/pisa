@@ -3,112 +3,204 @@ import { ethers } from "ethers";
 import logger from "./logger";
 import { inspect } from "util";
 import { Responder } from "./responder";
+import { PublicInspectionError } from "./dataEntities/errors";
+import ReadWriteLock from "rwlock";
 
-// PISA: docs on the new watcher class
+/**
+ * Watches the chain for events related to the supplied appointments. When an event is noticed data is forwarded to the
+ * supplied responder to complete the task. The watcher is not responsible for ensuring that observed events are properly
+ * acted upon, that is the responsibility of the responder.
+ */
 export class Watcher {
-    public constructor(public readonly provider: ethers.providers.Provider, public readonly signer: ethers.Signer, public readonly responder: Responder) {}
-    readonly store: AppointmentStore = new AppointmentStore();
-
-    // PISA: we can throw errors in here now, that should be reflected in pisaservice, we cannot throw errors in the listener
+    public constructor(
+        public readonly provider: ethers.providers.Provider,
+        public readonly signer: ethers.Signer,
+        public readonly responder: Responder
+    ) {}
+    private readonly store: WatchedAppointmentStore = new WatchedAppointmentStore();
+    private readonly lock = new ReadWriteLock();
 
     /**
-     * Watch for an event specified by the appointment, and respond if it the event is raised.
+     * Start watch for an event specified by the appointment, and respond if it the event is raised.
      * @param appointment Contains information about where to watch for events, and what information to suppli as part of a response
      */
-    async watch(appointment: IAppointment) {
-        // PISA: safety check the appointment - check the inspection time?
-        const eventName = appointment.getEventName();
-
-        // create a contract
-        // PISA: logging should include!!!!!! appointment.stateUpdate.contractAddress
-        // PISA: also this would need inspect
-        logger.info(`Begin watching for event ${eventName} in appointment ${appointment}.`);
-        logger.debug(`Watching appointment: ${appointment}.`);
-
-        const previousAppointment = this.store.getPreviousAppointment(appointment);
-        if (previousAppointment) {
-            // PISA: this should be previous filter?
-            const filter = previousAppointment.appointment.getEventFilter(previousAppointment.contract);
-            previousAppointment.contract.removeListener(filter, previousAppointment.listener);
+    addAppointment(appointment: IAppointment) {
+        // PISA: this is the hammer approach. Really we should more carefully consider the critical sections below,
+        // PISA: but for now we just allow one appointment to be added at a time
+        this.lock.writeLock(release => {
             logger.info(
-                //PISA: better message here - include nonces, contract address and channel identifier
-                // PISA: this needs inspect() atm
-                `Stopped watching ${previousAppointment.appointment}`
+                `Begin watching for event ${appointment.getEventName()} for appointment ${appointment.getStateLocator()}.`
             );
-        }
+            logger.debug(`Watching appointment: ${inspect(appointment)}.`);
 
-        const contract =
-            (previousAppointment && previousAppointment.contract) ||
-            new ethers.Contract(appointment.getContractAddress(), appointment.getContractAbi(), this.provider).connect(
-                this.signer
+            // if there's a previous appointment for this channel/user, we remove it from the store
+            const previousAppointment = this.store.getPreviousAppointmentForChannel(
+                appointment.getContractAddress(),
+                appointment.getStateLocator(),
+                appointment.getStateNonce()
             );
-
-        // PISA: called filter here twice - restructure
-        const filter = appointment.getEventFilter(contract);
-
-        const listener: ethers.providers.Listener = async (...args: any[]) => {
-            // this callback should not throw exceptions as they cannot be handled elsewhere
-
-            try {
+            let contract;
+            if (previousAppointment) {
+                const previousFilter = previousAppointment.appointment.getEventFilter(previousAppointment.contract);
+                previousAppointment.contract.removeListener(previousFilter, previousAppointment.listener);
                 logger.info(
-                    `Observed event ${eventName} in contract ${contract.address} with arguments : ${args.slice(
-                        0,
-                        args.length - 1
-                    )}. Beginning response.`
-                    // PISA: interesting slice here - debug this and maybe do it another way - or at least encapsulate it
+                    `Stopped watching appointment ${previousAppointment.appointment.getStateLocator()} at nonce ${previousAppointment.appointment.getStateNonce()}.`
                 );
-                logger.debug(`Event info ${inspect(args[1])}`);
-                const submitStateFunction = appointment.getSubmitStateFunction();
-                const bufferedFunction = async () => await submitStateFunction(contract, args);
-                await this.responder.respond(bufferedFunction, appointment);
 
-            } catch (doh) {
-                // an error occured whilst responding to the callback - this is serious and the problem needs to be correctly diagnosed
-                logger.error(doh);
-                logger.error(`An unexpected errror occured whilst responding to event ${eventName} in contract ${contract.address}.`);
+                contract = previousAppointment.contract;
+            } else {
+                // is just the contract already in the store even though a previous appointment isn't?
+                // if so we can re-use it for multiple listeners
+                const existingContract = this.store.getStoredContract(appointment.getContractAddress());
+                if (existingContract) contract = existingContract;
+                else {
+                    // else create a new contract
+                    contract = new ethers.Contract(
+                        appointment.getContractAddress(),
+                        appointment.getContractAbi(),
+                        this.provider
+                    ).connect(this.signer);
+                }
             }
 
-            logger.info(`Successfully responded to ${eventName} in contract ${contract.address}`);
-        };
+            // set up the new listener
+            const filter = appointment.getEventFilter(contract);
+            const listener: ethers.providers.Listener = async (...args: any[]) => {
+                // this callback should not throw exceptions as they cannot be handled elsewhere
+                try {
+                    logger.info(
+                        `Observed event ${appointment.getEventName()} in contract ${
+                            contract.address
+                        } with arguments : ${args.slice(0, args.length - 1)}. Beginning response.`
+                    );
+                    logger.debug(`Event info ${inspect(args[1])}`);
+                    const submitStateFunction = appointment.getSubmitStateFunction();
+                    const bufferedFunction = async () => await submitStateFunction(contract, args);
 
-        // watch the supplied event
-        contract.once(filter, listener);
+                    // pass the response to the responder to complete. At this point the job has completed as far as
+                    // the watcher is concerned, therefore although respond is an async function we do not need to await it for a result
+                    this.responder.respond(bufferedFunction, appointment);
 
-        // add the appointment and the contract for later lookup
-        this.store.addOrUpdateAppointment(appointment, contract, listener);
+                    // after firing a response we can remove the appointment
+                    this.store.removeAppointment(appointment);
+                } catch (doh) {
+                    // an error occured whilst responding to the callback - this is serious and the problem needs to be correctly diagnosed
+                    logger.error(
+                        `An unexpected errror occured whilst responding to event ${appointment.getEventName()} in contract ${
+                            contract.address
+                        }.`
+                    );
+                    logger.error(doh);
+                }
+            };
+
+            // watch the supplied event
+            contract.once(filter, listener);
+
+            // add the appointment and the contract for later lookup
+            this.store.addOrUpdateAppointment(appointment, contract, listener);
+
+            // release the lock
+            release();
+        });
     }
 }
 
-// PISA: docs and names
-class AppointmentStore {
+/**
+ * A store of the current appointments being watched.
+ */
+class WatchedAppointmentStore {
+    private readonly contracts: {
+        [contractAddress: string]: {
+            appointmentReferences: number;
+            contract: ethers.Contract;
+        };
+    } = {};
+
     private readonly channels: {
         [channelIdentifier: string]: {
-            contract: ethers.Contract;
             appointment: IAppointment;
             listener: ethers.providers.Listener;
         };
     } = {};
 
+    /**
+     * Adds an appointment to the store, or updates an existing appointment if one exists with a lower nonce
+     * @param appointment
+     * @param contract
+     * @param listener
+     */
     addOrUpdateAppointment(appointment: IAppointment, contract: ethers.Contract, listener: ethers.providers.Listener) {
-        // PISA: is add + error safer here?
-        this.channels[appointment.getChannelIdentifier()] = {
-            appointment,
-            contract,
-            listener
-        };
-    }
-    // PISA: figure out when / whether appointment cleanup should happen
-    removeAppointment(appointment: IAppointment) {
-        this.channels[appointment.getChannelIdentifier()] = undefined;
-    }
-    getPreviousAppointment(appointment: IAppointment) {
-        // PISA: currently this means that we create new contract object unnecessarily
-        // PISA: we should also keep a contracts dictionary here
+        const appointmentAndListener = this.channels[appointment.getStateLocator()];
 
-        
-        
-        // PISA: check the nonce in here! the previous channel should have lower nonce
-        // getNonce()
-        return this.channels[appointment.getChannelIdentifier()];
+        if (!appointmentAndListener) {
+            // if the contract already exists increment the count, otherwise add the contract
+            const contractAndCount = this.contracts[appointment.getContractAddress()];
+            if (contractAndCount) contractAndCount.appointmentReferences = contractAndCount.appointmentReferences + 1;
+            else {
+                this.contracts[appointment.getContractAddress()] = {
+                    contract,
+                    appointmentReferences: 1
+                };
+            }
+        }
+        // added nonce should be strictly greater than current nonce
+        else if (appointmentAndListener.appointment.getStateNonce() >= appointment.getStateNonce()) {
+            logger.error(
+                `Nonce ${appointment.getStateNonce()} is not greater than current appointment ${appointmentAndListener.appointment.getStateLocator()} nonce ${appointmentAndListener.appointment.getStateNonce()}`
+            );
+            // PISA: if we've been given a nonce lower than the one we have already we should silently swallow it, not throw an error
+            // PISA: this is because we shouldn't be giving out information about what appointments are already in place
+            // PISA: we throw an error for now, with low information, but this should be removed.
+            throw new PublicInspectionError(`Nonce too low.`);
+        }
+
+        this.channels[appointment.getStateLocator()] = { appointment, listener };
+    }
+
+    /**
+     * Remove an appointment from the store. Also removes contract the corresponding contract if it is no longer referenced
+     * by any existing appointments.
+     * @param appointment
+     */
+    removeAppointment(appointment: IAppointment) {
+        // remove the appointment
+        this.channels[appointment.getStateLocator()] = undefined;
+
+        // and remove the contract if necessary
+        const contractAndCount = this.contracts[appointment.getContractAddress()];
+        if (contractAndCount.appointmentReferences === 1) this.contracts[appointment.getContractAddress()] = undefined;
+        else contractAndCount.appointmentReferences = contractAndCount.appointmentReferences - 1;
+    }
+
+    /**
+     * Check the store to see if an existing appointment has the same locator, but with a lower nonce;
+     * @param contractAddress
+     * @param channelLocator
+     * @param nonce
+     */
+    getPreviousAppointmentForChannel(contractAddress: string, channelLocator: string, nonce: number) {
+        // get the stored contract, if there isn't one there cant be an appointment either
+        const contract = this.getStoredContract(contractAddress);
+        if (!contract) return undefined;
+
+        const appointmentAndListener = this.channels[channelLocator];
+        if (appointmentAndListener) {
+            if (appointmentAndListener.appointment.getStateNonce() <= nonce) {
+                logger.error(
+                    `Nonce ${nonce} is not greater than current appointment ${appointmentAndListener.appointment.getStateLocator()} nonce ${appointmentAndListener.appointment.getStateNonce()}`
+                );
+                // PISA: if we've been given a nonce lower than the one we have already we should silently swallow it, not throw an error
+                // PISA: this is because we shouldn't be giving out information about what appointments are already in place
+                // PISA: we throw an error for now, with low information, but this should be removed.
+                throw new PublicInspectionError(`Nonce too low.`);
+            }
+        }
+
+        return { contract, ...appointmentAndListener };
+    }
+    getStoredContract(contractAddress: string): ethers.Contract {
+        const contractAndCount = this.contracts[contractAddress];
+        return contractAndCount && contractAndCount.contract;
     }
 }

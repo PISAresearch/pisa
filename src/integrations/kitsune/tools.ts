@@ -1,62 +1,13 @@
 import { solidityKeccak256 } from "ethers/utils";
-import { KitsuneAppointment } from "../../dataEntities/appointment";
-import { Contract, utils } from "ethers";
-import logger from "../../logger";
 import StateChannel from "./StateChannel.json";
-
-// quick wait
-const wait = (timeout: number) => {
-    return new Promise((resolve, reject) => {
-        setTimeout(() => {
-            resolve();
-        }, timeout);
-    });
-};
 
 /**
  * A library of the Kitsune specific functionality
  */
-export class KitsuneTools {
+export default class KitsuneTools {
     public static hashForSetState(hState: string, round: number, channelAddress: string) {
         return solidityKeccak256(["bytes32", "uint256", "address"], [hState, round, channelAddress]);
     }
-
-    public static disputeEvent = "EventDispute(uint256)";
-    public static async respond(contract: Contract, appointment: KitsuneAppointment, ...args: any[]) {
-        let sig0 = utils.splitSignature(appointment.stateUpdate.signatures[0]);
-        let sig1 = utils.splitSignature(appointment.stateUpdate.signatures[1]);
-
-        try {
-            let trying = true;
-            let tries = 0;
-            let tx;
-            while (trying && tries < 10) {
-                try {
-                    tx = await contract.setstate(
-                        [sig0.v - 27, sig0.r, sig0.s, sig1.v - 27, sig1.r, sig1.s],
-                        appointment.stateUpdate.round,
-                        appointment.stateUpdate.hashState
-                    );
-                    trying = false;
-                } catch (exe) {
-                    // lets retry this hard until we can no longer
-                    logger.error(`Failed to set state for contract ${contract.address}, re-tries ${tries}`)
-                    tries++;
-                    await wait(1000);
-                }
-            }
-
-            if(trying) throw new Error("Failed after 10 tries.")
-            else {
-                logger.info(`success after ${tries} tries.`)
-            }
-            return await tx.wait();
-        } catch (soh) {
-            logger.error(soh);
-            throw soh;
-        }
-    }
-
     public static ContractBytecode = StateChannel.bytecode;
     public static ContractDeployedBytecode = StateChannel.deployedBytecode;
     public static ContractAbi = StateChannel.abi;

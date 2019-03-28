@@ -1,6 +1,10 @@
 import { IAppointment } from "./dataEntities/appointment";
 import logger from "./logger";
 
+/**
+ * Responsible for responding to observed events.
+ * The responder is solely responsible for ensuring that a transaction gets to the blockchain
+ */
 export class Responder {
     constructor(private readonly retries: number) {}
 
@@ -16,19 +20,27 @@ export class Responder {
                 try {
                     let tx = await submitStateFunction();
                     await tx.wait();
-                    logger.info(`Successfully submitted state after ${tries + 1} tr${tries + 1 === 1 ? "y" : "ies"}.`);
+                    logger.info(
+                        `Successfully responded to ${appointment.getEventName()} for appointment ${appointment.getStateLocator()} after ${tries +
+                            1} tr${tries + 1 === 1 ? "y" : "ies"}.`
+                    );
                     return;
                 } catch (doh) {
                     // retry
                     logger.error(
-                        `Failed to submit state update for channel ${appointment.getChannelIdentifier()}, re-tries ${tries}`
+                        `Failed to respond to ${appointment.getEventName()} for appointment ${appointment.getStateLocator()}, re-tries ${tries +
+                            1}.`
                     );
+                    logger.error(doh);
                     tries++;
                     await wait(1000);
                 }
             }
 
-            logger.error("Failed after 10 tries.");
+            logger.error(
+                `Failed to respond to ${appointment.getEventName()} for appointment ${appointment.getStateLocator()}, after ${tries +
+                    1}. Giving up.`
+            );
         } catch (bigDoh) {
             logger.error(bigDoh);
         }

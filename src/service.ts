@@ -1,10 +1,10 @@
 import express, { Response } from "express";
 import httpContext from "express-http-context";
 import logger from "./logger";
-import { PublicValidationError, AppointmentRequest } from "./dataEntities/appointment";
-import { PublicInspectionError, IInspector, MultiInspector } from "./inspector/inspector";
-import { KitsuneInspector } from "./inspector/kitsune"
-import { RaidenInspector } from "./inspector/raiden"
+import { Appointment, AppointmentRequest, PublicInspectionError, PublicDataValidationError } from "./dataEntities";
+import { IInspector, MultiInspector } from "./inspector/inspector";
+import { KitsuneInspector } from "./inspector/kitsune";
+import { RaidenInspector } from "./inspector/raiden";
 import { Watcher } from "./watcher";
 // PISA: this isn working properly, it seems that watchers are sharing the last set value...
 import { setRequestId } from "./customExpressHttpContext";
@@ -19,8 +19,14 @@ import { Responder } from "./responder";
 export class PisaService {
     private readonly server: Server;
 
-    //PISA: arg documentation
-    constructor(hostname: string, port: number, provider: ethers.providers.Provider, wallet: ethers.Wallet) {
+    /**
+     *
+     * @param hostname The location to host the pisa service. eg. 0.0.0.0
+     * @param port The port on which to host the pisa service
+     * @param jsonRpcProvider A connection to ethereum
+     * @param wallet A signing authority for submitting transactions
+     */
+    constructor(hostname: string, port: number, jsonRpcProvider: ethers.providers.Provider, wallet: ethers.Wallet) {
         const app = express();
         // accept json request bodies
         app.use(express.json());
@@ -32,10 +38,10 @@ export class PisaService {
         });
 
         const responder = new Responder(10);
-        const watcher = new Watcher(provider, wallet, responder);
-        const kitsuneInspector = new KitsuneInspector(10, provider);
+        const watcher = new Watcher(jsonRpcProvider, wallet, responder);
+        const kitsuneInspector = new KitsuneInspector(10, jsonRpcProvider);
         // PISA: currently set to 4 for demo purposes - this should be a commandline/config arg
-        const raidenInspector = new RaidenInspector(4, provider);
+        const raidenInspector = new RaidenInspector(4, jsonRpcProvider);
         const multiInspector = new MultiInspector([kitsuneInspector, raidenInspector]);
 
         app.post("/appointment", this.appointment(multiInspector, watcher));
@@ -45,22 +51,28 @@ export class PisaService {
         this.server = service;
     }
 
+    // PISA: check all the logger calls for inspect()
+
     private appointment(inspector: IInspector, watcher: Watcher) {
         return async (req: express.Request, res: express.Response, next: express.NextFunction) => {
             try {
                 const appointmentRequest = AppointmentRequest.parse(req.body);
-                // inspect this appointment
-                const appointment = await inspector.inspect(appointmentRequest);
+                // inspect this appointment, an error is thrown if inspection is failed
+                await inspector.inspect(appointmentRequest);
+
+                // create a full appointment from the requst
+                const appointment = Appointment.fromAppointmentRequest(appointmentRequest, Date.now());
+                logger.info(`Appointment ${appointment.getStateIdentifier()} passed inspection`);
 
                 // start watching it if it passed inspection
-                await watcher.watch(appointment);
+                await watcher.addAppointment(appointment);
 
                 // return the appointment
                 res.status(200);
                 res.send(appointment);
             } catch (doh) {
                 if (doh instanceof PublicInspectionError) this.logAndSend(400, doh.message, doh, res);
-                else if (doh instanceof PublicValidationError) this.logAndSend(400, doh.message, doh, res);
+                else if (doh instanceof PublicDataValidationError) this.logAndSend(400, doh.message, doh, res);
                 else if (doh instanceof Error) this.logAndSend(500, "Internal server error.", doh, res);
                 else {
                     logger.error("Error: 500. " + inspect(doh));

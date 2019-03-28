@@ -1,6 +1,7 @@
-import { KitsuneAppointmentRequest, KitsuneAppointment, ChannelType } from "../dataEntities/appointment";
-import { PublicInspectionError, IInspector } from "./inspector";
-import { KitsuneTools } from "../integrations/kitsune/tools";
+import { IKitsuneAppointmentRequest, ChannelType } from "../dataEntities";
+import { IInspector } from "./inspector";
+import { PublicInspectionError } from "../dataEntities/errors";
+import KitsuneTools from "../integrations/kitsune/tools";
 import { ethers } from "ethers";
 import { verifyMessage } from "ethers/utils";
 import logger from "../logger";
@@ -16,7 +17,7 @@ export class KitsuneInspector implements IInspector {
      * Inspects an appointment to decide whether to accept it. Throws on reject.
      * @param appointmentRequest
      */
-    public async inspect(appointmentRequest: KitsuneAppointmentRequest) {
+    public async inspect(appointmentRequest: IKitsuneAppointmentRequest) {
         const contractAddress: string = appointmentRequest.stateUpdate.contractAddress;
 
         // log the appointment we're inspecting
@@ -60,11 +61,6 @@ export class KitsuneInspector implements IInspector {
                 } is not greater than the channel dispute period ${channelDisputePeriod}`
             );
         }
-
-        const appointment = this.createAppointment(appointmentRequest);
-        // PISA: inspect
-        logger.debug("Appointment: ", appointment);
-        return appointment;
     }
 
     /**
@@ -121,16 +117,6 @@ export class KitsuneInspector implements IInspector {
         // check the sigs
         this.verifySignatures(participants, setStateHash, signatures);
         logger.info("All participants have signed.");
-    }
-
-    /**
-     * Converts an appointment request into an appointment
-     * @param request
-     */
-    private createAppointment(request: KitsuneAppointmentRequest): KitsuneAppointment {
-        const startTime = Date.now();
-
-        return new KitsuneAppointment(request.stateUpdate, startTime, startTime + request.expiryPeriod, Date.now());
     }
 
     /**

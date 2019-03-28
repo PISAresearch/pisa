@@ -1,21 +1,14 @@
-import { IAppointmentRequest, IAppointment, ChannelType } from "../dataEntities/appointment";
-
-/**
- * Thrown when an appointment fails inspection
- * Error messages must be safe to expose publicly
- */
-export class PublicInspectionError extends Error {
-    constructor(message?: string) {
-        super(message);
-    }
-}
+import { IAppointmentRequest, ChannelType } from "../dataEntities";
+import { ConfigurationError } from "../dataEntities/errors";
 
 export interface IInspector {
     readonly channelType: ChannelType;
-    // PISA:  this should return a bool
-    inspect(appointmentRequest: IAppointmentRequest): IAppointment | Promise<IAppointment>;
+    inspect(appointmentRequest: IAppointmentRequest): Promise<void>;
 }
 
+/**
+ * Triages requests to configured inspectors
+ */
 export class MultiInspector implements IInspector {
     constructor(inspectors: IInspector[]) {
         inspectors.forEach(i => (this.inspectorLookup[i.channelType] = i));
@@ -25,14 +18,12 @@ export class MultiInspector implements IInspector {
         [type: number]: IInspector;
     } = {};
 
-    inspect(appointmentRequest: IAppointmentRequest) {
+    async inspect(appointmentRequest: IAppointmentRequest) {
         const inspector = this.inspectorLookup[appointmentRequest.type];
-        if (!inspector) {
-            throw new ConfigurationError(`Unregistered inspector type ${appointmentRequest.type}.`);
-        }
-        return inspector.inspect(appointmentRequest);
+        if (!inspector) throw new ConfigurationError(`Unregistered inspector type ${appointmentRequest.type}.`);
+
+        await inspector.inspect(appointmentRequest);
     }
 }
 
-// PISA: error handling for this + docs
-class ConfigurationError extends Error {}
+

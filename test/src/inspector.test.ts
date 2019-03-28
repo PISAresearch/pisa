@@ -1,10 +1,10 @@
 import * as chai from "chai";
 import "mocha";
 import { KitsuneInspector } from "../../src/inspector/kitsune";
-import { KitsuneTools } from "../../src/integrations/kitsune/tools";
+import KitsuneTools from "../../src/integrations/kitsune/tools";
 import { ethers } from "ethers";
 import Ganache from "ganache-core";
-import { ChannelType } from "../../src/dataEntities/appointment";
+import { ChannelType } from "../../src/dataEntities";
 const ganache = Ganache.provider({
     mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect"
 });

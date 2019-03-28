@@ -1,11 +1,11 @@
-import { RaidenAppointmentRequest, RaidenAppointment, ChannelType } from "../dataEntities/appointment";
+import { IRaidenAppointmentRequest, ChannelType } from "../dataEntities";
 import { ethers } from "ethers";
 import { verifyMessage } from "ethers/utils";
 import { BalanceProofSigGroup } from "../integrations/raiden/balanceProof";
 import logger from "../logger";
-import RaidenContracts from "../integrations/raiden/raiden_data.json";
-import { PublicInspectionError, IInspector } from "./inspector";
-const tokenNetworkAbi = RaidenContracts.contracts.TokenNetwork.abi;
+import RaidenTools from "../integrations/raiden/tools";
+import { IInspector } from "./inspector";
+import { PublicInspectionError } from "../dataEntities/errors"
 
 /**
  * Responsible for deciding whether to accept appointments
@@ -18,7 +18,7 @@ export class RaidenInspector implements IInspector {
      * Inspects an appointment to decide whether to accept it. Throws on reject.
      * @param appointmentRequest
      */
-    public async inspect(appointmentRequest: RaidenAppointmentRequest) {
+    public async inspect(appointmentRequest: IRaidenAppointmentRequest) {
         const contractAddress: string = appointmentRequest.stateUpdate.token_network_identifier;
 
         // log the appointment we're inspecting
@@ -39,7 +39,7 @@ export class RaidenInspector implements IInspector {
         // }
 
         // create a contract reference
-        const contract: ethers.Contract = new ethers.Contract(contractAddress, tokenNetworkAbi, this.provider);
+        const contract: ethers.Contract = new ethers.Contract(contractAddress, RaidenTools.ContractAbi, this.provider);
 
         // verify the appointment
         ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -156,21 +156,5 @@ export class RaidenInspector implements IInspector {
         ///////////////////////////////////////////////////////////////////////////////////////////////////////////
         ///////////////////////////////////////////////////////////////////////////////////////////////////////////
         ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-        // here we want to
-        const appointment = this.createAppointment(appointmentRequest);
-        logger.debug("Appointment: ", appointment);
-        return appointment;
-    }
-
-    /**
-     * Converts an appointment request into an appointment
-     * @param request
-     */
-    private createAppointment(request: RaidenAppointmentRequest): RaidenAppointment {
-        const startTime = Date.now();
-
-        // PISA: just factory this
-        return new RaidenAppointment(request.stateUpdate, startTime, startTime + request.expiryPeriod, Date.now());
     }
 }
