@@ -77,7 +77,7 @@ describe("Raiden end-to-end tests for scenario 2 (with Pisa)", function() {
 
         //Start parity node
         parity = exec(`docker-compose -f ${demoDir}/docker/parity-loaded.docker-compose.yml up`);
-        const parityLogStream = await fse.createWriteStream('./parity.test.log', {flags: 'a'});
+        const parityLogStream = await fse.createWriteStream(`${pisaRoot}/logs/parity.test.log`, {flags: 'a'});
         parity.stdout.pipe(parityLogStream);
         parity.stderr.pipe(parityLogStream);
 
@@ -92,7 +92,7 @@ describe("Raiden end-to-end tests for scenario 2 (with Pisa)", function() {
         const aliceCmd = `${demoDir}/raiden --gas-price fast --accept-disclaimer --keystore-path ${demoDir}/docker/test-accounts --datadir ${demoDir}/.raiden --network-id ropsten --eth-rpc-endpoint http://localhost:8545 --address 0x${aliceAddr} --api-address http://0.0.0.0:6662 --password-file ${demoDir}/docker/test-accounts/password--${aliceAddrLow}.txt  --no-sync-check --disable-debug-logfile --tokennetwork-registry-contract-address 0xCa70BfDEa6BD82e45d4fD26Dd9f36DB9fad61796 --secret-registry-contract-address 0xaFa1F14fe33940b22D7f9F9bf0d707860C9233e2 --endpoint-registry-contract-address 0xa4f842B60C8a21c54b16E7940aA16Dda80301d13`;
         alice = exec(aliceCmd);
         subprocesses.push(alice);
-        const aliceLogStream = await fse.createWriteStream('./alice.test.log', {flags: 'a'});
+        const aliceLogStream = await fse.createWriteStream(`${pisaRoot}/logs/alice.test.log`, {flags: 'a'});
         alice.stdout.pipe(aliceLogStream);
         alice.stderr.pipe(aliceLogStream);
 
@@ -102,7 +102,7 @@ describe("Raiden end-to-end tests for scenario 2 (with Pisa)", function() {
         const bobCmd = `${demoDir}/raiden --gas-price fast --accept-disclaimer --keystore-path ${demoDir}/docker/test-accounts --datadir ${demoDir}/.raiden --network-id ropsten --eth-rpc-endpoint http://localhost:8545 --address 0x${bobAddr} --api-address http://0.0.0.0:6663 --password-file ${demoDir}/docker/test-accounts/password--${bobAddrLow}.txt  --no-sync-check --disable-debug-logfile --tokennetwork-registry-contract-address 0xCa70BfDEa6BD82e45d4fD26Dd9f36DB9fad61796 --secret-registry-contract-address 0xaFa1F14fe33940b22D7f9F9bf0d707860C9233e2 --endpoint-registry-contract-address 0xa4f842B60C8a21c54b16E7940aA16Dda80301d13`;
         bob = exec(bobCmd);
         subprocesses.push(bob);
-        const bobLogStream = await fse.createWriteStream('./bob.test.log', {flags: 'a'});
+        const bobLogStream = await fse.createWriteStream(`${pisaRoot}/logs/bob.test.log`, {flags: 'a'});
         bob.stdout.pipe(bobLogStream);
         bob.stderr.pipe(bobLogStream);
 
@@ -112,7 +112,7 @@ describe("Raiden end-to-end tests for scenario 2 (with Pisa)", function() {
             throw err;
         });
         subprocesses.push(pisa);
-        const pisaLogStream = await fse.createWriteStream('./pisa.test.log', {flags: 'a'});
+        const pisaLogStream = await fse.createWriteStream(`${pisaRoot}/logs/pisa.test.log`, {flags: 'a'});
         pisa.stdout.pipe(pisaLogStream);
         pisa.stderr.pipe(pisaLogStream);
 
@@ -125,7 +125,7 @@ describe("Raiden end-to-end tests for scenario 2 (with Pisa)", function() {
             throw err;
         });
         subprocesses.push(daemon);
-        const daemonLogStream = await fse.createWriteStream('./daemon.test.log', {flags: 'a'});
+        const daemonLogStream = await fse.createWriteStream(`${pisaRoot}/logs/daemon.test.log`, {flags: 'a'});
         daemon.stdout.pipe(daemonLogStream);
         daemon.stderr.pipe(daemonLogStream);
 
@@ -197,7 +197,7 @@ describe("Raiden end-to-end tests for scenario 2 (with Pisa)", function() {
 
         //TODO: should we wait here?
 
-        await timeout(10*blockTime);
+        await timeout(20*blockTime);
 
 
         // Make a payment from Bob to Alice
@@ -211,7 +211,7 @@ describe("Raiden end-to-end tests for scenario 2 (with Pisa)", function() {
         console.log("Payment result:", paymentResult);
 
         // Wait to give time to daemon and Pisa to pick up the appointment 
-        await timeout(10 * blockTime);
+        await timeout(10 * 1000);
 
         // Shutdown Alice
         await new Promise(resolve => kill(alice.pid, 'SIGKILL', resolve));
