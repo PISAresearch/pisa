@@ -22,7 +22,7 @@ if (argv.hostName) config.host.name = argv.hostName;
 if (argv.hostPort) config.host.port = argv.hostPort;
 if (argv.watcherKey) config.watcherKey = argv.watcherKey;
 
-getJsonRPCProvider().then(
+getJsonRPCProvider(config.jsonRpcUrl).then(
     provider => {
         const watcherWallet = new ethers.Wallet(config.watcherKey, provider);
 
