@@ -1,37 +1,30 @@
-import { IRaidenAppointmentRequest, ChannelType } from "../dataEntities";
+import { RaidenAppointment, ChannelType } from "../dataEntities";
 import { ethers } from "ethers";
 import { verifyMessage } from "ethers/utils";
 import { BalanceProofSigGroup } from "../integrations/raiden/balanceProof";
 import logger from "../logger";
 import RaidenTools from "../integrations/raiden/tools";
-import { IInspector } from "./inspector";
-import { PublicInspectionError } from "../dataEntities/errors"
+import { Inspector } from "./inspector";
+import { PublicInspectionError } from "../dataEntities/errors";
 
 /**
  * Responsible for deciding whether to accept appointments
  */
-export class RaidenInspector implements IInspector {
-    constructor(private readonly minimumDisputePeriod: number, private readonly provider: ethers.providers.Provider) {}
-    public readonly channelType = ChannelType.Raiden;
+export class RaidenInspector extends Inspector {
+    constructor(private readonly minimumDisputePeriod: number, private readonly provider: ethers.providers.Provider) {
+        super(ChannelType.Raiden);
+    }
 
     /**
      * Inspects an appointment to decide whether to accept it. Throws on reject.
-     * @param appointmentRequest
+     * @param appointment
      */
-    public async inspect(appointmentRequest: IRaidenAppointmentRequest) {
-        const contractAddress: string = appointmentRequest.stateUpdate.token_network_identifier;
-
-        // log the appointment we're inspecting
-        logger.info(
-            `Inspecting appointment ${
-                appointmentRequest.stateUpdate.channel_identifier
-            } for contract ${contractAddress}.`
-        );
-        logger.debug("Appointment request: " + JSON.stringify(appointmentRequest));
+    public async checkInspection(appointment: RaidenAppointment) {
+        const contractAddress: string = appointment.stateUpdate.token_network_identifier;
         const code: string = await this.provider.getCode(contractAddress);
         // check that the channel is a contract
         if (code === "0x" || code === "0x00") {
-            throw new PublicInspectionError(`No code found at address ${contractAddress}`);
+            throw new PublicInspectionError(`No code found at address ${contractAddress}.`);
         }
         // PISA: include this check for raiden
         // if (code != this.deployedBytecode) {
@@ -51,31 +44,31 @@ export class RaidenInspector implements IInspector {
         // get the channel identifier, and the participant info for the counterparty
 
         const participantInfo = await contract.getChannelParticipantInfo(
-            appointmentRequest.stateUpdate.channel_identifier,
-            appointmentRequest.stateUpdate.closing_participant,
-            appointmentRequest.stateUpdate.non_closing_participant
+            appointment.stateUpdate.channel_identifier,
+            appointment.stateUpdate.closing_participant,
+            appointment.stateUpdate.non_closing_participant
         );
         const nonce = participantInfo[4];
         const channelInfo = await contract.getChannelInfo(
-            appointmentRequest.stateUpdate.channel_identifier,
-            appointmentRequest.stateUpdate.closing_participant,
-            appointmentRequest.stateUpdate.non_closing_participant
+            appointment.stateUpdate.channel_identifier,
+            appointment.stateUpdate.closing_participant,
+            appointment.stateUpdate.non_closing_participant
         );
         const settleBlockNumber = channelInfo[0];
         const status = channelInfo[1];
 
-        logger.info(`Round at ${contract.address}: ${nonce.toString(10)}`);
-        if (appointmentRequest.stateUpdate.nonce <= nonce) {
+        logger.info(appointment.formatLogEvent(`On-chain round: ${nonce.toString(10)}.`));
+        if (appointment.stateUpdate.nonce <= nonce) {
             throw new PublicInspectionError(
                 `Supplied appointment round ${
-                    appointmentRequest.stateUpdate.nonce
-                } is not greater than channel round ${nonce}`
+                    appointment.stateUpdate.nonce
+                } is not greater than channel round ${nonce}.`
             );
         }
 
         // check that the channel is currently in the ON state
         const channelStatus: number = await status;
-        logger.info(`Channel status at ${contract.address}: ${JSON.stringify(channelStatus)}`);
+        logger.info(appointment.formatLogEvent(`On-chain status: ${channelStatus}.`));
 
         //     NonExistent, // 0
         //     Opened,      // 1
@@ -93,12 +86,12 @@ export class RaidenInspector implements IInspector {
         // 2) When closeChannel is called it is updated with += block.number
         // we've checked that the status is correct - so we must be in situation 1)
         const channelDisputePeriod: number = await settleBlockNumber;
-        logger.info(`Dispute period at ${contract.address}: ${channelDisputePeriod.toString(10)}`);
+        logger.info(appointment.formatLogEvent(`On-chain dispute period: ${channelDisputePeriod.toString(10)}.`));
         if (channelDisputePeriod <= this.minimumDisputePeriod) {
             throw new PublicInspectionError(
-                `Channel dispute period ${channelDisputePeriod} is less than or equal the minimum acceptable dispute period ${
-                    this.minimumDisputePeriod
-                }`
+                `Channel dispute period ${channelDisputePeriod.toString(
+                    10
+                )} is less than or equal the minimum acceptable dispute period ${this.minimumDisputePeriod}.`
             );
         }
 
@@ -107,52 +100,52 @@ export class RaidenInspector implements IInspector {
         // if a client submits a request for an appointment that will always expire before a dispute can complete then
         // there is never any recourse against PISA.
         const currentBlockNumber = await this.provider.getBlockNumber();
-        if (appointmentRequest.expiryPeriod <= channelDisputePeriod - currentBlockNumber) {
+        if (appointment.expiryPeriod <= channelDisputePeriod - currentBlockNumber) {
             throw new PublicInspectionError(
                 `Supplied appointment expiryPeriod ${
-                    appointmentRequest.expiryPeriod
-                } is not greater than the channel dispute period ${channelDisputePeriod}`
+                    appointment.expiryPeriod
+                } is not greater than the channel dispute period ${channelDisputePeriod.toString(10)}.`
             );
         }
 
         // form the data required to verify raiden sigs
         let sigGroup: BalanceProofSigGroup = new BalanceProofSigGroup(
-            appointmentRequest.stateUpdate.token_network_identifier,
-            appointmentRequest.stateUpdate.chain_id,
-            appointmentRequest.stateUpdate.channel_identifier,
-            appointmentRequest.stateUpdate.balance_hash,
-            appointmentRequest.stateUpdate.nonce,
-            appointmentRequest.stateUpdate.additional_hash,
-            appointmentRequest.stateUpdate.closing_signature
+            appointment.stateUpdate.token_network_identifier,
+            appointment.stateUpdate.chain_id,
+            appointment.stateUpdate.channel_identifier,
+            appointment.stateUpdate.balance_hash,
+            appointment.stateUpdate.nonce,
+            appointment.stateUpdate.additional_hash,
+            appointment.stateUpdate.closing_signature
         );
 
         // a) did the non closing participant sign the message?
         let nonClosingAccount = verifyMessage(
             ethers.utils.arrayify(sigGroup.packForNonCloser()),
-            appointmentRequest.stateUpdate.non_closing_signature
+            appointment.stateUpdate.non_closing_signature
         );
-        if (appointmentRequest.stateUpdate.non_closing_participant !== nonClosingAccount) {
+        if (appointment.stateUpdate.non_closing_participant !== nonClosingAccount) {
             throw new PublicInspectionError(
                 `Supplied non_closing_signature was created by account ${nonClosingAccount}, not account ${
-                    appointmentRequest.stateUpdate.non_closing_participant
-                }`
+                    appointment.stateUpdate.non_closing_participant
+                }.`
             );
         }
 
         // b) did the closing participant sign the message?
         let closingAccount = verifyMessage(
             ethers.utils.arrayify(sigGroup.packForCloser()),
-            appointmentRequest.stateUpdate.closing_signature
+            appointment.stateUpdate.closing_signature
         );
-        if (appointmentRequest.stateUpdate.closing_participant !== closingAccount) {
+        if (appointment.stateUpdate.closing_participant !== closingAccount) {
             throw new PublicInspectionError(
                 `Supplied non_closing_signature was created by account ${closingAccount}, not account ${
-                    appointmentRequest.stateUpdate.closing_participant
-                }`
+                    appointment.stateUpdate.closing_participant
+                }.`
             );
         }
 
-        logger.info("All participants have signed.");
+        logger.info(appointment.formatLogEvent("All participants have signed."));
         ///////////////////////////////////////////////////////////////////////////////////////////////////////////
         ///////////////////////////////////////////////////////////////////////////////////////////////////////////
         ///////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -21,15 +21,19 @@ export class Responder {
                     let tx = await submitStateFunction();
                     await tx.wait();
                     logger.info(
-                        `Successfully responded to ${appointment.getEventName()} for appointment ${appointment.getStateLocator()} after ${tries +
-                            1} tr${tries + 1 === 1 ? "y" : "ies"}.`
+                        appointment.formatLogEvent(
+                            `Successfully responded to ${appointment.getEventName()} for appointment ${appointment.getStateLocator()} after ${tries +
+                                1} tr${tries + 1 === 1 ? "y" : "ies"}.`
+                        )
                     );
                     return;
                 } catch (doh) {
                     // retry
                     logger.error(
-                        `Failed to respond to ${appointment.getEventName()} for appointment ${appointment.getStateLocator()}, re-tries ${tries +
-                            1}.`
+                        appointment.formatLogEvent(
+                            `Failed to respond to ${appointment.getEventName()} for appointment ${appointment.getStateLocator()}, re-tries ${tries +
+                                1}.`
+                        )
                     );
                     logger.error(doh);
                     tries++;
@@ -38,8 +42,10 @@ export class Responder {
             }
 
             logger.error(
-                `Failed to respond to ${appointment.getEventName()} for appointment ${appointment.getStateLocator()}, after ${tries +
-                    1}. Giving up.`
+                appointment.formatLogEvent(
+                    `Failed to respond to ${appointment.getEventName()} for appointment ${appointment.getStateLocator()}, after ${tries +
+                        1}. Giving up.`
+                )
             );
         } catch (bigDoh) {
             logger.error(bigDoh);

@@ -6,7 +6,7 @@ import { ethers } from "ethers";
 import { PisaService } from "../../src/service";
 import config from "../../src/dataEntities/config";
 import Ganache from "ganache-core";
-import { IKitsuneAppointmentRequest, ChannelType } from "../../src/dataEntities";
+import { KitsuneAppointment } from "../../src/dataEntities";
 import logger from "../../src/logger";
 import StateChannelFactory from "../../statechannels/build/contracts/StateChannelFactory.json";
 logger.transports.forEach(l => (l.level = "max"));
@@ -64,18 +64,18 @@ describe("Service end-to-end", () => {
             sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash)),
             sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash)),
             expiryPeriod = disputePeriod + 1;
-        const appointmentRequest: IKitsuneAppointmentRequest = {
-            expiryPeriod,
-            type: ChannelType.Kitsune,
-            stateUpdate: {
+
+        const appointment = new KitsuneAppointment(
+            {
                 contractAddress: channelContract.address,
                 hashState,
                 round,
                 signatures: [sig0, sig1]
-            }
-        };
+            },
+            expiryPeriod
+        );
 
-        await request.post(`http://${config.host.name}:${config.host.port}/appointment`, { json: appointmentRequest });
+        await request.post(`http://${config.host.name}:${config.host.port}/appointment`, { json: appointment });
 
         // now register a callback on the setstate event and trigger a response
         const setStateEvent = "EventEvidence(uint256, bytes32)";
@@ -104,18 +104,17 @@ describe("Service end-to-end", () => {
             sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash)),
             sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash)),
             expiryPeriod = disputePeriod + 1;
-        const appointmentRequest: IKitsuneAppointmentRequest = {
-            expiryPeriod,
-            type: ChannelType.Kitsune,
-            stateUpdate: {
+        const appointment = new KitsuneAppointment(
+            {
                 contractAddress: channelContract.address,
                 hashState,
                 round,
                 signatures: [sig0, sig1]
-            }
-        };
+            },
+            expiryPeriod
+        );
 
-        await failWithCode('400 - "Supplied appointment round', appointmentRequest);
+        await failWithCode('400 - "Supplied appointment round', appointment);
     }).timeout(3000);
 
     it("create channel, submit round = -1 too low returns 400", async () => {
@@ -124,18 +123,17 @@ describe("Service end-to-end", () => {
             sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash)),
             sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash)),
             expiryPeriod = disputePeriod + 1;
-        const appointmentRequest: IKitsuneAppointmentRequest = {
-            expiryPeriod,
-            type: ChannelType.Kitsune,
-            stateUpdate: {
+        const appointment = new KitsuneAppointment(
+            {
                 contractAddress: channelContract.address,
                 hashState,
                 round,
                 signatures: [sig0, sig1]
-            }
-        };
+            },
+            expiryPeriod
+        );
 
-        await failWithCode('400 - "Supplied appointment round', appointmentRequest);
+        await failWithCode('400 - "Supplied appointment round', appointment);
     }).timeout(3000);
 
     it("create channel, expiry = dispute period returns 400", async () => {
@@ -144,18 +142,17 @@ describe("Service end-to-end", () => {
             sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash)),
             sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash)),
             expiryPeriod = disputePeriod;
-        const appointmentRequest: IKitsuneAppointmentRequest = {
-            expiryPeriod,
-            type: ChannelType.Kitsune,
-            stateUpdate: {
+        const appointment = new KitsuneAppointment(
+            {
                 contractAddress: channelContract.address,
                 hashState,
                 round,
                 signatures: [sig0, sig1]
-            }
-        };
+            },
+            expiryPeriod
+        );
 
-        await failWithCode('400 - "Supplied appointment expiryPeriod', appointmentRequest);
+        await failWithCode('400 - "Supplied appointment expiryPeriod', appointment);
     }).timeout(3000);
 
     it("create channel, expiry period = dispute period - 1 too low returns 400", async () => {
@@ -164,18 +161,17 @@ describe("Service end-to-end", () => {
             sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash)),
             sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash)),
             expiryPeriod = disputePeriod - 1;
-        const appointmentRequest: IKitsuneAppointmentRequest = {
-            expiryPeriod,
-            type: ChannelType.Kitsune,
-            stateUpdate: {
+        const appointment = new KitsuneAppointment(
+            {
                 contractAddress: channelContract.address,
                 hashState,
                 round,
                 signatures: [sig0, sig1]
-            }
-        };
+            },
+            expiryPeriod
+        );
 
-        await failWithCode('400 - "Supplied appointment expiryPeriod', appointmentRequest);
+        await failWithCode('400 - "Supplied appointment expiryPeriod', appointment);
     }).timeout(3000);
 
     it("create channel, non existant contact returns 400", async () => {
@@ -184,21 +180,20 @@ describe("Service end-to-end", () => {
             sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash)),
             sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash)),
             expiryPeriod = disputePeriod + 1;
-        const appointmentRequest: IKitsuneAppointmentRequest = {
-            expiryPeriod,
-            type: ChannelType.Kitsune,
-            stateUpdate: {
+        const appointment = new KitsuneAppointment(
+            {
                 // random address
                 contractAddress: "0x4bf3A7dFB3b76b5B3E169ACE65f888A4b4FCa5Ee",
                 hashState,
                 round,
                 signatures: [sig0, sig1]
-            }
-        };
+            },
+            expiryPeriod
+        );
 
         await failWithCode(
-            `400 - "No code found at address ${appointmentRequest.stateUpdate.contractAddress}`,
-            appointmentRequest
+            `400 - "No code found at address ${appointment.stateUpdate.contractAddress}`,
+            appointment
         );
     }).timeout(3000);
 
@@ -218,21 +213,20 @@ describe("Service end-to-end", () => {
             sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash)),
             sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash)),
             expiryPeriod = disputePeriod + 1;
-        const appointmentRequest: IKitsuneAppointmentRequest = {
-            expiryPeriod,
-            type: ChannelType.Kitsune,
-            stateUpdate: {
+        const appointment = new KitsuneAppointment(
+            {
                 // random address
                 contractAddress: channelFactoryContract.address,
                 hashState,
                 round,
                 signatures: [sig0, sig1]
-            }
-        };
+            },
+            expiryPeriod
+        );
 
         await failWithCode(
-            `400 - "Contract at: ${appointmentRequest.stateUpdate.contractAddress} does not have correct bytecode.`,
-            appointmentRequest
+            `400 - "Contract at: ${appointment.stateUpdate.contractAddress} does not have correct bytecode.`,
+            appointment
         );
     }).timeout(3000);
 
@@ -242,21 +236,20 @@ describe("Service end-to-end", () => {
             sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash)),
             sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash)),
             expiryPeriod = disputePeriod + 1;
-        const appointmentRequest: IKitsuneAppointmentRequest = {
-            expiryPeriod,
-            type: ChannelType.Kitsune,
-            stateUpdate: {
+        const appointment = new KitsuneAppointment(
+            {
                 // invalid address
                 contractAddress: "0x4bf3A7dFB3b76b",
                 hashState,
                 round,
                 signatures: [sig0, sig1]
-            }
-        };
+            },
+            expiryPeriod
+        );
 
         await failWithCode(
-            `400 - "${appointmentRequest.stateUpdate.contractAddress} is not a valid address.`,
-            appointmentRequest
+            `400 - "${appointment.stateUpdate.contractAddress} is not a valid address.`,
+            appointment
         );
     }).timeout(3000);
 
@@ -266,19 +259,18 @@ describe("Service end-to-end", () => {
             sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash)),
             sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash)),
             expiryPeriod = disputePeriod + 1;
-        const appointmentRequest: IKitsuneAppointmentRequest = {
-            expiryPeriod,
-            type: ChannelType.Kitsune,
-            stateUpdate: {
+        const appointment = new KitsuneAppointment(
+            {
                 contractAddress: channelContract.address,
                 // invalid hash state
                 hashState: "0x4bf3A7dFB3b76b",
                 round,
                 signatures: [sig0, sig1]
-            }
-        };
+            },
+            expiryPeriod
+        );
 
-        await failWithCode(`400 - "Invalid bytes32: ${appointmentRequest.stateUpdate.hashState}`, appointmentRequest);
+        await failWithCode(`400 - "Invalid bytes32: ${appointment.stateUpdate.hashState}`, appointment);
     }).timeout(3000);
 
     it("create channel, wrong state hash returns 400", async () => {
@@ -287,21 +279,20 @@ describe("Service end-to-end", () => {
             sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash)),
             sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash)),
             expiryPeriod = disputePeriod + 1;
-        const appointmentRequest: IKitsuneAppointmentRequest = {
-            expiryPeriod,
-            type: ChannelType.Kitsune,
-            stateUpdate: {
+        const appointment = new KitsuneAppointment(
+            {
                 contractAddress: channelContract.address,
                 // substute the state hash for the set state hash
                 hashState: setStateHash,
                 round,
                 signatures: [sig0, sig1]
-            }
-        };
+            },
+            expiryPeriod
+        );
 
         await failWithCode(
             '400 - "Party 0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1 not present in signatures',
-            appointmentRequest
+            appointment
         );
     }).timeout(3000);
 
@@ -312,20 +303,19 @@ describe("Service end-to-end", () => {
             // sign the wrong hash
             sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(hashState)),
             sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(hashState));
-        const appointmentRequest: IKitsuneAppointmentRequest = {
-            expiryPeriod,
-            type: ChannelType.Kitsune,
-            stateUpdate: {
+        const appointment = new KitsuneAppointment(
+            {
                 contractAddress: channelContract.address,
                 hashState,
                 round,
                 signatures: [sig0, sig1]
-            }
-        };
+            },
+            expiryPeriod
+        );
 
         await failWithCode(
             '400 - "Party 0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1 not present in signatures',
-            appointmentRequest
+            appointment
         );
     }).timeout(3000);
 
@@ -337,20 +327,19 @@ describe("Service end-to-end", () => {
             sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash)),
             sig1 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash));
 
-        const appointmentRequest: IKitsuneAppointmentRequest = {
-            expiryPeriod,
-            type: ChannelType.Kitsune,
-            stateUpdate: {
+        const appointment = new KitsuneAppointment(
+            {
                 contractAddress: channelContract.address,
                 hashState,
                 round,
                 signatures: [sig0, sig1]
-            }
-        };
+            },
+            expiryPeriod
+        );
 
         await failWithCode(
             '400 - "Party 0xFFcf8FDEE72ac11b5c542428B35EEF5769C409f0 not present in signatures',
-            appointmentRequest
+            appointment
         );
     }).timeout(3000);
 
@@ -361,18 +350,17 @@ describe("Service end-to-end", () => {
             //sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash)),
             sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash));
 
-        const appointmentRequest: IKitsuneAppointmentRequest = {
-            expiryPeriod,
-            type: ChannelType.Kitsune,
-            stateUpdate: {
+        const appointment = new KitsuneAppointment(
+            {
                 contractAddress: channelContract.address,
                 hashState,
                 round,
                 signatures: [sig1]
-            }
-        };
+            },
+            expiryPeriod
+        );
 
-        await failWithCode('400 - "Incorrect number of signatures supplied', appointmentRequest);
+        await failWithCode('400 - "Incorrect number of signatures supplied', appointment);
     }).timeout(3000);
 
     it("create channel, sigs in wrong order returns 200", async () => {
@@ -381,29 +369,28 @@ describe("Service end-to-end", () => {
             sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash)),
             sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash)),
             expiryPeriod = disputePeriod + 1;
-        const appointmentRequest: IKitsuneAppointmentRequest = {
-            expiryPeriod,
-            type: ChannelType.Kitsune,
-            stateUpdate: {
+        const appointment = new KitsuneAppointment(
+            {
                 contractAddress: channelContract.address,
                 hashState,
                 round,
                 signatures: [sig0, sig1]
-            }
-        };
+            },
+            expiryPeriod
+        );
         try {
             await request.post(`http://${config.host.name}:${config.host.port}/appointment`, {
-                json: appointmentRequest
+                json: appointment
             });
         } catch (doh) {
             chai.assert.fail();
         }
     }).timeout(3000);
 
-    const failWithCode = async (errorMessage: string, appointmentRequest: IKitsuneAppointmentRequest) => {
+    const failWithCode = async (errorMessage: string, appointment: KitsuneAppointment) => {
         try {
             await request.post(`http://${config.host.name}:${config.host.port}/appointment`, {
-                json: appointmentRequest
+                json: appointment
             });
             chai.assert.fail(true, false, "Request was successful when it should have failed.");
         } catch (doh) {

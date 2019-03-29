@@ -4,9 +4,9 @@ import { Watcher } from "../../src/watcher";
 import KitsuneTools from "../../src/integrations/kitsune/tools";
 import { ethers } from "ethers";
 import Ganache from "ganache-core";
-import { ChannelType, IKitsuneAppointmentRequest, Appointment } from "../../src/dataEntities";
+import { ChannelType, KitsuneAppointment, Appointment } from "../../src/dataEntities";
 import { Responder } from "../../src/responder";
-const ganache = Ganache.provider({ 
+const ganache = Ganache.provider({
     mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect"
 });
 
@@ -49,26 +49,24 @@ describe("End to end", () => {
     it("inspect and watch a contract", async () => {
         const inspector = new KitsuneInspector(10, provider);
         // 1. Verify appointment
-        const appointmentRequest: IKitsuneAppointmentRequest = {
-            stateUpdate: {
+        const appointment = new KitsuneAppointment(
+            {
                 contractAddress: channelContract.address,
                 hashState: hashState,
                 round: 1,
                 signatures: [sig0, sig1]
             },
-            type: ChannelType.Kitsune,
-            expiryPeriod: 12
-        };
-        await inspector.inspect(appointmentRequest);         
-        const appointment = Appointment.fromAppointmentRequest(appointmentRequest, Date.now())
+            12
+        );
+        await inspector.inspectAndPass(appointment);
 
         // 2. pass this appointment to the watcher
-        const responder = new Responder(10)
+        const responder = new Responder(10);
         const watcher = new Watcher(provider, provider.getSigner(pisaAccount), responder);
         const player0Contract = channelContract.connect(provider.getSigner(player0));
-        
+
         await watcher.addAppointment(appointment);
-        
+
         // 3. Trigger a dispute
         const tx = await player0Contract.triggerDispute();
         await tx.wait();

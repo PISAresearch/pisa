@@ -1,19 +1,19 @@
 import { utils, ethers } from "ethers";
 import RaidenTools from "../integrations/raiden/tools";
 import KitsuneTools from "./../integrations/kitsune/tools";
-import { ConfigurationError } from "./errors";
-import { IAppointmentRequest, IKitsuneAppointmentRequest, IRaidenAppointmentRequest } from "./appointmentRequest";
+import { PublicDataValidationError } from "./errors";
+import { checkRaidenAppointment, checkKitsuneAppointment } from "./checkAppointment";
 import { IRaidenStateUpdate, IKitsuneStateUpdate } from "./stateUpdate";
 import { ChannelType } from "./channelType";
-import logger from "../logger";
-import { inspect } from "util";
 
 /**
  * An appointment that has been accepted by PISA
  */
 export interface IAppointment {
+    expiryPeriod: number;
     startTime: number;
     endTime: number;
+    passedInspection: boolean;
     type: ChannelType;
     getStateLocator(): string;
     getContractAbi(): any;
@@ -23,13 +23,42 @@ export interface IAppointment {
     getStateIdentifier(): string;
     getStateNonce(): number;
     getSubmitStateFunction(): (contract: ethers.Contract, ...args: any[]) => Promise<void>;
+    setInspectionResult(passed: boolean, startTime: number): void;
+    formatLogEvent(event: string): string;
 }
 
 /**
  * An appointment that has been accepted by PISA
  */
 export abstract class Appointment implements IAppointment {
-    constructor(readonly startTime: number, readonly endTime: number, readonly type: ChannelType) {}
+    constructor(readonly expiryPeriod: number, readonly type: ChannelType) {}
+
+    private mStartTime: number;
+    public get startTime(): number {
+        return this.mStartTime;
+    }
+
+    private mEndTime: number;
+    public get endTime(): number {
+        return this.mEndTime;
+    }
+
+    private mPassedInspection: boolean;
+    public get passedInspection(): boolean {
+        return this.mPassedInspection;
+    }
+
+    public setInspectionResult(passed: boolean, startTime: number) {
+        this.mPassedInspection = passed;
+        if (passed) {
+            this.mStartTime = startTime;
+            this.mEndTime = startTime + this.expiryPeriod;
+        }
+    }
+
+    public formatLogEvent(event: string) {
+        return `Appointment|${this.getStateIdentifier()}| ${event}`;
+    }
 
     /**
      * A combination of the state locator and the nonce for this state update
@@ -47,18 +76,22 @@ export abstract class Appointment implements IAppointment {
     abstract getEventFilter(contract: ethers.Contract);
     abstract getEventName(): string;
     abstract getStateNonce(): number;
-    abstract getSubmitStateFunction(): (contract: ethers.Contract, ...args: any[]) => Promise<void>;
+    abstract getSubmitStateFunction(): (contract: ethers.Contract) => Promise<void>;
 
-    static fromAppointmentRequest(appointmentRequest: IAppointmentRequest, startTime: number) {
-        switch (appointmentRequest.type) {
+    static parse(obj: any): Appointment {
+        // look for a type argument
+        const type = obj["type"];
+        switch (type) {
             case ChannelType.Kitsune:
-                const kitsune = appointmentRequest as IKitsuneAppointmentRequest;
-                return new KitsuneAppointment(kitsune.stateUpdate, startTime, startTime + kitsune.expiryPeriod);
+                checkKitsuneAppointment(obj);
+                const tempKitsuneObj = obj as KitsuneAppointment;
+                return new KitsuneAppointment(tempKitsuneObj.stateUpdate, tempKitsuneObj.expiryPeriod);
             case ChannelType.Raiden:
-                const raiden = appointmentRequest as IRaidenAppointmentRequest;
-                return new RaidenAppointment(raiden.stateUpdate, startTime, startTime + raiden.expiryPeriod);
+                checkRaidenAppointment(obj);
+                const tempRaidenObj = obj as RaidenAppointment;
+                return new RaidenAppointment(tempRaidenObj.stateUpdate, tempRaidenObj.expiryPeriod);
             default:
-                throw new ConfigurationError(`Unknown appointment request type ${appointmentRequest.type}.`);
+                throw new PublicDataValidationError(`Unknown appointment request type ${type}.`);
         }
     }
 }
@@ -67,8 +100,8 @@ export abstract class Appointment implements IAppointment {
  * An appointment containing kitsune specific information
  */
 export class KitsuneAppointment extends Appointment {
-    constructor(readonly stateUpdate: IKitsuneStateUpdate, startTime: number, endTime: number) {
-        super(startTime, endTime, ChannelType.Kitsune);
+    constructor(readonly stateUpdate: IKitsuneStateUpdate, expiryPeriod: number) {
+        super(expiryPeriod, ChannelType.Kitsune);
     }
 
     getStateNonce() {
@@ -98,7 +131,7 @@ export class KitsuneAppointment extends Appointment {
         return KitsuneTools.ContractAbi;
     }
 
-    getSubmitStateFunction(): (contract: ethers.Contract, ...args: any[]) => Promise<void> {
+    getSubmitStateFunction(): (contract: ethers.Contract) => Promise<void> {
         return async (contract: ethers.Contract) => {
             let sig0 = utils.splitSignature(this.stateUpdate.signatures[0]);
             let sig1 = utils.splitSignature(this.stateUpdate.signatures[1]);
@@ -116,8 +149,8 @@ export class KitsuneAppointment extends Appointment {
  * An appointment containing Raiden specific information
  */
 export class RaidenAppointment extends Appointment {
-    constructor(readonly stateUpdate: IRaidenStateUpdate, startTime: number, endTime: number) {
-        super(startTime, endTime, ChannelType.Raiden);
+    constructor(readonly stateUpdate: IRaidenStateUpdate, expiryPeriod: number) {
+        super(expiryPeriod, ChannelType.Raiden);
     }
 
     getStateNonce() {
@@ -155,7 +188,7 @@ export class RaidenAppointment extends Appointment {
         return RaidenTools.ContractAbi;
     }
 
-    getSubmitStateFunction(): (contract: ethers.Contract, ...args: any[]) => Promise<void> {
+    getSubmitStateFunction(): (contract: ethers.Contract) => Promise<void> {
         return async (contract: ethers.Contract) =>
             await contract.updateNonClosingBalanceProof(
                 this.stateUpdate.channel_identifier,
