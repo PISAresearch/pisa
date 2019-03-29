@@ -1,8 +1,8 @@
 import express, { Response } from "express";
 import httpContext from "express-http-context";
 import logger from "./logger";
-import { Appointment, PublicInspectionError, PublicDataValidationError } from "./dataEntities";
-import { Inspector, MultiInspector } from "./inspector/inspector";
+import { Appointment, AppointmentRequest, PublicInspectionError, PublicDataValidationError } from "./dataEntities";
+import { IInspector, MultiInspector } from "./inspector/inspector";
 import { KitsuneInspector } from "./inspector/kitsune";
 import { RaidenInspector } from "./inspector/raiden";
 import { Watcher } from "./watcher";
@@ -51,13 +51,18 @@ export class PisaService {
         this.server = service;
     }
 
-    private appointment(inspector: Inspector, watcher: Watcher) {
+    // PISA: check all the logger calls for inspect()
+
+    private appointment(inspector: IInspector, watcher: Watcher) {
         return async (req: express.Request, res: express.Response, next: express.NextFunction) => {
-            let appointment;
             try {
-                appointment = Appointment.parse(req.body);
+                const appointmentRequest = AppointmentRequest.parse(req.body);
                 // inspect this appointment, an error is thrown if inspection is failed
-                await inspector.inspectAndPass(appointment);
+                await inspector.inspect(appointmentRequest);
+
+                // create a full appointment from the requst
+                const appointment = Appointment.fromAppointmentRequest(appointmentRequest, Date.now());
+                logger.info(`Appointment ${appointment.getStateIdentifier()} passed inspection`);
 
                 // start watching it if it passed inspection
                 await watcher.addAppointment(appointment);
@@ -66,16 +71,11 @@ export class PisaService {
                 res.status(200);
                 res.send(appointment);
             } catch (doh) {
-                if (doh instanceof PublicInspectionError) this.logAndSend(400, doh.message, doh, res, appointment);
-                else if (doh instanceof PublicDataValidationError)
-                    this.logAndSend(400, doh.message, doh, res, appointment);
-                else if (doh instanceof Error) this.logAndSend(500, "Internal server error.", doh, res, appointment);
+                if (doh instanceof PublicInspectionError) this.logAndSend(400, doh.message, doh, res);
+                else if (doh instanceof PublicDataValidationError) this.logAndSend(400, doh.message, doh, res);
+                else if (doh instanceof Error) this.logAndSend(500, "Internal server error.", doh, res);
                 else {
-                    logger.error(
-                        appointment
-                            ? appointment.formatLogEvent("Error: 500. \n" + inspect(doh))
-                            : "Error: 500. \n" + inspect(doh)
-                    );
+                    logger.error("Error: 500. " + inspect(doh));
                     res.status(500);
                     res.send("Internal server error.");
                 }
@@ -83,10 +83,10 @@ export class PisaService {
         };
     }
 
-    private logAndSend(code: number, responseMessage: string, error: Error, res: Response, appointment: Appointment) {
+    private logAndSend(code: number, responseMessage: string, error: Error, res: Response) {
         if (code === 500) console.log(error);
-        logger.error(appointment ? appointment.formatLogEvent(`HTTP Status: ${code}.`) : `HTTP Status: ${code}.`);
-        logger.error(appointment ? appointment.formatLogEvent(error.stack) : error.stack);
+        logger.error(`HTTP Status: ${code}.`);
+        logger.error(error.stack);
         res.status(code);
         res.send(responseMessage);
     }

@@ -4,7 +4,7 @@ import { KitsuneInspector } from "../../src/inspector/kitsune";
 import KitsuneTools from "../../src/integrations/kitsune/tools";
 import { ethers } from "ethers";
 import Ganache from "ganache-core";
-import { KitsuneAppointment } from "../../src/dataEntities";
+import { ChannelType } from "../../src/dataEntities";
 const ganache = Ganache.provider({
     mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect"
 });
@@ -51,17 +51,17 @@ describe("Inspector", () => {
             sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash)),
             expiryPeriod = disputePeriod + 1;
         const inspector = new KitsuneInspector(10, provider);
-        await inspector.checkInspection(
-            new KitsuneAppointment(
-                {
-                    contractAddress: channelContract.address,
-                    hashState,
-                    round,
-                    signatures: [sig0, sig1]
-                },
-                expiryPeriod
-            )
-        );
+        await inspector.inspect({
+            expiryPeriod,
+            type: ChannelType.Kitsune,
+            stateUpdate: {
+                contractAddress: channelContract.address,
+                hashState,
+                round,
+                signatures: [sig0, sig1]
+            }
+        });
+
     });
 
     it("throws for round too low", async () => {
@@ -73,17 +73,16 @@ describe("Inspector", () => {
 
         const inspector = new KitsuneInspector(10, provider);
         await isRejected(
-            inspector.checkInspection(
-                new KitsuneAppointment(
-                    {
-                        contractAddress: channelContract.address,
-                        hashState,
-                        round,
-                        signatures: [sig0, sig1]
-                    },
-                    expiryPeriod
-                )
-            )
+            inspector.inspect({
+                expiryPeriod,
+                type: ChannelType.Kitsune,
+                stateUpdate: {
+                    contractAddress: channelContract.address,
+                    hashState,
+                    round,
+                    signatures: [sig0, sig1]
+                }
+            })
         );
     });
 
@@ -96,17 +95,16 @@ describe("Inspector", () => {
 
         const inspector = new KitsuneInspector(10, provider);
         await isRejected(
-            inspector.checkInspection(
-                new KitsuneAppointment(
-                    {
-                        contractAddress: channelContract.address,
-                        hashState,
-                        round,
-                        signatures: [sig0, sig1]
-                    },
-                    expiryPeriod
-                )
-            )
+            inspector.inspect({
+                expiryPeriod,
+                type: ChannelType.Kitsune,
+                stateUpdate: {
+                    contractAddress: channelContract.address,
+                    hashState,
+                    round,
+                    signatures: [sig0, sig1]
+                }
+            })
         );
     });
 
@@ -119,17 +117,16 @@ describe("Inspector", () => {
 
         const inspector = new KitsuneInspector(10, provider);
         await isRejected(
-            inspector.checkInspection(
-                new KitsuneAppointment(
-                    {
-                        contractAddress: channelContract.address,
-                        hashState,
-                        round,
-                        signatures: [sig0, sig1]
-                    },
-                    expiryPeriod
-                )
-            )
+            inspector.inspect({
+                expiryPeriod,
+                type: ChannelType.Kitsune,
+                stateUpdate: {
+                    contractAddress: channelContract.address,
+                    hashState,
+                    round,
+                    signatures: [sig0, sig1]
+                }
+            })
         );
     });
 
@@ -142,18 +139,17 @@ describe("Inspector", () => {
 
         const inspector = new KitsuneInspector(10, provider);
         await isRejected(
-            inspector.checkInspection(
-                new KitsuneAppointment(
-                    {
-                        // random address
-                        contractAddress: "0x4bf3A7dFB3b76b5B3E169ACE65f888A4b4FCa5Ee",
-                        hashState,
-                        round,
-                        signatures: [sig0, sig1]
-                    },
-                    expiryPeriod
-                )
-            )
+            inspector.inspect({
+                expiryPeriod,
+                type: ChannelType.Kitsune,
+                stateUpdate: {
+                    // random address
+                    contractAddress: "0x4bf3A7dFB3b76b5B3E169ACE65f888A4b4FCa5Ee",
+                    hashState,
+                    round,
+                    signatures: [sig0, sig1]
+                }
+            })
         );
     });
 
@@ -167,18 +163,17 @@ describe("Inspector", () => {
         const inspector = new KitsuneInspector(10, provider);
 
         await isRejected(
-            inspector.checkInspection(
-                new KitsuneAppointment(
-                    {
-                        // invalid address
-                        contractAddress: "0x4bf3A7dFB3b76b",
-                        hashState,
-                        round,
-                        signatures: [sig0, sig1]
-                    },
-                    expiryPeriod
-                )
-            )
+            inspector.inspect({
+                expiryPeriod,
+                type: ChannelType.Kitsune,
+                stateUpdate: {
+                    // invalid address
+                    contractAddress: "0x4bf3A7dFB3b76b",
+                    hashState,
+                    round,
+                    signatures: [sig0, sig1]
+                }
+            })
         );
     });
 
@@ -191,18 +186,17 @@ describe("Inspector", () => {
 
         const inspector = new KitsuneInspector(10, provider);
         await isRejected(
-            inspector.checkInspection(
-                new KitsuneAppointment(
-                    {
-                        contractAddress: channelContract.address,
-                        // invalid hash state
-                        hashState: "0x4bf3A7dFB3b76b",
-                        round,
-                        signatures: [sig0, sig1]
-                    },
-                    expiryPeriod
-                )
-            )
+            inspector.inspect({
+                expiryPeriod,
+                type: ChannelType.Kitsune,
+                stateUpdate: {
+                    contractAddress: channelContract.address,
+                    // invalid hash state
+                    hashState: "0x4bf3A7dFB3b76b",
+                    round,
+                    signatures: [sig0, sig1]
+                }
+            })
         );
     });
 
@@ -215,18 +209,17 @@ describe("Inspector", () => {
 
         const inspector = new KitsuneInspector(10, provider);
         await isRejected(
-            inspector.checkInspection(
-                new KitsuneAppointment(
-                    {
-                        contractAddress: channelContract.address,
-                        // substute the state hash for the set state hash
-                        hashState: setStateHash,
-                        round,
-                        signatures: [sig0, sig1]
-                    },
-                    expiryPeriod
-                )
-            )
+            inspector.inspect({
+                expiryPeriod,
+                type: ChannelType.Kitsune,
+                stateUpdate: {
+                    contractAddress: channelContract.address,
+                    // substute the state hash for the set state hash
+                    hashState: setStateHash,
+                    round,
+                    signatures: [sig0, sig1]
+                }
+            })
         );
     });
 
@@ -240,17 +233,16 @@ describe("Inspector", () => {
 
         const inspector = new KitsuneInspector(10, provider);
         await isRejected(
-            inspector.checkInspection(
-                new KitsuneAppointment(
-                    {
-                        contractAddress: channelContract.address,
-                        hashState,
-                        round,
-                        signatures: [sig0, sig1]
-                    },
-                    expiryPeriod
-                )
-            )
+            inspector.inspect({
+                expiryPeriod,
+                type: ChannelType.Kitsune,
+                stateUpdate: {
+                    contractAddress: channelContract.address,
+                    hashState,
+                    round,
+                    signatures: [sig0, sig1]
+                }
+            })
         );
     });
 
@@ -264,17 +256,16 @@ describe("Inspector", () => {
 
         const inspector = new KitsuneInspector(10, provider);
         await isRejected(
-            inspector.checkInspection(
-                new KitsuneAppointment(
-                    {
-                        contractAddress: channelContract.address,
-                        hashState,
-                        round,
-                        signatures: [sig0, sig1]
-                    },
-                    expiryPeriod
-                )
-            )
+            inspector.inspect({
+                expiryPeriod,
+                type: ChannelType.Kitsune,
+                stateUpdate: {
+                    contractAddress: channelContract.address,
+                    hashState,
+                    round,
+                    signatures: [sig0, sig1]
+                }
+            })
         );
     });
 
@@ -287,17 +278,16 @@ describe("Inspector", () => {
 
         const inspector = new KitsuneInspector(10, provider);
         await isRejected(
-            inspector.checkInspection(
-                new KitsuneAppointment(
-                    {
-                        contractAddress: channelContract.address,
-                        hashState,
-                        round,
-                        signatures: [sig1]
-                    },
-                    expiryPeriod
-                )
-            )
+            inspector.inspect({
+                expiryPeriod,
+                type: ChannelType.Kitsune,
+                stateUpdate: {
+                    contractAddress: channelContract.address,
+                    hashState,
+                    round,
+                    signatures: [sig1]
+                }
+            })
         );
     });
 
@@ -309,16 +299,15 @@ describe("Inspector", () => {
             sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash));
 
         const inspector = new KitsuneInspector(10, provider);
-        await inspector.checkInspection(
-            new KitsuneAppointment(
-                {
-                    contractAddress: channelContract.address,
-                    hashState,
-                    round,
-                    signatures: [sig1, sig0]
-                },
-                expiryPeriod
-            )
-        );
+        await inspector.inspect({
+            expiryPeriod,
+            type: ChannelType.Kitsune,
+            stateUpdate: {
+                contractAddress: channelContract.address,
+                hashState,
+                round,
+                signatures: [sig1, sig0]
+            }
+        });
     });
 });
