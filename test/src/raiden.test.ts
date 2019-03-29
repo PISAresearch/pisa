@@ -81,6 +81,8 @@ describe("Raiden end-to-end tests for scenario 2 (with Pisa)", function() {
     beforeEach(async () => {
 
         // Test if all the ports we will need are available, abort otherwise
+        console.log("Testing availability of ports for the test");
+
         const neededPorts = [3000, 6662, 6663, 8545];
         const isFree = await Promise.all(neededPorts.map(isPortFree));
         const busyPorts = neededPorts.filter((_, i) => !isFree[i]);
@@ -95,6 +97,9 @@ describe("Raiden end-to-end tests for scenario 2 (with Pisa)", function() {
         // (docker creates the folder from root if not existing, which breaks things)
         await fse.removeSync(`${demoDir}/.raiden`);
         await fse.mkdirSync(`${demoDir}/.raiden`);
+
+        // Start parity node
+        console.log("Starting Parity");
 
         //Start parity node
         parity = exec(`docker-compose -f ${demoDir}/docker/parity-loaded.docker-compose.yml up`);
