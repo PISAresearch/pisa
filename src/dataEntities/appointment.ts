@@ -5,6 +5,8 @@ import { ConfigurationError } from "./errors";
 import { IAppointmentRequest, IKitsuneAppointmentRequest, IRaidenAppointmentRequest } from "./appointmentRequest";
 import { IRaidenStateUpdate, IKitsuneStateUpdate } from "./stateUpdate";
 import { ChannelType } from "./channelType";
+import logger from "../logger";
+import { inspect } from "util";
 
 /**
  * An appointment that has been accepted by PISA
@@ -48,13 +50,16 @@ export abstract class Appointment implements IAppointment {
     abstract getSubmitStateFunction(): (contract: ethers.Contract, ...args: any[]) => Promise<void>;
 
     static fromAppointmentRequest(appointmentRequest: IAppointmentRequest, startTime: number) {
+        logger.info("from appointment");
+        logger.info(inspect(appointmentRequest));
         switch (appointmentRequest.type) {
             case ChannelType.Kitsune:
+            
                 const kitsune = appointmentRequest as IKitsuneAppointmentRequest;
                 return new KitsuneAppointment(kitsune.stateUpdate, startTime, startTime + kitsune.expiryPeriod);
             case ChannelType.Raiden:
                 const raiden = appointmentRequest as IRaidenAppointmentRequest;
-                return new RaidenAppointment(raiden.stateUpdate, startTime, startTime + kitsune.expiryPeriod);
+                return new RaidenAppointment(raiden.stateUpdate, startTime, startTime + raiden.expiryPeriod);
             default:
                 throw new ConfigurationError(`Unknown appointment request type ${appointmentRequest.type}.`);
         }
