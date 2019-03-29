@@ -102,7 +102,9 @@ describe("Raiden end-to-end tests for scenario 2 (with Pisa)", function() {
         console.log("Starting Parity");
 
         //Start parity node
-        parity = exec(`docker-compose -f ${demoDir}/docker/parity-loaded.docker-compose.yml up`);
+        parity = exec(`docker-compose -f ${demoDir}/docker/parity-loaded.docker-compose.yml up`, (error) => {
+            throw error;
+        });
         const parityLogStream = await fse.createWriteStream(`${pisaRoot}/logs/parity.test.log`, {flags: 'a'});
         parity.stdout.pipe(parityLogStream);
         parity.stderr.pipe(parityLogStream);
