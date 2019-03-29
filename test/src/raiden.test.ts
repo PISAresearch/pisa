@@ -103,13 +103,6 @@ describe("Raiden end-to-end tests for scenario 2 (with Pisa)", function() {
 
         //Start parity node
         parity = exec(`docker-compose -f ${demoDir}/docker/parity-loaded.docker-compose.yml up`);
-        try {
-            const parityLogStream = await fse.createWriteStream(`${pisaRoot}/logs/parity.test.log`, {flags: 'a'});
-            parity.stdout.pipe(parityLogStream);
-            parity.stderr.pipe(parityLogStream);
-        } catch (err) {
-            console.log(err);
-        }
 
         // Wait for parity to be ready
         await waitPort({host: "0.0.0.0", port: 8545});
