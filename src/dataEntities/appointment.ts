@@ -50,11 +50,8 @@ export abstract class Appointment implements IAppointment {
     abstract getSubmitStateFunction(): (contract: ethers.Contract, ...args: any[]) => Promise<void>;
 
     static fromAppointmentRequest(appointmentRequest: IAppointmentRequest, startTime: number) {
-        logger.info("from appointment");
-        logger.info(inspect(appointmentRequest));
         switch (appointmentRequest.type) {
             case ChannelType.Kitsune:
-            
                 const kitsune = appointmentRequest as IKitsuneAppointmentRequest;
                 return new KitsuneAppointment(kitsune.stateUpdate, startTime, startTime + kitsune.expiryPeriod);
             case ChannelType.Raiden:
