@@ -73,7 +73,7 @@ const isPortFree = (port: number) => new Promise<boolean>((resolve, reject) => {
 });
 
 describe("Raiden end-to-end tests for scenario 2 (with Pisa)", function() {
-    this.timeout(50000 + blockTime * (40 + 2 * reveal_timeout));
+    this.timeout(100000 + blockTime * (40 + 2 * reveal_timeout));
 
     beforeEach(async () => {
         // Test if all the ports we will need are available, abort otherwise
