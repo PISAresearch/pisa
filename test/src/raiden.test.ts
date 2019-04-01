@@ -103,11 +103,9 @@ describe("Raiden end-to-end tests for scenario 2 (with Pisa)", function() {
         );
 
         subprocesses.push(parity);
-        if (!process.env.CIRCLECI) {
-            const parityLogStream = await fse.createWriteStream(`${pisaRoot}/logs/parity.test.log`, { flags: "a" });
-            parity.stdout.pipe(parityLogStream);
-            parity.stderr.pipe(parityLogStream);
-        }
+        const parityLogStream = await fse.createWriteStream(`${pisaRoot}/logs/parity.test.log`, { flags: "a" });
+        parity.stdout.pipe(parityLogStream);
+        parity.stderr.pipe(parityLogStream);
 
         // Wait for parity to be ready
         await waitPort({ host: "0.0.0.0", port: 8545 });
@@ -121,11 +119,9 @@ describe("Raiden end-to-end tests for scenario 2 (with Pisa)", function() {
         );
 
         subprocesses.push(autominer);
-        if (!process.env.CIRCLECI) {
-            const autominerLogStream = await fse.createWriteStream(`${pisaRoot}/logs/autominer.test.log`, { flags: "a" });
-            autominer.stdout.pipe(autominerLogStream);
-            autominer.stderr.pipe(autominerLogStream);
-        }
+        const autominerLogStream = await fse.createWriteStream(`${pisaRoot}/logs/autominer.test.log`, { flags: "a" });
+        autominer.stdout.pipe(autominerLogStream);
+        autominer.stderr.pipe(autominerLogStream);
 
         // args are redundant, but if they are removed the provider unpredictably fails
         // throwing "Error: invalid response - 0"; see https://github.com/ethers-io/ethers.js/issues/362
@@ -136,22 +132,18 @@ describe("Raiden end-to-end tests for scenario 2 (with Pisa)", function() {
         const aliceCmd = `${demoDir}/raiden --gas-price fast --accept-disclaimer --keystore-path ${demoDir}/docker/test-accounts --datadir ${demoDir}/.raiden --network-id ropsten --eth-rpc-endpoint http://0.0.0.0:8545 --address 0x${aliceAddr} --api-address http://0.0.0.0:6662 --password-file ${demoDir}/docker/test-accounts/password--${aliceAddrLow}.txt  --no-sync-check --disable-debug-logfile --tokennetwork-registry-contract-address 0xCa70BfDEa6BD82e45d4fD26Dd9f36DB9fad61796 --secret-registry-contract-address 0xaFa1F14fe33940b22D7f9F9bf0d707860C9233e2 --endpoint-registry-contract-address 0xa4f842B60C8a21c54b16E7940aA16Dda80301d13`;
         alice = exec(aliceCmd);
         subprocesses.push(alice);
-        if (!process.env.CIRCLECI) {
-            const aliceLogStream = await fse.createWriteStream(`${pisaRoot}/logs/alice.test.log`, { flags: "a" });
-            alice.stdout.pipe(aliceLogStream);
-            alice.stderr.pipe(aliceLogStream);
-        }
+        const aliceLogStream = await fse.createWriteStream(`${pisaRoot}/logs/alice.test.log`, { flags: "a" });
+        alice.stdout.pipe(aliceLogStream);
+        alice.stderr.pipe(aliceLogStream);
 
         // Start raiden node for Bob
         console.log("Starting Bob");
         const bobCmd = `${demoDir}/raiden --gas-price fast --accept-disclaimer --keystore-path ${demoDir}/docker/test-accounts --datadir ${demoDir}/.raiden --network-id ropsten --eth-rpc-endpoint http://0.0.0.0:8545 --address 0x${bobAddr} --api-address http://0.0.0.0:6663 --password-file ${demoDir}/docker/test-accounts/password--${bobAddrLow}.txt  --no-sync-check --disable-debug-logfile --tokennetwork-registry-contract-address 0xCa70BfDEa6BD82e45d4fD26Dd9f36DB9fad61796 --secret-registry-contract-address 0xaFa1F14fe33940b22D7f9F9bf0d707860C9233e2 --endpoint-registry-contract-address 0xa4f842B60C8a21c54b16E7940aA16Dda80301d13`;
         bob = exec(bobCmd);
         subprocesses.push(bob);
-        if (!process.env.CIRCLECI) {
-            const bobLogStream = await fse.createWriteStream(`${pisaRoot}/logs/bob.test.log`, { flags: "a" });
-            bob.stdout.pipe(bobLogStream);
-            bob.stderr.pipe(bobLogStream);
-        }
+        const bobLogStream = await fse.createWriteStream(`${pisaRoot}/logs/bob.test.log`, { flags: "a" });
+        bob.stdout.pipe(bobLogStream);
+        bob.stderr.pipe(bobLogStream);
 
         await timeout(10000);
 
@@ -161,11 +153,9 @@ describe("Raiden end-to-end tests for scenario 2 (with Pisa)", function() {
             `node ${pisaRoot}/build/src/startUp.js --json-rpc-url=http://localhost:8545 --host-name=0.0.0.0 --host-port:3000 --watcher-key=0xc364a5ea32a4c267263e99ddda36e05bcb0e5724601c57d6504cccb68e1fe6ae`
         );
         subprocesses.push(pisa);
-        if (!process.env.CIRCLECI) {
-            const pisaLogStream = await fse.createWriteStream(`${pisaRoot}/logs/pisa.test.log`, { flags: "a" });
-            pisa.stdout.pipe(pisaLogStream);
-            pisa.stderr.pipe(pisaLogStream);
-        }
+        const pisaLogStream = await fse.createWriteStream(`${pisaRoot}/logs/pisa.test.log`, { flags: "a" });
+        pisa.stdout.pipe(pisaLogStream);
+        pisa.stderr.pipe(pisaLogStream);
 
         // Make sure Alice is fully loaded
         await waitPort({ host: "0.0.0.0", port: 6662 });
@@ -179,11 +169,9 @@ describe("Raiden end-to-end tests for scenario 2 (with Pisa)", function() {
             }
         );
         subprocesses.push(daemon);
-        if (!process.env.CIRCLECI) {
-            const daemonLogStream = await fse.createWriteStream(`${pisaRoot}/logs/daemon.test.log`, { flags: "a" });
-            daemon.stdout.pipe(daemonLogStream);
-            daemon.stderr.pipe(daemonLogStream);
-        }
+        const daemonLogStream = await fse.createWriteStream(`${pisaRoot}/logs/daemon.test.log`, { flags: "a" });
+        daemon.stdout.pipe(daemonLogStream);
+        daemon.stderr.pipe(daemonLogStream);
 
         console.log("Waiting for everyone to be ready.");
 
