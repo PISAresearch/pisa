@@ -120,6 +120,7 @@ describe("Raiden end-to-end tests for scenario 2 (with Pisa)", function() {
             `node ${demoDir}/autominer/build/autominer.js --period 1000 --jsonrpcurl http://localhost:8545`
         );
 
+        subprocesses.push(autominer);
         if (!process.env.CIRCLECI) {
             const autominerLogStream = await fse.createWriteStream(`${pisaRoot}/logs/autominer.test.log`, { flags: "a" });
             autominer.stdout.pipe(autominerLogStream);
