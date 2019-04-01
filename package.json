@@ -4,20 +4,20 @@
   "description": "Arbitration Outsourcing for State Channels",
   "main": "index.js",
   "scripts": {
-    "build": "tsc && cp config.json build/config.json && cp -r ./raiden_demo build/raiden_demo",
-    "build-kitsune": "cd statechannels && npm ci && npx truffle compile && mkdir -p ../build/statechannels && cp -R build/ ../build/statechannels/build",
-    "build-raiden-pisa-daemon": "cd raiden_demo/raiden-pisa-daemon && npm install && npm run build",
-    "build-autominer": "cd raiden_demo/autominer && npm install && npm run build",
+    "build": "npx tsc && cp config.json build/config.json && cp -r ./raiden_demo build/raiden_demo",
+    "build-kitsune": "cd statechannels && npm ci && npx truffle compile && mkdir -p ../build/statechannels && cp -R build/ ../build/statechannels/build && cd ..",
+    "build-raiden-pisa-daemon": "cd build/raiden_demo/raiden-pisa-daemon && npm install && npm run build",
+    "build-autominer": "cd build/raiden_demo/autominer && npm install && npm run build",
     "init": "npm run submodule && npm run build-kitsune",
     "start": "node ./build/src/startUp.js",
     "start-dev": "ts-node src/startUp.ts",
     "start-evm": "ganache-cli -d -l 15000000 --allowUnlimitedContractSize --defaultBalanceEther 1000000 --mnemonic 'myth like bonus scare over problem client lizard pioneer submit female collect'",
     "submodule": "git submodule init && git submodule update",
-    "test": "npm run build-raiden-pisa-daemon && npm run build-autominer && npm run build && mocha build/test/src --exit",
+    "test": "npm run build && npm run build-raiden-pisa-daemon && npm run build-autominer && mocha build/test/src --exit",
     "test-load": "node build/test/load/loadTest.js 10 20000",
     "test-coverage": "npx tsc && nyc mocha build/test/src --exit",
     "test-smoke": "node build/test/smoke/smokeTests.js",
-    "test-raiden": "npm run build-raiden-pisa-daemon && npm run build-autominer && npm run build && mocha build/test/src/raiden.test.js --exit"
+    "test-raiden": "npm run build && npm run build-raiden-pisa-daemon && npm run build-autominer && mocha build/test/src/raiden.test.js --exit"
   },
   "repository": {
     "type": "git",

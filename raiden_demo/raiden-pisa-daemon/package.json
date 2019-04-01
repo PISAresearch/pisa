@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "build": "tsc",
+    "build": "npx tsc",
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node ./build/index.js",
     "start-dev": "ts-node ./src/index.ts"
@@ -15,11 +15,11 @@
     "ethers": "^4.0.23",
     "request-promise": "^4.2.2",
     "sqlite3": "^4.0.6",
-    "ts-node": "^8.0.2",
-    "typescript": "^3.2.4",
     "yargs": "^13.2.2"
   },
   "devDependencies": {
+    "ts-node": "^8.0.2",
+    "typescript": "^3.2.4",
     "@types/request-promise": "^4.1.42",
     "@types/sqlite3": "^3.1.3"
   }
