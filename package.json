@@ -17,7 +17,7 @@
     "test-load": "node build/test/load/loadTest.js 10 20000",
     "test-coverage": "npx tsc && nyc mocha build/test/src --exit",
     "test-smoke": "node build/test/smoke/smokeTests.js",
-    "test-raiden": "npm run build && npm run build-raiden-pisa-daemon && mocha build/test/src/raiden.test.js --exit"
+    "test-raiden": "run build-raiden-pisa-daemon && npm run build-autominer && npm run build && mocha build/test/src/raiden.test.js --exit"
   },
   "repository": {
     "type": "git",
