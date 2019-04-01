@@ -6,7 +6,8 @@
   "scripts": {
     "build": "tsc && cp config.json build/config.json && cp -r ./raiden_demo build/raiden_demo",
     "build-kitsune": "cd statechannels && npm ci && npx truffle compile && mkdir -p ../build/statechannels && cp -R build/ ../build/statechannels/build",
-    "build-raiden-pisa-daemon": "cd raiden_demo/raiden-pisa-daemon && npm run build",
+    "build-raiden-pisa-daemon": "cd raiden_demo/raiden-pisa-daemon && npm install && npm run build",
+    "build-autominer": "cd raiden_demo/autominer && npm install && npm run build",
     "init": "npm run submodule && npm run build-kitsune",
     "start": "node ./build/src/startUp.js",
     "start-dev": "ts-node src/startUp.ts",
