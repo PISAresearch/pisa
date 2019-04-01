@@ -102,10 +102,12 @@ describe("Raiden end-to-end tests for scenario 2 (with Pisa)", function() {
             `parity --config dev --base-path ${demoDir}/docker/chainData --chain ${demoDir}/docker/test-chain.json --jsonrpc-interface 0.0.0.0 --jsonrpc-port 8545 --jsonrpc-apis=eth,net,web3,parity --network-id 3`
         );
 
-        const parityLogStream = await fse.createWriteStream(`${pisaRoot}/logs/parity.test.log`, { flags: "a" });
         subprocesses.push(parity);
-        parity.stdout.pipe(parityLogStream);
-        parity.stderr.pipe(parityLogStream);
+        if (!process.env.CIRCLECI) {
+            const parityLogStream = await fse.createWriteStream(`${pisaRoot}/logs/parity.test.log`, { flags: "a" });
+            parity.stdout.pipe(parityLogStream);
+            parity.stderr.pipe(parityLogStream);
+        }
 
         // Wait for parity to be ready
         await waitPort({ host: "0.0.0.0", port: 8545 });
@@ -118,9 +120,11 @@ describe("Raiden end-to-end tests for scenario 2 (with Pisa)", function() {
             `node ${demoDir}/autominer/build/autominer.js --period 1000 --jsonrpcurl http://localhost:8545`
         );
 
-        const autominerLogStream = await fse.createWriteStream(`${pisaRoot}/logs/autominer.test.log`, { flags: "a" });
-        autominer.stdout.pipe(autominerLogStream);
-        autominer.stderr.pipe(autominerLogStream);
+        if (!process.env.CIRCLECI) {
+            const autominerLogStream = await fse.createWriteStream(`${pisaRoot}/logs/autominer.test.log`, { flags: "a" });
+            autominer.stdout.pipe(autominerLogStream);
+            autominer.stderr.pipe(autominerLogStream);
+        }
 
         // args are redundant, but if they are removed the provider unpredictably fails
         // throwing "Error: invalid response - 0"; see https://github.com/ethers-io/ethers.js/issues/362
@@ -131,9 +135,11 @@ describe("Raiden end-to-end tests for scenario 2 (with Pisa)", function() {
         const aliceCmd = `${demoDir}/raiden --gas-price fast --accept-disclaimer --keystore-path ${demoDir}/docker/test-accounts --datadir ${demoDir}/.raiden --network-id ropsten --eth-rpc-endpoint http://0.0.0.0:8545 --address 0x${aliceAddr} --api-address http://0.0.0.0:6662 --password-file ${demoDir}/docker/test-accounts/password--${aliceAddrLow}.txt  --no-sync-check --disable-debug-logfile --tokennetwork-registry-contract-address 0xCa70BfDEa6BD82e45d4fD26Dd9f36DB9fad61796 --secret-registry-contract-address 0xaFa1F14fe33940b22D7f9F9bf0d707860C9233e2 --endpoint-registry-contract-address 0xa4f842B60C8a21c54b16E7940aA16Dda80301d13`;
         alice = exec(aliceCmd);
         subprocesses.push(alice);
-        const aliceLogStream = await fse.createWriteStream(`${pisaRoot}/logs/alice.test.log`, { flags: "a" });
-        alice.stdout.pipe(aliceLogStream);
-        alice.stderr.pipe(aliceLogStream);
+        if (!process.env.CIRCLECI) {
+            const aliceLogStream = await fse.createWriteStream(`${pisaRoot}/logs/alice.test.log`, { flags: "a" });
+            alice.stdout.pipe(aliceLogStream);
+            alice.stderr.pipe(aliceLogStream);
+        }
 
         // Start raiden node for Bob
         console.log("Starting Bob");
