@@ -3,21 +3,15 @@ jobs:
   build:
     working_directory: ~/test
     docker:
-      - image: docker:17.05.0-ce-git
+      - image: circleci/node:8.11.1
     steps:
       - checkout
       - run:
           name: submodule 
           command: git submodule init && git submodule update 
       - run:
-          name: install dependencies
-          command: |
-              apk update
-              apk add nodejs python python-dev make gcc g++ py-pip libressl-dev libffi-dev
-              pip install docker-compose
-      - run:
           name: update-npm
-          command: 'npm install -g npm@latest'
+          command: 'sudo npm install -g npm@latest'
       - run:
           name: install
           command: npm install
@@ -27,7 +21,9 @@ jobs:
       - run:
           name: build pisa
           command: npm run build
-      - setup_remote_docker
+      - run:
+          name: install parity
+          command: bash <(curl https://get.parity.io -L) -r stable
       - run:
           name: test
           command: npm run test
