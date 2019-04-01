@@ -8,7 +8,7 @@ import config from "../../src/dataEntities/config";
 import Ganache from "ganache-core";
 import { IKitsuneAppointmentRequest, ChannelType } from "../../src/dataEntities";
 import logger from "../../src/logger";
-import StateChannelFactory from "../../statechannels/build/contracts/StateChannelFactory.json";
+import StateChannelFactory from "../../src/integrations/kitsune/StateChannelFactory.json";
 logger.transports.forEach(l => (l.level = "max"));
 
 const ganache = Ganache.provider({

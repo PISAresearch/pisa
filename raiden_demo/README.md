@@ -38,8 +38,6 @@ If a party is offline when their counterparty calls 'close' they will not be abl
 8) Carol waits for the settle timeout, then calls settle
 9) Carol comes back online, checks his balance, and sees that the funds from the payment are there
 
-## Components
-
 ## Alterations to Raiden
 
 The raiden-contracts repo needs to be altered to reduce the settlement timeout. The current minimum settlement timeout for raiden is 500 blocks = ~2 hours which is too long for a demo. There an altered set of contracts with a minimum settlement period of 5 blocks must be deployed. 
@@ -72,6 +70,7 @@ The raiden node then needs an update to reflect this. Due to a relationship betw
 ## Running the demo on Ropsten - blocks mine 1 per 15 sec
 
 Does as for local, except:
+0. Downoad the ropsten-test-accounts and unzip them into the raiden_demo folder
 1. Use the commands in scenarios/remote_1.txt and scenarios/remote_2.txt
 2. Be careful about clearing out the .raiden directory, always start the raiden nodes to check if any channels are open before doing this. If this dir is deleted whilst a channel is in the settlement period it cannot be recovered.
 3. On Ropsten each of the accounts has 0.5 WETH, sending WETH in the channel will change these balances. After doing a demo send some WETH backwards from Carol to Dave to reset the balances - the easiest way to do this is to open a channel, send the funds and close it.
