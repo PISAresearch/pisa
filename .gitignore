@@ -5,7 +5,6 @@ build/
 dist/
 node_modules/
 .vscode/
-*.log
 .nyc_output
 logs/
 .raiden
