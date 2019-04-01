@@ -2,7 +2,7 @@ import "mocha";
 import { assert } from "chai";
 import * as path from "path";
 import * as fse from "fs-extra";
-import net from 'net';
+import net from "net";
 
 import waitPort from "wait-port";
 import kill from "tree-kill";
@@ -68,7 +68,7 @@ const ERC20abi = [
     }
   ];
 
-const isPortFree = (port) => new Promise<boolean>((resolve, reject) => {
+const isPortFree = (port: number) => new Promise<boolean>((resolve, reject) => {
     const tester = net.createServer()
         .once('error', (err: any) => (err.code == 'EADDRINUSE' ? resolve(false) : reject(err)))
         .once('listening', () => tester.once('close', () => resolve(true)).close())
@@ -154,7 +154,12 @@ describe("Raiden end-to-end tests for scenario 2 (with Pisa)", function() {
 
         console.log("Starting the daemon");
         // Start raiden-pisa-daemon for Alice
-        daemon = exec(`docker run -v ${demoDir}/docker/test-accounts/password--${aliceAddrLow}.txt:/home/password.txt -v ${demoDir}/docker/test-accounts/UTC--2019-03-22T10-39-56.702Z--0x${aliceAddrLow}:/.ethereum/keystore/UTC--2019-03-22T10-39-56.702Z--0x${aliceAddrLow} -v ${demoDir}/${dbFileName}:/home/db --network host --entrypoint "npm" pisaresearch/raiden-pisa-daemon:latest run start -- --pisa=0.0.0.0:3000 --keyfile=/.ethereum/keystore/UTC--2019-03-22T10-39-56.702Z--0x${aliceAddrLow}  --password-file=/home/password.txt --db=/home/db`);
+        daemon = exec(
+            `npm run start -- --pisa=0.0.0.0:3000 --keyfile=${demoDir}/docker/test-accounts/UTC--2019-03-22T10-39-56.702Z--0x${aliceAddrLow} --password-file=${demoDir}/docker/test-accounts/password--${aliceAddrLow}.txt --db=${demoDir}/${dbFileName}`,
+            {
+                cwd: `${demoDir}/raiden-pisa-daemon`
+            }
+        );
         subprocesses.push(daemon);
         if (!process.env.CIRCLECI) {
             const daemonLogStream = await fse.createWriteStream(`${pisaRoot}/logs/daemon.test.log`, {flags: 'a'});
