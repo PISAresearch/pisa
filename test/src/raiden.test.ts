@@ -231,6 +231,9 @@ describe("Raiden end-to-end tests for scenario 2 (with Pisa)", function() {
             }
         });
         subprocesses = [];
+
+        //TODO: find a better way to wait for cleanup completion
+        await timeout(10000);
     });
 
     it("completes scenario 2 correctly", async () => {
