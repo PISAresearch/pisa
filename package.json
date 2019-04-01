@@ -4,7 +4,7 @@
   "description": "Arbitration Outsourcing for State Channels",
   "main": "index.js",
   "scripts": {
-    "build": "tsc && cp config.json build/config.json && cp -r ./raiden_demo build/raiden_demo/",
+    "build": "tsc && cp config.json build/config.json && cp -r ./raiden_demo build/raiden_demo",
     "build-kitsune": "cd statechannels && npm ci && npx truffle compile && mkdir -p ../build/statechannels && cp -R build/ ../build/statechannels/build",
     "build-raiden-pisa-daemon": "cd raiden_demo/raiden-pisa-daemon && npm run build",
     "init": "npm run submodule && npm run build-kitsune",
@@ -43,6 +43,7 @@
   "devDependencies": {
     "@types/chai": "^4.1.6",
     "@types/express": "^4.16.0",
+    "@types/fs-extra": "^5.0.5",
     "@types/ganache-core": "^2.1.1",
     "@types/mocha": "^5.2.5",
     "@types/request-promise": "^4.1.42",
