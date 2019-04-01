@@ -99,7 +99,7 @@ describe("Raiden end-to-end tests for scenario 2 (with Pisa)", function() {
 
         //Start parity node
         parity = exec(
-            `parity --config dev --base-path ${demoDir}/docker/parityChainData --chain ${demoDir}/docker/test-chain.json --jsonrpc-interface 0.0.0.0 --jsonrpc-port 8545 --jsonrpc-apis=eth,net,web3,parity --network-id 3`
+            `parity --config dev --base-path ${demoDir}/docker/chainData --chain ${demoDir}/docker/test-chain.json --jsonrpc-interface 0.0.0.0 --jsonrpc-port 8545 --jsonrpc-apis=eth,net,web3,parity --network-id 3`
         );
 
         const parityLogStream = await fse.createWriteStream(`${pisaRoot}/logs/parity.test.log`, { flags: "a" });
