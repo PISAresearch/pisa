@@ -33,6 +33,7 @@
     "ethers": "^4.0.7",
     "express": "^4.16.4",
     "express-http-context": "^1.2.0",
+    "ganache-core": "^2.5.3",
     "request": "^2.88.0",
     "request-promise": "^4.2.2",
     "rwlock": "^5.0.0",
