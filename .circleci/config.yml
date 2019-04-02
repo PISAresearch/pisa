@@ -27,6 +27,8 @@ jobs:
       - run:
           name: test
           command: npm run test
+      - store_artifacts:
+          path: ./logs/
 workflows:
   version: 2
   build:
