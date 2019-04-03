@@ -1,42 +1,7 @@
 import { utils } from "ethers";
 import { ChannelType } from "./channelType";
-import { IRaidenStateUpdate, IKitsuneStateUpdate } from "./stateUpdate";
 import { PublicDataValidationError } from "./errors";
-
-export interface IAppointmentRequest {
-    expiryPeriod: number;
-    type: ChannelType;
-}
-
-export interface IKitsuneAppointmentRequest extends IAppointmentRequest {
-    stateUpdate: IKitsuneStateUpdate;
-}
-
-export interface IRaidenAppointmentRequest extends IAppointmentRequest {
-    stateUpdate: IRaidenStateUpdate;
-}
-
-/**
- * A request for an appointment
- */
-export abstract class AppointmentRequest implements IAppointmentRequest {
-    constructor(public readonly type: ChannelType, public readonly expiryPeriod: number) {}
-
-    static parse(obj: any) {
-        // look for a type argument
-        const type = obj["type"];
-        switch (type) {
-            case ChannelType.Kitsune:
-                return parseKitsuneAppointment(obj);
-            case ChannelType.Raiden:
-                return parseRaidenAppointment(obj);
-            default:
-                throw new PublicDataValidationError(`Unknown appointment request type ${type}.`);
-        }
-    }
-}
-
-function parseKitsuneAppointment(obj: any) {
+export function checkKitsuneAppointment(obj: any) {
     if (!obj) throw new PublicDataValidationError("Appointment not defined.");
     propertyExistsAndIsOfType("expiryPeriod", "number", obj);
     doesPropertyExist("stateUpdate", obj);
@@ -46,10 +11,10 @@ function parseKitsuneAppointment(obj: any) {
     if (obj["type"] !== ChannelType.Kitsune)
         throw new PublicDataValidationError(`Appointment is of type ${obj["type"]}`);
 
-    return obj as IKitsuneAppointmentRequest;
+    return obj;
 }
 
-function parseRaidenAppointment(obj: any) {
+export function checkRaidenAppointment(obj: any) {
     if (!obj) throw new PublicDataValidationError("Appointment not defined.");
     propertyExistsAndIsOfType("expiryPeriod", "number", obj);
     doesPropertyExist("stateUpdate", obj);
@@ -59,7 +24,7 @@ function parseRaidenAppointment(obj: any) {
     if (obj["type"] !== ChannelType.Raiden)
         throw new PublicDataValidationError(`Appointment is of type ${obj["type"]}`);
 
-    return obj as IRaidenAppointmentRequest;
+    return obj;
 }
 
 function isRaidenStateUpdate(obj: any) {
