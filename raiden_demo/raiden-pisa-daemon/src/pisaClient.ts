@@ -37,6 +37,6 @@ export interface IAppointmentRequest {
 }
 
 export enum ChannelType {
-    Kitsune = 1,
-    Raiden = 2
+    Kitsune = "kitsune",
+    Raiden = "raiden"
 }

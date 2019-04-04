@@ -1,5 +1,12 @@
-import { Appointment, ChannelType, checkRaidenAppointment } from "../../dataEntities";
-import { ethers } from "ethers";
+import {
+    Appointment,
+    ChannelType,
+    checkAppointment,
+    propertyExistsAndIsOfType,
+    doesPropertyExist,
+    PublicDataValidationError
+} from "../../dataEntities";
+import { ethers, utils } from "ethers";
 import { RaidenTools } from "./tools";
 export { RaidenTools } from "./tools";
 import { verifyMessage } from "ethers/utils";
@@ -28,14 +35,70 @@ interface IRaidenStateUpdate {
  * An appointment containing Raiden specific information
  */
 export class RaidenAppointment extends Appointment {
-    constructor(obj: { stateUpdate: IRaidenStateUpdate; expiryPeriod: number, type: ChannelType.Raiden });
+    constructor(obj: { stateUpdate: IRaidenStateUpdate; expiryPeriod: number; type: ChannelType.Raiden });
     constructor(obj: any) {
-        checkRaidenAppointment(obj);
-        const tempRaidenObj = obj as RaidenAppointment;
-        super(tempRaidenObj.expiryPeriod, ChannelType.Raiden);
-        this.stateUpdate = tempRaidenObj.stateUpdate;
+        if (RaidenAppointment.checkRaidenAppointment(obj)) {
+            super(obj.expiryPeriod, ChannelType.Raiden);
+            this.stateUpdate = obj.stateUpdate;
+        }
     }
     public readonly stateUpdate: IRaidenStateUpdate;
+
+    private static checkRaidenAppointment(obj: any): obj is RaidenAppointment {
+        checkAppointment(obj, ChannelType.Raiden);
+        doesPropertyExist("stateUpdate", obj);
+        RaidenAppointment.checkRaidenStateUpdate(obj["stateUpdate"]);
+
+        return true;
+    }
+
+    private static checkRaidenStateUpdate(obj: any) {
+        if (!obj) throw new PublicDataValidationError("stateUpdate does not exist.");
+        propertyExistsAndIsOfType("additional_hash", "string", obj);
+        const hexLength = utils.hexDataLength(obj.additional_hash);
+        if (hexLength !== 32) {
+            throw new PublicDataValidationError(`Invalid bytes32: ${obj.additional_hash}`);
+        }
+
+        propertyExistsAndIsOfType("balance_hash", "string", obj);
+        const balanceHexLength = utils.hexDataLength(obj.balance_hash);
+        if (balanceHexLength !== 32) {
+            throw new PublicDataValidationError(`Invalid bytes32: ${obj.balanceHexLength}`);
+        }
+
+        propertyExistsAndIsOfType("channel_identifier", "number", obj);
+
+        propertyExistsAndIsOfType("closing_participant", "string", obj);
+        try {
+            // is this a valid address?
+            utils.getAddress(obj.closing_participant);
+        } catch (doh) {
+            throw new PublicDataValidationError(`${obj.closing_participant} is not a valid address.`);
+        }
+
+        propertyExistsAndIsOfType("closing_signature", "string", obj);
+
+        propertyExistsAndIsOfType("non_closing_participant", "string", obj);
+        try {
+            // is this a valid address?
+            utils.getAddress(obj.non_closing_participant);
+        } catch (doh) {
+            throw new PublicDataValidationError(`${obj.non_closing_participant} is not a valid address.`);
+        }
+
+        propertyExistsAndIsOfType("non_closing_signature", "string", obj);
+
+        propertyExistsAndIsOfType("nonce", "number", obj);
+        propertyExistsAndIsOfType("chain_id", "number", obj);
+
+        propertyExistsAndIsOfType("token_network_identifier", "string", obj);
+        try {
+            // is this a valid address?
+            utils.getAddress(obj.token_network_identifier);
+        } catch (doh) {
+            throw new PublicDataValidationError(`${obj.token_network_identifier} is not a valid address.`);
+        }
+    }
 
     getStateNonce() {
         return this.stateUpdate.nonce;

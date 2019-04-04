@@ -1,9 +1,17 @@
 import { utils, ethers } from "ethers";
 import { KitsuneTools } from "./tools";
 export { KitsuneTools } from "./tools";
-import { Appointment, ChannelType, checkKitsuneAppointment } from "../../dataEntities";
+import {
+    Appointment,
+    ChannelType,
+    propertyExistsAndIsOfType,
+    doesPropertyExist,
+    isArrayOfStrings,
+    PublicDataValidationError,
+    checkAppointment
+} from "../../dataEntities";
 import { Inspector } from "../../inspector";
-import { PublicInspectionError } from "../../dataEntities/errors";
+import { PublicInspectionError, ConfigurationError } from "../../dataEntities/errors";
 import { verifyMessage } from "ethers/utils";
 import logger from "../../logger";
 
@@ -23,12 +31,41 @@ export interface IKitsuneStateUpdate {
 export class KitsuneAppointment extends Appointment {
     constructor(obj: { stateUpdate: IKitsuneStateUpdate; expiryPeriod: number; type: ChannelType.Kitsune });
     constructor(obj: any) {
-        checkKitsuneAppointment(obj);
-        const tempRaidenObj = obj as KitsuneAppointment;
-        super(tempRaidenObj.expiryPeriod, ChannelType.Kitsune);
-        this.stateUpdate = tempRaidenObj.stateUpdate;
+        if (KitsuneAppointment.checkKitsuneAppointment(obj)) {
+            super(obj.expiryPeriod, ChannelType.Kitsune);
+            this.stateUpdate = obj.stateUpdate;
+        } else throw new ConfigurationError("User defined type guard failed to throw for KitsuneAppointment");
     }
     public readonly stateUpdate: IKitsuneStateUpdate;
+
+    private static checkKitsuneAppointment(obj: any): obj is KitsuneAppointment {
+        checkAppointment(obj, ChannelType.Kitsune);
+        doesPropertyExist("stateUpdate", obj);
+        KitsuneAppointment.checkKitsuneStateUpdate(obj["stateUpdate"]);
+
+        return true;
+    }
+
+    private static checkKitsuneStateUpdate(obj: any) {
+        if (!obj) throw new PublicDataValidationError("stateUpdate does not exist.");
+        propertyExistsAndIsOfType("hashState", "string", obj);
+        const hexLength = utils.hexDataLength(obj.hashState);
+        if (hexLength !== 32) {
+            throw new PublicDataValidationError(`Invalid bytes32: ${obj.hashState}`);
+        }
+
+        propertyExistsAndIsOfType("round", "number", obj);
+        propertyExistsAndIsOfType("contractAddress", "string", obj);
+        try {
+            // is this a valid address?
+            utils.getAddress(obj.contractAddress);
+        } catch (doh) {
+            throw new PublicDataValidationError(`${obj.contractAddress} is not a valid address.`);
+        }
+
+        doesPropertyExist("signatures", obj);
+        isArrayOfStrings(obj["signatures"]);
+    }
 
     getStateNonce() {
         return this.stateUpdate.round;
