@@ -23,6 +23,6 @@ docker-compose up
 docker-compose down
 
 // load tests
-docker run -it --volume ${PWD}/configs/test.json:/usr/pisa/build/config.json --network docker_pisanet --name pisatest pisaresearch/pisa-test:latest
+docker run -it --volume ${PWD}/configs/test.json:/usr/pisa/build/src/config.json --network docker_pisanet --name pisatest pisaresearch/pisa-test:latest
 // or
 docker-compose -f docker/loadTests.docker-compose.yml up --abort-on-container-exit --exit-code-from pisatest; echo $?

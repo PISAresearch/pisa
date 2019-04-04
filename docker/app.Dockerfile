@@ -14,7 +14,6 @@ RUN ["npm", "ci"];
 COPY ./src ./src
 COPY ./raiden_demo ./raiden_demo
 COPY ./test ./test
-COPY ./config.json ./config.json
 COPY ./tsconfig.json ./tsconfig.json
 
 # build
@@ -41,9 +40,7 @@ WORKDIR /usr/pisa
 # copy packages
 COPY package*.json ./
 # copy config
-COPY ./configs/pisa.json ./build/config.json
-# copy external dependencies
-COPY ./statechannels/build ./build/statechannels/build
+COPY ./configs/pisa.json ./build/src/config.json
 # copy only the source code from the builder
 COPY --from=builder /usr/pisa/build/src ./build/src
 COPY --from=builder /usr/pisa/build/raiden_demo ./build/raiden_demo
@@ -64,7 +61,7 @@ WORKDIR /usr/pisa
 # copy packages
 COPY package*.json ./
 # copy config
-COPY ./configs/test.json ./build/config.json
+COPY ./configs/test.json ./build/src/config.json
 # copy external dependencies
 COPY ./statechannels/build ./build/statechannels/build
 # copy only the source code from the builder
