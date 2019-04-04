@@ -21,7 +21,7 @@ export class Responder {
                     let tx = await submitStateFunction();
                     await tx.wait();
                     logger.info(
-                        appointment.formatLogEvent(
+                        appointment.formatLog(
                             `Successfully responded to ${appointment.getEventName()} for appointment ${appointment.getStateLocator()} after ${tries +
                                 1} tr${tries + 1 === 1 ? "y" : "ies"}.`
                         )
@@ -30,7 +30,7 @@ export class Responder {
                 } catch (doh) {
                     // retry
                     logger.error(
-                        appointment.formatLogEvent(
+                        appointment.formatLog(
                             `Failed to respond to ${appointment.getEventName()} for appointment ${appointment.getStateLocator()}, re-tries ${tries +
                                 1}.`
                         )

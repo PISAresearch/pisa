@@ -1,12 +1,12 @@
 import * as chai from "chai";
 import "mocha";
 import request from "request-promise";
-import KitsuneTools from "../../src/integrations/kitsune/tools";
+import { KitsuneTools } from "../../src/integrations/kitsune";
 import { ethers } from "ethers";
 import { PisaService } from "../../src/service";
 import config from "../../src/dataEntities/config";
 import Ganache from "ganache-core";
-import { KitsuneAppointment, ChannelType } from "../../src/dataEntities";
+import { ChannelType } from "../../src/dataEntities";
 import logger from "../../src/logger";
 import StateChannelFactory from "../../src/integrations/kitsune/StateChannelFactory.json";
 logger.transports.forEach(l => (l.level = "max"));
@@ -196,10 +196,7 @@ describe("Service end-to-end", () => {
             }
         };
 
-        await failWithCode(
-            `400 - "No code found at address ${appointment.stateUpdate.contractAddress}`,
-            appointment
-        );
+        await failWithCode(`400 - "No code found at address ${appointment.stateUpdate.contractAddress}`, appointment);
     }).timeout(3000);
 
     it("create channel, wrong bytecode contact returns 400", async () => {
@@ -254,10 +251,7 @@ describe("Service end-to-end", () => {
             }
         };
 
-        await failWithCode(
-            `400 - "${appointment.stateUpdate.contractAddress} is not a valid address.`,
-            appointment
-        );
+        await failWithCode(`400 - "${appointment.stateUpdate.contractAddress} is not a valid address.`, appointment);
     }).timeout(3000);
 
     it("create channel, invalid state hash returns 400", async () => {

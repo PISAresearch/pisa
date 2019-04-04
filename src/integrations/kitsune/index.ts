@@ -1,15 +1,80 @@
-import { KitsuneAppointment, ChannelType } from "../dataEntities";
-import { Inspector } from "./inspector";
-import { PublicInspectionError } from "../dataEntities/errors";
-import KitsuneTools from "../integrations/kitsune/tools";
-import { ethers } from "ethers";
+import { utils, ethers } from "ethers";
+import { KitsuneTools } from "./tools";
+export { KitsuneTools } from "./tools";
+import { Appointment, ChannelType, checkKitsuneAppointment } from "../../dataEntities";
+import { Inspector } from "../../inspector";
+import { PublicInspectionError } from "../../dataEntities/errors";
 import { verifyMessage } from "ethers/utils";
-import logger from "../logger";
+import logger from "../../logger";
+
+/**
+ * Format of a kitsune state update
+ */
+export interface IKitsuneStateUpdate {
+    signatures: string[];
+    hashState: string;
+    round: number;
+    contractAddress: string;
+}
+
+/**
+ * An appointment containing kitsune specific information
+ */
+export class KitsuneAppointment extends Appointment {
+    constructor(obj: { stateUpdate: IKitsuneStateUpdate; expiryPeriod: number; type: ChannelType.Kitsune });
+    constructor(obj: any) {
+        checkKitsuneAppointment(obj);
+        const tempRaidenObj = obj as KitsuneAppointment;
+        super(tempRaidenObj.expiryPeriod, ChannelType.Kitsune);
+        this.stateUpdate = tempRaidenObj.stateUpdate;
+    }
+    public readonly stateUpdate: IKitsuneStateUpdate;
+
+    getStateNonce() {
+        return this.stateUpdate.round;
+    }
+
+    getContractAddress() {
+        return this.stateUpdate.contractAddress;
+    }
+
+    getStateLocator() {
+        // in the kitsune paradigm a new contract is created for each state channel
+        // and a single nonce is kept per channel
+
+        return this.stateUpdate.contractAddress;
+    }
+
+    getEventFilter(contract: ethers.Contract) {
+        return contract.filters.EventDispute(null);
+    }
+
+    getEventName() {
+        return "EventDispute(uint256)";
+    }
+
+    getContractAbi() {
+        return KitsuneTools.ContractAbi;
+    }
+
+    getSubmitStateFunction(): (contract: ethers.Contract) => Promise<void> {
+        return async (contract: ethers.Contract) => {
+            let sig0 = utils.splitSignature(this.stateUpdate.signatures[0]);
+            let sig1 = utils.splitSignature(this.stateUpdate.signatures[1]);
+
+            return await contract.setstate(
+                [sig0.v - 27, sig0.r, sig0.s, sig1.v - 27, sig1.r, sig1.s],
+                this.stateUpdate.round,
+                this.stateUpdate.hashState
+            );
+        };
+    }
+}
 
 /**
  * Responsible for deciding whether to accept Kitsune appointments
  */
-export class KitsuneInspector extends Inspector {
+export class KitsuneInspector extends Inspector<KitsuneAppointment> {
     constructor(public readonly minimumDisputePeriod: number, public readonly provider: ethers.providers.Provider) {
         super(ChannelType.Kitsune);
     }
@@ -76,8 +141,8 @@ export class KitsuneInspector extends Inspector {
         minimumDisputePeriod: number
     ) {
         // check that the channel round is greater than the current round
-        const currentChannelRound: number =  await contract.bestRound();
-        logger.info(appointment.formatLogEvent(`On-chain round: ${currentChannelRound}`));
+        const currentChannelRound: number = await contract.bestRound();
+        logger.info(appointment.formatLog(`On-chain round: ${currentChannelRound}`));
         if (appointmentRound <= currentChannelRound) {
             throw new PublicInspectionError(
                 `Supplied appointment round ${appointmentRound} is not greater than channel round ${currentChannelRound}.`
@@ -86,7 +151,7 @@ export class KitsuneInspector extends Inspector {
 
         // check that the channel has a reasonable dispute period
         const channelDisputePeriod: number = await contract.disputePeriod();
-        logger.info(appointment.formatLogEvent(`On-chain dispute period: ${channelDisputePeriod}.`));
+        logger.info(appointment.formatLog(`On-chain dispute period: ${channelDisputePeriod}.`));
         if (channelDisputePeriod <= minimumDisputePeriod) {
             throw new PublicInspectionError(
                 `Channel dispute period ${channelDisputePeriod} is less than or equal the minimum acceptable dispute period ${minimumDisputePeriod}.`
@@ -95,7 +160,7 @@ export class KitsuneInspector extends Inspector {
 
         // check that the channel is currently in the ON state
         const channelStatus: number = await contract.status();
-        logger.info(appointment.formatLogEvent(`On-chain channel status: ${channelStatus}.`));
+        logger.info(appointment.formatLog(`On-chain channel status: ${channelStatus}.`));
         // ON = 0, DISPUTE = 1, OFF = 2
         if (channelStatus != 0) {
             throw new PublicInspectionError(`Channel status is ${channelStatus} not 0.`);
@@ -103,15 +168,15 @@ export class KitsuneInspector extends Inspector {
 
         //verify all the signatures
         // get the participants
-        let participants: string[] = await [await contract.plist(0), await contract.plist(1)] as string[];
-        logger.info(appointment.formatLogEvent(`On-chain participants: ${JSON.stringify(participants)}.`));
+        let participants: string[] = (await [await contract.plist(0), await contract.plist(1)]) as string[];
+        logger.info(appointment.formatLog(`On-chain participants: ${JSON.stringify(participants)}.`));
 
         // form the hash
         const setStateHash = KitsuneTools.hashForSetState(hState, appointmentRound, contract.address);
 
         // check the sigs
         this.verifySignatures(participants, setStateHash, signatures);
-        logger.info(appointment.formatLogEvent("All participants have signed."));
+        logger.info(appointment.formatLog("All participants have signed."));
     }
 
     /**

@@ -38,7 +38,7 @@ export class Watcher {
                 );
             }
 
-            logger.info(appointment.formatLogEvent(`Begin watching for event ${appointment.getEventName()}.`));
+            logger.info(appointment.formatLog(`Begin watching for event ${appointment.getEventName()}.`));
 
             // if there's a previous appointment for this channel/user, we remove it from the store
             const previousAppointment = this.store.getPreviousAppointmentForChannel(appointment);
@@ -47,7 +47,7 @@ export class Watcher {
                 const previousFilter = previousAppointment.appointment.getEventFilter(previousAppointment.contract);
                 previousAppointment.contract.removeListener(previousFilter, previousAppointment.listener);
                 logger.info(
-                    appointment.formatLogEvent(
+                    appointment.formatLog(
                         `Stopped watching appointment: ${previousAppointment.appointment.getStateIdentifier()}.`
                     )
                 );
@@ -74,7 +74,7 @@ export class Watcher {
                 // this callback should not throw exceptions as they cannot be handled elsewhere
                 try {
                     logger.info(
-                        appointment.formatLogEvent(
+                        appointment.formatLog(
                             `Observed event ${appointment.getEventName()} in contract ${
                                 contract.address
                             } with arguments : ${args.slice(0, args.length - 1)}.`
@@ -93,13 +93,13 @@ export class Watcher {
                 } catch (doh) {
                     // an error occured whilst responding to the callback - this is serious and the problem needs to be correctly diagnosed
                     logger.error(
-                        appointment.formatLogEvent(
+                        appointment.formatLog(
                             `An unexpected errror occured whilst responding to event ${appointment.getEventName()} in contract ${
                                 contract.address
                             }.`
                         )
                     );
-                    logger.error(appointment.formatLogEvent(doh));
+                    logger.error(appointment.formatLog(doh));
                 }
             };
 
@@ -156,7 +156,7 @@ class WatchedAppointmentStore {
         // added nonce should be strictly greater than current nonce
         else if (appointmentAndListener.appointment.getStateNonce() >= appointment.getStateNonce()) {
             logger.error(
-                appointment.formatLogEvent(
+                appointment.formatLog(
                     `Nonce ${appointment.getStateNonce()} is not greater than current appointment ${appointmentAndListener.appointment.getStateLocator()} nonce ${appointmentAndListener.appointment.getStateNonce()}.`
                 )
             );
@@ -199,7 +199,7 @@ class WatchedAppointmentStore {
         if (appointmentAndListener) {
             if (appointmentAndListener.appointment.getStateNonce() <= currentAppointment.getStateNonce()) {
                 logger.error(
-                    currentAppointment.formatLogEvent(
+                    currentAppointment.formatLog(
                         `Nonce ${currentAppointment.getStateNonce()} is not greater than current appointment ${appointmentAndListener.appointment.getStateLocator()} nonce ${appointmentAndListener.appointment.getStateNonce()}.`
                     )
                 );

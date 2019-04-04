@@ -1,18 +1,98 @@
-import { RaidenAppointment, ChannelType } from "../dataEntities";
+import { Appointment, ChannelType, checkRaidenAppointment } from "../../dataEntities";
 import { ethers } from "ethers";
+import { RaidenTools } from "./tools";
+export { RaidenTools } from "./tools";
 import { verifyMessage } from "ethers/utils";
-import { BalanceProofSigGroup } from "../integrations/raiden/balanceProof";
-import logger from "../logger";
-import RaidenTools from "../integrations/raiden/tools";
-import { Inspector } from "./inspector";
-import { PublicInspectionError } from "../dataEntities/errors"
+import { BalanceProofSigGroup } from "./balanceProof";
+import logger from "../../logger";
+import { Inspector } from "../../inspector";
+import { PublicInspectionError } from "../../dataEntities";
+
+/**
+ * Format of a raiden state update
+ */
+interface IRaidenStateUpdate {
+    channel_identifier: number;
+    closing_participant: string;
+    non_closing_participant: string;
+    balance_hash: string;
+    nonce: number;
+    additional_hash: string;
+    closing_signature: string;
+    non_closing_signature: string;
+    chain_id: number;
+    token_network_identifier: string;
+}
+
+/**
+ * An appointment containing Raiden specific information
+ */
+export class RaidenAppointment extends Appointment {
+    constructor(obj: { stateUpdate: IRaidenStateUpdate; expiryPeriod: number, type: ChannelType.Raiden });
+    constructor(obj: any) {
+        checkRaidenAppointment(obj);
+        const tempRaidenObj = obj as RaidenAppointment;
+        super(tempRaidenObj.expiryPeriod, ChannelType.Raiden);
+        this.stateUpdate = tempRaidenObj.stateUpdate;
+    }
+    public readonly stateUpdate: IRaidenStateUpdate;
+
+    getStateNonce() {
+        return this.stateUpdate.nonce;
+    }
+
+    getContractAddress() {
+        return this.stateUpdate.token_network_identifier;
+    }
+
+    getStateLocator() {
+        // the raiden network has one contract per token - the token network
+        // within this contract each pair of participants can have at most one channel between them - the channel identifier
+        // within this channel each participant keeps a record of the state of how much they are owed by their counterparty
+        // it is this balance that is submitted to pisa
+
+        return `${this.stateUpdate.token_network_identifier}:${this.stateUpdate.channel_identifier}:${
+            this.stateUpdate.closing_participant
+        }`;
+    }
+
+    getEventFilter(contract: ethers.Contract) {
+        return contract.filters.ChannelClosed(
+            this.stateUpdate.channel_identifier,
+            this.stateUpdate.closing_participant,
+            null
+        );
+    }
+
+    getEventName() {
+        return `ChannelClosed(${this.stateUpdate.channel_identifier},${this.stateUpdate.closing_participant},uint256)`;
+    }
+
+    getContractAbi() {
+        return RaidenTools.ContractAbi;
+    }
+
+    getSubmitStateFunction(): (contract: ethers.Contract) => Promise<void> {
+        return async (contract: ethers.Contract) =>
+            await contract.updateNonClosingBalanceProof(
+                this.stateUpdate.channel_identifier,
+                this.stateUpdate.closing_participant,
+                this.stateUpdate.non_closing_participant,
+                this.stateUpdate.balance_hash,
+                this.stateUpdate.nonce,
+                this.stateUpdate.additional_hash,
+                this.stateUpdate.closing_signature,
+                this.stateUpdate.non_closing_signature
+            );
+    }
+}
 
 /**
  * Responsible for deciding whether to accept appointments
  */
-export class RaidenInspector extends Inspector {
+export class RaidenInspector extends Inspector<RaidenAppointment> {
     constructor(private readonly minimumDisputePeriod: number, private readonly provider: ethers.providers.Provider) {
-        super(ChannelType.Raiden)
+        super(ChannelType.Raiden);
     }
 
     /**
@@ -58,19 +138,17 @@ export class RaidenInspector extends Inspector {
         const settleBlockNumber = channelInfo[0];
         const status = channelInfo[1];
 
-        logger.info(appointment.formatLogEvent(`On-chain round: ${nonce.toString(10)}.`));
+        logger.info(appointment.formatLog(`On-chain round: ${nonce.toString(10)}.`));
         if (appointment.stateUpdate.nonce <= nonce) {
             throw new PublicInspectionError(
-                `Supplied appointment round ${
-                    appointment.stateUpdate.nonce
-                } is not greater than channel round ${nonce}`
+                `Supplied appointment round ${appointment.stateUpdate.nonce} is not greater than channel round ${nonce}`
             );
         }
 
         // check that the channel is currently in the ON state
         // PISA: await?
         const channelStatus: number = await status;
-        logger.info(appointment.formatLogEvent(`On-chain status: ${channelStatus}.`));
+        logger.info(appointment.formatLog(`On-chain status: ${channelStatus}.`));
 
         //     NonExistent, // 0
         //     Opened,      // 1
@@ -88,7 +166,7 @@ export class RaidenInspector extends Inspector {
         // 2) When closeChannel is called it is updated with += block.number
         // we've checked that the status is correct - so we must be in situation 1)
         const channelDisputePeriod: number = await settleBlockNumber;
-        logger.info(appointment.formatLogEvent(`On-chain dispute period: ${channelDisputePeriod.toString(10)}.`));
+        logger.info(appointment.formatLog(`On-chain dispute period: ${channelDisputePeriod.toString(10)}.`));
         if (channelDisputePeriod <= this.minimumDisputePeriod) {
             throw new PublicInspectionError(
                 `Channel dispute period ${channelDisputePeriod} is less than or equal the minimum acceptable dispute period ${
@@ -147,7 +225,7 @@ export class RaidenInspector extends Inspector {
             );
         }
 
-        logger.info(appointment.formatLogEvent("All participants have signed."));
+        logger.info(appointment.formatLog("All participants have signed."));
         ///////////////////////////////////////////////////////////////////////////////////////////////////////////
         ///////////////////////////////////////////////////////////////////////////////////////////////////////////
         ///////////////////////////////////////////////////////////////////////////////////////////////////////////
