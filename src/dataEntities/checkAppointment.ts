@@ -7,7 +7,7 @@ export function checkKitsuneAppointment(obj: any) {
     doesPropertyExist("stateUpdate", obj);
     isKitsuneStateUpdate(obj["stateUpdate"]);
 
-    propertyExistsAndIsOfType("type", "number", obj);
+    propertyExistsAndIsOfType("type", "string", obj);
     if (obj["type"] !== ChannelType.Kitsune)
         throw new PublicDataValidationError(`Appointment is of type ${obj["type"]}`);
 
@@ -20,7 +20,7 @@ export function checkRaidenAppointment(obj: any) {
     doesPropertyExist("stateUpdate", obj);
     isRaidenStateUpdate(obj["stateUpdate"]);
 
-    propertyExistsAndIsOfType("type", "number", obj);
+    propertyExistsAndIsOfType("type", "string", obj);
     if (obj["type"] !== ChannelType.Raiden)
         throw new PublicDataValidationError(`Appointment is of type ${obj["type"]}`);
 

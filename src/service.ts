@@ -3,9 +3,7 @@ import httpContext from "express-http-context";
 import logger from "./logger";
 import { Appointment, PublicInspectionError, PublicDataValidationError } from "./dataEntities";
 import { Inspector } from "./inspector";
-
 import { Raiden, Kitsune, IChannelConfig } from "./integrations";
-
 import { Watcher } from "./watcher";
 // PISA: this isn working properly, it seems that watchers are sharing the last set value...
 import { setRequestId } from "./customExpressHttpContext";
@@ -13,9 +11,6 @@ import { Server } from "http";
 import { inspect } from "util";
 import { ethers } from "ethers";
 import { Responder } from "./responder";
-
-// PISA: tests and docs?
-// PISA: also renaming of the ChannelConfig and its contents
 
 /**
  * A PISA tower, configured to watch for specified appointment types
@@ -85,9 +80,6 @@ export class PisaService {
 
         const responder = new Responder(10);
         const watcher = new Watcher(jsonRpcProvider, wallet, responder);
-        // const kitsuneInspector = new KitsuneInspector(10, jsonRpcProvider);
-        // PISA: currently set to 4 for demo purposes - this should be a commandline/config arg
-
         const tower = new PisaTower(jsonRpcProvider, watcher, [Raiden, Kitsune]);
 
         app.post("/appointment", this.appointment(tower));
