@@ -7,17 +7,11 @@ jobs:
     steps:
       - checkout
       - run:
-          name: submodule 
-          command: git submodule init && git submodule update 
-      - run:
           name: update-npm
           command: 'sudo npm install -g npm@latest'
       - run:
           name: install
           command: npm install
-      - run:
-          name: build kitsune
-          command: npm run build-kitsune
       - run:
           name: build pisa
           command: npm run build

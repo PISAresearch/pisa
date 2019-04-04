@@ -5,10 +5,8 @@
   "main": "index.js",
   "scripts": {
     "build": "npx tsc && cp config.json build/config.json && cp -r ./raiden_demo build/raiden_demo",
-    "build-kitsune": "cd statechannels && npm ci && npx truffle compile && mkdir -p ../build/statechannels && cp -R build/ ../build/statechannels/build && cd ..",
     "build-raiden-pisa-daemon": "cd build/raiden_demo/raiden-pisa-daemon && npm install && npm run build",
     "build-autominer": "cd build/raiden_demo/autominer && npm install && npm run build",
-    "init": "npm run submodule && npm run build-kitsune",
     "start": "node ./build/src/startUp.js",
     "start-dev": "ts-node src/startUp.ts",
     "start-evm": "ganache-cli -d -l 15000000 --allowUnlimitedContractSize --defaultBalanceEther 1000000 --mnemonic 'myth like bonus scare over problem client lizard pioneer submit female collect'",
