@@ -18,22 +18,18 @@ export class PisaClient {
     constructor(private readonly hostAndPort: string) {}
 
     requestAppointment(appointmentRequest: IAppointmentRequest): request.RequestPromise {
-        return request.post(
-            `http://${this.hostAndPort}/appointment`,
-            { json: appointmentRequest },
-            (err) => {
-                if (err) {
-                    console.log(err);
-                }
+        return request.post(`http://${this.hostAndPort}/appointment`, { json: appointmentRequest }, err => {
+            if (err) {
+                console.log(err);
             }
-        );
+        });
     }
 }
 
 export interface IAppointmentRequest {
     expiryPeriod: number;
-    type: ChannelType.Raiden,
-    stateUpdate: IDoubleSignedBalanceProof
+    type: ChannelType.Raiden;
+    stateUpdate: IDoubleSignedBalanceProof;
 }
 
 export enum ChannelType {
