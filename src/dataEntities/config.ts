@@ -1,4 +1,4 @@
-const config = require("../../config.json") as IConfig;
+import config from "../config.json";
 
 export interface IConfig {
     jsonRpcUrl: string;
@@ -9,4 +9,4 @@ export interface IConfig {
     watcherKey: string;
 }
 
-export default config;
+export default config as IConfig;

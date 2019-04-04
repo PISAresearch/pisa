@@ -4,7 +4,7 @@
   "description": "Arbitration Outsourcing for State Channels",
   "main": "index.js",
   "scripts": {
-    "build": "npx tsc && cp config.json build/config.json && cp -r ./raiden_demo build/raiden_demo",
+    "build": "npx tsc && cp -r ./raiden_demo build/raiden_demo",
     "build-raiden-pisa-daemon": "cd build/raiden_demo/raiden-pisa-daemon && npm install && npm run build",
     "build-autominer": "cd build/raiden_demo/autominer && npm install && npm run build",
     "start": "node ./build/src/startUp.js",
