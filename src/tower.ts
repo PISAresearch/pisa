@@ -35,7 +35,7 @@ export class PisaTower {
         // parse the appointment
         const appointment = config.appointment(obj);
 
-        const inspector = config.inspector(10, this.provider);
+        const inspector = config.inspector(config.minimumDisputePeriod, this.provider);
         // inspect this appointment, an error is thrown if inspection is failed
         await inspector.inspectAndPass(appointment);
 
