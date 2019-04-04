@@ -4,7 +4,7 @@
   "description": "Arbitration Outsourcing for State Channels",
   "main": "index.js",
   "scripts": {
-    "build": "npx tsc && cp -r ./raiden_demo build/raiden_demo",
+    "build": "rm -rf ./build && npx tsc && cp -r ./raiden_demo build/raiden_demo",
     "build-raiden-pisa-daemon": "cd build/raiden_demo/raiden-pisa-daemon && npm install && npm run build",
     "build-autominer": "cd build/raiden_demo/autominer && npm install && npm run build",
     "start": "node ./build/src/startUp.js",
@@ -15,7 +15,7 @@
     "test-load": "node build/test/load/loadTest.js 10 20000",
     "test-coverage": "npx tsc && nyc mocha build/test/src --exit",
     "test-smoke": "node build/test/smoke/smokeTests.js",
-    "test-raiden": "npm run build && npm run build-raiden-pisa-daemon && npm run build-autominer && mocha build/test/src/raiden.test.js --exit"
+    "test-integration": "npm run build && npm run build-raiden-pisa-daemon && npm run build-autominer && mocha build/test/integration --exit"
   },
   "repository": {
     "type": "git",

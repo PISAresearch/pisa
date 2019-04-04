@@ -12,7 +12,7 @@ let account0: string,
 
 // concurrently watch for x events
 let setup = async (creationCount: number) => {
-    const provider = await getJsonRPCProvider();
+    const provider = await getJsonRPCProvider("http://localhost:8545");
     if (creationCount <= 0) {
         console.error("Specify more than 0 requests.");
         process.exit(1);

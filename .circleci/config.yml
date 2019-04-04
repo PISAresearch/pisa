@@ -21,6 +21,9 @@ jobs:
       - run:
           name: test
           command: npm run test
+      - run:
+          name: test-integration
+          command: npm run test-integration
       - store_artifacts:
           path: ./logs/
 workflows:
