@@ -4,6 +4,12 @@ import uuid from "uuid/v4";
 
 /**
  * An appointment that has been accepted by PISA
+ *
+ * @member startTime: start time, in milliseconds elapsed since January 1, 1970, 00:00:00 UTC.
+ * @member endTime: end time, in milliseconds elapsed since January 1, 1970, 00:00:00 UTC.
+ * @member passedInspection: true iff this appointment passed the inspection.
+ * @member expiryPeriod: duration of the appointment in milliseconds.
+ * @member type: one of the supported channel types.
  */
 export interface IAppointment {
     startTime: number;
