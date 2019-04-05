@@ -35,7 +35,7 @@ export enum ResponseStatus {
 
 /**
  * Responsible for responding to observed events.
- * The responder is solely responsible for ensuring that a transaction gets to the blockchain
+ * The responder is solely responsible for ensuring that a transaction gets to the blockchain.
  */
 export abstract class Responder extends EventEmitter {
     private responses = new Map<number, ResponseFlow>();
@@ -149,9 +149,11 @@ export class KitsuneResponder extends EthereumResponder<KitsuneAppointment> {
 
 
 /**
- * Responsible for handling the business logic of the Responder
+ * Responsible for handling the business logic of the Responders.
  */
-// TODO: only handling Kitsune appointments for now
+// TODO: only handling Kitsune appointments for now, and only one active response.
+//       Should add a pool of wallets to allow concurrent responses.
+
 export class ResponderManager {
     private appointmentsByResponseId = new Map<number, IAppointment>();
 

@@ -93,19 +93,6 @@ export class KitsuneAppointment extends EthereumAppointment {
     getContractAbi() {
         return KitsuneTools.ContractAbi;
     }
-
-    getSubmitStateFunction(): (contract: ethers.Contract) => Promise<void> {
-        return async (contract: ethers.Contract) => {
-            let sig0 = utils.splitSignature(this.stateUpdate.signatures[0]);
-            let sig1 = utils.splitSignature(this.stateUpdate.signatures[1]);
-
-            return await contract.setstate(
-                [sig0.v - 27, sig0.r, sig0.s, sig1.v - 27, sig1.r, sig1.s],
-                this.stateUpdate.round,
-                this.stateUpdate.hashState
-            );
-        };
-    }
 }
 
 /**

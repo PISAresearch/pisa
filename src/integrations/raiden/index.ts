@@ -134,20 +134,6 @@ export class RaidenAppointment extends EthereumAppointment {
     getContractAbi() {
         return RaidenTools.ContractAbi;
     }
-
-    getSubmitStateFunction(): (contract: ethers.Contract) => Promise<void> {
-        return async (contract: ethers.Contract) =>
-            await contract.updateNonClosingBalanceProof(
-                this.stateUpdate.channel_identifier,
-                this.stateUpdate.closing_participant,
-                this.stateUpdate.non_closing_participant,
-                this.stateUpdate.balance_hash,
-                this.stateUpdate.nonce,
-                this.stateUpdate.additional_hash,
-                this.stateUpdate.closing_signature,
-                this.stateUpdate.non_closing_signature
-            );
-    }
 }
 
 /**
