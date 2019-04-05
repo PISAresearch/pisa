@@ -21,11 +21,11 @@ function timeout(ms: number): Promise<any> {
 const pisaRoot = path.normalize(`${__dirname}/../../..`);
 const demoDir = `${pisaRoot}/build/raiden_demo`;
 
-const blockTime = 1000; //block time in ms
+const blockTime = 500; //block time in ms
 const reveal_timeout = 5;
 
 const initialDeposit = "20000000000000000"; // balance when channel is opened
-const paymentAmount = "10000000000000000"; // amount sent from Bob
+const paymentAmount = "1000000000000000"; // amount sent from Bob
 
 //Addresses (without "0x", with checksum)
 const aliceAddr = "ccca21b97b27DefC210f01A7e64119A784424D26";
@@ -63,17 +63,49 @@ const ERC20abi = [
         stateMutability: "view",
         type: "function"
     }
-  ];
+];
 
-const isPortFree = (port: number) => new Promise<boolean>((resolve, reject) => {
-    const tester = net.createServer()
-        .once('error', (err: any) => (err.code == 'EADDRINUSE' ? resolve(false) : reject(err)))
-        .once('listening', () => tester.once('close', () => resolve(true)).close())
-        .listen(port)
-});
+const isPortFree = (port: number) =>
+    new Promise<boolean>((resolve, reject) => {
+        const tester = net
+            .createServer()
+            .once("error", (err: any) => (err.code == "EADDRINUSE" ? resolve(false) : reject(err)))
+            .once("listening", () => tester.once("close", () => resolve(true)).close())
+            .listen(port);
+    });
 
 describe("Raiden end-to-end tests for scenario 2 (with Pisa)", function() {
-    this.timeout(100000 + blockTime * (40 + 2 * reveal_timeout));
+    this.timeout(200000 + blockTime * (40 + 2 * reveal_timeout));
+    //: {alice: ChildProcess, bob:ChildProcess}
+    const restartAliceAndBob = async () => {
+        // stop alice, stop bob
+        subprocesses.splice(subprocesses.indexOf(alice), 1);
+        subprocesses.splice(subprocesses.indexOf(bob), 1);
+
+        console.log("Stopping alice and bob");
+        await new Promise(resolve => kill(alice.pid, "SIGKILL", resolve));
+        await new Promise(resolve => kill(bob.pid, "SIGKILL", resolve));
+
+        // start alice and bob
+        alice = await startRaidenNode("alice", aliceAddr, aliceAddrLow, 6662);
+        subprocesses.push(alice);
+        bob = await startRaidenNode("bob", bobAddr, bobAddrLow, 6663);
+        subprocesses.push(bob);
+
+        await waitPort({ host: "0.0.0.0", port: 6662 });
+        await waitPort({ host: "0.0.0.0", port: 6663 });
+    };
+
+    const startRaidenNode = async (name: string, address: string, addressLow: string, port: number) => {
+        // Start raiden
+        console.log(`Starting raiden for ${name}`);
+        const cmd = `${demoDir}/raiden --gas-price fast --accept-disclaimer --keystore-path ${demoDir}/docker/test-accounts --datadir ${demoDir}/.raiden --network-id ropsten --eth-rpc-endpoint http://0.0.0.0:8545 --address 0x${address} --api-address http://0.0.0.0:${port} --password-file ${demoDir}/docker/test-accounts/password--${addressLow}.txt  --no-sync-check --disable-debug-logfile --tokennetwork-registry-contract-address 0xCa70BfDEa6BD82e45d4fD26Dd9f36DB9fad61796 --secret-registry-contract-address 0xaFa1F14fe33940b22D7f9F9bf0d707860C9233e2 --endpoint-registry-contract-address 0xa4f842B60C8a21c54b16E7940aA16Dda80301d13`;
+        const raidenNode = exec(cmd);
+        const logStream = await fse.createWriteStream(`${pisaRoot}/logs/${name}.test.log`, { flags: "a" });
+        raidenNode.stdout.pipe(logStream);
+        raidenNode.stderr.pipe(logStream);
+        return raidenNode;
+    };
 
     beforeEach(async () => {
         // Test if all the ports we will need are available, abort otherwise
@@ -115,7 +147,7 @@ describe("Raiden end-to-end tests for scenario 2 (with Pisa)", function() {
 
         //Start parity node
         autominer = exec(
-            `node ${demoDir}/autominer/build/autominer.js --period 1000 --jsonrpcurl http://localhost:8545`
+            `node ${demoDir}/autominer/build/autominer.js --period ${blockTime} --jsonrpcurl http://localhost:8545`
         );
 
         subprocesses.push(autominer);
@@ -128,24 +160,12 @@ describe("Raiden end-to-end tests for scenario 2 (with Pisa)", function() {
         provider = new ethers.providers.JsonRpcProvider("http://0.0.0.0:8545", "ropsten");
 
         // Start raiden node for Alice
-        console.log("Starting Alice");
-        const aliceCmd = `${demoDir}/raiden --gas-price fast --accept-disclaimer --keystore-path ${demoDir}/docker/test-accounts --datadir ${demoDir}/.raiden --network-id ropsten --eth-rpc-endpoint http://0.0.0.0:8545 --address 0x${aliceAddr} --api-address http://0.0.0.0:6662 --password-file ${demoDir}/docker/test-accounts/password--${aliceAddrLow}.txt  --no-sync-check --disable-debug-logfile --tokennetwork-registry-contract-address 0xCa70BfDEa6BD82e45d4fD26Dd9f36DB9fad61796 --secret-registry-contract-address 0xaFa1F14fe33940b22D7f9F9bf0d707860C9233e2 --endpoint-registry-contract-address 0xa4f842B60C8a21c54b16E7940aA16Dda80301d13`;
-        alice = exec(aliceCmd);
+        alice = await startRaidenNode("alice", aliceAddr, aliceAddrLow, 6662);
         subprocesses.push(alice);
-        const aliceLogStream = await fse.createWriteStream(`${pisaRoot}/logs/alice.test.log`, { flags: "a" });
-        alice.stdout.pipe(aliceLogStream);
-        alice.stderr.pipe(aliceLogStream);
 
         // Start raiden node for Bob
-        console.log("Starting Bob");
-        const bobCmd = `${demoDir}/raiden --gas-price fast --accept-disclaimer --keystore-path ${demoDir}/docker/test-accounts --datadir ${demoDir}/.raiden --network-id ropsten --eth-rpc-endpoint http://0.0.0.0:8545 --address 0x${bobAddr} --api-address http://0.0.0.0:6663 --password-file ${demoDir}/docker/test-accounts/password--${bobAddrLow}.txt  --no-sync-check --disable-debug-logfile --tokennetwork-registry-contract-address 0xCa70BfDEa6BD82e45d4fD26Dd9f36DB9fad61796 --secret-registry-contract-address 0xaFa1F14fe33940b22D7f9F9bf0d707860C9233e2 --endpoint-registry-contract-address 0xa4f842B60C8a21c54b16E7940aA16Dda80301d13`;
-        bob = exec(bobCmd);
+        bob = await startRaidenNode("bob", bobAddr, bobAddrLow, 6663);
         subprocesses.push(bob);
-        const bobLogStream = await fse.createWriteStream(`${pisaRoot}/logs/bob.test.log`, { flags: "a" });
-        bob.stdout.pipe(bobLogStream);
-        bob.stderr.pipe(bobLogStream);
-
-        await timeout(10000);
 
         // Start Pisa
         console.log("Starting Pisa");
@@ -176,12 +196,8 @@ describe("Raiden end-to-end tests for scenario 2 (with Pisa)", function() {
         console.log("Waiting for everyone to be ready.");
 
         // We aready waited for parity and Alice.
-
         await waitPort({ host: "0.0.0.0", port: 6663 }); //Wait for Bob
         await waitPort({ host: "0.0.0.0", port: 3000 }); //Wait for Pisa
-
-        // Wait some time for the daemon
-        await timeout(1000);
 
         console.log("Starting scenario.");
 
@@ -210,18 +226,17 @@ describe("Raiden end-to-end tests for scenario 2 (with Pisa)", function() {
     afterEach(async () => {
         console.log("CLEANUP");
         // Cleanup on exit
-        subprocesses.forEach(child => {
-            try {
-                kill(child.pid);
-            } catch (err) {
-                // Ignore error on cleanup, but log it anyway
-                console.log(err);
-            }
-        });
+        const killProcesses = subprocesses.map(child => new Promise(resolve => kill(child.pid, "SIGKILL", resolve)));
+        try {
+            await Promise.all(killProcesses);
+        } catch (doh) {
+            console.error(doh);
+        }
+
         subprocesses = [];
 
         //TODO: find a better way to wait for cleanup completion
-        await timeout(10000);
+        // await timeout(2000);
     });
 
     it("completes scenario 2 correctly", async () => {
@@ -243,14 +258,46 @@ describe("Raiden end-to-end tests for scenario 2 (with Pisa)", function() {
         await timeout(20 * blockTime);
 
         // Make a payment from Bob to Alice
-        console.log("Bob is making the payment to Alice");
-        const paymentResult = await request({
-            method: "POST",
-            uri: `http://0.0.0.0:6663/api/v1/payments/${testTokenAddr}/0x${aliceAddr}`,
-            json: {
-                amount: paymentAmount
+        const bobPaysAlice = async (amount: string) => {
+            console.log("Bob is making the payment to Alice");
+            return await request({
+                method: "POST",
+                uri: `http://0.0.0.0:6663/api/v1/payments/${testTokenAddr}/0x${aliceAddr}`,
+                json: {
+                    amount
+                }
+            });
+        };
+
+        // Sometimes the raiden node fails to deliver a payment!
+        // We need to updgrade the raiden node, as they have fixed a lot of bugs
+        // But this could be a network issue, as the raiden nodes contact Matrix servers to find routes for payments
+        let paymentAttempts = 0;
+        let paymentResult;
+        let lastError;
+        while (true) {
+            paymentAttempts++;
+            try {
+                // make the payment
+                paymentResult = await bobPaysAlice(paymentAmount);
+                console.log(`Payment succeeded after ${paymentAttempts} attempt${paymentAttempts === 1 ? "" : "s"}.`);
+                break;
+            } catch (doh) {
+                if (doh && doh.statusCode === 409) {
+                    lastError = doh;
+                    console.log("Payment failed, trying again.");
+                } else {
+                    console.log(doh);
+                    throw doh;
+                }
             }
-        });
+            // restart alice and bob and try to pay again if we have less than 5 errors
+            if (paymentAttempts >= 20) {
+                console.log("Payment failed after 20 tries.")
+                throw lastError;
+            }
+            await restartAliceAndBob();
+        }
         console.log("Payment result:", paymentResult);
 
         // Wait to give time to daemon and Pisa to pick up the appointment
