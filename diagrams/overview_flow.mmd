@@ -23,7 +23,7 @@ sequenceDiagram
         else watcher accept
             api->>node: appointment accepted
             loop poll blockchain for events
-                watcher->>blockchain: poll
+                blockchain->>watcher: poll
             end
 
             Note over watcher, blockchain: Event observed
