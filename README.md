@@ -24,20 +24,17 @@ The customer wants to hire the Pisa service to watch the channel on their behalf
 * Customer sets up the conditional transfer to Pisa
 * Pisa reveals the secret "s" to the customer, and the transfer is complete. 
 
-## Life-Cycle of an appointment request
-
-Inline-style: 
-![alt text](./diagrams/overview_flow.svg "Life-cycle of a request diagram, showing the different components involved")
-
-
 ## Limitations of above design 
 
 * The customer can send an appointment to Pisa, but not pay Pisa. 
   * Our focus is on resilience / dependability. We want to outsource the job to several watchers, and then not "cancel" it in the future. If a customer doesn't pay, then Pisa will refuse all future jobs from the customer's key + state channel. 
   * This isn't an issue with the Pisa protocol, but just our current architecture design. 
 
-## Docker
+## Life-Cycle of an Appointment Eequest
 
+![alt text](./diagrams/overview_flow.svg "Life-cycle of a request diagram, showing the different components involved")
+
+## Docker
 
 PISA is available as a docker image. To run PISA with a local instance of ganache download the docker-compose file at /docker/docker-compose.yml, then run:
 ```
