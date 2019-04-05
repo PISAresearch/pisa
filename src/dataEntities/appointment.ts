@@ -12,6 +12,12 @@ export interface IAppointment {
     expiryPeriod: number;
     type: ChannelType;
     id: string;
+}
+
+/**
+ * Ethereum variant of IAppointment
+ */
+export interface IEthereumAppointment extends IAppointment {
     getStateLocator(): string;
     getContractAbi(): any;
     getContractAddress(): string;
@@ -23,14 +29,17 @@ export interface IAppointment {
     formatLog(message: string): string;
 }
 
+
 /**
  * An appointment that has been accepted by PISA
  */
-export abstract class Appointment implements IAppointment {
-    constructor(readonly expiryPeriod: number, readonly type: ChannelType) {
-        this.id = uuid()
-    }
+export abstract class EthereumAppointment implements IEthereumAppointment {
     public readonly id: string;
+    
+    constructor(readonly expiryPeriod: number, readonly type: ChannelType) {
+        this.id = uuid();
+    }
+ 
     private mStartTime: number;
     get startTime() {
         return this.mStartTime;
@@ -72,3 +81,5 @@ export abstract class Appointment implements IAppointment {
     abstract getStateNonce(): number;
     abstract getSubmitStateFunction(): (contract: ethers.Contract) => Promise<void>;
 }
+
+

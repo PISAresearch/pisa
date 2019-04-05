@@ -10,7 +10,7 @@ import { setRequestId } from "./customExpressHttpContext";
 import { Server } from "http";
 import { inspect } from "util";
 import { ethers } from "ethers";
-import { Responder } from "./responder";
+import { ResponderManager, KitsuneResponder } from "./responder";
 
 /**
  * Hosts a PISA service at the endpoint.
@@ -36,8 +36,8 @@ export class PisaService {
             next();
         });
 
-        const responder = new Responder(10);
-        const watcher = new Watcher(jsonRpcProvider, wallet, responder);
+        const responderManager = new ResponderManager(wallet);
+        const watcher = new Watcher(jsonRpcProvider, responderManager);
         const tower = new PisaTower(jsonRpcProvider, watcher, [Raiden, Kitsune]);
 
         app.post("/appointment", this.appointment(tower));

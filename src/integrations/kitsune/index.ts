@@ -2,7 +2,7 @@ import { utils, ethers } from "ethers";
 import { KitsuneTools } from "./tools";
 export { KitsuneTools } from "./tools";
 import {
-    Appointment,
+    EthereumAppointment,
     ChannelType,
     propertyExistsAndIsOfType,
     doesPropertyExist,
@@ -28,7 +28,7 @@ export interface IKitsuneStateUpdate {
 /**
  * An appointment containing kitsune specific information
  */
-export class KitsuneAppointment extends Appointment {
+export class KitsuneAppointment extends EthereumAppointment {
     constructor(obj: { stateUpdate: IKitsuneStateUpdate; expiryPeriod: number; type: ChannelType.Kitsune });
     constructor(obj: any) {
         if (KitsuneAppointment.checkKitsuneAppointment(obj)) {

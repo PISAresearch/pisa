@@ -1,5 +1,5 @@
 import {
-    Appointment,
+    EthereumAppointment,
     ChannelType,
     checkAppointment,
     propertyExistsAndIsOfType,
@@ -34,7 +34,7 @@ interface IRaidenStateUpdate {
 /**
  * An appointment containing Raiden specific information
  */
-export class RaidenAppointment extends Appointment {
+export class RaidenAppointment extends EthereumAppointment {
     constructor(obj: { stateUpdate: IRaidenStateUpdate; expiryPeriod: number; type: ChannelType.Raiden });
     constructor(obj: any) {
         if (RaidenAppointment.checkRaidenAppointment(obj)) {
