@@ -24,6 +24,12 @@ The customer wants to hire the Pisa service to watch the channel on their behalf
 * Customer sets up the conditional transfer to Pisa
 * Pisa reveals the secret "s" to the customer, and the transfer is complete. 
 
+## Life-Cycle of an appointment request
+
+Inline-style: 
+![alt text](https://github.com/pisaresearch/pisa/diagrams/overview_flow.svg "Life-cycle of a request diagram, showing the different components involved")
+
+
 ## Limitations of above design 
 
 * The customer can send an appointment to Pisa, but not pay Pisa. 

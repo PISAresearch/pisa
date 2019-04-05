@@ -1,0 +1,34 @@
+sequenceDiagram
+    participant node as Channel Node
+    participant api as API
+    participant inspector as Inspector
+    participant watcher as Watcher
+    participant responder as Responder
+    participant blockchain as Blockchain
+
+    node->>api: Request appointment
+    api->>inspector: Request inspection
+    blockchain->>inspector: On chain state
+    Note over inspector: Compare<br/> appointment with <br/> on-chain details <br/>to decide whether <br/>to accept
+
+    inspector->>api: inspection result
+    alt fails inspection
+        api->>node: appointment refused
+    else passes inspection
+        api->>watcher: request appointment subscription
+        Note over watcher: Check current<br/> appointments and<br/> decide if it can take<br/> on more
+        watcher->>api: watcher result
+        alt watcher refusal
+            api->>node: appointment refused
+        else watcher accept
+            api->>node: appointment accepted
+            loop poll blockchain for events
+                watcher->>blockchain: poll
+            end
+
+            Note over watcher, blockchain: Event observed
+
+            watcher->>responder: response details
+            responder->>blockchain: execute response
+        end
+    end

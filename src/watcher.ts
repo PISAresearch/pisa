@@ -1,4 +1,4 @@
-import { IAppointment, Appointment } from "./dataEntities/appointment";
+import { IAppointment } from "./dataEntities/appointment";
 import { ethers } from "ethers";
 import logger from "./logger";
 import { inspect } from "util";
