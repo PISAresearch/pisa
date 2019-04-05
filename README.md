@@ -27,7 +27,7 @@ The customer wants to hire the Pisa service to watch the channel on their behalf
 ## Life-Cycle of an appointment request
 
 Inline-style: 
-![alt text](https://github.com/pisaresearch/pisa/diagrams/overview_flow.svg "Life-cycle of a request diagram, showing the different components involved")
+![alt text](./diagrams/overview_flow.svg "Life-cycle of a request diagram, showing the different components involved")
 
 
 ## Limitations of above design 
