@@ -8,7 +8,8 @@ import {
     doesPropertyExist,
     isArrayOfStrings,
     PublicDataValidationError,
-    checkAppointment
+    checkAppointment,
+    IEthereumResponse
 } from "../../dataEntities";
 import { Inspector } from "../../inspector";
 import { PublicInspectionError, ConfigurationError } from "../../dataEntities/errors";
@@ -228,5 +229,21 @@ export class KitsuneInspector extends Inspector<KitsuneAppointment> {
             // remove the signer, so that we never look for it again
             signers.splice(signerIndex, 1);
         });
+    }
+}
+
+
+export function prepareResponse(appointment: KitsuneAppointment): IEthereumResponse {
+    let sig0 = utils.splitSignature(appointment.stateUpdate.signatures[0]);
+    let sig1 = utils.splitSignature(appointment.stateUpdate.signatures[1]);
+    return {
+        contractAddress: appointment.getContractAddress(),
+        contractAbi: appointment.getContractAbi(),
+        functionName: "setstate",
+        functionArgs: [
+            [sig0.v - 27, sig0.r, sig0.s, sig1.v - 27, sig1.r, sig1.s],
+            appointment.stateUpdate.round,
+            appointment.stateUpdate.hashState
+        ]
     }
 }

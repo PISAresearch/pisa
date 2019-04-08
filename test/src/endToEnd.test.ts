@@ -1,11 +1,11 @@
 import "mocha";
 import { Watcher } from "../../src/watcher";
-import { KitsuneInspector, KitsuneAppointment, KitsuneTools } from "../../src/integrations/kitsune";
+import { KitsuneInspector, KitsuneAppointment, KitsuneTools, prepareResponse } from "../../src/integrations/kitsune";
 import { ethers } from "ethers";
 import Ganache from "ganache-core";
 import { ChannelType } from "../../src/dataEntities";
 
-import { ResponderManager } from "../../src/responder";
+import { EthereumResponderManager } from "../../src/responder";
 const ganache = Ganache.provider({
     mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect"
 });
@@ -63,7 +63,9 @@ describe("End to end", () => {
         await inspector.inspectAndPass(appointment);
 
         // 2. pass this appointment to the watcher
-        const responderManager = new ResponderManager(provider.getSigner(pisaAccount));
+        const responderManager = new EthereumResponderManager(provider.getSigner(pisaAccount), {
+            "kitsune": prepareResponse
+        });
         const watcher = new Watcher(provider, responderManager);
         const player0Contract = channelContract.connect(provider.getSigner(player0));
 

@@ -4,7 +4,8 @@ import {
     checkAppointment,
     propertyExistsAndIsOfType,
     doesPropertyExist,
-    PublicDataValidationError
+    PublicDataValidationError,
+    IEthereumResponse
 } from "../../dataEntities";
 import { ethers, utils } from "ethers";
 import { RaidenTools } from "./tools";
@@ -276,4 +277,23 @@ export class RaidenInspector extends Inspector<RaidenAppointment> {
         ///////////////////////////////////////////////////////////////////////////////////////////////////////////
         ///////////////////////////////////////////////////////////////////////////////////////////////////////////
     }
+}
+
+
+export function prepareResponse(appointment: RaidenAppointment): IEthereumResponse {
+    return {
+        contractAddress: appointment.getContractAddress(),
+        contractAbi: appointment.getContractAbi(),
+        functionName: "updateNonClosingBalanceProof",
+        functionArgs: [
+            appointment.stateUpdate.channel_identifier,
+            appointment.stateUpdate.closing_participant,
+            appointment.stateUpdate.non_closing_participant,
+            appointment.stateUpdate.balance_hash,
+            appointment.stateUpdate.nonce,
+            appointment.stateUpdate.additional_hash,
+            appointment.stateUpdate.closing_signature,
+            appointment.stateUpdate.non_closing_signature
+        ]
+    };
 }

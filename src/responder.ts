@@ -1,9 +1,7 @@
 import { EventEmitter } from 'events';
-import { utils, ethers } from 'ethers';
+import { ethers } from 'ethers';
 import { wait } from './utils';
-import { IAppointment, IEthereumAppointment } from "./dataEntities/appointment";
-import { KitsuneAppointment } from "./integrations/kitsune";
-import { RaidenAppointment } from "./integrations/raiden";
+import { IAppointment, IEthereumResponse } from "./dataEntities/appointment";
 import logger from "./logger";
 
 /**
@@ -45,7 +43,7 @@ export abstract class Responder extends EventEmitter {
      * @param maxAttempts The maximum number of retries before the Responder will give up
      */
     constructor(
-        private readonly maxAttempts: number
+        protected readonly maxAttempts: number
     ) {
         super();
     }
@@ -64,16 +62,56 @@ export abstract class Responder extends EventEmitter {
 
 
     // Commodity function to emit events asynchronously
-    private asyncEmit(...args: any[]) {
+    protected asyncEmit(...args: any[]) {
         setImmediate( () => this.emit.call(this, args) );
     }
 
-    protected abstract submitStateFunction(): Promise<void>;
+    protected abstract submitStateFunction(): Promise<any>;
 
     /**
-     * Execute the submit state function, doesn't throw errors
+     * Implements the strategy of this responder.
+     *
+     * @param responseFlow The ResponseFlow object of this response.
      */
-    private async respond(responseFlow: ResponseFlow) {
+    protected abstract respond(responseFlow: ResponseFlow): Promise<any>;
+}
+
+export class EthereumResponder extends Responder {
+    protected readonly contract: ethers.Contract;
+    /**
+     * @param signer The signer of the wallet associated with this responder. Each responder should have exclusive access to his wallet.
+     * @param appointment The IEthereumAppointment this object is responding to.
+     * @param maxAttempts The maximum number of retries before the Responder will give up.
+     * TODO: docs
+     */
+    constructor(
+        readonly signer: ethers.Signer,
+        public readonly appointmentId: string,
+        public readonly ethereumResponse: IEthereumResponse,
+
+        maxAttempts: number
+    ) {
+        super(maxAttempts);
+    }
+
+    protected async submitStateFunction() {
+        // form the interface so that we can serialise the args and the function name
+        const abiInterface = new ethers.utils.Interface(this.ethereumResponse.contractAbi);
+        const data = abiInterface.functions[this.ethereumResponse.functionName].encode(this.ethereumResponse.functionArgs);
+        // now create a transaction, specifying possible oher variables
+        const transactionRequest = {
+            to: this.ethereumResponse.contractAddress,
+            // gasLimit: 0,
+            // nonce: 0,
+            gasPrice: 21000000000, //TODO: chose an appropriate gas price
+            data: data
+        };
+
+        // execute the transaction
+        return await this.signer.sendTransaction(transactionRequest);
+    }
+
+    protected async respond(responseFlow: ResponseFlow) {
         while (responseFlow.attempts < this.maxAttempts) {
             responseFlow.attempts++;
             try {
@@ -81,72 +119,19 @@ export abstract class Responder extends EventEmitter {
 
                 responseFlow.status = ResponseStatus.Success;
 
-                this.asyncEmit("responseSuccessful", responseFlow);
+                this.emit("responseSuccessful", responseFlow);
                 return;
             } catch (doh) {
 
-                this.asyncEmit("attemptFailed", responseFlow, doh);
+                this.emit("attemptFailed", responseFlow, doh);
 
                 //TODO: implement a proper strategy
                 await wait(1000);
             }
         }
-        this.asyncEmit("responseFailed", responseFlow);
+        this.emit("responseFailed", responseFlow);
     }
 }
-
-export abstract class EthereumResponder<T extends IEthereumAppointment> extends Responder {
-    protected readonly contract: ethers.Contract;
-    /**
-     * @param appointment The IEthereumAppointment this object is responding to.
-     * @param maxAttempts The maximum number of retries before the Responder will give up.
-     * @param signer The signer of the wallet associated with this responder. Each responder should have exclusive access to his wallet.
-     *
-     */
-    constructor(
-        protected appointment: T,
-        maxAttempts: number,
-        protected readonly signer: ethers.Signer
-    ) {
-        super(maxAttempts);
-
-        // Instantiate the contract, connected to the signer
-        this.contract = new ethers.Contract(
-            appointment.getContractAddress(),
-            appointment.getContractAbi(),
-            this.signer
-        );
-    }
-}
-
-export class RaidenResponder extends EthereumResponder<RaidenAppointment> {
-    protected submitStateFunction(): Promise<void> {
-        return this.contract.updateNonClosingBalanceProof(
-            this.appointment.stateUpdate.channel_identifier,
-            this.appointment.stateUpdate.closing_participant,
-            this.appointment.stateUpdate.non_closing_participant,
-            this.appointment.stateUpdate.balance_hash,
-            this.appointment.stateUpdate.nonce,
-            this.appointment.stateUpdate.additional_hash,
-            this.appointment.stateUpdate.closing_signature,
-            this.appointment.stateUpdate.non_closing_signature
-        );
-    }
-}
-
-export class KitsuneResponder extends EthereumResponder<KitsuneAppointment> {
-    protected submitStateFunction(): Promise<void> {
-        let sig0 = utils.splitSignature(this.appointment.stateUpdate.signatures[0]);
-        let sig1 = utils.splitSignature(this.appointment.stateUpdate.signatures[1]);
-
-        return this.contract.setstate(
-            [sig0.v - 27, sig0.r, sig0.s, sig1.v - 27, sig1.r, sig1.s],
-            this.appointment.stateUpdate.round,
-            this.appointment.stateUpdate.hashState
-        );
-    }
-}
-
 
 /**
  * Responsible for handling the business logic of the Responders.
@@ -154,49 +139,47 @@ export class KitsuneResponder extends EthereumResponder<KitsuneAppointment> {
 // TODO: only handling Kitsune appointments for now, and only one active response.
 //       Should add a pool of wallets to allow concurrent responses.
 
-export class ResponderManager {
-    private appointmentsByResponseId = new Map<number, IAppointment>();
-
+export class EthereumResponderManager {
     private responders: Set<Responder> = new Set();
 
-    constructor(private readonly signer: ethers.Signer) {}
+    constructor(private readonly signer: ethers.Signer, private readonly config: object) {
+
+    }
 
     public respond(appointment: IAppointment) {
-        const responder = new KitsuneResponder(appointment as KitsuneAppointment, 10, this.signer);
+        if (!(appointment.type in this.config)){
+            throw new Error(`Received unexpected appointment type ${appointment.type}`);
+        }
 
-        this.responders.add(responder)
+        const ethereumResponse = this.config[appointment.type](appointment) as IEthereumResponse;
+
+        const responder = new EthereumResponder(this.signer, "TODO: appointment ID", ethereumResponse, 10);
+
+        this.responders.add(responder);
 
         responder
             .on("responseSuccessful", (responseFlow: ResponseFlow) => {
-                const appointment = this.appointmentsByResponseId[responseFlow.id];
                 logger.info(
-                    appointment.formatLogEvent(
-                        `Successfully responded to ${appointment.getEventName()} for appointment ${appointment.getStateLocator()} after ${response.attempts} attempt${response.attempts > 1 ? "s" : ""}.`
-                    )
+                    `Successfully responded to appointment ${"TODO: appointment ID"} after ${response.attempts} attempt${response.attempts > 1 ? "s" : ""}.`
                 );
 
                 // Should we keep inactive responders anywhere?
                 this.responders.delete(responder);
             })
             .on("attemptFailed", (responseFlow: ResponseFlow, doh) => {
-                const appointment = this.appointmentsByResponseId[responseFlow.id];
                 logger.error(
-                    appointment.formatLogEvent(
-                        `Failed to respond to ${appointment.getEventName()} for appointment ${appointment.getStateLocator()}; ${response.attempts} attempt${response.attempts > 1 ? "s" : ""}.`
-                    )
+                    `Failed to respond to appointment ${"TODO: appointment ID"}; ${response.attempts} attempt${response.attempts > 1 ? "s" : ""}.`
                 );
                 logger.error(doh);
             })
             .on("responseFailed", (responseFlow: ResponseFlow) => {
-                const appointment = this.appointmentsByResponseId[responseFlow.id];
                 logger.error(
-                    `Failed to respond to ${appointment.getEventName()} for appointment ${appointment.getStateLocator()}, after ${response.attempts} attempt${response.attempts > 1 ? "s" : ""}. Giving up.`
+                    `Failed to respond to ${"TODO: appointment ID"}, after ${response.attempts} attempt${response.attempts > 1 ? "s" : ""}. Giving up.`
                 );
 
                 //TODO: this is serious and should be escalated.
             });
 
         const response = responder.startResponse();
-        this.appointmentsByResponseId[response.id] = appointment;
     }
 }

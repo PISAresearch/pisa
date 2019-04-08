@@ -86,4 +86,12 @@ export abstract class EthereumAppointment implements IEthereumAppointment {
     abstract getStateNonce(): number;
 }
 
-
+/**
+ * Represents the necessary data for an on-chain response from Pisa on the Ethereum blockchain.
+ */
+export interface IEthereumResponse {
+    contractAddress: string,
+    contractAbi: any,
+    functionName: string,
+    functionArgs: any[]
+}

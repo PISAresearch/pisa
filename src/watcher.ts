@@ -2,7 +2,7 @@ import { IAppointment, IEthereumAppointment } from "./dataEntities/appointment";
 import { ethers } from "ethers";
 import logger from "./logger";
 import { inspect } from "util";
-import { ResponderManager } from "./responder";
+import { EthereumResponderManager } from "./responder";
 import { PublicInspectionError, ConfigurationError } from "./dataEntities/errors";
 import ReadWriteLock from "rwlock";
 
@@ -14,7 +14,7 @@ import ReadWriteLock from "rwlock";
 export class Watcher {
     public constructor(
         public readonly provider: ethers.providers.Provider,
-        public readonly responderManager: ResponderManager
+        public readonly ethereumResponderManager: EthereumResponderManager
     ) {}
     private readonly store: WatchedAppointmentStore = new WatchedAppointmentStore();
     private readonly lock = new ReadWriteLock();
@@ -83,7 +83,7 @@ export class Watcher {
 
                     // pass the response to the responder to complete. At this point the job has completed as far as
                     // the watcher is concerned, therefore although respond is an async function we do not need to await it for a result
-                    this.responderManager.respond(appointment);
+                    this.ethereumResponderManager.respond(appointment);
 
                     // after firing a response we can remove the appointment
                     this.store.removeAppointment(appointment);
