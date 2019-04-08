@@ -46,6 +46,9 @@ Adjust the following before deploying: https://github.com/raiden-network/raiden-
 
 The raiden node then needs an update to reflect this. Due to a relationship between reveal timeout and settlement timeout: that settle > 2 * reveal, we need to reduce the reveal timeout in the following place to 2: https://github.com/raiden-network/raiden/blob/master/raiden/settings.py#L29
 
+## Architecture of the raiden demo running in scenario 2
+![alt text](./images/Raiden_demo_architecture.png "Architecture of the raiden demo running in scenario 2, blue boxes represent different physical or virtual machines. Arrows represent communication between components.")
+
 ## Running the demo on localhost - blocks mine at 1 per second
 
 0. Install docker, docker-compose and python3
