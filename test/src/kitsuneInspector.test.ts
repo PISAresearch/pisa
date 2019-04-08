@@ -160,60 +160,7 @@ describe("Inspector", () => {
             )
         );
     });
-
-    // PISA: these should be part of the contract KituneAppointment tests
-
-    // it("throws for invalid contract address", async () => {
-    //     const expiryPeriod = disputePeriod + 1,
-    //         round = 1,
-    //         setStateHash = KitsuneTools.hashForSetState(hashState, round, channelContract.address),
-    //         sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash)),
-    //         sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash));
-
-    //     const inspector = new KitsuneInspector(10, provider);
-
-    //     await isRejected(
-    //         inspector.checkInspection(
-    //             new KitsuneAppointment({
-    //                 stateUpdate: {
-    //                     // invalid address
-    //                     contractAddress: "0x4bf3A7dFB3b76b",
-    //                     hashState,
-    //                     round,
-    //                     signatures: [sig0, sig1]
-    //                 },
-    //                 expiryPeriod,
-    //                 type: ChannelType.Kitsune
-    //             })
-    //         )
-    //     );
-    // });
-
-    // it("throws for invalid state hash", async () => {
-    //     const expiryPeriod = disputePeriod + 1,
-    //         round = 1,
-    //         setStateHash = KitsuneTools.hashForSetState(hashState, round, channelContract.address),
-    //         sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash)),
-    //         sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash));
-
-    //     const inspector = new KitsuneInspector(10, provider);
-    //     await isRejected(
-    //         inspector.checkInspection(
-    //             new KitsuneAppointment({
-    //                 stateUpdate: {
-    //                     contractAddress: channelContract.address,
-    //                     // invalid hash state
-    //                     hashState: "0x4bf3A7dFB3b76b",
-    //                     round,
-    //                     signatures: [sig0, sig1]
-    //                 },
-    //                 expiryPeriod,
-    //                 type: ChannelType.Kitsune
-    //             })
-    //         )
-    //     );
-    // });
-
+    
     it("throws for wrong state hash", async () => {
         const expiryPeriod = disputePeriod + 1,
             round = 1,
