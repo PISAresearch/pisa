@@ -141,7 +141,7 @@ contract DisputeRegistry {
    // Time helper function
    uint constant DAY_IN_SECONDS = 86400;
 
-   function getWeekday(uint _timestamp) public pure returns (uint8) {
+   function getDay(uint _timestamp) public pure returns (uint8) {
 
         // Timestamp/days in seconds. +4 is used to push it to sunday as starting day.
         // "14" lets us keep records around for 14 days!
@@ -150,12 +150,10 @@ contract DisputeRegistry {
 
    // _day = What day was the dispute?
    // starttime, endtime, ctr should be from the customer's receipt.
-   function testDispute(uint _channelmode, address _sc, uint8 _day, uint _starttime, uint _endtime, uint _stateround) public returns (bool) {
-       DailyRecord rc = resetRecord(_day);
+   function testDispute(uint _channelmode, address _sc, uint _starttime, uint _endtime, uint _stateround) public returns (bool) {
+       uint8 day = getDay(_endtime);
+       DailyRecord rc = resetRecord(day);
 
-       // TODO:
-       // - Type 0 = Closure dispute
-       // - Type 1 = Command dispute
        return rc.testDispute(_channelmode, _sc, _starttime, _endtime, _stateround);
    }
 
@@ -196,9 +194,9 @@ contract DisputeRegistry {
    function setDispute(uint _starttime, uint _stateround) public returns (bool) {
       // We will use block timestamp as the "final time"
       uint endtime = block.timestamp;
-      
+
       // TimeInformation info = TimeInformation(timeinfo);
-      uint day = (getWeekday(now));
+      uint day = (getDay(now));
 
       // Fetch the DailyRecord for this day. (It may reset it under the hood)
       DailyRecord rc = resetRecord(day);

@@ -9,8 +9,7 @@ contract DisputeRegistryInterface {
      */
 
     // Test dispute. Day is 0-6 (depending on daily record).
-    function testDispute(uint _channelmode, address _sc, uint8 _day, uint _starttime, uint _endtime, uint _stateround) public returns (bool);
-    function getWeekday(uint _timestamp) public pure returns (uint8);
+    function testDispute(uint _channelmode, address _sc, uint _starttime, uint _endtime, uint _stateround) public returns (bool);
 }
 
 contract PISA {
@@ -119,8 +118,7 @@ contract PISA {
         require(_watcher == recoverEthereumSignedMessage(signedhash, _signature), "Receipt is not signed by this watcher");
 
         // Look up dispute registry to test signed receipt.
-        uint8 day = DisputeRegistryInterface(disputeregistry).getWeekday(_expiry);
-        if(DisputeRegistryInterface(disputeregistry).testDispute(_channelmode, _SC, day, _starttime, _expiry, _i)) {
+        if(DisputeRegistryInterface(disputeregistry).testDispute(_channelmode, _SC, _starttime, _expiry, _i)) {
             watchers[_watcher].flag = Flag.CHEATED;
 
             // Tell the world that PISA cheated!

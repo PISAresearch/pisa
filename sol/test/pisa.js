@@ -153,7 +153,6 @@ contract('PISA', (accounts) => {
     var result = await registryInstance.setDispute(disputestart, i, {from: accounts[2]});
     var block = await web3.eth.getBlock(result['receipt']['blockNumber']);
     let disputeend = block['timestamp'];
-    //let disputeend = timenow-50;
 
     // Receipt 1 times
     let r1start = timenow-200; // BEFORE DISPUTE
@@ -257,7 +256,7 @@ contract('PISA', (accounts) => {
       var block = await web3.eth.getBlock(result['receipt']['blockNumber']);
       let disputeend = block['timestamp'];
 
-      // Receipt 3 times
+      // Receipt
       let r1start = timenow-101; // BEFORE DISPUTE
       let r1end = disputeend+1; // AFTER DISPUTE
 
