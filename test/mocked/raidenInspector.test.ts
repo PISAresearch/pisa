@@ -39,6 +39,8 @@ describe("Raiden inspector", () => {
 
         // contract
         const tokenNetworkAddress = "0x34636d2289588BcA4e0fcF863857386F56b44bdC";
+        // mock party 1 and party 2 to return 0x and mangled bytecode respectively
+        // we're just using them as fummies here
         const party1Address = "0xccca21b97b27DefC210f01A7e64119A784424D26";
         const party2Address = "0xdddEC4D561eE68F37855fa3245Cb878b10Eb1fA0";
         const otherTokenNetwork = "0xf0afbed24d88ce4cb12828984bb10d2f1ad0e185";
