@@ -1,6 +1,6 @@
 import { EventEmitter } from 'events';
 import { ethers } from 'ethers';
-import { wait } from './utils';
+import { wait, promiseTimeout } from './utils';
 import { IAppointment, IEthereumResponse } from "./dataEntities/appointment";
 import logger from "./logger";
 import { TransactionResponse } from 'ethers/providers';
@@ -165,8 +165,11 @@ export class EthereumResponder extends Responder {
         while (responseFlow.attempts < this.maxAttempts) {
             responseFlow.attempts++;
             try {
-                const tx = await this.submitStateFunction();
+                // Try to call submitStateFunction, but timeout with an error if
+                // there is no response for 30 seconds.
+                const tx = await promiseTimeout(this.submitStateFunction(), 30000);
 
+                // The response has been sent, but should not be considered confirmed yet.
                 responseFlow.status = ResponseStatus.ResponseSent;
                 this.asyncEmit("responseSent", responseFlow);
 
@@ -197,12 +200,13 @@ export class EthereumResponder extends Responder {
                         const msSinceLastBlock = Date.now() - this.timeOfLastBlock;
 
                         if (msSinceLastBlock > 60*1000) {
-                            reject(new NoNewBlockError(`No new block was received for ${Math.round(msSinceLastBlock/1000)} seconds; provider might be down.`))
-                            cleanup()
+                            reject(new NoNewBlockError(`No new block was received for ${Math.round(msSinceLastBlock/1000)} seconds; provider might be down.`));
+                            cleanup();
                         }
                     }, 1000);
                 });
 
+                // The response has now enough confirmations to be considered safe.
                 responseFlow.status = ResponseStatus.Success;
                 console.log("responseConfirmed");
                 this.asyncEmit("responseConfirmed", responseFlow);
