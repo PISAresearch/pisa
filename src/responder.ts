@@ -82,7 +82,7 @@ export abstract class Responder extends EventEmitter {
 }
 
 /**
- * A simple custom Error cluss to provide more details in case of a re-org.
+ * A simple custom Error class to provide more details in case of a re-org.
  */
 class ReorgError extends Error {
     constructor(public readonly tx: TransactionResponse, ...params: any) {
@@ -92,17 +92,32 @@ class ReorgError extends Error {
 }
 
 /**
+ * A simple custom Error class to signal that no new block was received while we
+ * were waiting for a transaction to be mined. This might likely signal a failure of
+ * the provider.
+ */
+class NoNewBlockError extends Error {
+    constructor(...params: any) {
+        super(...params);
+        this.name = "NoNewBlockError";
+    }
+}
+
+/**
  * A generic responder for the Ethereum blockchain.
  */
 export class EthereumResponder extends Responder {
     protected readonly contract: ethers.Contract;
 
+    // Timestamp in milliseconds when the last block was received (or since the creation of this object)
+    protected timeOfLastBlock: number = Date.now();
+
     /**
      * @param signer The signer of the wallet associated with this responder. Each responder should have exclusive access to his wallet.
      * @param appointmentId The id of the Appointment this object is responding to.
      * @param ethereumResponse The IEthereumResponse containing what needs to be submitted.
-     * @param confirmationsRequired The number of confirmations required before a transaction is trusted. Default: 40.
-     * @param maxAttempts The maximum number of retries before the Responder will give up.
+     * @param [confirmationsRequired=40] The number of confirmations required before a transaction is trusted.
+     * @param [maxAttempts=10] The maximum number of retries before the Responder will give up.
      */
     constructor(
         readonly signer: ethers.Signer,
@@ -110,9 +125,22 @@ export class EthereumResponder extends Responder {
         public readonly ethereumResponse: IEthereumResponse,
 
         public readonly confirmationsRequired = 40,
-        maxAttempts: number
+        maxAttempts: number = 10
     ) {
         super(maxAttempts);
+
+        signer.provider.on("block", this.updateLastBlockTime);
+    }
+
+    /**
+     * This method should be called when an instance is disposed.
+     */
+    public destroy() {
+        this.signer.provider.removeListener("block", this.updateLastBlockTime);
+    }
+
+    private updateLastBlockTime() {
+        this.timeOfLastBlock = Date.now();
     }
 
     protected submitStateFunction(): Promise<TransactionResponse> {
@@ -129,6 +157,7 @@ export class EthereumResponder extends Responder {
         };
 
         // execute the transaction
+        // TODO: make sure this timeouts if the transaction is not mined
         return this.signer.sendTransaction(transactionRequest);
     }
 
@@ -144,18 +173,34 @@ export class EthereumResponder extends Responder {
                 // Wait for enough confirmations before declaring success
                 await new Promise((resolve, reject) => {
                     const provider = this.signer.provider;
+
+                    const cleanup = () => {
+                        provider.removeListener("block", newBlockHandler);
+                        clearInterval(intervalHandle);
+                    }
+
                     const newBlockHandler = async () => {
                         const receipt = await provider.getTransactionReceipt(tx.hash);
                         if (receipt == null) {
                             // There was a re-org, consider this attempt failed and attempt the transaction again
-                            provider.removeListener("block", newBlockHandler);
+                            cleanup();
                             reject(new ReorgError(tx, "There could have been a re-org, the transaction was sent but was later not found."));
                         } else if (receipt.confirmations >= this.confirmationsRequired) {
-                            provider.removeListener("block", newBlockHandler);
+                            cleanup();
                             resolve();
                         }
                     };
                     provider.on("block", newBlockHandler);
+
+                    const intervalHandle = setInterval( () => {
+                        // milliseconds since the last block was received
+                        const msSinceLastBlock = Date.now() - this.timeOfLastBlock;
+
+                        if (msSinceLastBlock > 60*1000) {
+                            reject(new NoNewBlockError(`No new block was received for ${Math.round(msSinceLastBlock/1000)} seconds; provider might be down.`))
+                            cleanup()
+                        }
+                    }, 1000);
                 });
 
                 responseFlow.status = ResponseStatus.Success;
@@ -165,7 +210,7 @@ export class EthereumResponder extends Responder {
                 return;
             } catch (doh) {
 
-                console.log("attemptFailed");
+                console.log("attemptFailed", responseFlow, doh);
                 this.asyncEmit("attemptFailed", responseFlow, doh);
 
                 //TODO: implement a proper strategy
@@ -206,11 +251,12 @@ export class EthereumResponderManager {
             .on("responseSent", (responseFlow: ResponseFlow) => {
                 logger.info(
                     `Successfully responded to appointment ${"TODO: appointment ID"} after ${responseFlow.attempts} attempt${responseFlow.attempts > 1 ? "s" : ""}.
-                     Waiting for enough confirmations (${EthereumResponder.CONFIRMATIONS_REQUIRED}).`
+                     Waiting for enough confirmations.`
                 );
 
                 // TODO: Should we store information about past responders anywhere?
                 this.responders.delete(responder);
+                responder.destroy();
             })
             .on("responseConfirmed", (responseFlow: ResponseFlow) => {
                 logger.info(
