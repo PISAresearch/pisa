@@ -91,6 +91,9 @@ class ReorgError extends Error {
     }
 }
 
+/**
+ * A generic responder for the Ethereum blockchain.
+ */
 export class EthereumResponder extends Responder {
     protected readonly contract: ethers.Contract;
 
@@ -100,7 +103,6 @@ export class EthereumResponder extends Responder {
      * @param ethereumResponse The IEthereumResponse containing what needs to be submitted.
      * @param confirmationsRequired The number of confirmations required before a transaction is trusted. Default: 40.
      * @param maxAttempts The maximum number of retries before the Responder will give up.
-     * TODO: docs
      */
     constructor(
         readonly signer: ethers.Signer,
@@ -120,9 +122,9 @@ export class EthereumResponder extends Responder {
         // now create a transaction, specifying possible oher variables
         const transactionRequest = {
             to: this.ethereumResponse.contractAddress,
-            // gasLimit: 0,
+            gasLimit: 200000, // TODO: chose an appropriate gas limit
             // nonce: 0,
-            gasPrice: 21000000000, //TODO: chose an appropriate gas price
+            gasPrice: 21000000000, // TODO: chose an appropriate gas price
             data: data
         };
 
