@@ -92,13 +92,13 @@ class ReorgError extends Error {
 }
 
 export class EthereumResponder extends Responder {
-    static readonly CONFIRMATIONS_REQUIRED = 40; // number of confirmations before a transaction is considered immutable
     protected readonly contract: ethers.Contract;
 
     /**
      * @param signer The signer of the wallet associated with this responder. Each responder should have exclusive access to his wallet.
      * @param appointmentId The id of the Appointment this object is responding to.
      * @param ethereumResponse The IEthereumResponse containing what needs to be submitted.
+     * @param confirmationsRequired The number of confirmations required before a transaction is trusted. Default: 40.
      * @param maxAttempts The maximum number of retries before the Responder will give up.
      * TODO: docs
      */
@@ -107,6 +107,7 @@ export class EthereumResponder extends Responder {
         public readonly appointmentId: string,
         public readonly ethereumResponse: IEthereumResponse,
 
+        public readonly confirmationsRequired = 40,
         maxAttempts: number
     ) {
         super(maxAttempts);
@@ -147,7 +148,7 @@ export class EthereumResponder extends Responder {
                             // There was a re-org, consider this attempt failed and attempt the transaction again
                             provider.removeListener("block", newBlockHandler);
                             reject(new ReorgError(tx, "There could have been a re-org, the transaction was sent but was later not found."));
-                        } else if (receipt.confirmations >= EthereumResponder.CONFIRMATIONS_REQUIRED) {
+                        } else if (receipt.confirmations >= this.confirmationsRequired) {
                             provider.removeListener("block", newBlockHandler);
                             resolve();
                         }
