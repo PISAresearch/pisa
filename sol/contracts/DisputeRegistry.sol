@@ -142,7 +142,10 @@ contract DisputeRegistry {
    uint constant DAY_IN_SECONDS = 86400;
 
    function getWeekday(uint _timestamp) public pure returns (uint8) {
-       return uint8((_timestamp / DAY_IN_SECONDS + 4) % 7);
+
+        // Timestamp/days in seconds. +4 is used to push it to sunday as starting day.
+        // "14" lets us keep records around for 14 days!
+       return uint8(((_timestamp / DAY_IN_SECONDS) + 4) % 14);
    }
 
    // _day = What day was the dispute?
@@ -153,7 +156,6 @@ contract DisputeRegistry {
        // TODO:
        // - Type 0 = Closure dispute
        // - Type 1 = Command dispute
-
        return rc.testDispute(_channelmode, _sc, _starttime, _endtime, _stateround);
    }
 
@@ -191,23 +193,22 @@ contract DisputeRegistry {
 
    // Record dispute from the sender
    // _stateround should reflect the FINAL state round accepted by the state channel!
-   function setDispute(uint _starttime, uint _endtime, uint _stateround) public returns (bool) {
+   function setDispute(uint _starttime, uint _stateround) public returns (bool) {
+      // We will use block timestamp as the "final time"
+      uint endtime = block.timestamp;
+      
       // TimeInformation info = TimeInformation(timeinfo);
       uint day = (getWeekday(now));
-
-      // Once a dispute record is created in the caller - it should be recorded here
-      // immediately (or within the same day). So when dispute ends - we know which day it belongs too!
-      require(getWeekday(now) == getWeekday(_endtime));
 
       // Fetch the DailyRecord for this day. (It may reset it under the hood)
       DailyRecord rc = resetRecord(day);
 
       // Update record!
-      bool res = rc.setDispute(_starttime, _endtime, _stateround, msg.sender);
+      bool res = rc.setDispute(_starttime, endtime, _stateround, msg.sender);
 
       // If it worked... tell the world we added the record!
       if(res) {
-          emit NewRecord(msg.sender, _starttime, _endtime, _stateround, day);
+          emit NewRecord(msg.sender, _starttime, endtime, _stateround, day);
       }
 
       // Tell caller it all worked out fine.

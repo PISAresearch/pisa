@@ -102,14 +102,15 @@ contract('PISA', (accounts) => {
 
     // Dispute time window
     let disputestart = timenow-100;
-    let disputeend = timenow-50;
 
-    // Receipt 3 times
+    // Store a dispute from accounts[3]
+    var result = await registryInstance.setDispute(disputestart, i, {from: accounts[3]});
+    var block = await web3.eth.getBlock(result['receipt']['blockNumber']);
+    let disputeend = block['timestamp'];
+
+    // Receipt
     let r1start = timenow-101; // BEFORE DISPUTE
-    let r1end = timenow-49; // AFTER DISPUTE
-
-    // Store a dispute
-    var result = await registryInstance.setDispute(disputestart, disputeend, i, {from: accounts[3]});
+    let r1end = disputeend+1; // AFTER DISPUTE
 
     // PISA signs bad receipt
     let receipt1 = web3.utils.soliditySha3({t: 'uint', v: 0}, {t: 'uint', v: r1start}, {t: 'uint', v:r1end}, {t: 'address', v:accounts[3]}, {t: 'uint', v:i+1}, {t:'bytes32', v:h}, {t:'address', v:pisaInstance.address});
@@ -147,22 +148,25 @@ contract('PISA', (accounts) => {
 
     // Dispute time window
     let disputestart = timenow-100;
-    let disputeend = timenow-50;
+
+    // Store a dispute
+    var result = await registryInstance.setDispute(disputestart, i, {from: accounts[2]});
+    var block = await web3.eth.getBlock(result['receipt']['blockNumber']);
+    let disputeend = block['timestamp'];
+    //let disputeend = timenow-50;
 
     // Receipt 1 times
     let r1start = timenow-200; // BEFORE DISPUTE
-    let r1end = timenow-150; // BEFORE DISPUTE
+    let r1end = disputeend-1; // BEFORE DISPUTE
 
     // Receipt 2 times
     let r2start = timenow-99; // IN DISPUTE
-    let r2end = timenow-49; // AFTER DISPUTE
+    let r2end = disputeend+1; // AFTER DISPUTE
 
     // Receipt 3 times (INVALID RECEIPT)
     let r3start = timenow-99; // IN DISPUTE
-    let r3end = timenow-150; // BEFORE DISPUTE
+    let r3end = disputeend-150; // BEFORE DISPUTE
 
-    // Store a dispute
-    var result = await registryInstance.setDispute(disputestart, disputeend, i, {from: accounts[2]});
 
     // Receipt 1
     let receipt1 = web3.utils.soliditySha3({t: 'uint', v: 0},{t: 'uint', v: r1start}, {t: 'uint', v:r1end}, {t: 'address', v:accounts[2]}, {t: 'uint', v:i}, {t:'bytes32', v:h}, {t:'address', v:pisaInstance.address});
@@ -246,15 +250,16 @@ contract('PISA', (accounts) => {
 
       // Dispute time window
       let disputestart = timenow-100;
-      let disputeend = timenow-50;
-
-      // Receipt 3 times
-      let r1start = timenow-101; // BEFORE DISPUTE
-      let r1end = timenow-49; // AFTER DISPUTE
 
       // Store a dispute
       // Accounts[5] records the dispute. (the state channel)
-      let result = await registryInstance.setDispute(disputestart, disputeend, i, {from: accounts[5]});
+      let result = await registryInstance.setDispute(disputestart, i, {from: accounts[5]});
+      var block = await web3.eth.getBlock(result['receipt']['blockNumber']);
+      let disputeend = block['timestamp'];
+
+      // Receipt 3 times
+      let r1start = timenow-101; // BEFORE DISPUTE
+      let r1end = disputeend+1; // AFTER DISPUTE
 
       // PISA signs receipt
       let receipt = web3.utils.soliditySha3({t: 'uint', v: 1}, {t: 'uint', v: r1start}, {t: 'uint', v:r1end}, {t: 'address', v:accounts[5]}, {t: 'uint', v:i-1}, {t:'bytes32', v:h}, {t:'address', v:pisaInstance.address});
