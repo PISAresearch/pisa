@@ -167,13 +167,13 @@ export class RaidenInspector extends Inspector<RaidenAppointment> {
 
         const code: string = await this.provider.getCode(contractAddress);
         // check that the channel is a contract
-        if (code === "0x" || code === "0x00") {
+        if (!code || code === "0x") {
             throw new PublicInspectionError(`No code found at address ${contractAddress}`);
         }
-        // PISA: include this check for raiden
-        // if (code != this.deployedBytecode) {
-        //     throw new PublicInspectionError(`Contract at: ${contractAddress} does not have correct bytecode.`);
-        // }
+
+        if (code != RaidenTools.ContractDeployedBytecode) {
+            throw new PublicInspectionError(`Contract at: ${contractAddress} does not have correct bytecode.`);
+        }
 
         // create a contract reference
         const contract: ethers.Contract = new ethers.Contract(contractAddress, RaidenTools.ContractAbi, this.provider);
@@ -187,19 +187,19 @@ export class RaidenInspector extends Inspector<RaidenAppointment> {
         // check that the channel round is greater than the current round
         // get the channel identifier, and the participant info for the counterparty
 
-        const participantInfo = await contract.getChannelParticipantInfo(
+        const participantInfo = await contract.functions.getChannelParticipantInfo(
             appointment.stateUpdate.channel_identifier,
             appointment.stateUpdate.closing_participant,
             appointment.stateUpdate.non_closing_participant
         );
         const nonce = participantInfo[4];
-        const channelInfo = await contract.getChannelInfo(
+        const channelInfo = await contract.functions.getChannelInfo(
             appointment.stateUpdate.channel_identifier,
             appointment.stateUpdate.closing_participant,
             appointment.stateUpdate.non_closing_participant
         );
-        const settleBlockNumber = channelInfo[0];
-        const status = channelInfo[1];
+        const channelDisputePeriod = channelInfo[0];
+        const channelStatus = channelInfo[1];
 
         logger.info(appointment.formatLog(`On-chain round: ${nonce.toString(10)}.`));
         if (appointment.stateUpdate.nonce <= nonce) {
@@ -209,8 +209,6 @@ export class RaidenInspector extends Inspector<RaidenAppointment> {
         }
 
         // check that the channel is currently in the ON state
-        // PISA: await?
-        const channelStatus: number = await status;
         logger.info(appointment.formatLog(`On-chain status: ${channelStatus}.`));
 
         //     NonExistent, // 0
@@ -228,7 +226,6 @@ export class RaidenInspector extends Inspector<RaidenAppointment> {
         // 1) It is initially populated with a settle_timeout
         // 2) When closeChannel is called it is updated with += block.number
         // we've checked that the status is correct - so we must be in situation 1)
-        const channelDisputePeriod: number = await settleBlockNumber;
         logger.info(appointment.formatLog(`On-chain dispute period: ${channelDisputePeriod.toString(10)}.`));
         if (channelDisputePeriod <= this.minimumDisputePeriod) {
             throw new PublicInspectionError(
