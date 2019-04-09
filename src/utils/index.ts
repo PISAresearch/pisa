@@ -21,7 +21,7 @@ export class TimeoutError extends Error {
  * @param promise the original promise
  * @param milliseconds the amount of milliseconds before the returned promise is rejected.
  */
-export function promiseTimeout<T>(promise: Promise<T>, milliseconds: number): Promise<T> {
+export function promiseTimeout(promise: Promise<any>, milliseconds: number): Promise<any> {
     return Promise.race([
         promise,
         new Promise((_, reject) => {
@@ -31,4 +31,4 @@ export function promiseTimeout<T>(promise: Promise<T>, milliseconds: number): Pr
             }, milliseconds)
         })
     ]);
-;}
+}
