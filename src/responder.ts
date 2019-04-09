@@ -208,21 +208,16 @@ export class EthereumResponder extends Responder {
 
                 // The response has now enough confirmations to be considered safe.
                 responseFlow.status = ResponseStatus.Success;
-                console.log("responseConfirmed");
                 this.asyncEmit("responseConfirmed", responseFlow);
 
                 return;
             } catch (doh) {
-
-                console.log("attemptFailed", responseFlow, doh);
                 this.asyncEmit("attemptFailed", responseFlow, doh);
 
                 //TODO: implement a proper strategy
                 await wait(1000);
             }
         }
-
-        console.log("responseFailed");
         this.asyncEmit("responseFailed", responseFlow);
     }
 }
