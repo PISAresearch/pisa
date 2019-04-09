@@ -72,7 +72,7 @@ describe("Inspector", () => {
             expiryPeriod = disputePeriod + 1;
 
         const inspector = new KitsuneInspector(10, provider);
-        await isRejected(
+        expect(
             inspector.checkInspection(
                 new KitsuneAppointment({
                     stateUpdate: {
@@ -85,7 +85,7 @@ describe("Inspector", () => {
                     type: ChannelType.Kitsune
                 })
             )
-        );
+        ).to.eventually.be.rejected;
     });
 
     it("throws for expiry equal dispute time", async () => {
@@ -96,7 +96,7 @@ describe("Inspector", () => {
             sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash));
 
         const inspector = new KitsuneInspector(10, provider);
-        await isRejected(
+        expect(
             inspector.checkInspection(
                 new KitsuneAppointment({
                     stateUpdate: {
@@ -109,7 +109,7 @@ describe("Inspector", () => {
                     type: ChannelType.Kitsune
                 })
             )
-        );
+        ).to.eventually.be.rejected;
     });
 
     it("throws for expiry less than dispute time", async () => {
@@ -120,7 +120,7 @@ describe("Inspector", () => {
             sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash));
 
         const inspector = new KitsuneInspector(10, provider);
-        await isRejected(
+        expect(
             inspector.checkInspection(
                 new KitsuneAppointment({
                     stateUpdate: {
@@ -133,7 +133,7 @@ describe("Inspector", () => {
                     type: ChannelType.Kitsune
                 })
             )
-        );
+        ).to.eventually.be.rejected;
     });
 
     it("throws for non existant contract", async () => {
@@ -144,7 +144,7 @@ describe("Inspector", () => {
             sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash));
 
         const inspector = new KitsuneInspector(10, provider);
-        await isRejected(
+        expect(
             inspector.checkInspection(
                 new KitsuneAppointment({
                     stateUpdate: {
@@ -158,7 +158,7 @@ describe("Inspector", () => {
                     type: ChannelType.Kitsune
                 })
             )
-        );
+        ).to.eventually.be.rejected;
     });
     
     it("throws for wrong state hash", async () => {
@@ -169,7 +169,7 @@ describe("Inspector", () => {
             sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash));
 
         const inspector = new KitsuneInspector(10, provider);
-        await isRejected(
+        expect(
             inspector.checkInspection(
                 new KitsuneAppointment({
                     stateUpdate: {
@@ -183,7 +183,7 @@ describe("Inspector", () => {
                     type: ChannelType.Kitsune
                 })
             )
-        );
+        ).to.eventually.be.rejected;
     });
 
     it("throws for sigs on wrong hash", async () => {
@@ -195,7 +195,7 @@ describe("Inspector", () => {
             sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(hashState));
 
         const inspector = new KitsuneInspector(10, provider);
-        await isRejected(
+        expect(
             inspector.checkInspection(
                 new KitsuneAppointment({
                     stateUpdate: {
@@ -208,7 +208,7 @@ describe("Inspector", () => {
                     type: ChannelType.Kitsune
                 })
             )
-        );
+        ).to.eventually.be.rejected;
     });
 
     it("throws for sigs by only one player", async () => {
@@ -220,7 +220,7 @@ describe("Inspector", () => {
             sig1 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash));
 
         const inspector = new KitsuneInspector(10, provider);
-        await isRejected(
+        expect(
             inspector.checkInspection(
                 new KitsuneAppointment({
                     stateUpdate: {
@@ -233,7 +233,7 @@ describe("Inspector", () => {
                     type: ChannelType.Kitsune
                 })
             )
-        );
+        ).to.eventually.be.rejected;
     });
 
     it("throws for missing sig", async () => {
@@ -244,7 +244,7 @@ describe("Inspector", () => {
             sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash));
 
         const inspector = new KitsuneInspector(10, provider);
-        await isRejected(
+        expect(
             inspector.checkInspection(
                 new KitsuneAppointment({
                     stateUpdate: {
@@ -257,7 +257,7 @@ describe("Inspector", () => {
                     type: ChannelType.Kitsune
                 })
             )
-        );
+        ).to.eventually.be.rejected;
     });
 
     it("accepts sigs in wrong order", async () => {
