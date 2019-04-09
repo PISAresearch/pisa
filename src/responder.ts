@@ -13,9 +13,8 @@ export class ResponseFlow {
 
     readonly id: number;
     readonly creationTimestamp: number;
-    public attempts: number = 0; // number of attempts already made
 
-    public status = ResponseStatus.Started;
+    public status = ResponseState.Started;
 
     constructor() {
         this.id = ResponseFlow.nextId++;
@@ -26,7 +25,8 @@ export class ResponseFlow {
 /**
  * Represents the current state of a Response
  */
-export enum ResponseStatus {
+export enum ResponseState {
+    Ready,        // initial status
     Started,      // flow started
     ResponseSent, // responded, but waiting for enough confirmations
     Success,      // responded with enough confirmations
@@ -38,30 +38,19 @@ export enum ResponseStatus {
  * The responder is solely responsible for ensuring that a transaction gets to the blockchain.
  */
 export abstract class Responder extends EventEmitter {
-    private responses = new Map<number, ResponseFlow>();
-
-    /**
-     *
-     * @param maxAttempts The maximum number of retries before the Responder will give up
-     */
-    constructor(
-        protected readonly maxAttempts: number
-    ) {
-        super();
-    }
-
+    public readonly responseFlow: ResponseFlow;
     /**
      * Creates a new Response object, initiating the flow of submitting state to the blockchain.
      */
-    startResponse(): ResponseFlow {
-        const responseFlow = new ResponseFlow();
-        this.responses[responseFlow.id] = responseFlow;
-
-        this.respond(responseFlow);
-
-        return responseFlow;
+    constructor() {
+        super();
+        this.responseFlow = new ResponseFlow();
     }
 
+    /** Initiates the response flow */
+    public startResponse() {
+        this.respond()
+    }
 
     // Commodity function to emit events asynchronously
     protected asyncEmit(...args: any[]) {
@@ -78,7 +67,7 @@ export abstract class Responder extends EventEmitter {
      *
      * @param responseFlow The ResponseFlow object of this response.
      */
-    protected abstract respond(responseFlow: ResponseFlow): Promise<any>;
+    protected abstract respond(): Promise<any>;
 }
 
 /**
@@ -111,6 +100,11 @@ export class EthereumResponder extends Responder {
 
     // Timestamp in milliseconds when the last block was received (or since the creation of this object)
     protected timeOfLastBlock: number = Date.now();
+    private mAttemptsDone: number = 0;
+
+    get attemptsDone() {
+        return this.mAttemptsDone;
+    }
 
     /**
      * @param signer The signer of the wallet associated with this responder. Each responder should have exclusive access to his wallet.
@@ -125,10 +119,9 @@ export class EthereumResponder extends Responder {
         public readonly ethereumResponse: IEthereumResponse,
 
         public readonly confirmationsRequired = 40,
-        maxAttempts: number = 10
+        private readonly maxAttempts: number = 10
     ) {
-        super(maxAttempts);
-
+        super();
         signer.provider.on("block", this.updateLastBlockTime);
     }
 
@@ -160,17 +153,17 @@ export class EthereumResponder extends Responder {
         return this.signer.sendTransaction(transactionRequest);
     }
 
-    protected async respond(responseFlow: ResponseFlow) {
-        while (responseFlow.attempts < this.maxAttempts) {
-            responseFlow.attempts++;
+    protected async respond() {
+        while (this.mAttemptsDone < this.maxAttempts) {
+            this.mAttemptsDone++;
             try {
                 // Try to call submitStateFunction, but timeout with an error if
                 // there is no response for 30 seconds.
                 const tx = await promiseTimeout(this.submitStateFunction(), 30000);
 
                 // The response has been sent, but should not be considered confirmed yet.
-                responseFlow.status = ResponseStatus.ResponseSent;
-                this.asyncEmit("responseSent", responseFlow);
+                this.responseFlow.status = ResponseState.ResponseSent;
+                this.asyncEmit("responseSent", this.responseFlow);
 
                 // Wait for enough confirmations before declaring success
                 await new Promise((resolve, reject) => {
@@ -206,18 +199,18 @@ export class EthereumResponder extends Responder {
                 });
 
                 // The response has now enough confirmations to be considered safe.
-                responseFlow.status = ResponseStatus.Success;
-                this.asyncEmit("responseConfirmed", responseFlow);
+                this.responseFlow.status = ResponseState.Success;
+                this.asyncEmit("responseConfirmed", this.responseFlow);
 
                 return;
             } catch (doh) {
-                this.asyncEmit("attemptFailed", responseFlow, doh);
+                this.asyncEmit("attemptFailed", this.responseFlow, doh);
 
                 //TODO: implement a proper strategy
                 await wait(1000);
             }
         }
-        this.asyncEmit("responseFailed", responseFlow);
+        this.asyncEmit("responseFailed", this.responseFlow);
     }
 }
 
@@ -242,13 +235,11 @@ export class EthereumResponderManager {
         const ethereumResponse = this.config[appointment.type](appointment) as IEthereumResponse;
 
         const responder = new EthereumResponder(this.signer, "TODO: appointment ID", ethereumResponse, 10);
-
         this.responders.add(responder);
-
         responder
             .on("responseSent", (responseFlow: ResponseFlow) => {
                 logger.info(
-                    `Successfully responded to appointment ${"TODO: appointment ID"} after ${responseFlow.attempts} attempt${responseFlow.attempts > 1 ? "s" : ""}.
+                    `Successfully responded to appointment ${"TODO: appointment ID"} after ${responder.attemptsDone} attempt${responder.attemptsDone > 1 ? "s" : ""}.
                      Waiting for enough confirmations.`
                 );
 
@@ -258,7 +249,7 @@ export class EthereumResponderManager {
             })
             .on("responseConfirmed", (responseFlow: ResponseFlow) => {
                 logger.info(
-                    `Successfully responded to appointment ${"TODO: appointment ID"} after ${responseFlow.attempts} attempt${responseFlow.attempts > 1 ? "s" : ""}.`
+                    `Successfully responded to appointment ${"TODO: appointment ID"} after ${responder.attemptsDone} attempt${responder.attemptsDone > 1 ? "s" : ""}.`
                 );
 
                 // Should we keep inactive responders anywhere?
@@ -266,18 +257,17 @@ export class EthereumResponderManager {
             })
             .on("attemptFailed", (responseFlow: ResponseFlow, doh) => {
                 logger.error(
-                    `Failed to respond to appointment ${"TODO: appointment ID"}; ${responseFlow.attempts} attempt${responseFlow.attempts > 1 ? "s" : ""}.`
+                    `Failed to respond to appointment ${"TODO: appointment ID"}; ${responder.attemptsDone} attempt${responder.attemptsDone > 1 ? "s" : ""}.`
                 );
                 logger.error(doh);
             })
             .on("responseFailed", (responseFlow: ResponseFlow) => {
                 logger.error(
-                    `Failed to respond to ${"TODO: appointment ID"}, after ${responseFlow.attempts} attempt${responseFlow.attempts > 1 ? "s" : ""}. Giving up.`
+                    `Failed to respond to ${"TODO: appointment ID"}, after ${responder.attemptsDone} attempt${responder.attemptsDone > 1 ? "s" : ""}. Giving up.`
                 );
 
                 //TODO: this is serious and should be escalated.
-            });
-
-        responder.startResponse();
+            })
+            .startResponse();
     }
 }
