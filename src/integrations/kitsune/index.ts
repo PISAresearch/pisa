@@ -125,7 +125,7 @@ export class KitsuneInspector extends Inspector<KitsuneAppointment> {
 
         const code: string = await this.provider.getCode(contractAddress);
         // check that the channel is a contract
-        if (code === "0x" || code === "0x00") {
+        if (!code || code === "0x" ) {
             throw new PublicInspectionError(`No code found at address ${contractAddress}.`);
         }
         if (code != KitsuneTools.ContractDeployedBytecode) {

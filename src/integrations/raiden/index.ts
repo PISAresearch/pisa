@@ -167,7 +167,7 @@ export class RaidenInspector extends Inspector<RaidenAppointment> {
 
         const code: string = await this.provider.getCode(contractAddress);
         // check that the channel is a contract
-        if (!code || code === "0x" || code === "0x00") {
+        if (!code || code === "0x") {
             throw new PublicInspectionError(`No code found at address ${contractAddress}`);
         }
 

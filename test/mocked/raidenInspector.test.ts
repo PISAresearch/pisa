@@ -1,19 +1,11 @@
 import mockito from "ts-mockito";
-import { expect, assert } from "chai";
+import * as chai from "chai";
 import { ethers } from "ethers";
 import { RaidenInspector, RaidenAppointment, RaidenTools } from "../../src/integrations/raiden";
 import { ChannelType } from "../../src/dataEntities";
-
-const isRejected = async (result: Promise<any>) => {
-    return await result.then(
-        () => {
-            assert.fail();
-        },
-        reject => {
-            expect(reject).to.exist;
-        }
-    );
-};
+import chaiAsPromised from "chai-as-promised";
+chai.use(chaiAsPromised);
+const expect = chai.expect;
 
 describe("Raiden inspector", () => {
     let provider;
@@ -49,12 +41,16 @@ describe("Raiden inspector", () => {
         const tokenNetworkAddress = "0x34636d2289588BcA4e0fcF863857386F56b44bdC";
         const party1Address = "0xccca21b97b27DefC210f01A7e64119A784424D26";
         const party2Address = "0xdddEC4D561eE68F37855fa3245Cb878b10Eb1fA0";
-        const otherTokenNetwork = "0xf0afbed24d88ce4cb12828984bb10d2f1ad0e185"
+        const otherTokenNetwork = "0xf0afbed24d88ce4cb12828984bb10d2f1ad0e185";
         const mockedProvider = mockito.mock(ethers.providers.JsonRpcProvider);
         mockito.when(mockedProvider.getCode(tokenNetworkAddress)).thenResolve(RaidenTools.ContractDeployedBytecode);
         mockito.when(mockedProvider.getCode(otherTokenNetwork)).thenResolve(RaidenTools.ContractDeployedBytecode);
         mockito.when(mockedProvider.getCode(party1Address)).thenResolve("0x");
-        mockito.when(mockedProvider.getCode(party2Address)).thenResolve(RaidenTools.ContractDeployedBytecode.slice(0, RaidenTools.ContractDeployedBytecode.length - 20));
+        mockito
+            .when(mockedProvider.getCode(party2Address))
+            .thenResolve(
+                RaidenTools.ContractDeployedBytecode.slice(0, RaidenTools.ContractDeployedBytecode.length - 20)
+            );
         mockito.when(mockedProvider.getBlockNumber()).thenResolve(onChainBlockNumber);
         provider = mockito.instance(mockedProvider);
 
@@ -82,13 +78,13 @@ describe("Raiden inspector", () => {
     it("throws for expiry equal to dispute", async () => {
         const appointment = new RaidenAppointment({ ...appointmentObj, expiryPeriod: 10 });
         const inspector = new RaidenInspector(minimumDisputePeriod, provider);
-        await isRejected(inspector.checkInspection(appointment));
+        expect(inspector.checkInspection(appointment)).eventually.be.rejected;
     });
 
     it("throws for expiry less than dispute", async () => {
         const appointment = new RaidenAppointment({ ...appointmentObj, expiryPeriod: 9 });
         const inspector = new RaidenInspector(minimumDisputePeriod, provider);
-        await isRejected(inspector.checkInspection(appointment));
+        expect(inspector.checkInspection(appointment)).eventually.be.rejected;
     });
 
     it("throws for wrong additional hash", async () => {
@@ -101,7 +97,7 @@ describe("Raiden inspector", () => {
         });
 
         const inspector = new RaidenInspector(minimumDisputePeriod, provider);
-        await isRejected(inspector.checkInspection(appointment));
+        expect(inspector.checkInspection(appointment)).eventually.be.rejected;
     });
 
     it("throws for wrong balance hash", async () => {
@@ -113,7 +109,7 @@ describe("Raiden inspector", () => {
             stateUpdate: { ...appointmentObj.stateUpdate, balance_hash: wrongBalanceHash }
         });
         const inspector = new RaidenInspector(minimumDisputePeriod, provider);
-        await isRejected(inspector.checkInspection(appointment));
+        expect(inspector.checkInspection(appointment)).eventually.be.rejected;
     });
 
     it("throws for incorrect channel identifier", async () => {
@@ -123,7 +119,7 @@ describe("Raiden inspector", () => {
         });
 
         const inspector = new RaidenInspector(minimumDisputePeriod, provider);
-        await isRejected(inspector.checkInspection(appointment));
+        expect(inspector.checkInspection(appointment)).eventually.be.rejected;
     });
 
     it("throws for incorrect closing participant", async () => {
@@ -136,7 +132,7 @@ describe("Raiden inspector", () => {
         });
 
         const inspector = new RaidenInspector(minimumDisputePeriod, provider);
-        await isRejected(inspector.checkInspection(appointment));
+        expect(inspector.checkInspection(appointment)).eventually.be.rejected;
     });
 
     it("throws for wrong closing participant sig", async () => {
@@ -149,7 +145,7 @@ describe("Raiden inspector", () => {
         });
 
         const inspector = new RaidenInspector(minimumDisputePeriod, provider);
-        await isRejected(inspector.checkInspection(appointment));
+        expect(inspector.checkInspection(appointment)).eventually.be.rejected;
     });
 
     it("throws for incorrect non_closing participant", async () => {
@@ -160,7 +156,7 @@ describe("Raiden inspector", () => {
             stateUpdate: { ...appointmentObj.stateUpdate, non_closing_participant: wrongNonClosingParticipant }
         });
         const inspector = new RaidenInspector(minimumDisputePeriod, provider);
-        await isRejected(inspector.checkInspection(appointment));
+        expect(inspector.checkInspection(appointment)).eventually.be.rejected;
     });
 
     it("throws for wrong non_closing participant sig", async () => {
@@ -174,7 +170,7 @@ describe("Raiden inspector", () => {
         });
 
         const inspector = new RaidenInspector(minimumDisputePeriod, provider);
-        await isRejected(inspector.checkInspection(appointment));
+        expect(inspector.checkInspection(appointment)).eventually.be.rejected;
     });
 
     it("throws for nonce too low", async () => {
@@ -184,7 +180,7 @@ describe("Raiden inspector", () => {
         });
 
         const inspector = new RaidenInspector(minimumDisputePeriod, provider);
-        await isRejected(inspector.checkInspection(appointment));
+        expect(inspector.checkInspection(appointment)).eventually.be.rejected;
     });
 
     it("throws for wrong chain id", async () => {
@@ -193,7 +189,7 @@ describe("Raiden inspector", () => {
             stateUpdate: { ...appointmentObj.stateUpdate, chain_id: 4 }
         });
         const inspector = new RaidenInspector(minimumDisputePeriod, provider);
-        await isRejected(inspector.checkInspection(appointment));
+        expect(inspector.checkInspection(appointment)).eventually.be.rejected;
     });
 
     it("throws for wrong token network id", async () => {
@@ -205,7 +201,7 @@ describe("Raiden inspector", () => {
             }
         });
         const inspector = new RaidenInspector(minimumDisputePeriod, provider);
-        await isRejected(inspector.checkInspection(appointment));
+        expect(inspector.checkInspection(appointment)).eventually.be.rejected;
     });
 
     it("throws for no code returned", async () => {
@@ -218,7 +214,7 @@ describe("Raiden inspector", () => {
             }
         });
         const inspector = new RaidenInspector(minimumDisputePeriod, provider);
-        await isRejected(inspector.checkInspection(appointment));
+        expect(inspector.checkInspection(appointment)).eventually.be.rejected;
     });
 
     it("throws for wrong code returned", async () => {
@@ -231,6 +227,6 @@ describe("Raiden inspector", () => {
             }
         });
         const inspector = new RaidenInspector(minimumDisputePeriod, provider);
-        await isRejected(inspector.checkInspection(appointment));
+        expect(inspector.checkInspection(appointment)).eventually.be.rejected;
     });
 });

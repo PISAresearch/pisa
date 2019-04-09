@@ -17,7 +17,8 @@
     "test-smoke": "node build/test/smoke/smokeTests.js",
     "test-integration": "npm run build && npm run build-raiden-pisa-daemon && npm run build-autominer && mocha build/test/integration --exit",
     "test-mocked": "NODE_ENV=test mocha build/test/mocked --exit",
-    "test-raiden": "NODE_ENV=test mocha -r ts-node/register test/mocked/raidenInspector.test.ts"
+    "test-raiden": "NODE_ENV=test mocha -r ts-node/register test/mocked/raidenInspector.test.ts",
+    "test-ts": "test mocha -r ts-node/register test/src && npm run test-raiden"
   },
   "repository": {
     "type": "git",
@@ -44,6 +45,7 @@
   },
   "devDependencies": {
     "@types/chai": "^4.1.6",
+    "@types/chai-as-promised": "^7.1.0",
     "@types/express": "^4.16.0",
     "@types/fs-extra": "^5.0.5",
     "@types/ganache-core": "^2.1.1",
@@ -53,6 +55,7 @@
     "@types/uuid": "^3.4.4",
     "@types/yargs": "^12.0.10",
     "chai": "^4.2.0",
+    "chai-as-promised": "^7.1.1",
     "fs-extra": "^7.0.1",
     "mocha": "^5.2.0",
     "nyc": "^13.1.0",
