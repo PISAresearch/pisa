@@ -21,10 +21,10 @@ export class TimeoutError extends Error {
  * @param promise the original promise
  * @param milliseconds the amount of milliseconds before the returned promise is rejected.
  */
-export function promiseTimeout(promise: Promise<any>, milliseconds: number): Promise<any> {
+export function promiseTimeout<T>(promise: Promise<T>, milliseconds: number): Promise<T> {
     return Promise.race([
         promise,
-        new Promise((_, reject) => {
+        new Promise<T>((_, reject) => {
             const timerId = setTimeout(() => {
                 clearTimeout(timerId);
                 reject(new TimeoutError('Timed out in '+ milliseconds + 'ms.'));

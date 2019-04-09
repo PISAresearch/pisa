@@ -157,7 +157,6 @@ export class EthereumResponder extends Responder {
         };
 
         // execute the transaction
-        // TODO: make sure this timeouts if the transaction is not mined
         return this.signer.sendTransaction(transactionRequest);
     }
 
