@@ -4,22 +4,13 @@ import { ethers } from "ethers";
 import Ganache from "ganache-core";
 import { KitsuneAppointment, KitsuneInspector, KitsuneTools } from "../../src/integrations/kitsune";
 import { ChannelType } from "../../src/dataEntities";
+import chaiAsPromised from "chai-as-promised";
 const ganache = Ganache.provider({
     mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect"
 });
 const provider: ethers.providers.Web3Provider = new ethers.providers.Web3Provider(ganache);
+chai.use(chaiAsPromised);
 const expect = chai.expect;
-
-const isRejected = async (result: Promise<any>) => {
-    return await result.then(
-        () => {
-            chai.assert.fail();
-        },
-        reject => {
-            expect(reject).to.exist;
-        }
-    );
-};
 
 describe("Inspector", () => {
     let account0: string, account1: string, channelContract: ethers.Contract, hashState: string, disputePeriod: number;
@@ -160,7 +151,7 @@ describe("Inspector", () => {
             )
         ).to.eventually.be.rejected;
     });
-    
+
     it("throws for wrong state hash", async () => {
         const expiryPeriod = disputePeriod + 1,
             round = 1,
