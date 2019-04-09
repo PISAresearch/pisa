@@ -36,8 +36,8 @@ export class PisaService {
             next();
         });
 
-        const responder = new Responder(10);
-        const watcher = new Watcher(jsonRpcProvider, wallet, responder);
+        const responder = new Responder(10, wallet);
+        const watcher = new Watcher(jsonRpcProvider, responder);
         const tower = new PisaTower(jsonRpcProvider, watcher, [Raiden, Kitsune]);
 
         app.post("/appointment", this.appointment(tower));

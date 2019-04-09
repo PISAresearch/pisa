@@ -135,7 +135,7 @@ export class RaidenAppointment extends Appointment {
         return RaidenTools.ContractAbi;
     }
 
-    getSubmitStateFunction(): (contract: ethers.Contract) => Promise<void> {
+    getSubmitStateFunction(): (contract: ethers.Contract) => Promise<any> {
         return async (contract: ethers.Contract) =>
             await contract.updateNonClosingBalanceProof(
                 this.stateUpdate.channel_identifier,

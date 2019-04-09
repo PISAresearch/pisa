@@ -12,13 +12,34 @@ import ReadWriteLock from "rwlock";
  * acted upon, that is the responsibility of the responder.
  */
 export class Watcher {
-    public constructor(
-        public readonly provider: ethers.providers.Provider,
-        public readonly signer: ethers.Signer,
-        public readonly responder: Responder
-    ) {}
+    public constructor(public readonly provider: ethers.providers.Provider, public readonly responder: Responder) {}
     private readonly store: WatchedAppointmentStore = new WatchedAppointmentStore();
     private readonly lock = new ReadWriteLock();
+
+    // there are three separate processes that run as part of the watcher
+    // each of them updates the data store
+    // 1) new appointments:
+    //      New appointments are added or updated in the remote permanent store keyed by appointment.getStateLocator()
+    //        i) If an appointment with that locator exists and has a lower nonce, it is updated
+    //        ii) If it has a higher nonce, the appointment is rejected
+    //        iii) If it does not exist, it is added
+    //      After the appointment has been added the remote permanent store it is then added to the local store,
+    //      and then subscribed to. We subscribe last because a subscribed appointment can also update the remote store
+    //      and we dont want this to happen until after it has been added as a new appointment.
+    // 2) observed events
+    //      When subscribed appointments are observed as events they are first pased to the responder. Then they are
+    //      removed from the remote store, and finally from the local store. When appointments are removed they are
+    //      keyed by appointment id we are sure to try and remove the exact appointment that the listener was subscribed
+    //      against. If the appointment was not in the db, since appointments can be removed in any of these 3 processes: 
+    //      (new appointments, observed events, GC) then this should not be considered an error
+    // 3) garbage collection (GC)
+    //      Periodically appointments will be checked to see if they have expired. To make this process easier we could 
+    //      order the appointments by expiry date, then pop the top appointment and see if it has expired. If it hasn't 
+    //      then wait until the next poll. If it has then continue popping appointments until the we reach one that has
+    //      not expired. Expired appointment should be removed first from the remote store then the local and unsubsribced, 
+    //      either singularly or batched, but the order here does not matter. Again deletes should by keyed by 
+    //      appointment id, and it shouldn't matter if an appointment does not exist to be deleted. (Although this 
+    //      should be unlikely)
 
     /**
      * Start watch for an event specified by the appointment, and respond if it the event is raised.
@@ -64,7 +85,7 @@ export class Watcher {
                         appointment.getContractAddress(),
                         appointment.getContractAbi(),
                         this.provider
-                    ).connect(this.signer);
+                    );
                 }
             }
 
@@ -80,13 +101,11 @@ export class Watcher {
                             } with arguments : ${args.slice(0, args.length - 1)}.`
                         )
                     );
-                    logger.debug(`Event info: ${inspect(args)}`);
-                    const submitStateFunction = appointment.getSubmitStateFunction();
-                    const bufferedFunction = async () => await submitStateFunction(contract);
+                    logger.debug(`Event info: ${inspect(args)}`);               
 
-                    // pass the response to the responder to complete. At this point the job has completed as far as
+                    // pass the appointment to the responder to complete. At this point the job has completed as far as
                     // the watcher is concerned, therefore although respond is an async function we do not need to await it for a result
-                    this.responder.respond(bufferedFunction, appointment);
+                    this.responder.respond(appointment);
 
                     // after firing a response we can remove the appointment
                     this.store.removeAppointment(appointment);

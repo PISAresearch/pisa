@@ -94,7 +94,7 @@ export class KitsuneAppointment extends Appointment {
         return KitsuneTools.ContractAbi;
     }
 
-    getSubmitStateFunction(): (contract: ethers.Contract) => Promise<void> {
+    getSubmitStateFunction(): (contract: ethers.Contract) => Promise<any> {
         return async (contract: ethers.Contract) => {
             let sig0 = utils.splitSignature(this.stateUpdate.signatures[0]);
             let sig1 = utils.splitSignature(this.stateUpdate.signatures[1]);

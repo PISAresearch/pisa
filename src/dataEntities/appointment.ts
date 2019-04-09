@@ -19,7 +19,7 @@ export interface IAppointment {
     getEventName(): string;
     getStateIdentifier(): string;
     getStateNonce(): number;
-    getSubmitStateFunction(): (contract: ethers.Contract) => Promise<void>;
+    getSubmitStateFunction(): (contract: ethers.Contract) => Promise<any>;
     formatLog(message: string): string;
 }
 

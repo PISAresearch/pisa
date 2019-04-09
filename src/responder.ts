@@ -1,24 +1,31 @@
 import { IAppointment } from "./dataEntities/appointment";
 import logger from "./logger";
+import { ethers } from "ethers";
 
 /**
  * Responsible for responding to observed events.
  * The responder is solely responsible for ensuring that a transaction gets to the blockchain
  */
 export class Responder {
-    constructor(private readonly retries: number) {}
+    constructor(private readonly retries: number, private readonly signer : ethers.Signer) {}
 
     // PISA: how does a responder validate it's submit function? should it even?
     /**
      * Execute the submit state function, doesn't throw errors
      * @param submitStateFunction
      */
-    async respond(submitStateFunction: () => Promise<any>, appointment: IAppointment) {
+    async respond(appointment: IAppointment) {
+        const contract = new ethers.Contract(
+            appointment.getContractAddress(),
+            appointment.getContractAbi(),
+            this.signer
+        );
+
         try {
             let tries = 0;
             while (tries < this.retries) {
                 try {
-                    let tx = await submitStateFunction();
+                    const tx = await appointment.getSubmitStateFunction()(contract);
                     await tx.wait();
                     logger.info(
                         appointment.formatLog(
