@@ -197,6 +197,7 @@ class AppointmentStoreGarbageCollector {
         // get the current block number
         const blockNumber = await this.provider.getBlockNumber();
         // find all blocks that are expired past the finality depth
+        // 102: currently we're mixing dates and blocks here - decide what it should be and name it appropriately
         const expiredAppointments = await this.store.getExpiredBefore(blockNumber - this.finalityDepth);
         // wait for all appointments to be removed from the store and the subscribers
         await Promise.all([
