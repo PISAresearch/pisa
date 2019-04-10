@@ -119,12 +119,14 @@ export class RaidenAppointment extends Appointment {
         }`;
     }
 
-    getEventFilter(contract: ethers.Contract) {
-        return contract.filters.ChannelClosed(
-            this.stateUpdate.channel_identifier,
-            this.stateUpdate.closing_participant,
-            null
-        );
+    getEventFilter(): ethers.EventFilter {
+        let event = new ethers.utils.Interface(this.getContractAbi());
+        let topics = event.events["ChannelClosed"].encodeTopics([this.stateUpdate.channel_identifier, this.stateUpdate.closing_participant, null]);
+
+        return {
+            address: this.getContractAddress(),
+            topics
+        }
     }
 
     getEventName() {

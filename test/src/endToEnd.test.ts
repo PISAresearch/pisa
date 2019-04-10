@@ -64,7 +64,7 @@ describe("End to end", () => {
 
         // 2. pass this appointment to the watcher
         const responder = new Responder(10, provider.getSigner(pisaAccount));
-        const watcher = new Watcher(provider, responder);
+        const watcher = new Watcher(provider, responder, 20);
         const player0Contract = channelContract.connect(provider.getSigner(player0));
 
         await watcher.addAppointment(appointment);

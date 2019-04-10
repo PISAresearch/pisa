@@ -15,7 +15,7 @@ export interface IAppointment {
     getStateLocator(): string;
     getContractAbi(): any;
     getContractAddress(): string;
-    getEventFilter(contract: ethers.Contract): ethers.EventFilter;
+    getEventFilter(): ethers.EventFilter;
     getEventName(): string;
     getStateIdentifier(): string;
     getStateNonce(): number;
@@ -67,7 +67,7 @@ export abstract class Appointment implements IAppointment {
     abstract getStateLocator(): string;
     abstract getContractAbi(): any;
     abstract getContractAddress(): string;
-    abstract getEventFilter(contract: ethers.Contract);
+    abstract getEventFilter(): ethers.EventFilter;
     abstract getEventName(): string;
     abstract getStateNonce(): number;
     abstract getSubmitStateFunction(): (contract: ethers.Contract) => Promise<void>;
