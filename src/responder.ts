@@ -93,7 +93,8 @@ class NoNewBlockError extends Error {
 }
 
 /**
- * A generic responder for the Ethereum blockchain.
+ * A generic abstract responder for the Ethereum blockchain.
+ * It implements the submitStateFunction, but no strategy.
  */
 export abstract class EthereumResponder extends Responder {
     protected readonly contract: ethers.Contract;
@@ -111,7 +112,6 @@ export abstract class EthereumResponder extends Responder {
         super();
     }
 
-
     protected submitStateFunction(): Promise<TransactionResponse> {
         // form the interface so that we can serialise the args and the function name
         const abiInterface = new ethers.utils.Interface(this.ethereumResponse.contractAbi);
@@ -119,9 +119,9 @@ export abstract class EthereumResponder extends Responder {
         // now create a transaction, specifying possible oher variables
         const transactionRequest = {
             to: this.ethereumResponse.contractAddress,
-            gasLimit: 200000, // TODO: chose an appropriate gas limit
+            gasLimit: 200000, // TODO: choose an appropriate gas limit
             // nonce: 0,
-            gasPrice: 21000000000, // TODO: chose an appropriate gas price
+            gasPrice: 21000000000, // TODO: choose an appropriate gas price
             data: data
         };
 
@@ -230,7 +230,7 @@ export class EthereumDedicatedResponder extends EthereumResponder {
             } catch (doh) {
                 this.asyncEmit("attemptFailed", this.responseFlow, doh);
 
-                //TODO: does waiting a longer time before retrying help in any way?
+                // TODO: does waiting a longer time before retrying help in any way?
                 await wait(1000);
             }
         }
@@ -290,7 +290,7 @@ export class EthereumResponderManager {
                     `Failed to respond to ${"TODO: appointment ID"}, after ${responder.attemptsDone} attempt${responder.attemptsDone > 1 ? "s" : ""}. Giving up.`
                 );
 
-                //TODO: this is serious and should be escalated.
+                // TODO: this is serious and should be escalated.
             })
             .startResponse();
     }
