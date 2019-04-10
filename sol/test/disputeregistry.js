@@ -143,50 +143,85 @@ contract('DisputeRegistry', (accounts) => {
     var registryInstance = await DisputeRegistry.deployed();
     var accounts =  await web3.eth.getAccounts();
 
-    for(let i=0; i<90; i++) {
-      // Store a dispute
-      var oldtimestamp = await getCurrentTime();
-      result = await registryInstance.setDispute(oldtimestamp-10, 99, {from: accounts[9]});
-      let day =  await registryInstance.getDay.call(oldtimestamp);
-      let addr = await registryInstance.getDailyRecordAddress.call(oldtimestamp);
-      result = await registryInstance.setDispute(oldtimestamp-50, 200, {from: accounts[6]});
-      let sameday =  await registryInstance.getDay.call(oldtimestamp);
-      let sameaddr = await registryInstance.getDailyRecordAddress.call(oldtimestamp);
-      assert.equal(day.toNumber(),sameday.toNumber(), "Both days should be the same!");
-      assert.equal(addr,sameaddr, "DailyRecord address should not change. Disputes on same day. ");
+    var TOTAL_DAYS = await registryInstance.getTotalDays.call();
+    var previousweek = new Array();
 
-      // Grab timestamps for old and future block.
-      oldtimestamp = await getCurrentTime();
-      let newBlock = await advanceTimeAndBlock(86400 * 14);
-      var newtimestamp = newBlock['timestamp'];
-      let timeDiff = newtimestamp - oldtimestamp;
+    for(let j=0; j<TOTAL_DAYS; j++) {
+      previousweek[j] = '123123912391';
+    }
 
-      // Did it work ok?
-      assert.isTrue(timeDiff >= 86400 * 14);
+    // Lets try for some many weeks
+    for(let i=0; i<4; i++) {
 
-      // Set new dispute (this should kill old dailyrecord and create new dailyrecord)
-      result = await registryInstance.setDispute(newtimestamp-50, 50, {from: accounts[2]});
+      // Go through each day and create a new daily record!
+      // We'll compare it with the address we fgot the previous week.
+      for(let k=0; k<TOTAL_DAYS; k++) {
 
-      // Get the address for today's daily record
-      let day2 =  await registryInstance.getDay.call(newtimestamp);
-      let addr2 = await registryInstance.getDailyRecordAddress.call(newtimestamp);
+        var oldtimestamp = await getCurrentTime();
+        let result = await registryInstance.setDispute(oldtimestamp, 99, {from: accounts[9]});
+        let day =  await registryInstance.getDay.call(oldtimestamp);
+        let addr = await registryInstance.getDailyRecordAddress.call(oldtimestamp);
+        result = await registryInstance.setDispute(oldtimestamp, 200, {from: accounts[6]});
+        let sameday =  await registryInstance.getDay.call(oldtimestamp);
+        let sameaddr = await registryInstance.getDailyRecordAddress.call(oldtimestamp);
+        assert.equal(day.toNumber(),sameday.toNumber(), "Both days should be the same!");
+        assert.equal(addr,sameaddr, "DailyRecord address should not change. Disputes on same day. ");
+        assert.notEqual(previousweek[k],addr, "Daily record contract should have a new address compared to previous week");
 
-      // Make sure we are looking at the daily same / daily record
-      assert.equal(day.toNumber(),day2.toNumber(), "Both days should be the same!");
+        // Move to next day!
+        oldtimestamp = await getCurrentTime();
+        newBlock = await advanceTimeAndBlock(86400);
+        newtimestamp = newBlock['timestamp'];
+        timeDiff = newtimestamp - oldtimestamp;
 
-      // Daily Record have a new address!
-      console.log(day2.toNumber());
-      assert.notEqual(addr,addr2, "Daily record contract should have a new address");
+        // Did it work ok?
+        assert.isTrue(timeDiff >= 86400);
+        previousweek[k] = addr; // keep for next round
+      }
 
-      // MOVE FORWARD BY 1 DAY AND REPEAT PROCESS!
-      // WE WILL TEST ALL FOURTEEN DAYS!
-      oldtimestamp = await getCurrentTime();
-      newBlock = await advanceTimeAndBlock(86400);
-      newtimestamp = newBlock['timestamp'];
-      timeDiff = newtimestamp - oldtimestamp;
-
-      // Did it work ok?
-      assert.isTrue(timeDiff >= 86400);
+      // // Store a dispute
+      // var oldtimestamp = await getCurrentTime();
+      // result = await registryInstance.setDispute(oldtimestamp-10, 99, {from: accounts[9]});
+      // let day =  await registryInstance.getDay.call(oldtimestamp);
+      // let addr = await registryInstance.getDailyRecordAddress.call(oldtimestamp);
+      // result = await registryInstance.setDispute(oldtimestamp-50, 200, {from: accounts[6]});
+      // let sameday =  await registryInstance.getDay.call(oldtimestamp);
+      // let sameaddr = await registryInstance.getDailyRecordAddress.call(oldtimestamp);
+      // assert.equal(day.toNumber(),sameday.toNumber(), "Both days should be the same!");
+      // assert.equal(addr,sameaddr, "DailyRecord address should not change. Disputes on same day. ");
+      //
+      // // Grab timestamps for old and future block.
+      // oldtimestamp = await getCurrentTime();
+      // let newBlock = await advanceTimeAndBlock(86400 * 14);
+      // var newtimestamp = newBlock['timestamp'];
+      // let timeDiff = newtimestamp - oldtimestamp;
+      //
+      // // Did it work ok?
+      // assert.isTrue(timeDiff >= 86400 * 14);
+      //
+      // // Set new dispute (this should kill old dailyrecord and create new dailyrecord)
+      // result = await registryInstance.setDispute(newtimestamp-50, 50, {from: accounts[2]});
+      //
+      // // Get the address for today's daily record
+      // let day2 =  await registryInstance.getDay.call(newtimestamp);
+      // let addr2 = await registryInstance.getDailyRecordAddress.call(newtimestamp);
+      //
+      // // Make sure we are looking at the daily same / daily record
+      // assert.equal(day.toNumber(),day2.toNumber(), "Both days should be the same!");
+      //
+      // // Daily Record have a new address!
+      // console.log(day2.toNumber());
+      // assert.notEqual(addr,addr2, "Daily record contract should have a new address");
+      //
+      // // MOVE FORWARD BY 1 DAY AND REPEAT PROCESS!
+      // // WE WILL TEST ALL FOURTEEN DAYS!
+      // oldtimestamp = await getCurrentTime();
+      // newBlock = await advanceTimeAndBlock(86400);
+      // newtimestamp = newBlock['timestamp'];
+      // timeDiff = newtimestamp - oldtimestamp;
+      //
+      // // Did it work ok?
+      // assert.isTrue(timeDiff >= 86400);
     }
   });
 
