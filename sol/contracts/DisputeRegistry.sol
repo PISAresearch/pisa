@@ -140,12 +140,22 @@ contract DisputeRegistry {
 
    // Time helper function
    uint constant DAY_IN_SECONDS = 86400;
+   uint constant TOTAL_DAYS = 14;
 
+   function getStorageLimit() public view returns (uint) {
+     return TOTAL_DAYS;
+   }
+   
    function getDay(uint _timestamp) public pure returns (uint8) {
 
         // Timestamp/days in seconds. +4 is used to push it to sunday as starting day.
         // "14" lets us keep records around for 14 days!
-       return uint8(((_timestamp / DAY_IN_SECONDS) + 4) % 14);
+       return uint8(((_timestamp / DAY_IN_SECONDS) + 4) % TOTAL_DAYS);
+   }
+
+   function getDailyRecordAddress(uint _timestamp) public view returns (address) {
+
+     return dailyrecord[getDay(_timestamp)];
    }
 
    // _day = What day was the dispute?
