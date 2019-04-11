@@ -1,5 +1,6 @@
 import { ethers } from "ethers";
 import { ChannelType } from "./channelType";
+import uuid from "uuid/v4";
 
 /**
  * An appointment that has been accepted by PISA
@@ -10,6 +11,7 @@ export interface IAppointment {
     passedInspection: boolean;
     expiryPeriod: number;
     type: ChannelType;
+    id: string;
     getStateLocator(): string;
     getContractAbi(): any;
     getContractAddress(): string;
@@ -25,8 +27,10 @@ export interface IAppointment {
  * An appointment that has been accepted by PISA
  */
 export abstract class Appointment implements IAppointment {
-    constructor(readonly expiryPeriod: number, readonly type: ChannelType) {}
-
+    constructor(readonly expiryPeriod: number, readonly type: ChannelType) {
+        this.id = uuid()
+    }
+    public readonly id: string;
     private mStartTime: number;
     get startTime() {
         return this.mStartTime;
