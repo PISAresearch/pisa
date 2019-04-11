@@ -86,7 +86,7 @@ class NoNewBlockError extends Error {
  */
 export abstract class EthereumResponder extends Responder {
     // TODO-93: the correct gas limit should be provided based on the appointment/integration.
-    //          200000 is enough for Kitsune and Raide (see https://github.com/raiden-network/raiden-contracts/blob/master/raiden_contracts/data/gas.json).
+    //          200000 is enough for Kitsune and Raiden (see https://github.com/raiden-network/raiden-contracts/blob/master/raiden_contracts/data/gas.json).
     private static GAS_LIMIT = 200000;
     /**
      * @param signer The signer of the wallet associated with this responder. Each responder should have exclusive access to his wallet.
