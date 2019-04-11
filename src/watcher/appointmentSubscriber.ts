@@ -55,7 +55,9 @@ export class AppointmentSubscriber {
     unsubscribe(appointmentId: string, filter: ethers.providers.EventType) {
         const listeners = this.provider.listeners(filter) as IAppointmentListener[];
         this.checkCurrentlyZeroOrOneListener(filter)
+        if(listeners.length === 0) return;
 
+        // therefore there must be one listener
         if (listeners[0].appointmentId === appointmentId) {
             // this is the correct appointment - unsubscribe
             this.provider.removeListener(filter, listeners[0]);
@@ -77,13 +79,13 @@ export class AppointmentSubscriber {
     /**
      * Sanity check that there can only be zero or one listener for a given filter at any one time.
      * @param filter 
+     * @throws ApplicationError there are not zero or one listeners.
      */
     checkCurrentlyZeroOrOneListener(filter: ethers.providers.EventType) {
         const listeners = this.provider.listeners(filter) as IAppointmentListener[];
 
         // there should always only be none or one appointments for each filter
-        if (listeners.length === 0) return;
-        if (listeners.length !== 1) {
+        if (listeners.length > 1) {
             throw new ApplicationError(
                 `More than one appointment found to be subscribed to a given filter. Appointments: ${listeners.map(
                     l => l.appointmentId
