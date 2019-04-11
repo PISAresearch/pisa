@@ -1,6 +1,6 @@
 import { EventEmitter } from 'events';
 import { ethers } from 'ethers';
-import { wait, promiseTimeout } from './utils';
+import { wait, promiseTimeout, plural } from './utils';
 import { EthereumAppointment, IEthereumResponse } from "./dataEntities/appointment";
 import logger from "./logger";
 import { TransactionResponse } from 'ethers/providers';
@@ -256,12 +256,12 @@ export class EthereumResponderManager {
     public respond(appointment: EthereumAppointment) {
         const ethereumResponse = appointment.getResponse();
 
-        const responder = new EthereumDedicatedResponder(this.signer, "TODO: appointment ID", ethereumResponse, 10);
+        const responder = new EthereumDedicatedResponder(this.signer, appointment.id, ethereumResponse, 10);
         this.responders.add(responder);
         responder
             .on("responseSent", (responseFlow: ResponseFlow) => {
                 logger.info(
-                    `Successfully responded to appointment ${"TODO: appointment ID"} after ${responder.attemptsDone} attempt${responder.attemptsDone > 1 ? "s" : ""}.
+                    `Successfully responded to appointment ${appointment.id} after ${responder.attemptsDone} ${plural(responder.attemptsDone, "attempt")}.
                      Waiting for enough confirmations.`
                 );
 
@@ -270,7 +270,7 @@ export class EthereumResponderManager {
             })
             .on("responseConfirmed", (responseFlow: ResponseFlow) => {
                 logger.info(
-                    `Successfully responded to appointment ${"TODO: appointment ID"} after ${responder.attemptsDone} attempt${responder.attemptsDone > 1 ? "s" : ""}.`
+                    `Successfully responded to appointment ${appointment.id} after ${responder.attemptsDone} ${plural(responder.attemptsDone, "attempt")}.`
                 );
 
                 // Should we keep inactive responders anywhere?
@@ -278,13 +278,13 @@ export class EthereumResponderManager {
             })
             .on("attemptFailed", (responseFlow: ResponseFlow, doh) => {
                 logger.error(
-                    `Failed to respond to appointment ${"TODO: appointment ID"}; ${responder.attemptsDone} attempt${responder.attemptsDone > 1 ? "s" : ""}.`
+                    `Failed to respond to appointment ${appointment.id}; ${responder.attemptsDone} ${plural(responder.attemptsDone, "attempt")}.`
                 );
                 logger.error(doh);
             })
             .on("responseFailed", (responseFlow: ResponseFlow) => {
                 logger.error(
-                    `Failed to respond to ${"TODO: appointment ID"}, after ${responder.attemptsDone} attempt${responder.attemptsDone > 1 ? "s" : ""}. Giving up.`
+                    `Failed to respond to ${appointment.id}, after ${responder.attemptsDone} ${plural(responder.attemptsDone, "attempt")}. Giving up.`
                 );
 
                 // TODO: this is serious and should be escalated.

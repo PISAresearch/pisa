@@ -25,10 +25,20 @@ export function promiseTimeout<T>(promise: Promise<T>, milliseconds: number): Pr
     return Promise.race([
         promise,
         new Promise<T>((_, reject) => {
-            const timerId = setTimeout(() => {
-                clearTimeout(timerId);
+            setTimeout(() => {
                 reject(new TimeoutError('Timed out in '+ milliseconds + 'ms.'));
             }, milliseconds)
         })
     ]);
+}
+
+/**
+ * Returns `word` if `val` is 1, `plural` otherwise.
+ *
+ * @param val the number to be tested
+ * @param word the string to be used as singular
+ * @param [plural] the string to be used as plural; defaults to `word + 's'`.
+ */
+export function plural(val: number, word: string, plural: string = word + 's') {
+    return val == 1 ? word : plural;
 }
