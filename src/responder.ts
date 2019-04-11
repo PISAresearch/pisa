@@ -127,6 +127,9 @@ export abstract class EthereumResponder extends Responder {
  * until the end of the response flow (that is, until the event `responseConfirmed` is emitted).
  */
 export class EthereumDedicatedResponder extends EthereumResponder {
+    // Waiting time before retrying
+    private static WAIT_TIME_BETWEEN_ATTEMPTS = 1000;
+
     // Timestamp in milliseconds when the last block was received (or since the creation of this object)
     private timeLastBlockReceived: number = Date.now();
     private mAttemptsDone: number = 0;
@@ -205,7 +208,7 @@ export class EthereumDedicatedResponder extends EthereumResponder {
                 this.asyncEmit("attemptFailed", this.responseFlow, doh);
 
                 // TODO: does waiting a longer time before retrying help in any way?
-                await wait(1000);
+                await wait(EthereumDedicatedResponder.WAIT_TIME_BETWEEN_ATTEMPTS);
             }
         }
         this.responseFlow.status = ResponseState.Failed;
