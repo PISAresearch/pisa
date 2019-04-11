@@ -37,6 +37,16 @@ export enum ResponseState {
 }
 
 /**
+ * Represents the possible events emitted by a Responder.
+ */
+enum ResponderEvent {
+    ResponseSent = "responseSent",
+    ResponseConfirmed = "responseConfirmed",
+    AttemptFailed = "attemptFailed",
+    ResponseFailed = "responseFailed"
+}
+
+/**
  * Responsible for responding to observed events.
  * The responder is solely responsible for ensuring that a transaction gets to the blockchain.
  */
@@ -179,7 +189,7 @@ export class EthereumDedicatedResponder extends EthereumResponder {
 
                 // The response has been sent, but should not be considered confirmed yet.
                 this.responseFlow.status = ResponseState.ResponseSent;
-                this.asyncEmit("responseSent", this.responseFlow);
+                this.asyncEmit(ResponderEvent.ResponseSent, this.responseFlow);
 
                 // Wait for enough confirmations before declaring success
                 const confirmationsPromise = waitForConfirmations(this.signer.provider, tx.hash, this.confirmationsRequired);
@@ -199,20 +209,20 @@ export class EthereumDedicatedResponder extends EthereumResponder {
 
                 // The response has now enough confirmations to be considered safe.
                 this.responseFlow.status = ResponseState.Success;
-                this.asyncEmit("responseConfirmed", this.responseFlow);
+                this.asyncEmit(ResponderEvent.ResponseConfirmed, this.responseFlow);
 
                 this.destroy();
 
                 return;
             } catch (doh) {
-                this.asyncEmit("attemptFailed", this.responseFlow, doh);
+                this.asyncEmit(ResponderEvent.AttemptFailed, this.responseFlow, doh);
 
                 // TODO: does waiting a longer time before retrying help in any way?
                 await wait(EthereumDedicatedResponder.WAIT_TIME_BETWEEN_ATTEMPTS);
             }
         }
         this.responseFlow.status = ResponseState.Failed;
-        this.asyncEmit("responseFailed", this.responseFlow);
+        this.asyncEmit(ResponderEvent.ResponseFailed, this.responseFlow);
         this.destroy();
     }
 }
@@ -236,7 +246,7 @@ export class EthereumResponderManager {
         const responder = new EthereumDedicatedResponder(this.signer, appointment.id, ethereumResponse, 10);
         this.responders.add(responder);
         responder
-            .on("responseSent", (responseFlow: ResponseFlow) => {
+            .on(ResponderEvent.ResponseSent, (responseFlow: ResponseFlow) => {
                 logger.info(
                     `Successfully responded to appointment ${appointment.id} after ${responder.attemptsDone} ${plural(responder.attemptsDone, "attempt")}.
                      Waiting for enough confirmations.`
@@ -245,7 +255,7 @@ export class EthereumResponderManager {
                 // TODO: Should we store information about past responders anywhere?
                 this.responders.delete(responder);
             })
-            .on("responseConfirmed", (responseFlow: ResponseFlow) => {
+            .on(ResponderEvent.ResponseConfirmed, (responseFlow: ResponseFlow) => {
                 logger.info(
                     `Successfully responded to appointment ${appointment.id} after ${responder.attemptsDone} ${plural(responder.attemptsDone, "attempt")}.`
                 );
@@ -253,13 +263,13 @@ export class EthereumResponderManager {
                 // Should we keep inactive responders anywhere?
                 this.responders.delete(responder);
             })
-            .on("attemptFailed", (responseFlow: ResponseFlow, doh) => {
+            .on(ResponderEvent.AttemptFailed, (responseFlow: ResponseFlow, doh) => {
                 logger.error(
                     `Failed to respond to appointment ${appointment.id}; ${responder.attemptsDone} ${plural(responder.attemptsDone, "attempt")}.`
                 );
                 logger.error(doh);
             })
-            .on("responseFailed", (responseFlow: ResponseFlow) => {
+            .on(ResponderEvent.ResponseFailed, (responseFlow: ResponseFlow) => {
                 logger.error(
                     `Failed to respond to ${appointment.id}, after ${responder.attemptsDone} ${plural(responder.attemptsDone, "attempt")}. Giving up.`
                 );
