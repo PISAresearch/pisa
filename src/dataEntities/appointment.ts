@@ -4,6 +4,12 @@ import uuid from "uuid/v4";
 
 /**
  * An appointment that has been accepted by PISA
+ *
+ * @member startTime: start time, in milliseconds elapsed since January 1, 1970, 00:00:00 UTC.
+ * @member endTime: end time, in milliseconds elapsed since January 1, 1970, 00:00:00 UTC.
+ * @member passedInspection: true iff this appointment passed the inspection.
+ * @member expiryPeriod: duration of the appointment in milliseconds.
+ * @member type: one of the supported channel types.
  */
 export interface IAppointment {
     startTime: number;
@@ -12,6 +18,12 @@ export interface IAppointment {
     expiryPeriod: number;
     type: ChannelType;
     id: string;
+}
+
+/**
+ * Ethereum variant of IAppointment
+ */
+export interface IEthereumAppointment extends IAppointment {
     getStateLocator(): string;
     getContractAbi(): any;
     getContractAddress(): string;
@@ -19,18 +31,20 @@ export interface IAppointment {
     getEventName(): string;
     getStateIdentifier(): string;
     getStateNonce(): number;
-    getSubmitStateFunction(): (contract: ethers.Contract) => Promise<void>;
     formatLog(message: string): string;
 }
+
 
 /**
  * An appointment that has been accepted by PISA
  */
-export abstract class Appointment implements IAppointment {
-    constructor(readonly expiryPeriod: number, readonly type: ChannelType) {
-        this.id = uuid()
-    }
+export abstract class EthereumAppointment implements IEthereumAppointment {
     public readonly id: string;
+    
+    constructor(readonly expiryPeriod: number, readonly type: ChannelType) {
+        this.id = uuid();
+    }
+ 
     private mStartTime: number;
     get startTime() {
         return this.mStartTime;
@@ -70,5 +84,32 @@ export abstract class Appointment implements IAppointment {
     abstract getEventFilter(contract: ethers.Contract);
     abstract getEventName(): string;
     abstract getStateNonce(): number;
-    abstract getSubmitStateFunction(): (contract: ethers.Contract) => Promise<void>;
+
+    /**
+     * The minimum unique information required form a response
+     */
+    abstract getResponseFunctionName(): string;
+    abstract getResponseFunctionArgs(): any[];
+
+    /**
+     * Returns the IEthereumResponse object for this appointment
+     */
+    public getResponse(): IEthereumResponse {
+        return {
+            contractAddress: this.getContractAddress(),
+            contractAbi: this.getContractAbi(),
+            functionName: this.getResponseFunctionName(),
+            functionArgs: this.getResponseFunctionArgs()
+        };
+    }
+}
+
+/**
+ * Represents the necessary data for an on-chain response from Pisa on the Ethereum blockchain.
+ */
+export interface IEthereumResponse {
+    contractAddress: string,
+    contractAbi: any,
+    functionName: string,
+    functionArgs: any[]
 }
