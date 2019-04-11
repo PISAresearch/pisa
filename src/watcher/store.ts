@@ -1,11 +1,12 @@
 import { IAppointment } from "../dataEntities";
+import logger from "../logger";
 
 /**
  * The functionality required in an appointment store
  */
 export interface IAppointmentStore {
-    addOrUpdateByStateLocator(appointment: IAppointment): Promise<void>;
-    removeById(appointmentId: string): Promise<void>;
+    addOrUpdateByStateLocator(appointment: IAppointment): Promise<boolean>;
+    removeById(appointmentId: string): Promise<boolean>;
     getExpiredSince(time: number): Promise<IAppointment[]>;
 }
 
@@ -21,33 +22,48 @@ export class MemoryAppointmentStore implements IAppointmentStore {
         [appointmentStateLocator: string]: IAppointment;
     } = {};
 
-    async addOrUpdateByStateLocator(appointment: IAppointment): Promise<void> {
+    async addOrUpdateByStateLocator(appointment: IAppointment): Promise<boolean> {
         const currentAppointment = this.appointmentsByStateLocator[appointment.getStateLocator()];
+        // is there a current appointment
         if (currentAppointment) {
             if (currentAppointment.getStateNonce() >= appointment.getStateNonce()) {
-                // PISA: if we've been given a nonce lower than the one we have already we should silently swallow it, not throw an error
-                // PISA: this is because we shouldn't be giving out information about what appointments are already in place
-                // PISA: we throw an error for now, with low information, but this should be removed.
-                throw new Error("haha");
+                // the new appointment has a lower nonce than the one we're currently storing, so don't add it
+                logger.info(
+                    appointment.formatLog(
+                        `Nonce ${appointment.getStateNonce()} is lower than current appointment ${
+                            appointment.id
+                        } nonce ${appointment.getStateNonce()}`
+                    )
+                );
+
+                return false;
             } else {
-                // the appointment exists, and we're replacing it, so remove from our id index
-                this.appointmentsById[currentAppointment.id] = undefined;
+                // remove the old appointment
+                delete this.appointmentsById[currentAppointment.id];
             }
         }
+        
+        // add the new appointment
         this.appointmentsByStateLocator[appointment.getStateLocator()] = appointment;
         this.appointmentsById[appointment.id] = appointment;
+        return true;
     }
 
-    async removeById(appointmentId: string): Promise<void> {
+    async removeById(appointmentId: string): Promise<boolean> {
         const appointmentById = this.appointmentsById[appointmentId];
-        // remove the appointment from the id index
-        delete this.appointmentsById[appointmentId];
+        if (appointmentById) {
+            // remove the appointment from the id index
+            delete this.appointmentsById[appointmentId];
 
-        // remove the appointment from the state locator index
-        const currentAppointment = this.appointmentsByStateLocator[appointmentById.getStateLocator()];
-        // if it has the same id
-        if (currentAppointment.id === appointmentId)
-            this.appointmentsByStateLocator[appointmentById.getStateLocator()] = undefined;
+            // remove the appointment from the state locator index
+            const currentAppointment = this.appointmentsByStateLocator[appointmentById.getStateLocator()];
+            // if it has the same id
+            if (currentAppointment.id === appointmentId) {
+                delete this.appointmentsByStateLocator[appointmentById.getStateLocator()];
+            }
+            return true;
+        }
+        return false;
     }
 
     async getExpiredSince(expiryTime: number): Promise<IAppointment[]> {

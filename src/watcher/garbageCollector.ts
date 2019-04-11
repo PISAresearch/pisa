@@ -1,6 +1,7 @@
 import { IAppointmentStore } from "./store";
 import { AppointmentSubscriber } from "./appointmentSubscriber";
 import { ethers } from "ethers";
+import logger from "../logger";
 
 /**
  * Scans the current appointments to find expired ones. Upon finding expired appointments it removes them appointment
@@ -29,23 +30,49 @@ export class AppointmentStoreGarbageCollector {
         this.provider.on("block", (blockNumber: number) => this.removeExpired(blockNumber));
     }
 
+    private collecting = false;
+
+    /**
+     * Find appointments that have expired then remove them from the subsciber and store.
+     * @param blockNumber 
+     */
     private async removeExpired(blockNumber: number) {
         try {
-            // 102: this needs to be wrapped in a catch
-        }
-        finally{}
+            // it is for this function to be called concurrently
+            // but there's no point, both would try to the same work which is wasteful
+            // so we lock here anyway and just wait for the next block
+            if (!this.collecting) {
+                this.collecting = true;
 
-        // appointments expire when the current block is greater than their end time
-        // find all blocks that are expired past the finality depth
-        // we then allow a number of confirmations to ensure that we can safely dispose the block
-        // 102: currently we're mixing dates and blocks here - decide what it should be and name it appropriately
-        const expiredAppointments = await this.store.getExpiredSince(blockNumber - this.confirmationCount);
-        // wait for all appointments to be removed from the store and the subscribers
-        await Promise.all([
-            expiredAppointments.map(async a => {
-                await this.store.removeById(a.id);
-                this.appointmentSubscriber.unsubscribe(a.id, a.getEventFilter());
-            })
-        ]);
+                // appointments expire when the current block is greater than their end time
+                // find all blocks that are expired
+                // we then allow a number of confirmations to ensure that we can safely dispose the block
+                // 102: currently we're mixing dates and blocks here - decide what it should be and name it appropriately
+                const expiredAppointments = await this.store.getExpiredSince(blockNumber - this.confirmationCount);
+
+                if (expiredAppointments.length > 0) {
+                    logger.info(`GC: Collecting ${expiredAppointments.length} expired appointments.`);
+
+                    // wait for all appointments to be removed from the store and the subscribers
+                    await Promise.all([
+                        expiredAppointments.map(async a => {
+                            await this.store.removeById(a.id);
+                            this.appointmentSubscriber.unsubscribe(a.id, a.getEventFilter());
+                        })
+                    ]);
+
+                    // log the expired appointmets
+                    expiredAppointments.forEach(a =>
+                        logger.info(a.formatLog(`GC: Appointment with end: ${a.endTime}.`))
+                    );
+                }
+
+                this.collecting = false;
+            }
+        } catch (doh) {
+            // errors escaping this block will cause unhandled promise rejections so we log and swallow here
+            logger.error("GC: Unexpected error.");
+            logger.error(doh);
+        }
     }
 }

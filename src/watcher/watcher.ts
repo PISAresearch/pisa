@@ -51,7 +51,7 @@ export class Watcher {
     //        i) If an appointment with that locator exists and has a lower nonce, it is updated to be the new appointment
     //        ii) If an appointment with that locator exits and it has a higher or equal nonce, the new appointment is rejected
     //        iii) If it does not exist, it is added
-    //      After the appointment has been added to the store it is then and then subscribed to. We subscribe last 
+    //      After the appointment has been added to the store it is then and then subscribed to. We subscribe last
     //      because if the event to which the appointment is subscribed is fired then that event will try to remove the
     //      appointment and put the add and remove into a race condition. Therefore we wait until we are certain that the
     //      appointment has been added before it can become possible for it to be removed.
@@ -119,15 +119,16 @@ export class Watcher {
         logger.info(appointment.formatLog(`Begin watching for event ${appointment.getEventName()}.`));
 
         // update this appointment in the store
-        await this.zStore.addOrUpdateByStateLocator(appointment);
+        const updated = await this.zStore.addOrUpdateByStateLocator(appointment);
+        if (updated) {
+            // remove the subscription, this is blocking code so we don't have to worry that an event will be observed
+            // whilst we remove these listeners and add new ones
+            const filter = appointment.getEventFilter();
+            this.appointmentSubscriber.unsubscribeAll(filter);
 
-        // remove the subscription, this is blocking code so we don't have to worry that an event will be observed
-        // whilst we remove these listeners and add new ones
-        const filter = appointment.getEventFilter();
-        this.appointmentSubscriber.unsubscribeAll(filter);
-
-        // subscribe the listener
-        const listener = async (...args: any[]) => await this.observeEvent(appointment, args);
-        this.appointmentSubscriber.subscribeOnce(appointment.id, filter, listener);
+            // subscribe the listener
+            const listener = async (...args: any[]) => await this.observeEvent(appointment, args);
+            this.appointmentSubscriber.subscribeOnce(appointment.id, filter, listener);
+        }
     }
 }
