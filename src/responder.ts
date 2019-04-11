@@ -8,6 +8,8 @@ import { TransactionResponse } from 'ethers/providers';
 /**
  * Responsible for storing the state and managing the flow of a single response.
  */
+// TODO-93: This class and ResponseState are not currently used in any meaningful way.
+//          The plan is to use them for accounting, make sure this is the case.
 export class ResponseFlow {
     private static nextId: number = 0;
 
@@ -97,8 +99,6 @@ class NoNewBlockError extends Error {
  * It implements the submitStateFunction, but no strategy.
  */
 export abstract class EthereumResponder extends Responder {
-    protected readonly contract: ethers.Contract;
-
     /**
      * @param signer The signer of the wallet associated with this responder. Each responder should have exclusive access to his wallet.
      * @param appointmentId The id of the Appointment this object is responding to.
@@ -234,6 +234,7 @@ export class EthereumDedicatedResponder extends EthereumResponder {
                 await wait(1000);
             }
         }
+        this.responseFlow.status = ResponseState.Failed;
         this.asyncEmit("responseFailed", this.responseFlow);
     }
 }
