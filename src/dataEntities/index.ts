@@ -1,4 +1,4 @@
-export { Appointment } from "./appointment";
+export { Appointment, IAppointment } from "./appointment";
 export { PublicDataValidationError, PublicInspectionError, ConfigurationError } from "./errors";
 export { ChannelType } from "./channelType";
 export {

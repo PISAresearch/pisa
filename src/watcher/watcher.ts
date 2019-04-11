@@ -1,9 +1,12 @@
-import { IAppointment } from "./dataEntities/appointment";
+import { IAppointment } from "../dataEntities";
 import { ethers } from "ethers";
-import logger from "./logger";
+import logger from "../logger";
 import { inspect } from "util";
-import { Responder } from "./responder";
-import { PublicInspectionError, ConfigurationError } from "./dataEntities/errors";
+import { Responder } from "../responder";
+import { PublicInspectionError, ConfigurationError } from "../dataEntities/errors";
+import { AppointmentSubscriber } from "./appointmentSubscriber";
+import { WatchedAppointmentStore } from "./store";
+import { AppointmentStoreGarbageCollector } from "./garbageCollector";
 
 /**
  * Watches the chain for events related to the supplied appointments. When an event is noticed data is forwarded to the
@@ -14,17 +17,20 @@ export class Watcher {
     public constructor(
         public readonly provider: ethers.providers.Provider,
         public readonly responder: Responder,
-        public readonly finalityDepth: number
+        public readonly finalityDepth: number,
+        public store: WatchedAppointmentStore
+
     ) {
         this.appointmentSubscriber = new AppointmentSubscriber(provider);
-        this.zStore = new WatchedAppointmentStore();
+        this.zStore = store;
         this.appointmentStoreGarbageCollector = new AppointmentStoreGarbageCollector(
-            finalityDepth,
             provider,
-            this.zStore,
+            finalityDepth,
             1000,
+            store,
             this.appointmentSubscriber
         );
+        this.appointmentStoreGarbageCollector.start();
     }
 
     private readonly appointmentSubscriber: AppointmentSubscriber;
@@ -118,138 +124,3 @@ export class Watcher {
     }
 }
 
-/**
- * If we wish to unsubscribe an appointment from the provider we have a problem. In the provider
- * appointments are keyed only by their filter, so an appointment could be updated, then another
- * process tries to remove the old appointment and in doing so removes the new one. This class
- * assigns appointment ids to listeners and ensures that appointments are only removed from the
- * provided if the provide appointment id matches.
- */
-class AppointmentSubscriber {
-    constructor(private readonly provider: ethers.providers.Provider) {}
-
-    subscribe(appointmentId: string, filter: ethers.providers.EventType, listener: ethers.providers.Listener) {
-        // 102: reject subscription if it is already subscribed? or throw error for safety?
-
-        // create a listener object with a secret appointment id property for lookup later
-        const listenerAndAppointment: IAppointmentListener = Object.assign(listener, {
-            appointmentId
-        });
-
-        this.provider.once(filter, listenerAndAppointment);
-    }
-
-    unsubscribe(appointmentId: string, filter: ethers.providers.EventType) {
-        const listeners = this.provider.listeners(filter) as IAppointmentListener[];
-
-        // there should always only be one appointment for each filter
-        // 102: error!??
-        // 102: could be 0
-        if (listeners.length === 0) return;
-        if (listeners.length !== 1) throw new Error("More than one listener.");
-
-        if (listeners[0].appointmentId === appointmentId) {
-            // this is the correct appointment - unsubscribe
-            this.provider.removeListener(filter, listeners[0]);
-        }
-        // otherwise this appointment has already been unsubscribed
-    }
-
-    unsubscribeAll(filter: ethers.providers.EventType) {
-        this.provider.removeAllListeners(filter);
-    }
-}
-
-interface IAppointmentListener {
-    (...args: any[]): void;
-    appointmentId: string;
-}
-
-class AppointmentStoreGarbageCollector {
-    constructor(
-        private readonly finalityDepth: number,
-        private readonly provider: ethers.providers.Provider,
-        private readonly store: WatchedAppointmentStore,
-        private readonly pollInterval: number,
-        private readonly appointmentSubscriber: AppointmentSubscriber
-    ) {
-        this.poll();
-    }
-
-    private wait(timeMs: number) {
-        return new Promise(resolve => {
-            setTimeout(resolve, timeMs);
-        });
-    }
-
-    async poll() {
-        try {
-            await this.removeExpired();
-        } catch (doh) {
-            // 102: stop polling? yes,no,maybe, but we should at least log here
-        } finally {
-            await this.wait(this.pollInterval);
-            this.poll();
-        }
-    }
-
-    async removeExpired() {
-        // get the current block number
-        const blockNumber = await this.provider.getBlockNumber();
-        // find all blocks that are expired past the finality depth
-        // 102: currently we're mixing dates and blocks here - decide what it should be and name it appropriately
-        const expiredAppointments = await this.store.getExpiredBefore(blockNumber - this.finalityDepth);
-        // wait for all appointments to be removed from the store and the subscribers
-        await Promise.all([
-            expiredAppointments.map(async a => {
-                await this.store.remove(a.id);
-                this.appointmentSubscriber.unsubscribe(a.id, a.getEventFilter());
-            })
-        ]);
-    }
-}
-
-class WatchedAppointmentStore {
-    private readonly appointmentsById: {
-        [appointmentId: string]: IAppointment;
-    } = {};
-    private readonly appointmentsByStateLocator: {
-        [appointmentStateLocator: string]: IAppointment;
-    } = {};
-
-    async addOrUpdate(appointment: IAppointment): Promise<void> {
-        const currentAppointment = this.appointmentsByStateLocator[appointment.getStateLocator()];
-        if (currentAppointment) {
-            if (currentAppointment.getStateNonce() >= appointment.getStateNonce()) {
-                // PISA: if we've been given a nonce lower than the one we have already we should silently swallow it, not throw an error
-                // PISA: this is because we shouldn't be giving out information about what appointments are already in place
-                // PISA: we throw an error for now, with low information, but this should be removed.
-                throw new Error("haha");
-            } else {
-                // the appointment exists, and we're replacing it, so remove from our id index
-                this.appointmentsById[currentAppointment.id] = undefined;
-            }
-        }
-        this.appointmentsByStateLocator[appointment.getStateLocator()] = appointment;
-        this.appointmentsById[appointment.id] = appointment;
-    }
-
-    async remove(appointmentId: string): Promise<void> {
-        const appointmentById = this.appointmentsById[appointmentId];
-        // remove the appointment from the id index
-        this.appointmentsById[appointmentId] = undefined;
-
-        // remove the appointment from the state locator index
-        const currentAppointment = this.appointmentsByStateLocator[appointmentById.getStateLocator()];
-        // if it has the same id
-        if (currentAppointment.id === appointmentId)
-            this.appointmentsByStateLocator[appointmentById.getStateLocator()] = undefined;
-    }
-
-    async getExpiredBefore(blockNumber: number): Promise<IAppointment[]> {
-        // 102: very inefficient sort, only useful for small appoinment numbers
-        return Object.keys(this.appointmentsById)
-            .map(a => this.appointmentsById[a])
-            .filter(a => a.endTime < blockNumber);
-    }
-}
