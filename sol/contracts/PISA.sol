@@ -9,7 +9,7 @@ contract DisputeRegistryInterface {
      */
 
     // Test dispute. Day is 0-6 (depending on daily record).
-    function testDispute(uint _channelmode, address _sc, uint _starttime, uint _endtime, uint _stateround) public returns (bool);
+    function testReceipt(uint _channelmode, address _sc, uint _starttime, uint _expiry, uint _version, uint _datashard) public returns (bool);
 }
 
 contract PISA {
@@ -106,7 +106,7 @@ contract PISA {
      * - signature = watcher signature
      * - watcher = watcher address
      */
-    function recourse(uint _channelmode, uint _starttime, uint _expiry, address _SC, uint _i, bytes32 _h, uint _s, bytes memory _signature, address _watcher) public returns (bool){
+    function recourse(uint _channelmode, uint _starttime, uint _expiry, address _SC, uint _i, bytes32 _h, uint _s, bytes memory _signature, address _watcher, uint _datashard) public returns (bool){
 
         // Watcher MUST have a deposit in our contract for flag == OK.
         require(watchers[_watcher].flag == Flag.OK || watchers[_watcher].flag == Flag.CLOSING, "Can only seek recourse if watcher service is active");
@@ -118,7 +118,7 @@ contract PISA {
         require(_watcher == recoverEthereumSignedMessage(signedhash, _signature), "Receipt is not signed by this watcher");
 
         // Look up dispute registry to test signed receipt.
-        if(DisputeRegistryInterface(disputeregistry).testDispute(_channelmode, _SC, _starttime, _expiry, _i)) {
+        if(DisputeRegistryInterface(disputeregistry).testReceipt(_channelmode, _SC, _starttime, _expiry, _i, _datashard)) {
             watchers[_watcher].flag = Flag.CHEATED;
 
             // Tell the world that PISA cheated!
