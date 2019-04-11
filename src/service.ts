@@ -36,10 +36,7 @@ export class PisaService {
             next();
         });
 
-        const ethereumResponderManager = new EthereumResponderManager(wallet, {
-            "raiden": Raiden.prepareResponse,
-            "kitsune": Kitsune.prepareResponse
-        });
+        const ethereumResponderManager = new EthereumResponderManager(wallet);
         const watcher = new Watcher(jsonRpcProvider, ethereumResponderManager);
         const tower = new PisaTower(jsonRpcProvider, watcher, [Raiden, Kitsune]);
 

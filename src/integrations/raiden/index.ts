@@ -5,7 +5,6 @@ import {
     propertyExistsAndIsOfType,
     doesPropertyExist,
     PublicDataValidationError,
-    IEthereumResponse
 } from "../../dataEntities";
 import { ethers, utils } from "ethers";
 import { RaidenTools } from "./tools";
@@ -134,6 +133,23 @@ export class RaidenAppointment extends EthereumAppointment {
 
     getContractAbi() {
         return RaidenTools.ContractAbi;
+    }
+
+    getResponseFunctionName(): string {
+        return "updateNonClosingBalanceProof";
+    }
+
+    getResponseFunctionArgs(): any[] {
+        return [
+            this.stateUpdate.channel_identifier,
+            this.stateUpdate.closing_participant,
+            this.stateUpdate.non_closing_participant,
+            this.stateUpdate.balance_hash,
+            this.stateUpdate.nonce,
+            this.stateUpdate.additional_hash,
+            this.stateUpdate.closing_signature,
+            this.stateUpdate.non_closing_signature
+        ]
     }
 }
 
@@ -277,23 +293,4 @@ export class RaidenInspector extends Inspector<RaidenAppointment> {
         ///////////////////////////////////////////////////////////////////////////////////////////////////////////
         ///////////////////////////////////////////////////////////////////////////////////////////////////////////
     }
-}
-
-
-export function prepareResponse(appointment: RaidenAppointment): IEthereumResponse {
-    return {
-        contractAddress: appointment.getContractAddress(),
-        contractAbi: appointment.getContractAbi(),
-        functionName: "updateNonClosingBalanceProof",
-        functionArgs: [
-            appointment.stateUpdate.channel_identifier,
-            appointment.stateUpdate.closing_participant,
-            appointment.stateUpdate.non_closing_participant,
-            appointment.stateUpdate.balance_hash,
-            appointment.stateUpdate.nonce,
-            appointment.stateUpdate.additional_hash,
-            appointment.stateUpdate.closing_signature,
-            appointment.stateUpdate.non_closing_signature
-        ]
-    };
 }

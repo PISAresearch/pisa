@@ -7,5 +7,4 @@ export interface IChannelConfig<T1 extends EthereumAppointment, T2 extends Inspe
     channelType: ChannelType;
     inspector: (minimumDisputePeriod: number, provider: ethers.providers.Provider) => T2;
     minimumDisputePeriod: number;
-    prepareResponse: (appointment: T1) => IEthereumResponse
 }

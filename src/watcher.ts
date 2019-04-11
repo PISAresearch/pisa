@@ -1,4 +1,4 @@
-import { IAppointment, IEthereumAppointment } from "./dataEntities/appointment";
+import { IEthereumAppointment, EthereumAppointment } from "./dataEntities/appointment";
 import { ethers } from "ethers";
 import logger from "./logger";
 import { inspect } from "util";
@@ -23,7 +23,7 @@ export class Watcher {
      * Start watch for an event specified by the appointment, and respond if it the event is raised.
      * @param appointment Contains information about where to watch for events, and what information to suppli as part of a response
      */
-    addAppointment(appointment: IEthereumAppointment) {
+    addAppointment(appointment: EthereumAppointment) {
         // PISA: this lock is the hammer approach. Really we should more carefully consider the critical sections below,
         // PISA: but for now we just allow one appointment to be added at a time
         this.lock.writeLock(release => {

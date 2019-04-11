@@ -1,6 +1,6 @@
 import "mocha";
 import { Watcher } from "../../src/watcher";
-import { KitsuneInspector, KitsuneAppointment, KitsuneTools, prepareResponse } from "../../src/integrations/kitsune";
+import { KitsuneInspector, KitsuneAppointment, KitsuneTools } from "../../src/integrations/kitsune";
 import { ethers } from "ethers";
 import Ganache from "ganache-core";
 import { ChannelType } from "../../src/dataEntities";
@@ -63,9 +63,7 @@ describe("End to end", () => {
         await inspector.inspectAndPass(appointment);
 
         // 2. pass this appointment to the watcher
-        const responderManager = new EthereumResponderManager(provider.getSigner(pisaAccount), {
-            "kitsune": prepareResponse
-        });
+        const responderManager = new EthereumResponderManager(provider.getSigner(pisaAccount));
         const watcher = new Watcher(provider, responderManager);
         const player0Contract = channelContract.connect(provider.getSigner(player0));
 

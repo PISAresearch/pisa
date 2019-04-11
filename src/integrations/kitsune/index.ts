@@ -94,6 +94,20 @@ export class KitsuneAppointment extends EthereumAppointment {
     getContractAbi() {
         return KitsuneTools.ContractAbi;
     }
+
+    getResponseFunctionName(): string {
+        return "setstate";
+    }
+
+    getResponseFunctionArgs(): any[] {
+        const sig0 = utils.splitSignature(this.stateUpdate.signatures[0]);
+        const sig1 = utils.splitSignature(this.stateUpdate.signatures[1]);
+        return [
+            [sig0.v - 27, sig0.r, sig0.s, sig1.v - 27, sig1.r, sig1.s],
+            this.stateUpdate.round,
+            this.stateUpdate.hashState
+        ];
+    }
 }
 
 /**
@@ -232,18 +246,3 @@ export class KitsuneInspector extends Inspector<KitsuneAppointment> {
     }
 }
 
-
-export function prepareResponse(appointment: KitsuneAppointment): IEthereumResponse {
-    let sig0 = utils.splitSignature(appointment.stateUpdate.signatures[0]);
-    let sig1 = utils.splitSignature(appointment.stateUpdate.signatures[1]);
-    return {
-        contractAddress: appointment.getContractAddress(),
-        contractAbi: appointment.getContractAbi(),
-        functionName: "setstate",
-        functionArgs: [
-            [sig0.v - 27, sig0.r, sig0.s, sig1.v - 27, sig1.r, sig1.s],
-            appointment.stateUpdate.round,
-            appointment.stateUpdate.hashState
-        ]
-    }
-}

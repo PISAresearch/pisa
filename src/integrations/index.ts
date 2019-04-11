@@ -1,9 +1,9 @@
 import { IChannelConfig } from "./config";
 export { IChannelConfig } from "./config";
-import { RaidenAppointment, RaidenInspector, prepareResponse as prepareRaidenResponse } from "./raiden";
+import { RaidenAppointment, RaidenInspector } from "./raiden";
 import { ethers } from "ethers";
 import { ChannelType } from "../dataEntities";
-import { KitsuneAppointment, KitsuneInspector, prepareResponse as prepareKitsuneResponse } from "./kitsune";
+import { KitsuneAppointment, KitsuneInspector } from "./kitsune";
 
 export const Raiden: IChannelConfig<RaidenAppointment, RaidenInspector> = {
     channelType: ChannelType.Raiden,
@@ -11,8 +11,7 @@ export const Raiden: IChannelConfig<RaidenAppointment, RaidenInspector> = {
     inspector: (minimumDisputePeriod: number, provider: ethers.providers.Provider) =>
         new RaidenInspector(minimumDisputePeriod, provider),
     // PISA: currently set to 4 for the demo - should be configurable
-    minimumDisputePeriod: 4,
-    prepareResponse: prepareRaidenResponse
+    minimumDisputePeriod: 4
 };
 
 export const Kitsune: IChannelConfig<KitsuneAppointment, KitsuneInspector> = {
@@ -20,6 +19,5 @@ export const Kitsune: IChannelConfig<KitsuneAppointment, KitsuneInspector> = {
     appointment: obj => new KitsuneAppointment(obj),
     inspector: (minimumDisputePeriod: number, provider: ethers.providers.Provider) =>
         new KitsuneInspector(minimumDisputePeriod, provider),
-    minimumDisputePeriod: 10,
-    prepareResponse: prepareKitsuneResponse
+    minimumDisputePeriod: 10
 };

@@ -84,6 +84,24 @@ export abstract class EthereumAppointment implements IEthereumAppointment {
     abstract getEventFilter(contract: ethers.Contract);
     abstract getEventName(): string;
     abstract getStateNonce(): number;
+
+    /**
+     * The minimum unique information required form a response
+     */
+    abstract getResponseFunctionName(): string;
+    abstract getResponseFunctionArgs(): any[];
+
+    /**
+     * Returns the IEthereumResponse object for this appointment
+     */
+    public getResponse(): IEthereumResponse {
+        return {
+            contractAddress: this.getContractAddress(),
+            contractAbi: this.getContractAbi(),
+            functionName: this.getResponseFunctionName(),
+            functionArgs: this.getResponseFunctionArgs()
+        };
+    }
 }
 
 /**

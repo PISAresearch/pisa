@@ -1,7 +1,7 @@
 import { EventEmitter } from 'events';
 import { ethers } from 'ethers';
 import { wait, promiseTimeout } from './utils';
-import { IAppointment, IEthereumResponse } from "./dataEntities/appointment";
+import { EthereumAppointment, IEthereumResponse } from "./dataEntities/appointment";
 import logger from "./logger";
 import { TransactionResponse } from 'ethers/providers';
 
@@ -247,16 +247,12 @@ export class EthereumDedicatedResponder extends EthereumResponder {
 export class EthereumResponderManager {
     private responders: Set<EthereumResponder> = new Set();
 
-    constructor(private readonly signer: ethers.Signer, private readonly config: object) {
+    constructor(private readonly signer: ethers.Signer) {
 
     }
 
-    public respond(appointment: IAppointment) {
-        if (!(appointment.type in this.config)){
-            throw new Error(`Received unexpected appointment type ${appointment.type}`);
-        }
-
-        const ethereumResponse = this.config[appointment.type](appointment) as IEthereumResponse;
+    public respond(appointment: EthereumAppointment) {
+        const ethereumResponse = appointment.getResponse();
 
         const responder = new EthereumDedicatedResponder(this.signer, "TODO: appointment ID", ethereumResponse, 10);
         this.responders.add(responder);
