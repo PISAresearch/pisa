@@ -94,6 +94,9 @@ class NoNewBlockError extends Error {
  * It implements the submitStateFunction, but no strategy.
  */
 export abstract class EthereumResponder extends Responder {
+    // TODO-93: the correct gas limit should be provided based on the appointment/integration.
+    //          200000 is enough for Kitsune and Raide (see https://github.com/raiden-network/raiden-contracts/blob/master/raiden_contracts/data/gas.json).
+    private static GAS_LIMIT = 200000;
     /**
      * @param signer The signer of the wallet associated with this responder. Each responder should have exclusive access to his wallet.
      * @param appointmentId The id of the Appointment this object is responding to.
@@ -114,7 +117,7 @@ export abstract class EthereumResponder extends Responder {
         // now create a transaction, specifying possible oher variables
         const transactionRequest = {
             to: this.ethereumResponse.contractAddress,
-            gasLimit: 200000, // TODO: choose an appropriate gas limit
+            gasLimit: EthereumResponder.GAS_LIMIT,
             // nonce: 0,
             gasPrice: 21000000000, // TODO: choose an appropriate gas price
             data: data
@@ -134,7 +137,7 @@ export abstract class EthereumResponder extends Responder {
  */
 export class EthereumDedicatedResponder extends EthereumResponder {
     // Timestamp in milliseconds when the last block was received (or since the creation of this object)
-    private timeOfLastBlock: number = Date.now();
+    private timeLastBlockReceived: number = Date.now();
     private mAttemptsDone: number = 0;
 
     get attemptsDone() {
@@ -162,14 +165,14 @@ export class EthereumDedicatedResponder extends EthereumResponder {
     }
 
     /**
-     * This method should be called when an instance is disposed.
+     * Release any resources used by this instance.
      */
-    public destroy() {
+    private destroy() {
         this.signer.provider.removeListener("block", this.updateLastBlockTime);
     }
 
     private updateLastBlockTime() {
-        this.timeOfLastBlock = Date.now();
+        this.timeLastBlockReceived = Date.now();
     }
 
     public async respond() {
@@ -208,7 +211,7 @@ export class EthereumDedicatedResponder extends EthereumResponder {
 
                     const intervalHandle = setInterval( () => {
                         // milliseconds since the last block was received
-                        const msSinceLastBlock = Date.now() - this.timeOfLastBlock;
+                        const msSinceLastBlock = Date.now() - this.timeLastBlockReceived;
 
                         if (msSinceLastBlock > 60*1000) {
                             reject(new NoNewBlockError(`No new block was received for ${Math.round(msSinceLastBlock/1000)} seconds; provider might be down.`));
@@ -221,6 +224,8 @@ export class EthereumDedicatedResponder extends EthereumResponder {
                 this.responseFlow.status = ResponseState.Success;
                 this.asyncEmit("responseConfirmed", this.responseFlow);
 
+                this.destroy();
+
                 return;
             } catch (doh) {
                 this.asyncEmit("attemptFailed", this.responseFlow, doh);
@@ -231,6 +236,7 @@ export class EthereumDedicatedResponder extends EthereumResponder {
         }
         this.responseFlow.status = ResponseState.Failed;
         this.asyncEmit("responseFailed", this.responseFlow);
+        this.destroy();
     }
 }
 
@@ -261,7 +267,6 @@ export class EthereumResponderManager {
 
                 // TODO: Should we store information about past responders anywhere?
                 this.responders.delete(responder);
-                responder.destroy();
             })
             .on("responseConfirmed", (responseFlow: ResponseFlow) => {
                 logger.info(
