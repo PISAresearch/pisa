@@ -5,7 +5,7 @@ import { inspect } from "util";
 import { Responder } from "../responder";
 import { PublicInspectionError, ConfigurationError } from "../dataEntities/errors";
 import { AppointmentSubscriber } from "./appointmentSubscriber";
-import { WatchedAppointmentStore } from "./store";
+import { MemoryAppointmentStore, IAppointmentStore } from "./store";
 import { AppointmentStoreGarbageCollector } from "./garbageCollector";
 
 /**
@@ -18,7 +18,7 @@ export class Watcher {
         public readonly provider: ethers.providers.Provider,
         public readonly responder: Responder,
         public readonly finalityDepth: number,
-        public store: WatchedAppointmentStore
+        public store: IAppointmentStore
 
     ) {
         this.appointmentSubscriber = new AppointmentSubscriber(provider);
@@ -34,7 +34,7 @@ export class Watcher {
     }
 
     private readonly appointmentSubscriber: AppointmentSubscriber;
-    private readonly zStore: WatchedAppointmentStore;
+    private readonly zStore: IAppointmentStore;
     private readonly appointmentStoreGarbageCollector: AppointmentStoreGarbageCollector;
 
     // there are three separate processes that can run concurrently as part of the watcher
@@ -80,7 +80,7 @@ export class Watcher {
             this.responder.respond(appointment);
 
             // after firing a response we can remove the local store
-            await this.zStore.remove(appointment.id);
+            await this.zStore.removeById(appointment.id);
         } catch (doh) {
             // an error occured whilst responding to the callback - this is serious and the problem needs to be correctly diagnosed
             logger.error(
@@ -111,7 +111,7 @@ export class Watcher {
         logger.info(appointment.formatLog(`Begin watching for event ${appointment.getEventName()}.`));
 
         // update this appointment in the store
-        await this.zStore.addOrUpdate(appointment);
+        await this.zStore.addOrUpdateByStateLocator(appointment);
 
         // remove the subscription, this is blocking code so we don't have to worry that an event will be observed
         // whilst we remove these listeneres and add new ones

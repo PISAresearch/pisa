@@ -1,4 +1,4 @@
-import { WatchedAppointmentStore } from "./store";
+import { IAppointmentStore } from "./store";
 import { AppointmentSubscriber } from "./appointmentSubscriber";
 import { ethers } from "ethers";
 
@@ -11,7 +11,7 @@ export class AppointmentStoreGarbageCollector {
         private readonly provider: ethers.providers.Provider,
         private readonly finalityDepth: number,
         private readonly pollInterval: number,
-        private readonly store: WatchedAppointmentStore,
+        private readonly store: IAppointmentStore,
         private readonly appointmentSubscriber: AppointmentSubscriber
     ) {}
 
@@ -43,11 +43,11 @@ export class AppointmentStoreGarbageCollector {
         const blockNumber = await this.provider.getBlockNumber();
         // find all blocks that are expired past the finality depth
         // 102: currently we're mixing dates and blocks here - decide what it should be and name it appropriately
-        const expiredAppointments = await this.store.getExpiredBefore(blockNumber - this.finalityDepth);
+        const expiredAppointments = await this.store.getExpiredSince(blockNumber - this.finalityDepth);
         // wait for all appointments to be removed from the store and the subscribers
         await Promise.all([
             expiredAppointments.map(async a => {
-                await this.store.remove(a.id);
+                await this.store.removeById(a.id);
                 this.appointmentSubscriber.unsubscribe(a.id, a.getEventFilter());
             })
         ]);

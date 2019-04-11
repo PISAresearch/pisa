@@ -1,6 +1,12 @@
-import { IAppointment } from "../dataEntities"
+import { IAppointment } from "../dataEntities";
 
-export class WatchedAppointmentStore {
+export interface IAppointmentStore {
+    addOrUpdateByStateLocator(appointment: IAppointment): Promise<void>;
+    removeById(appointmentId: string): Promise<void>;
+    getExpiredSince(time: number): Promise<IAppointment[]>;
+}
+
+export class MemoryAppointmentStore implements IAppointmentStore {
     private readonly appointmentsById: {
         [appointmentId: string]: IAppointment;
     } = {};
@@ -8,7 +14,7 @@ export class WatchedAppointmentStore {
         [appointmentStateLocator: string]: IAppointment;
     } = {};
 
-    async addOrUpdate(appointment: IAppointment): Promise<void> {
+    async addOrUpdateByStateLocator(appointment: IAppointment): Promise<void> {
         const currentAppointment = this.appointmentsByStateLocator[appointment.getStateLocator()];
         if (currentAppointment) {
             if (currentAppointment.getStateNonce() >= appointment.getStateNonce()) {
@@ -25,7 +31,7 @@ export class WatchedAppointmentStore {
         this.appointmentsById[appointment.id] = appointment;
     }
 
-    async remove(appointmentId: string): Promise<void> {
+    async removeById(appointmentId: string): Promise<void> {
         const appointmentById = this.appointmentsById[appointmentId];
         // remove the appointment from the id index
         this.appointmentsById[appointmentId] = undefined;
@@ -37,10 +43,10 @@ export class WatchedAppointmentStore {
             this.appointmentsByStateLocator[appointmentById.getStateLocator()] = undefined;
     }
 
-    async getExpiredBefore(blockNumber: number): Promise<IAppointment[]> {
+    async getExpiredSince(expiryTime: number): Promise<IAppointment[]> {
         // 102: very inefficient sort, only useful for small appoinment numbers
         return Object.keys(this.appointmentsById)
             .map(a => this.appointmentsById[a])
-            .filter(a => a.endTime < blockNumber);
+            .filter(a => a.endTime < expiryTime);
     }
 }
