@@ -1,9 +1,10 @@
-import { EventEmitter } from 'events';
-import { ethers } from 'ethers';
-import { wait, promiseTimeout, plural } from './utils';
+import { EventEmitter } from "events";
+import { ethers } from "ethers";
+import { wait, promiseTimeout, plural } from "./utils";
+import { waitForConfirmations } from "./utils/ethers";
 import { EthereumAppointment, IEthereumResponse } from "./dataEntities/appointment";
 import logger from "./logger";
-import { TransactionResponse } from 'ethers/providers';
+import { TransactionResponse } from "ethers/providers";
 
 /**
  * Responsible for storing the state and managing the flow of a single response.
@@ -65,16 +66,6 @@ export abstract class Responder extends EventEmitter {
      * @param responseFlow The ResponseFlow object of this response.
      */
     public abstract respond(): Promise<any>;
-}
-
-/**
- * A simple custom Error class to provide more details in case of a re-org.
- */
-class ReorgError extends Error {
-    constructor(message: string, tx: TransactionResponse = null) {
-        super(message);
-        this.name = "ReorgError";
-    }
 }
 
 /**
@@ -188,37 +179,20 @@ export class EthereumDedicatedResponder extends EthereumResponder {
                 this.asyncEmit("responseSent", this.responseFlow);
 
                 // Wait for enough confirmations before declaring success
-                await new Promise((resolve, reject) => {
-                    const provider = this.signer.provider;
-
-                    const cleanup = () => {
-                        provider.removeListener("block", newBlockHandler);
-                        clearInterval(intervalHandle);
-                    }
-
-                    const newBlockHandler = async () => {
-                        const receipt = await provider.getTransactionReceipt(tx.hash);
-                        if (receipt == null) {
-                            // There was a re-org, consider this attempt failed and attempt the transaction again
-                            cleanup();
-                            reject(new ReorgError("There could have been a re-org, the transaction was sent but was later not found.", tx));
-                        } else if (receipt.confirmations >= this.confirmationsRequired) {
-                            cleanup();
-                            resolve();
-                        }
-                    };
-                    provider.on("block", newBlockHandler);
-
+                const confirmationsPromise = waitForConfirmations(this.signer.provider, tx.hash, this.confirmationsRequired);
+                // ...but stop with error if no new blocks come for too long
+                const noNewBlockPromise = new Promise((_, reject) => {
                     const intervalHandle = setInterval( () => {
-                        // milliseconds since the last block was received
+                        // milliseconds since the last block was received (or the responder was instantiated)
                         const msSinceLastBlock = Date.now() - this.timeLastBlockReceived;
-
                         if (msSinceLastBlock > 60*1000) {
+                            clearInterval(intervalHandle)
                             reject(new NoNewBlockError(`No new block was received for ${Math.round(msSinceLastBlock/1000)} seconds; provider might be down.`));
-                            cleanup();
                         }
                     }, 1000);
                 });
+
+                await Promise.race([confirmationsPromise, noNewBlockPromise]);
 
                 // The response has now enough confirmations to be considered safe.
                 this.responseFlow.status = ResponseState.Success;
