@@ -12,6 +12,7 @@ import { inspect } from "util";
 import { ethers } from "ethers";
 import { Responder } from "./responder";
 import { MemoryAppointmentStore } from "./watcher/store";
+import { ApplicationError } from "./dataEntities/errors";
 
 /**
  * Hosts a PISA service at the endpoint.
@@ -62,6 +63,7 @@ export class PisaService {
             } catch (doh) {
                 if (doh instanceof PublicInspectionError) this.logAndSend(400, doh.message, doh, res);
                 else if (doh instanceof PublicDataValidationError) this.logAndSend(400, doh.message, doh, res);
+                else if (doh instanceof ApplicationError) this.logAndSend(500, doh.message, doh, res);
                 else if (doh instanceof Error) this.logAndSend(500, "Internal server error.", doh, res);
                 else {
                     logger.error("Error: 500. \n" + inspect(doh));

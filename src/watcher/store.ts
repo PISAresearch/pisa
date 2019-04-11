@@ -1,11 +1,18 @@
 import { IAppointment } from "../dataEntities";
 
+/**
+ * The functionality required in an appointment store
+ */
 export interface IAppointmentStore {
     addOrUpdateByStateLocator(appointment: IAppointment): Promise<void>;
     removeById(appointmentId: string): Promise<void>;
     getExpiredSince(time: number): Promise<IAppointment[]>;
 }
 
+/**
+ * Stores all appointments in memory. Has very inefficient processes for determining expired appointments so cannot be
+ * used for high numbers of appointments.
+ */
 export class MemoryAppointmentStore implements IAppointmentStore {
     private readonly appointmentsById: {
         [appointmentId: string]: IAppointment;
@@ -34,7 +41,7 @@ export class MemoryAppointmentStore implements IAppointmentStore {
     async removeById(appointmentId: string): Promise<void> {
         const appointmentById = this.appointmentsById[appointmentId];
         // remove the appointment from the id index
-        this.appointmentsById[appointmentId] = undefined;
+        delete this.appointmentsById[appointmentId];
 
         // remove the appointment from the state locator index
         const currentAppointment = this.appointmentsByStateLocator[appointmentById.getStateLocator()];
@@ -45,6 +52,7 @@ export class MemoryAppointmentStore implements IAppointmentStore {
 
     async getExpiredSince(expiryTime: number): Promise<IAppointment[]> {
         // 102: very inefficient sort, only useful for small appoinment numbers
+
         return Object.keys(this.appointmentsById)
             .map(a => this.appointmentsById[a])
             .filter(a => a.endTime < expiryTime);

@@ -3,47 +3,43 @@ import { AppointmentSubscriber } from "./appointmentSubscriber";
 import { ethers } from "ethers";
 
 /**
- * Scans the current appointments to find expired ones. Upon finding expired appointments it removes the appointment
+ * Scans the current appointments to find expired ones. Upon finding expired appointments it removes them appointment
  * from the store and from the subscriber.
  */
 export class AppointmentStoreGarbageCollector {
+    /**
+     * Scans the current appointments to find expired ones. Upon finding expired appointments it removes them appointment
+     * from the store and from the subscriber.
+     * @param provider Used to monitor the blockchain for new blocks
+     * @param confirmationCount The number of confirmation window allowed to gain certainty that an appointment has indeed expired
+     * @param store The store to update when appointments expire
+     * @param appointmentSubscriber The subscriber to update when appointments expire
+     */
     constructor(
         private readonly provider: ethers.providers.Provider,
-        private readonly finalityDepth: number,
-        private readonly pollInterval: number,
+        private readonly confirmationCount: number,
         private readonly store: IAppointmentStore,
         private readonly appointmentSubscriber: AppointmentSubscriber
     ) {}
 
+    /**
+     * Start the monitoring for expired appointments
+     */
     public start() {
-        this.poll();
+        this.provider.on("block", (blockNumber: number) => this.removeExpired(blockNumber));
     }
 
-    private wait(timeMs: number) {
-        return new Promise(resolve => {
-            setTimeout(resolve, timeMs);
-        });
-    }
-
-    async poll() {
+    private async removeExpired(blockNumber: number) {
         try {
-            // each tick remove any expired appointments
-            await this.removeExpired();
-        } catch (doh) {
-            // 102: stop polling? yes,no,maybe, but we should at least log here
-        } finally {
-            // wait some period before polling again
-            await this.wait(this.pollInterval);
-            this.poll();
+            // 102: this needs to be wrapped in a catch
         }
-    }
+        finally{}
 
-    async removeExpired() {
-        // get the current block number
-        const blockNumber = await this.provider.getBlockNumber();
+        // appointments expire when the current block is greater than their end time
         // find all blocks that are expired past the finality depth
+        // we then allow a number of confirmations to ensure that we can safely dispose the block
         // 102: currently we're mixing dates and blocks here - decide what it should be and name it appropriately
-        const expiredAppointments = await this.store.getExpiredSince(blockNumber - this.finalityDepth);
+        const expiredAppointments = await this.store.getExpiredSince(blockNumber - this.confirmationCount);
         // wait for all appointments to be removed from the store and the subscribers
         await Promise.all([
             expiredAppointments.map(async a => {
