@@ -102,11 +102,12 @@ contract('PISA', (accounts) => {
 
     // Dispute time window
     let disputestart = timenow-100;
+    let disputeend = timenow;
 
     // Store a dispute from accounts[3]
-    var result = await registryInstance.setDispute(disputestart, i, {from: accounts[3]});
+    var result = await registryInstance.setDispute(disputestart, disputeend, i, {from: accounts[3]});
     var block = await web3.eth.getBlock(result['receipt']['blockNumber']);
-    let disputeend = block['timestamp'];
+    let shard = await registryInstance.getDataShard.call(disputeend);
 
     // Receipt
     let r1start = timenow-101; // BEFORE DISPUTE
@@ -121,10 +122,10 @@ contract('PISA', (accounts) => {
     // assert.equal(sigtest,true,"Signature for receipt should verify OK" );
 
     // Test recourse - PISA should be at fault!
-    recourse = await pisaInstance.recourse.call(0,r1start, r1end, accounts[3], i+1, h, s, signature, accounts[1]);
+    recourse = await pisaInstance.recourse.call(0,r1start, r1end, accounts[3], i+1, h, s, signature, accounts[1], shard);
     assert.equal(recourse,true,"recourse successful, PISA was at fault" );
 
-    var txresult = await pisaInstance.recourse(0,r1start, r1end, accounts[3], i+1, h, s, signature, accounts[1], {from:accounts[3]});
+    var txresult = await pisaInstance.recourse(0,r1start, r1end, accounts[3], i+1, h, s, signature, accounts[1], shard, {from:accounts[3]});
 
     // Check flag for accounts[1] watcher and try to withdraw deposit
     flag = await pisaInstance.getFlag(accounts[1]);
@@ -148,11 +149,12 @@ contract('PISA', (accounts) => {
 
     // Dispute time window
     let disputestart = timenow-100;
-
+    let disputeend = timenow;
     // Store a dispute
-    var result = await registryInstance.setDispute(disputestart, i, {from: accounts[2]});
+    var result = await registryInstance.setDispute(disputestart, disputeend, i, {from: accounts[2]});
     var block = await web3.eth.getBlock(result['receipt']['blockNumber']);
-    let disputeend = block['timestamp'];
+
+    let shard = await registryInstance.getDataShard.call(disputeend);
 
     // Receipt 1 times
     let r1start = timenow-200; // BEFORE DISPUTE
@@ -175,7 +177,7 @@ contract('PISA', (accounts) => {
     // let sigtest = await pisaInstance.test(r1start, r1end, accounts[2], i, h, signature, accounts[4]);
     // assert.equal(sigtest,true,"Signature for receipt1 should verify OK" );
 
-    var recourse = await pisaInstance.recourse.call(0,r1start, r1end, accounts[2], i, h, s, signature, accounts[4]);
+    var recourse = await pisaInstance.recourse.call(0,r1start, r1end, accounts[2], i, h, s, signature, accounts[4], shard);
     assert.equal(recourse,false,"recourse failed, PISA was not at fault as receipt expired before dispute started" );
 
     // Receipt 2
@@ -187,13 +189,13 @@ contract('PISA', (accounts) => {
     // assert.equal(sigtest,true,"Signature for receipt2 should verify OK" );
 
     // Test recourse - PISA should be at fault!
-    recourse = await pisaInstance.recourse.call(0, r2start, r2end, accounts[2], i+1, h, s, signature, accounts[4]);
+    recourse = await pisaInstance.recourse.call(0, r2start, r2end, accounts[2], i+1, h, s, signature, accounts[4], shard);
     assert.equal(recourse,false,"recourse , PISA was at fault, PISA as receipt was signed as dispute was in progress" );
 
     // Receipt 3
     let receipt3 = web3.utils.soliditySha3({t: 'uint', v: 0}, {t: 'uint', v: r3start}, {t: 'uint', v:r3end}, {t: 'address', v:accounts[2]}, {t: 'uint', v:i+1}, {t:'bytes32', v:h}, {t:'address', v:pisaInstance.address});
     signature = await web3.eth.sign(receipt3, accounts[4]);
-    await truffleAssert.reverts(pisaInstance.recourse(0, r3start, r3end, accounts[2], i+1, h, s, signature, accounts[4], {from:accounts[2]}), "Invalid expiry and starttime");
+    await truffleAssert.reverts(pisaInstance.recourse(0, r3start, r3end, accounts[2], i+1, h, s, signature, accounts[4], shard, {from:accounts[2]}), "Invalid expiry and starttime");
 
 
   });
@@ -214,6 +216,7 @@ contract('PISA', (accounts) => {
     // Dispute time window
     let disputestart = timenow-100;
     let disputeend = timenow-50;
+    let shard = await registryInstance.getDataShard.call(disputeend);
 
     // Receipt 3 times
     let r1start = timenow-101; // BEFORE DISPUTE
@@ -224,12 +227,12 @@ contract('PISA', (accounts) => {
     signature = await web3.eth.sign(receipt1, accounts[4]);
 
     // Test for invalid pre-image
-    await truffleAssert.reverts(pisaInstance.recourse(0, r1start, r1end, accounts[2], i, h, 1337, signature, accounts[4], {from:accounts[2]}), "Secret _s did not match receipt h = H(s)");
+    await truffleAssert.reverts(pisaInstance.recourse(0, r1start, r1end, accounts[2], i, h, 1337, signature, accounts[4], shard, {from:accounts[2]}), "Secret _s did not match receipt h = H(s)");
 
     // Test for mismatch between signature and watcher
     // Signed by account[2], trying to blame account[1].
     signature = await web3.eth.sign(receipt1, accounts[2]);
-    await truffleAssert.reverts(pisaInstance.recourse(0, r1start, r1end, accounts[2], i+1, h, s, signature, accounts[4], {from:accounts[2]}), "Receipt is not signed by this watcher");
+    await truffleAssert.reverts(pisaInstance.recourse(0, r1start, r1end, accounts[2], i+1, h, s, signature, accounts[4], shard, {from:accounts[2]}), "Receipt is not signed by this watcher");
 
   });
 
@@ -249,12 +252,13 @@ contract('PISA', (accounts) => {
 
       // Dispute time window
       let disputestart = timenow-100;
+      let disputeend = timenow;
 
       // Store a dispute
       // Accounts[5] records the dispute. (the state channel)
-      let result = await registryInstance.setDispute(disputestart, i, {from: accounts[5]});
+      let result = await registryInstance.setDispute(disputestart, disputeend, i, {from: accounts[5]});
       var block = await web3.eth.getBlock(result['receipt']['blockNumber']);
-      let disputeend = block['timestamp'];
+      let shard = await registryInstance.getDataShard.call(disputeend);
 
       // Receipt
       let r1start = timenow-101; // BEFORE DISPUTE
@@ -265,7 +269,7 @@ contract('PISA', (accounts) => {
       let signature = await web3.eth.sign(receipt, accounts[4]);
 
       // Test recourse - PISA should be at fault!
-      recourse = await pisaInstance.recourse.call(1,r1start, r1end, accounts[5], i-1, h, s, signature, accounts[4]);
+      recourse = await pisaInstance.recourse.call(1,r1start, r1end, accounts[5], i-1, h, s, signature, accounts[4], shard);
       assert.equal(recourse,false,"recourse fails, PISA was not at fault" );
 
       // PISA signs receipt
@@ -273,7 +277,7 @@ contract('PISA', (accounts) => {
       signature = await web3.eth.sign(receipt, accounts[4]);
 
       // Test recourse - PISA should be at fault!
-      recourse = await pisaInstance.recourse.call(1,r1start, r1end, accounts[5], i, h, s, signature, accounts[4]);
+      recourse = await pisaInstance.recourse.call(1,r1start, r1end, accounts[5], i, h, s, signature, accounts[4], shard);
       assert.equal(recourse,true,"recourse successful, PISA was at fault. PISA had i and command transitioned from i-1" );
     });
 

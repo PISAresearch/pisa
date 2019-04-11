@@ -21,10 +21,6 @@ contract DailyRecord {
    // Master Registry Contract
    address payable owner;
 
-   event NumberOfRecords(address sender, uint length);
-   event FetchedRecord(address sender, uint start, uint end, uint ctr);
-   event TestingRecord(address sender, uint start, uint end, uint ctr, uint length, address con);
-
    // The DisputeRegistry should be the owner!
    modifier onlyOwner {
        require(msg.sender == owner);
@@ -35,7 +31,7 @@ contract DailyRecord {
    struct Record {
        uint start;
        uint end;
-       uint round;
+       uint version;
    }
 
    // State Channel Address => List of Records for Today
@@ -58,22 +54,21 @@ contract DailyRecord {
    }
 
    // starttime, endtime, ctr should be from the customer's receipt.
-   function testDispute(uint _channelmode, address _sender, uint _starttime, uint _endtime, uint _i) public view returns (bool) {
+   function testReceipt(uint _channelmode, address _sc, uint _starttime, uint _expiry, uint _version) public view returns (bool) {
 
        // Nice thing: Constant look-up to find the caller's records (based on the day).
-       Record[] storage sender_record = records[_sender];
+       Record[] storage sc_record = records[_sc];
 
-       // TODO: It might be worth sending an "index" to do an instant lookup.
        // Right now, we must iterate over all disputes for a given day and channel.
        // Should be OK - only channel disputer can disrupt it and time delay should prevent it
        // from being huge (i.e. 2 hours per dispute).
-       for(uint i=0; i<sender_record.length; i++) {
+       for(uint i=0; i<sc_record.length; i++) {
 
-           Record storage rec = sender_record[i];
+           Record storage rec = sc_record[i];
 
            // Did the dispute begin after the receipt's start time?
            // Did the dispute finish before the receipt's end-time?
-           if(rec.start >= _starttime && _endtime >= rec.end) {
+           if(rec.start >= _starttime && _expiry >= rec.end) {
 
               // We consider CLOSURE disputes
               // Records:
@@ -83,7 +78,7 @@ contract DailyRecord {
               // This is becuase the dispute only stores latest version,
               // Disputes do NOT increment the version.
               if(_channelmode == 0) {
-                if(_i > rec.round) {
+                if(_version > rec.version) {
                   return true;
                 }
               }
@@ -95,7 +90,7 @@ contract DailyRecord {
               // _i = 9, rec.round = 10, false. (PISA had 9, state 9 was used for transition, good)
               // This is because the dispute transitions version from i to i+1
               if(_channelmode == 1) {
-                if(_i >= rec.round) {
+                if(_version >= rec.version) {
                   return true;
                 }
               }
@@ -106,19 +101,17 @@ contract DailyRecord {
    }
 
    // Store a dispute
-   function setDispute(uint starttime, uint endtime, uint ctr, address sender) onlyOwner public returns (bool) {
+   function setDispute(uint _starttime, uint _expiry, uint _version, address _sc) onlyOwner public {
 
        // Nice thing: Constant look-up to find the caller's records (based on the day).
-       Record[] storage sender_record = records[sender];
+       Record[] storage sc_records = records[_sc];
 
        // Add Dispute Record
        Record memory record;
-       record.start = starttime;
-       record.end = endtime;
-       record.round = ctr;
-       sender_record.push(record);
-
-       return true;
+       record.start = _starttime;
+       record.end = _expiry;
+       record.version = _version;
+       sc_records.push(record);
    }
 }
 
@@ -146,7 +139,7 @@ contract DisputeRegistry {
      return TOTAL_DAYS;
    }
 
-   function getDay(uint _timestamp) public pure returns (uint8) {
+   function getDataShard(uint _timestamp) public pure returns (uint8) {
 
         // Timestamp/days in seconds. +4 is used to push it to sunday as starting day.
         // "14" lets us keep records around for 14 days!
@@ -155,31 +148,31 @@ contract DisputeRegistry {
 
    function getDailyRecordAddress(uint _timestamp) public view returns (address) {
 
-     return dailyrecord[getDay(_timestamp)];
+     return dailyrecord[getDataShard(_timestamp)];
    }
 
    // _day = What day was the dispute?
    // starttime, endtime, ctr should be from the customer's receipt.
-   function testDispute(uint _channelmode, address _sc, uint _starttime, uint _endtime, uint _stateround) public returns (bool) {
-       uint8 day = getDay(_endtime);
-       DailyRecord rc = resetRecord(day);
+   function testReceipt(uint _channelmode, address _sc, uint _starttime, uint _endtime, uint _stateround, uint _datashard) public returns (bool) {
+       DailyRecord rc = resetRecord(_datashard);
 
-       return rc.testDispute(_channelmode, _sc, _starttime, _endtime, _stateround);
+       /* return true; */
+       return rc.testReceipt(_channelmode, _sc, _starttime, _endtime, _stateround);
    }
 
    // Checks whether the contract that keeps track of records is "fresh" for today.
    // We track every by day of week (so if it was created this day last week; we delete and re-create it)
-   function resetRecord(uint _day) internal returns (DailyRecord) {
+   function resetRecord(uint _datashard) internal returns (DailyRecord) {
 
         DailyRecord rc;
        // Does it exist?
        // TODO: This should be the "empty address" right?
-       if(address(0) != dailyrecord[_day]) {
-            rc = DailyRecord(dailyrecord[_day]);
+       if(address(0) != dailyrecord[_datashard]) {
+            rc = DailyRecord(dailyrecord[_datashard]);
 
             // Is it older than today?
             if(now - rc.getCreationTime() > DAY_IN_SECONDS) {
-                emit KillDailyRecord(dailyrecord[_day], now, _day);
+                emit KillDailyRecord(dailyrecord[_datashard], now, _datashard);
                 rc.kill();
             } else {
                 // Not older than today... just return... all good!
@@ -189,11 +182,11 @@ contract DisputeRegistry {
 
       // Looks like it didn't exist!
       rc = new DailyRecord(now);
-      dailyrecord[_day] = address(rc);
+      dailyrecord[_datashard] = address(rc);
       require(rc.getCreationTime() == now);
 
       // Tell world that we create this record
-      emit CreateDailyRecord(dailyrecord[_day], now, _day);
+      emit CreateDailyRecord(dailyrecord[_datashard], now, _datashard);
 
       return rc;
    }
@@ -201,26 +194,19 @@ contract DisputeRegistry {
 
    // Record dispute from the sender
    // _stateround should reflect the FINAL state round accepted by the state channel!
-   function setDispute(uint _starttime, uint _stateround) public returns (bool) {
-      // We will use block timestamp as the "final time"
-      uint endtime = block.timestamp;
+   function setDispute(uint _starttime, uint _expiry, uint _version) public {
 
       // TimeInformation info = TimeInformation(timeinfo);
-      uint day = (getDay(now));
+      uint datashard = (getDataShard(now));
 
       // Fetch the DailyRecord for this day. (It may reset it under the hood)
-      DailyRecord rc = resetRecord(day);
+      DailyRecord rc = resetRecord(datashard);
 
       // Update record!
-      bool res = rc.setDispute(_starttime, endtime, _stateround, msg.sender);
+      rc.setDispute(_starttime, _expiry, _version, msg.sender);
 
       // If it worked... tell the world we added the record!
-      if(res) {
-          emit NewRecord(msg.sender, _starttime, endtime, _stateround, day);
-      }
-
-      // Tell caller it all worked out fine.
-      return res;
+      emit NewRecord(msg.sender, _starttime, _expiry, _version, datashard);
    }
 
 }

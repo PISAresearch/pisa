@@ -64,21 +64,21 @@ contract('DisputeRegistry', (accounts) => {
     var registryInstance = await DisputeRegistry.deployed();
     var accounts =  await web3.eth.getAccounts();
 
-    assert.equal(await registryInstance.getDay.call(1555236000),0, "1st Sunday");
-    assert.equal(await registryInstance.getDay.call(1555322400),1, "1st Monday");
-    assert.equal(await registryInstance.getDay.call(1555408800),2, "1st Tuesday");
-    assert.equal(await registryInstance.getDay.call(1555495200),3, "1st Wednesday");
-    assert.equal(await registryInstance.getDay.call(1555581600),4, "1st Thursday");
-    assert.equal(await registryInstance.getDay.call(1555668000),5, "1st Friday");
-    assert.equal(await registryInstance.getDay.call(1555754400),6, "1st Saturday");
-    assert.equal(await registryInstance.getDay.call(1555840800),7, "2nd Sunday");
-    assert.equal(await registryInstance.getDay.call(1555927200),8, "2nd Monday");
-    assert.equal(await registryInstance.getDay.call(1556013600),9, "2nd Tuesday");
-    assert.equal(await registryInstance.getDay.call(1556100000),10, "2nd Wednesday");
-    assert.equal(await registryInstance.getDay.call(1556186400),11, "2nd Thursday");
-    assert.equal(await registryInstance.getDay.call(1556272800),12, "2nd Friday");
-    assert.equal(await registryInstance.getDay.call(1556359200),13, "2nd Saturday");
-    assert.equal(await registryInstance.getDay.call(1556445600),0, "Full loop");
+    assert.equal(await registryInstance.getDataShard.call(1555236000),0, "1st Sunday");
+    assert.equal(await registryInstance.getDataShard.call(1555322400),1, "1st Monday");
+    assert.equal(await registryInstance.getDataShard.call(1555408800),2, "1st Tuesday");
+    assert.equal(await registryInstance.getDataShard.call(1555495200),3, "1st Wednesday");
+    assert.equal(await registryInstance.getDataShard.call(1555581600),4, "1st Thursday");
+    assert.equal(await registryInstance.getDataShard.call(1555668000),5, "1st Friday");
+    assert.equal(await registryInstance.getDataShard.call(1555754400),6, "1st Saturday");
+    assert.equal(await registryInstance.getDataShard.call(1555840800),7, "2nd Sunday");
+    assert.equal(await registryInstance.getDataShard.call(1555927200),8, "2nd Monday");
+    assert.equal(await registryInstance.getDataShard.call(1556013600),9, "2nd Tuesday");
+    assert.equal(await registryInstance.getDataShard.call(1556100000),10, "2nd Wednesday");
+    assert.equal(await registryInstance.getDataShard.call(1556186400),11, "2nd Thursday");
+    assert.equal(await registryInstance.getDataShard.call(1556272800),12, "2nd Friday");
+    assert.equal(await registryInstance.getDataShard.call(1556359200),13, "2nd Saturday");
+    assert.equal(await registryInstance.getDataShard.call(1556445600),0, "Full loop");
 
   });
 
@@ -91,22 +91,22 @@ contract('DisputeRegistry', (accounts) => {
 
     // Dispute time window
     let disputestart = timenow-100;
+    let disputeend = timenow-10;
 
     // version
     let i = 20;
 
     // Store a dispute
-    let result = await registryInstance.setDispute(disputestart, i, {from: accounts[2]});
-    let block = await web3.eth.getBlock(result['receipt']['blockNumber']);
-    let disputeend = block['timestamp'];
+    let result = await registryInstance.setDispute(disputestart, disputeend, i, {from: accounts[2]});
+    let shard = await registryInstance.getDataShard.call(disputeend);
 
-    let res = await registryInstance.testDispute.call(1, accounts[2], disputestart, disputeend, i);
+    let res = await registryInstance.testReceipt.call(1, accounts[2], disputestart, disputeend+5, i, shard.toNumber());
     assert.equal(res,true,"PISA has i=20, state transitioned to 20 from 19. Pisa could have responded");
 
-    res = await registryInstance.testDispute.call(1, accounts[2], disputestart, disputeend, i-1);
-    assert.equal(res,false,"PISA has i=19, state transitioned to 20 from 19. Pisa could have responded");
+    res = await registryInstance.testReceipt.call(1, accounts[2], disputestart, disputeend+5, i-1, shard.toNumber());
+    assert.equal(res,false,"PISA has i=19, state transitioned to 20 from 19. Pisa didn't need to respond");
 
-    res = await registryInstance.testDispute.call(1, accounts[2], disputestart, disputeend, i+1);
+    res = await registryInstance.testReceipt.call(1, accounts[2], disputestart, disputeend+5, i+1, shard.toNumber());
     assert.equal(res,true,"PISA has i=21, state transitioned to 20 from 19. Pisa could have responded");
   });
 
@@ -120,22 +120,22 @@ contract('DisputeRegistry', (accounts) => {
 
     // Dispute time window
     let disputestart = timenow-100;
+    let disputeend = timenow-10;
 
     // version
     let i = 20;
 
     // Store a dispute
-    let result = await registryInstance.setDispute(disputestart, i, {from: accounts[7]});
-    let block = await web3.eth.getBlock(result['receipt']['blockNumber']);
-    let disputeend = block['timestamp'];
+    let result = await registryInstance.setDispute(disputestart, disputeend, i, {from: accounts[7]});
+    let shard = await registryInstance.getDataShard.call(disputeend);
 
-    let res = await registryInstance.testDispute.call(0, accounts[7], disputestart, disputeend, i);
+    let res = await registryInstance.testReceipt.call(0, accounts[7], disputestart, disputeend+5, i, shard.toNumber());
     assert.equal(res,false,"PISA has i=20, State concluded on 20. PISA may have responded, all good. ");
 
-    res = await registryInstance.testDispute.call(0, accounts[7], disputestart, disputeend, i-1);
+    res = await registryInstance.testReceipt.call(0, accounts[7], disputestart, disputeend+5, i-1, shard.toNumber());
     assert.equal(res,false,"PISA has i=19, State concluded on 20. PISA didn't need to respond.");
 
-    res = await registryInstance.testDispute.call(0, accounts[7], disputestart, disputeend, i+1);
+    res = await registryInstance.testReceipt.call(0, accounts[7], disputestart, disputeend+5, i+1, shard.toNumber());
     assert.equal(res,true,"PISA has i=21, State concluded on 20. PISA should have responded, bad. ");
   });
 
@@ -158,11 +158,12 @@ contract('DisputeRegistry', (accounts) => {
       for(let k=0; k<TOTAL_DAYS; k++) {
 
         var oldtimestamp = await getCurrentTime();
-        let result = await registryInstance.setDispute(oldtimestamp, 99, {from: accounts[9]});
-        let day =  await registryInstance.getDay.call(oldtimestamp);
+
+        let result = await registryInstance.setDispute(oldtimestamp-50, oldtimestamp-5, 99, {from: accounts[9]});
+        let day =  await registryInstance.getDataShard.call(oldtimestamp);
         let addr = await registryInstance.getDailyRecordAddress.call(oldtimestamp);
-        result = await registryInstance.setDispute(oldtimestamp, 200, {from: accounts[6]});
-        let sameday =  await registryInstance.getDay.call(oldtimestamp);
+        result = await registryInstance.setDispute(oldtimestamp-50, oldtimestamp-5, 200, {from: accounts[6]});
+        let sameday =  await registryInstance.getDataShard.call(oldtimestamp);
         let sameaddr = await registryInstance.getDailyRecordAddress.call(oldtimestamp);
         assert.equal(day.toNumber(),sameday.toNumber(), "Both days should be the same!");
         assert.equal(addr,sameaddr, "DailyRecord address should not change. Disputes on same day. ");
