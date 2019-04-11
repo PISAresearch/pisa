@@ -10,7 +10,7 @@ export class AppointmentStoreGarbageCollector {
     constructor(
         private readonly provider: ethers.providers.Provider,
         private readonly finalityDepth: number,
-        private readonly pollInterval: number,        
+        private readonly pollInterval: number,
         private readonly store: WatchedAppointmentStore,
         private readonly appointmentSubscriber: AppointmentSubscriber
     ) {}
