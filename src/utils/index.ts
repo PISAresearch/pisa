@@ -9,8 +9,8 @@ export const wait = (milliseconds: number) => {
 
 /** A custom error to signal a timeout. */
 export class TimeoutError extends Error {
-    constructor(...params: any) {
-        super(...params);
+    constructor(message: string) {
+        super(message);
         this.name = "TimeoutError";
     }
 }

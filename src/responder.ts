@@ -71,8 +71,8 @@ export abstract class Responder extends EventEmitter {
  * A simple custom Error class to provide more details in case of a re-org.
  */
 class ReorgError extends Error {
-    constructor(public readonly tx: TransactionResponse, ...params: any) {
-        super(...params);
+    constructor(message: string, tx: TransactionResponse = null) {
+        super(message);
         this.name = "ReorgError";
     }
 }
@@ -83,8 +83,8 @@ class ReorgError extends Error {
  * the provider.
  */
 class NoNewBlockError extends Error {
-    constructor(...params: any) {
-        super(...params);
+    constructor(message: string) {
+        super(message);
         this.name = "NoNewBlockError";
     }
 }
@@ -198,7 +198,7 @@ export class EthereumDedicatedResponder extends EthereumResponder {
                         if (receipt == null) {
                             // There was a re-org, consider this attempt failed and attempt the transaction again
                             cleanup();
-                            reject(new ReorgError(tx, "There could have been a re-org, the transaction was sent but was later not found."));
+                            reject(new ReorgError("There could have been a re-org, the transaction was sent but was later not found.", tx));
                         } else if (receipt.confirmations >= this.confirmationsRequired) {
                             cleanup();
                             resolve();
