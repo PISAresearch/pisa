@@ -49,11 +49,6 @@ export abstract class Responder extends EventEmitter {
         this.responseFlow = new ResponseFlow();
     }
 
-    /** Initiates the response flow */
-    public startResponse() {
-        this.respond()
-    }
-
     // Commodity function to emit events asynchronously
     protected asyncEmit(...args: any[]) {
         setImmediate( () => this.emit.call(this, args) );
@@ -65,11 +60,11 @@ export abstract class Responder extends EventEmitter {
     protected abstract submitStateFunction(): Promise<any>;
 
     /**
-     * Implements the strategy of this responder.
+     * Initiates the response, implementing the strategy of this responder.
      *
      * @param responseFlow The ResponseFlow object of this response.
      */
-    protected abstract respond(): Promise<any>;
+    public abstract respond(): Promise<any>;
 }
 
 /**
@@ -177,7 +172,7 @@ export class EthereumDedicatedResponder extends EthereumResponder {
         this.timeOfLastBlock = Date.now();
     }
 
-    protected async respond() {
+    public async respond() {
         while (this.mAttemptsDone < this.maxAttempts) {
             this.mAttemptsDone++;
             try {
@@ -289,6 +284,6 @@ export class EthereumResponderManager {
 
                 // TODO: this is serious and should be escalated.
             })
-            .startResponse();
+            .respond();
     }
 }
