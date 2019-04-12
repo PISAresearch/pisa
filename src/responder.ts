@@ -137,8 +137,12 @@ export abstract class EthereumResponder extends Responder {
  * until the end of the response flow (that is, until the event `responseConfirmed` is emitted).
  */
 export class EthereumDedicatedResponder extends EthereumResponder {
-    // Waiting time before retrying
-    private static WAIT_TIME_BETWEEN_ATTEMPTS = 1000;
+    // Waiting time before retrying, in milliseconds
+    public static readonly WAIT_TIME_BETWEEN_ATTEMPTS = 1000;
+
+    // Waiting time before considering a request to the provider failed, in milliseconds
+    public static readonly WAIT_TIME_FOR_PRIVDER_RESPONSE = 30000;
+
 
     // Timestamp in milliseconds when the last block was received (or since the creation of this object)
     private timeLastBlockReceived: number = Date.now();
@@ -185,7 +189,7 @@ export class EthereumDedicatedResponder extends EthereumResponder {
             try {
                 // Try to call submitStateFunction, but timeout with an error if
                 // there is no response for 30 seconds.
-                const tx = await promiseTimeout(this.submitStateFunction(), 30000);
+                const tx = await promiseTimeout(this.submitStateFunction(), EthereumDedicatedResponder.WAIT_TIME_FOR_PRIVDER_RESPONSE);
 
                 // The response has been sent, but should not be considered confirmed yet.
                 this.responseFlow.status = ResponseState.ResponseSent;

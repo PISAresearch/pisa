@@ -1,4 +1,5 @@
 import * as chai from "chai";
+import * as sinon from "sinon";
 import "mocha";
 import { ethers } from "ethers";
 import Ganache from "ganache-core";
@@ -13,6 +14,8 @@ const provider: ethers.providers.Web3Provider = new ethers.providers.Web3Provide
 provider.pollingInterval = 100;
 
 chai.use(chaiAsPromised);
+chai.use(require('sinon-chai'));
+
 const expect = chai.expect;
 
 describe("DedicatedEthereumResponder", () => {
@@ -77,8 +80,8 @@ describe("DedicatedEthereumResponder", () => {
     });
 
 
-
-    it("correctly submits an appointment to the blockchain", async () => {
+    // Repeated code for multiple tests
+    async function getTestData() {
         const signer = provider.getSigner(responderAccount);
         const round = 1,
             setStateHash = KitsuneTools.hashForSetState(hashState, round, channelContract.address),
@@ -98,6 +101,15 @@ describe("DedicatedEthereumResponder", () => {
 
         const response = appointment.getResponse();
 
+        return {
+            signer, round, setStateHash, sig0, sig1, expiryPeriod, appointment, response
+        };
+    }
+
+
+    it("correctly submits an appointment to the blockchain", async () => {
+        const { signer, appointment, response } = await getTestData();
+
         const responder = new EthereumDedicatedResponder(signer, appointment.id, response, 10);
         const promise = new Promise((resolve, reject)=> {
             responder.on(ResponderEvent.ResponseSent, resolve);
@@ -106,6 +118,52 @@ describe("DedicatedEthereumResponder", () => {
 
         responder.respond();
 
-        await promise;
+        await promise; // Make sure the ResponseSent event is generated
+
+        // TODO: test that the contract state is correct
     });
+
+    it("emits the AttemptFailed and ResponseFailed events the correct number of times on failure", async () => {
+        this.clock = sinon.useFakeTimers({ shouldAdvanceTime: true });
+
+        const { signer, appointment, response } = await getTestData();
+
+        const nAttempts = 5;
+        const responder = new EthereumDedicatedResponder(signer, appointment.id, response, 40, nAttempts);
+
+        const attemptFailedSpy = sinon.spy();
+        const responseFailedSpy = sinon.spy();
+        const responseSentSpy = sinon.spy();
+        const responseConfirmedSpy = sinon.spy();
+
+        // Make send or sendTransaction return promises that never resolve
+        sinon.replace(signer, 'sendTransaction', () => new Promise(() => {}));
+
+        responder.on(ResponderEvent.AttemptFailed, attemptFailedSpy);
+        responder.on(ResponderEvent.ResponseFailed, responseFailedSpy);
+        responder.on(ResponderEvent.ResponseSent, responseSentSpy);
+        responder.on(ResponderEvent.ResponseConfirmed, responseConfirmedSpy);
+
+        responder.respond();
+
+        const tickWaitTime = 1000 + EthereumDedicatedResponder.WAIT_TIME_FOR_PRIVDER_RESPONSE + EthereumDedicatedResponder.WAIT_TIME_BETWEEN_ATTEMPTS;
+        // The test seems to fail if we make time steps that are too large; instead, we proceed at 1 second ticks
+        for (let i = 0; i < nAttempts * tickWaitTime/1000; i++) {
+            this.clock.tick(tickWaitTime * 1000);
+            await Promise.resolve();
+        }
+
+        // Let's make sure there is time after the last iteration
+        this.clock.tick(tickWaitTime);
+        await Promise.resolve();
+
+        expect(attemptFailedSpy.callCount).to.equal(nAttempts);
+        expect(responseFailedSpy.callCount).to.equal(1);
+        expect(responseSentSpy.called).to.be.false;
+        expect(responseConfirmedSpy.called).to.be.false;
+
+        this.clock.restore();
+        sinon.restore();
+    }).timeout(60000);
+
 });
