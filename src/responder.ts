@@ -39,7 +39,7 @@ export enum ResponseState {
 /**
  * Represents the possible events emitted by a Responder.
  */
-enum ResponderEvent {
+export enum ResponderEvent {
     ResponseSent = "responseSent",
     ResponseConfirmed = "responseConfirmed",
     AttemptFailed = "attemptFailed",
@@ -61,8 +61,8 @@ export abstract class Responder extends EventEmitter {
     }
 
     // Commodity function to emit events asynchronously
-    protected asyncEmit(...args: any[]) {
-        setImmediate( () => this.emit.call(this, args) );
+    protected asyncEmit(...args: any[]): Promise<boolean> {
+        return new Promise(resolve => resolve(this.emit.apply(this, args)))
     }
 
     /**
