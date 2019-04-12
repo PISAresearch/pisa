@@ -3,7 +3,7 @@ import httpContext from "express-http-context";
 import logger from "./logger";
 import { PublicInspectionError, PublicDataValidationError, ApplicationError } from "./dataEntities";
 import { Raiden, Kitsune } from "./integrations";
-import { Watcher } from "./watcher/watcher";
+import { Watcher, MemoryAppointmentStore } from "./watcher";
 import { PisaTower } from "./tower";
 // PISA: this isn working properly, it seems that watchers are sharing the last set value...
 import { setRequestId } from "./customExpressHttpContext";
@@ -11,7 +11,6 @@ import { Server } from "http";
 import { inspect } from "util";
 import { ethers } from "ethers";
 import { EthereumResponderManager } from "./responder";
-import { MemoryAppointmentStore } from "./watcher/store";
 
 /**
  * Hosts a PISA service at the endpoint.

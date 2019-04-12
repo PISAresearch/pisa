@@ -34,16 +34,16 @@ export class AppointmentStoreGarbageCollector {
 
     /**
      * Find appointments that have expired then remove them from the subsciber and store.
-     * @param blockNumber 
+     * @param blockNumber
      */
     private async removeExpired(blockNumber: number) {
-        try {
-            // it is for this function to be called concurrently
-            // but there's no point, both would try to the same work which is wasteful
-            // so we lock here anyway and just wait for the next block
-            if (!this.collecting) {
-                this.collecting = true;
-
+        // it is safe for this function to be called concurrently
+        // but there's no point, both would try to the same work which is wasteful
+        // so we lock here anyway and just wait for the next block
+        if (!this.collecting) {
+            this.collecting = true;
+            
+            try {
                 // appointments expire when the current block is greater than their end time
                 // find all blocks that are expired
                 // we then allow a number of confirmations to ensure that we can safely dispose the block
@@ -66,13 +66,13 @@ export class AppointmentStoreGarbageCollector {
                         logger.info(a.formatLog(`GC: Appointment with end: ${a.endTime}.`))
                     );
                 }
-
-                this.collecting = false;
+            } catch (doh) {
+                // errors escaping this block will cause unhandled promise rejections so we log and swallow here
+                logger.error("GC: Unexpected error.");
+                logger.error(doh);
             }
-        } catch (doh) {
-            // errors escaping this block will cause unhandled promise rejections so we log and swallow here
-            logger.error("GC: Unexpected error.");
-            logger.error(doh);
+
+            this.collecting = false;
         }
     }
 }

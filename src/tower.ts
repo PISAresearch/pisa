@@ -1,7 +1,7 @@
 import { EthereumAppointment, PublicDataValidationError } from "./dataEntities";
 import { Inspector } from "./inspector";
 import { IChannelConfig } from "./integrations";
-import { Watcher } from "./watcher/watcher";
+import { Watcher } from "./watcher";
 import { ethers } from "ethers";
 
 /**
