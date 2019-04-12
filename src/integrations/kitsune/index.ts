@@ -83,8 +83,14 @@ export class KitsuneAppointment extends EthereumAppointment {
         return this.stateUpdate.contractAddress;
     }
 
-    getEventFilter(contract: ethers.Contract) {
-        return contract.filters.EventDispute(null);
+    getEventFilter() {
+        let event = new ethers.utils.Interface(this.getContractAbi());
+        let topics = event.events["EventDispute"].encodeTopics([null]);
+
+        return {
+            address: this.getContractAddress(),
+            topics
+        }
     }
 
     getEventName() {

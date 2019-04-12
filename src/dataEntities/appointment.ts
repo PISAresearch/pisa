@@ -27,11 +27,14 @@ export interface IEthereumAppointment extends IAppointment {
     getStateLocator(): string;
     getContractAbi(): any;
     getContractAddress(): string;
-    getEventFilter(contract: ethers.Contract): ethers.EventFilter;
+    getEventFilter(): ethers.EventFilter;
     getEventName(): string;
     getStateIdentifier(): string;
     getStateNonce(): number;
     formatLog(message: string): string;
+    getResponseFunctionName(): string;
+    getResponseFunctionArgs(): any[];
+    getResponse(): IEthereumResponse;
 }
 
 
@@ -81,7 +84,7 @@ export abstract class EthereumAppointment implements IEthereumAppointment {
     abstract getStateLocator(): string;
     abstract getContractAbi(): any;
     abstract getContractAddress(): string;
-    abstract getEventFilter(contract: ethers.Contract);
+    abstract getEventFilter(): ethers.EventFilter;
     abstract getEventName(): string;
     abstract getStateNonce(): number;
 

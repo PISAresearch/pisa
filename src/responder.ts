@@ -2,7 +2,7 @@ import { EventEmitter } from "events";
 import { ethers } from "ethers";
 import { wait, promiseTimeout, plural } from "./utils";
 import { waitForConfirmations } from "./utils/ethers";
-import { EthereumAppointment, IEthereumResponse } from "./dataEntities/appointment";
+import { IEthereumAppointment, IEthereumResponse } from "./dataEntities/appointment";
 import logger from "./logger";
 import { TransactionResponse } from "ethers/providers";
 
@@ -240,7 +240,7 @@ export class EthereumResponderManager {
 
     }
 
-    public respond(appointment: EthereumAppointment) {
+    public respond(appointment: IEthereumAppointment) {
         const ethereumResponse = appointment.getResponse();
 
         const responder = new EthereumDedicatedResponder(this.signer, appointment.id, ethereumResponse, 10);

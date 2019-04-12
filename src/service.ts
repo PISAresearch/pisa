@@ -1,9 +1,9 @@
 import express, { Response } from "express";
 import httpContext from "express-http-context";
 import logger from "./logger";
-import { PublicInspectionError, PublicDataValidationError, IEthereumResponse } from "./dataEntities";
+import { PublicInspectionError, PublicDataValidationError, ApplicationError } from "./dataEntities";
 import { Raiden, Kitsune } from "./integrations";
-import { Watcher } from "./watcher";
+import { Watcher, MemoryAppointmentStore } from "./watcher";
 import { PisaTower } from "./tower";
 // PISA: this isn working properly, it seems that watchers are sharing the last set value...
 import { setRequestId } from "./customExpressHttpContext";
@@ -37,7 +37,7 @@ export class PisaService {
         });
 
         const ethereumResponderManager = new EthereumResponderManager(wallet);
-        const watcher = new Watcher(jsonRpcProvider, ethereumResponderManager);
+        const watcher = new Watcher(jsonRpcProvider, ethereumResponderManager, 20, new MemoryAppointmentStore());
         const tower = new PisaTower(jsonRpcProvider, watcher, [Raiden, Kitsune]);
 
         app.post("/appointment", this.appointment(tower));
@@ -61,6 +61,7 @@ export class PisaService {
             } catch (doh) {
                 if (doh instanceof PublicInspectionError) this.logAndSend(400, doh.message, doh, res);
                 else if (doh instanceof PublicDataValidationError) this.logAndSend(400, doh.message, doh, res);
+                else if (doh instanceof ApplicationError) this.logAndSend(500, doh.message, doh, res);
                 else if (doh instanceof Error) this.logAndSend(500, "Internal server error.", doh, res);
                 else {
                     logger.error("Error: 500. \n" + inspect(doh));
