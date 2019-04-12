@@ -126,7 +126,7 @@ contract DataRegistry {
    // Record data from the sender and store it in the DataShard
    function setData(bytes memory data) public {
 
-      // TimeInformation info = TimeInformation(timeinfo);
+      // Fetch Index
       uint datashard = (getDataShardIndex(now));
 
       // Fetch the DataShard for this day. (It may reset it under the hood)
