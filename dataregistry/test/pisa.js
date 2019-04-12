@@ -108,7 +108,7 @@ contract('PISA', (accounts) => {
     // Store a dispute from accounts[3]
     var result = await registryInstance.setData(encoded, {from: accounts[3]});
     var block = await web3.eth.getBlock(result['receipt']['blockNumber']);
-    let shard = await registryInstance.getDataShard.call(disputeend);
+    let shard = await registryInstance.getDataShardIndex.call(disputeend);
 
     // Receipt
     let r1start = disputestart-1; // BEFORE DISPUTE
@@ -157,7 +157,7 @@ contract('PISA', (accounts) => {
     var result = await registryInstance.setData(encoded, {from: accounts[2]});
     var block = await web3.eth.getBlock(result['receipt']['blockNumber']);
 
-    let shard = await registryInstance.getDataShard.call(disputeend);
+    let shard = await registryInstance.getDataShardIndex.call(disputeend);
 
     // Receipt 1 times
     let r1start = disputestart-2; // BEFORE DISPUTE
@@ -218,7 +218,7 @@ contract('PISA', (accounts) => {
     // Dispute time window
     let disputestart = timenow-100;
     let disputeend = timenow-50;
-    let shard = await registryInstance.getDataShard.call(disputeend);
+    let shard = await registryInstance.getDataShardIndex.call(disputeend);
 
     // Receipt 3 times
     let r1start = timenow-101; // BEFORE DISPUTE
@@ -261,7 +261,7 @@ contract('PISA', (accounts) => {
       let encoded = web3.eth.abi.encodeParameters(['uint','uint','uint'], [disputestart,disputeend,i]);
       let result = await registryInstance.setData(encoded, {from: accounts[5]});
       var block = await web3.eth.getBlock(result['receipt']['blockNumber']);
-      let shard = await registryInstance.getDataShard.call(disputeend);
+      let shard = await registryInstance.getDataShardIndex.call(disputeend);
 
       // Receipt
       let r1start = disputestart-1; // BEFORE DISPUTE

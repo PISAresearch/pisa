@@ -2,9 +2,9 @@ pragma solidity ^0.5.0;
 pragma experimental ABIEncoderV2;
 
 // There are two contracts:
-// - DailyRecord maintains data sent on a given day
-// - DataRegistry maintains a list of DailyRecords, and ensures delete/create each DailyRecord after TOTAL_DAYS
-contract DailyRecord {
+// - DataShard maintains data sent on a given day
+// - DataRegistry maintains a list of DataShards, and ensures delete/create each DataShard after TOTAL_DAYS
+contract DataShard {
 
    uint public creationTime; // What unix timestamp was this record created?
 
@@ -49,21 +49,21 @@ contract DailyRecord {
    }
 }
 
-// The data registry is responsible maintaining a list of DailyRecords.
+// The data registry is responsible maintaining a list of DataShards.
 // Two functions:
-// - setData stores the data (and associated address) in a DailyRecord.
+// - setData stores the data (and associated address) in a DataShard.
 // - fetchRecords stores
 // - TestDispute is called by PISA, it'll look up all disputes on a given day for a state channel. And then confirm if PISA cheated.
 contract DataRegistry {
 
    // Used to signal to the world about a new dispute record
    // "Day" is used to lookup the dispute record later on!
-   event NewRecord(address sc, bytes data);
-   event KillDailyRecord(address addr, uint createtime, uint day);
-   event CreateDailyRecord(address addr, uint createtime, uint day);
+   event NewRecord(address sc, bytes data, uint datashard);
+   event KillDataShard(address addr, uint createtime, uint datashard);
+   event CreateDataShard(address addr, uint createtime, uint datashard);
 
-   // Day of the week => Address for DailyRecord
-   mapping (uint => address) dailyrecord;
+   // Day of the week => Address for DataShard
+   mapping (uint => address) datashards;
 
    // Time helper function
    uint constant DAY_IN_SECONDS = 86400;
@@ -73,38 +73,38 @@ contract DataRegistry {
      return TOTAL_DAYS;
    }
 
-   function getDataShard(uint _timestamp) public pure returns (uint8) {
+   function getDataShardIndex(uint _timestamp) public pure returns (uint8) {
 
         // Timestamp/days in seconds. +4 is used to push it to sunday as starting day.
         // "14" lets us keep records around for 14 days!
        return uint8(((_timestamp / DAY_IN_SECONDS) + 4) % TOTAL_DAYS);
    }
 
-   function getDailyRecordAddress(uint _timestamp) public view returns (address) {
+   function getDataShardAddress(uint _timestamp) public view returns (address) {
 
-     return dailyrecord[getDataShard(_timestamp)];
+     return datashards[getDataShardIndex(_timestamp)];
    }
 
    // Fetch a list of data records for a smart contract from a given datashard.
    function fetchRecords(address _sc, uint _datashard) public returns (bytes[] memory) {
-       DailyRecord rc = resetRecord(_datashard);
+       DataShard rc = resetRecord(_datashard);
 
        return rc.fetchData(_sc);
    }
 
    // Checks whether the contract that keeps track of records is "fresh" for today.
    // We track every by day of week (so if it was created this day last week; we delete and re-create it)
-   function resetRecord(uint _datashard) internal returns (DailyRecord) {
+   function resetRecord(uint _datashard) internal returns (DataShard) {
 
-        DailyRecord rc;
+        DataShard rc;
 
        // Does it exist?
-       if(address(0) != dailyrecord[_datashard]) {
-            rc = DailyRecord(dailyrecord[_datashard]);
+       if(address(0) != datashards[_datashard]) {
+            rc = DataShard(datashards[_datashard]);
 
             // Is it older than today?
             if(now - rc.getCreationTime() > DAY_IN_SECONDS) {
-                emit KillDailyRecord(dailyrecord[_datashard], now, _datashard);
+                emit KillDataShard(datashards[_datashard], now, _datashard);
                 rc.kill();
             } else {
                 // Not older than today... just return... all good!
@@ -113,30 +113,30 @@ contract DataRegistry {
        }
 
       // Looks like it didn't exist!
-      rc = new DailyRecord(now);
-      dailyrecord[_datashard] = address(rc);
+      rc = new DataShard(now);
+      datashards[_datashard] = address(rc);
       require(rc.getCreationTime() == now);
 
       // Tell world that we create this record
-      emit CreateDailyRecord(dailyrecord[_datashard], now, _datashard);
+      emit CreateDataShard(datashards[_datashard], now, _datashard);
 
       return rc;
    }
 
-   // Record data from the sender and store it in the DailyRecord
+   // Record data from the sender and store it in the DataShard
    function setData(bytes memory data) public {
 
       // TimeInformation info = TimeInformation(timeinfo);
-      uint datashard = (getDataShard(now));
+      uint datashard = (getDataShardIndex(now));
 
-      // Fetch the DailyRecord for this day. (It may reset it under the hood)
-      DailyRecord rc = resetRecord(datashard);
+      // Fetch the DataShard for this day. (It may reset it under the hood)
+      DataShard rc = resetRecord(datashard);
 
       // Update record!
       rc.setData(msg.sender, data);
 
       // If it worked... tell the world we added the record!
-      emit NewRecord(msg.sender, data);
+      emit NewRecord(msg.sender, data, datashard);
    }
 
 }

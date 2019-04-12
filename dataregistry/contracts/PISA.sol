@@ -136,7 +136,7 @@ contract PISA {
 
 
     // Can verify command and closure disputes
-    function testDispute(bytes memory _dispute, uint _channelmode, uint _starttime, uint _expiry, uint _version) pure returns(bool) {
+    function testDispute(bytes memory _dispute, uint _channelmode, uint _starttime, uint _expiry, uint _version) pure public returns(bool) {
 
         uint dStarttime;
         uint dExpiry;
