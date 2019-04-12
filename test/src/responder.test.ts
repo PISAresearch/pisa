@@ -7,6 +7,8 @@ import { KitsuneAppointment, KitsuneInspector, KitsuneTools } from "../../src/in
 import { EthereumDedicatedResponder, ResponderEvent } from "../../src/responder";
 import { ChannelType } from "../../src/dataEntities";
 import chaiAsPromised from "chai-as-promised";
+import { wait } from "../../src/utils";
+
 const ganache = Ganache.provider({
     mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect"
 });
@@ -25,8 +27,8 @@ describe("DedicatedEthereumResponder", () => {
     let initialSnapshotId: string;
 
     // Save a snapshot of the state of the blockchain in ganache; resolves to the id of the snapshot
-    async function takeGanacheSnapshot(): Promise<string> {
-        return await new Promise(async (resolve, reject) => {
+    function takeGanacheSnapshot(): Promise<string> {
+        return new Promise(async (resolve, reject) => {
             ganache.sendAsync({"id": 1, "jsonrpc":"2.0", "method":"evm_snapshot", "params": []}, (err, res: any) => {
                 if (err) reject(err); else resolve(res.result);
             });
@@ -34,14 +36,28 @@ describe("DedicatedEthereumResponder", () => {
     }
 
     // Restores a previously saved snapshot given the id. Note: the id _cannot_ be reused
-    async function restoreGanacheSnapshot(id: string) {
-        await new Promise(async (resolve, reject) => {
+    function restoreGanacheSnapshot(id: string) {
+        return new Promise(async (resolve, reject) => {
             ganache.sendAsync({"id": 1, "jsonrpc":"2.0", "method":"evm_revert", "params": [id]}, (err, _) => {
                 if (err) reject(err); else resolve();
             });
         });
     }
 
+    // Instructs ganache to mine a block
+    function mineBlock() {
+        new Promise(async (resolve, reject) => {
+            // Wait for a block to actually be mined
+            provider.once("block", () => {
+                // Make sure that all listeners for this block are processed before resolving the promise.
+                setTimeout(resolve, 200);
+            });
+
+            ganache.sendAsync({"id": 1, "jsonrpc":"2.0", "method":"evm_mine", "params": []}, (err, _) => {
+                if (err) reject(err);
+            });
+        });
+    }
 
     before(async () => {
         // Set up the accounts
@@ -136,7 +152,7 @@ describe("DedicatedEthereumResponder", () => {
         const responseSentSpy = sinon.spy();
         const responseConfirmedSpy = sinon.spy();
 
-        // Make send or sendTransaction return promises that never resolve
+        // Make sendTransaction return promises that never resolve
         sinon.replace(signer, 'sendTransaction', () => new Promise(() => {}));
 
         responder.on(ResponderEvent.AttemptFailed, attemptFailedSpy);
@@ -144,9 +160,10 @@ describe("DedicatedEthereumResponder", () => {
         responder.on(ResponderEvent.ResponseSent, responseSentSpy);
         responder.on(ResponderEvent.ResponseConfirmed, responseConfirmedSpy);
 
+        // Start the response flow
         responder.respond();
 
-        const tickWaitTime = 1000 + EthereumDedicatedResponder.WAIT_TIME_FOR_PRIVDER_RESPONSE + EthereumDedicatedResponder.WAIT_TIME_BETWEEN_ATTEMPTS;
+        const tickWaitTime = 1000 + EthereumDedicatedResponder.WAIT_TIME_FOR_PROVIDER_RESPONSE + EthereumDedicatedResponder.WAIT_TIME_BETWEEN_ATTEMPTS;
         // The test seems to fail if we make time steps that are too large; instead, we proceed at 1 second ticks
         for (let i = 0; i < nAttempts * tickWaitTime/1000; i++) {
             this.clock.tick(tickWaitTime * 1000);
@@ -164,6 +181,47 @@ describe("DedicatedEthereumResponder", () => {
 
         this.clock.restore();
         sinon.restore();
-    }).timeout(60000);
+    });
 
+    it("emits the ResponseSent event, followed by ResponseConfirmed after enough confirmations", async () => {
+        const { signer, appointment, response } = await getTestData();
+
+        const nAttempts = 5;
+        const nConfirmations = 10;
+        const responder = new EthereumDedicatedResponder(signer, appointment.id, response, nConfirmations, nAttempts);
+
+        const attemptFailedSpy = sinon.spy();
+        const responseFailedSpy = sinon.spy();
+        const responseSentSpy = sinon.spy();
+        const responseConfirmedSpy = sinon.spy();
+
+        responder.on(ResponderEvent.AttemptFailed, attemptFailedSpy);
+        responder.on(ResponderEvent.ResponseFailed, responseFailedSpy);
+        responder.on(ResponderEvent.ResponseSent, responseSentSpy);
+        responder.on(ResponderEvent.ResponseConfirmed, responseConfirmedSpy);
+
+        // Start the response flow
+        responder.respond();
+
+        // TODO: is there a better wait to make sure that the responder's request is done?
+        await wait(100);
+
+        expect(responseSentSpy.called, "emitted ResponseSent").to.be.true;
+        expect(responseConfirmedSpy.called, "did not emit ResponseConfirmed prematurely").to.be.false;
+
+        // Now wait for enough confirmations
+        for (let i = 0; i < nConfirmations; i++) {
+            // this.clock.tick(15000);
+            await mineBlock();
+        }
+
+        await wait(100);
+
+        // Now the response is confirmed
+        expect(responseConfirmedSpy.called, "emitted ResponseConfirmed").to.be.true;
+
+        // No failed event should have been generated
+        expect(attemptFailedSpy.called, "did not emit AttemptFailed").to.be.false;
+        expect(responseFailedSpy.called, "did not emit ResponseFailed").to.be.false;
+    });
 });
