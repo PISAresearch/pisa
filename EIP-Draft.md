@@ -12,7 +12,7 @@ created: 2019-04-11
 
 We propose a registry to record arbitrary data for a limited period of time. 
 The motivation for this EIP is to deploy a central registry to record disputes for off-chain channels.
-This on-chain evidence can be used to hole a watching service accountable (alongside a signed receipt) as there is evidence a watching service was hired, burt failed to respond on a customer's behalf.
+This on-chain evidence can be used to hold a watching service accountable (alongside a signed receipt) as there is evidence a watching service was hired, burt failed to respond on a customer's behalf.
 However a data registry is useful for countless other applications in the Ethereum eco-system.
 
 
@@ -87,7 +87,7 @@ function fetchData(address _sc) onlyOwner public view returns(bytes[] memory) {
 ```
 Given a smart contract address, return the list of data items. 
 
-#### fetchData
+#### kill
 ``` js
 function kill() onlyOwner public {
 ```
