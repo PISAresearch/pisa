@@ -1,6 +1,6 @@
 ---
 eip: ??
-title: Off-chain Dispute Registry for Replace by Version
+title: Data Registry for Temporary Storage
 author: 
 type: Standards Track
 category: ERC
@@ -10,9 +10,10 @@ created: 2019-04-11
 
 ## Abstract
 
-We propose a registry to record successful disputes for off-chain state channels. This EIP is only concerned with replace by version channels as this is the unofficial standard used by most products. The motivation for recording disputes is to ensure third party watching services (PISA) can be held accountable if there is evidence a watching service was hired, but failed to respond on a customer's behalf.  
-
-The following standard allows for the implementation of a registry within a smart contract. It will provide guidance to teams developing off-chain channels on how their dispute should be recorded in the registry. 
+We propose a registry to record arbitrary data for a limited period of time. 
+The motivation for this EIP is to deploy a central registry to record disputes for off-chain channels.
+This on-chain evidence can be used to hole a watching service accountable (alongside a signed receipt) as there is evidence a watching service was hired, burt failed to respond on a customer's behalf.
+However a data registry is useful for countless other applications in the Ethereum eco-system.
 
 
 ## Specification
@@ -22,122 +23,76 @@ The following standard allows for the implementation of a registry within a smar
  
  
 ## No signatures
-This standard does not require any signatures. It is only concerned with recording and testing disputes. 
+This standard does not require any signatures. It is only concerned with storing data on behalf of smart contracts. 
 
-A future EIP can extend this standard and cover how the watching service contract works. 
+## DataRegistry
 
-## Appointment Receipt 
+The DataRegistry is responsible for maintaining a list of DataShards. Each DataShard is associated with a given day and stores a list of encoded data for a smart contract. A magic number, *TOTAL_DAYS*, will decide the total DataShards maintained by the DataRegistry.
+Every *TOTAL_DAYS*, the DataShard is reset by self-destructing and re-creating it. This is a workaround to delete the contents of a mapping. 
 
-``` js
-uint channelmode // How to a test dispute
-address sc // State channel address 
-uint starttime // When dispute was triggered. UNIX timestamp or block number. 
-uint expiry // When dispute expires. UNIX timestamp or block numner. 
-uint version // State version a watching service agreed to broadcast. 
-```
-
-Two types of channel modes supported by default: 
-
- - *Closure dispute.* Confirms an agreed off-chain state.
- - *Command dispute.* Performs a state transition via the dispute process. 
- 
-We record information about the dispute: 
- - *Start time.* When the dispute was triggered on-chain.
- - *Expiry time.* When the dispute expires on-chain. (NOT settlement time). 
- - *Version.* Final recorded version 
- 
-All disputes are recorded per day and the dispute registry will keep the record for a fixed time period (TOTAL_DAYS). 
-
-## DisputeRegistryInterface
- 
-#### testReceipt
-
-Given a receipt, it returns:
-
-- TRUE if the watching service could have, but did not respond to a dispute. 
-- FALSE if the watching service is not at fault. 
+#### setData
 
 ``` js
-function testReceipt(uint _channelmode, address _sc, uint _starttime, uint _expiry, uint _version, uint _datashard) public returns (bool)
+function setData(bytes memory data) public; 
 ```
 
-This standard interface includes *datashard*. It informs the registry where to fetch the dispute record. This minimises the need to search for the record via on-chain execution. 
-
-
-## DisputeRegistry
-
-The Registry is responsible for maintaining a list of disputes for each channel. 
-
-- Given a new dispute, it will store the dispute. 
-- Given a receipt, it will fetch the respective dispute and return the result to the caller. 
-
-#### setDispute
+Store the encoded data and emit the event: 
 
 ``` js
-function setDispute(uint _starttime, uint _expiry, uint _version) public; 
+emit NewRecord(address sc, bytes[] data, uint datashard)
 ```
 
-Store a dispute and emit the event: 
+The *datashard* is an identifier for the DataShard. By default it will always be 0 unless the DataRegistry has implemented the DataShard approach to handle data storage. 
+
+#### fetchRecords
 
 ``` js
-emit NewRecord(msg.sender, _starttime, _expiry, _stateround, _datashard)
+function fetchRecords(address _sc, uint _datashard) public returns (bytes[] memory)
 ```
 
-As mentioned previouly, *datashard* is the location to find the dispute record in the Dispute Registry. By default, this will always be 0 unless the DisputeRegistry has an internal mechanism to handle data storage.
+Fetches the list of data records for a given smart contract. The *_datashard* informs the DataRegistry which DataShard to use when fetching the records. 
 
-#### testReceipt
+#### getDataShardIndex
 
 ``` js
-function testReceipt(uint _channelmode, address _sc, uint _starttime, uint _endtime, uint _version, uint day) public returns (bool)
+function getDataShardIndex(uint findShard) public returns (uint8)
 ```
+Given appropriate information, this will return the index for the DataShard. In the [PISA Implementation], the findShard is a UNIX timestamp and it returns within the range 0 to TOTAL_DAYS. 
 
-An implementation of the DisputeRegistry.testReceipt() interface. 
-
-Given a receipt, this will test:
-
- - *Closure Dispute.* When _channelmode = 0: 
-    - If a watching service broadcasts version i, the dispute will settle based on version i (or greater).
- - *Command Dispute.* When _channelmode = 1.  
-    - If a watching service broadcasts version i, the dispute will settle based on version i+1 (or greater).
-
-[In the PISA implemention, this test logic is pushed to DailyRecord to minimise gas consumption and avoid returning a list of structs]
-
-## DailyRecord
-
-How this EIP standard implements data sharding for dispute records. 
-
-#### How DailyRecord integrates the Dispute Registry
-
-The registry is responsible for managing a list of DailyRecords. 
-
-Each DailyRecord corresponds to a list of dispute records for a given day (according to the day of dispute submission). 
-
-The tracker *datashard* ranges from 0 to TOTAL_DAYS. 
-
-TOTAL_DAYS is a magic number that specifies the maximum number of DailyRecords. 
-
-When a DailyRecord is reached (day %% TOTAL_DAYS), the registry will selfdestruct and re-create the DailyRecord contract. This wipes the mapping and all dispute records for that day. This selfdestruct appraoch is a workaround to support deleting a mapping. 
-
-#### setDispute
+#### getDataShardAddress
 
 ``` js
-function setDispute(uint _starttime, uint _expiry, uint _version, address _sc) onlyOwner public {
+function getDataShardAddress(uint findShard) public returns (address)
 ```
 
-DailyRecord has a mapping that links the state channel address to a list of disputes. This will append a new dispute to the list. 
+Given appropriate information, this will return the address for a DataShard. In the [PISA Implementation], the findShard is a UNIX timestamp as each DataShard corresponds to a given day. 
 
-*OnlyOwner* only permits disputes to be stored by the DisputeRegsitry. 
+## DataShard
 
+Each DataShards corresponds to a list of data records for a given 24 hour period (according to the time of submission).
+All functions can only be called by the owner of this contract which is the DataRegistry. 
 
-#### testReceipt
+#### setData
 
 ``` js
-function testReceipt(uint _channelmode, address _sc, _uint _starttime, uint _expiry, uint _version) onlyOwner public {
+function setData(address sc, bytes memory data) onlyOwner public {
+```
+DataShard has a mapping to link a contract address to a list of data items. This appends a new data item to the list. 
+
+
+#### fetchData
+
+``` js
+function fetchData(address _sc) onlyOwner public view returns(bytes[] memory) {
+```
+Given a smart contract address, return the list of data items. 
+
+#### fetchData
+``` js
+function kill() onlyOwner public {
 ```
 
-*OnlyOwner* only permits tests to be conducted by the DisputeRegistry.
-
-[In the PISA implementation, we perform the test of records here to simplify the implementation]
+This kills the DataShard. It is only callable by the DataRegistry conntract. This is used to let us destroy mapping records. 
 
 ## Implementation
 
