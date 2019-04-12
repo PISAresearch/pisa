@@ -2,13 +2,14 @@ import { utils, ethers } from "ethers";
 import { KitsuneTools } from "./tools";
 export { KitsuneTools } from "./tools";
 import {
-    Appointment,
+    EthereumAppointment,
     ChannelType,
     propertyExistsAndIsOfType,
     doesPropertyExist,
     isArrayOfStrings,
     PublicDataValidationError,
-    checkAppointment
+    checkAppointment,
+    IEthereumResponse
 } from "../../dataEntities";
 import { Inspector } from "../../inspector";
 import { PublicInspectionError, ConfigurationError } from "../../dataEntities/errors";
@@ -28,7 +29,7 @@ export interface IKitsuneStateUpdate {
 /**
  * An appointment containing kitsune specific information
  */
-export class KitsuneAppointment extends Appointment {
+export class KitsuneAppointment extends EthereumAppointment {
     constructor(obj: { stateUpdate: IKitsuneStateUpdate; expiryPeriod: number; type: ChannelType.Kitsune });
     constructor(obj: any) {
         if (KitsuneAppointment.checkKitsuneAppointment(obj)) {
@@ -94,17 +95,18 @@ export class KitsuneAppointment extends Appointment {
         return KitsuneTools.ContractAbi;
     }
 
-    getSubmitStateFunction(): (contract: ethers.Contract) => Promise<void> {
-        return async (contract: ethers.Contract) => {
-            let sig0 = utils.splitSignature(this.stateUpdate.signatures[0]);
-            let sig1 = utils.splitSignature(this.stateUpdate.signatures[1]);
+    getResponseFunctionName(): string {
+        return "setstate";
+    }
 
-            return await contract.setstate(
-                [sig0.v - 27, sig0.r, sig0.s, sig1.v - 27, sig1.r, sig1.s],
-                this.stateUpdate.round,
-                this.stateUpdate.hashState
-            );
-        };
+    getResponseFunctionArgs(): any[] {
+        const sig0 = utils.splitSignature(this.stateUpdate.signatures[0]);
+        const sig1 = utils.splitSignature(this.stateUpdate.signatures[1]);
+        return [
+            [sig0.v - 27, sig0.r, sig0.s, sig1.v - 27, sig1.r, sig1.s],
+            this.stateUpdate.round,
+            this.stateUpdate.hashState
+        ];
     }
 }
 
@@ -243,3 +245,4 @@ export class KitsuneInspector extends Inspector<KitsuneAppointment> {
         });
     }
 }
+

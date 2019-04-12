@@ -1,4 +1,4 @@
-export { Appointment } from "./appointment";
+export { IAppointment, IEthereumAppointment, EthereumAppointment, IEthereumResponse } from "./appointment";
 export { PublicDataValidationError, PublicInspectionError, ConfigurationError } from "./errors";
 export { ChannelType } from "./channelType";
 export {

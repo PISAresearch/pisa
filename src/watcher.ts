@@ -1,8 +1,8 @@
-import { IAppointment } from "./dataEntities/appointment";
+import { IEthereumAppointment, EthereumAppointment } from "./dataEntities/appointment";
 import { ethers } from "ethers";
 import logger from "./logger";
 import { inspect } from "util";
-import { Responder } from "./responder";
+import { EthereumResponderManager } from "./responder";
 import { PublicInspectionError, ConfigurationError } from "./dataEntities/errors";
 import ReadWriteLock from "rwlock";
 
@@ -14,8 +14,7 @@ import ReadWriteLock from "rwlock";
 export class Watcher {
     public constructor(
         public readonly provider: ethers.providers.Provider,
-        public readonly signer: ethers.Signer,
-        public readonly responder: Responder
+        public readonly ethereumResponderManager: EthereumResponderManager
     ) {}
     private readonly store: WatchedAppointmentStore = new WatchedAppointmentStore();
     private readonly lock = new ReadWriteLock();
@@ -24,7 +23,7 @@ export class Watcher {
      * Start watch for an event specified by the appointment, and respond if it the event is raised.
      * @param appointment Contains information about where to watch for events, and what information to suppli as part of a response
      */
-    addAppointment(appointment: IAppointment) {
+    addAppointment(appointment: EthereumAppointment) {
         // PISA: this lock is the hammer approach. Really we should more carefully consider the critical sections below,
         // PISA: but for now we just allow one appointment to be added at a time
         this.lock.writeLock(release => {
@@ -64,7 +63,7 @@ export class Watcher {
                         appointment.getContractAddress(),
                         appointment.getContractAbi(),
                         this.provider
-                    ).connect(this.signer);
+                    );
                 }
             }
 
@@ -81,12 +80,10 @@ export class Watcher {
                         )
                     );
                     logger.debug(`Event info: ${inspect(args)}`);
-                    const submitStateFunction = appointment.getSubmitStateFunction();
-                    const bufferedFunction = async () => await submitStateFunction(contract);
 
                     // pass the response to the responder to complete. At this point the job has completed as far as
                     // the watcher is concerned, therefore although respond is an async function we do not need to await it for a result
-                    this.responder.respond(bufferedFunction, appointment);
+                    this.ethereumResponderManager.respond(appointment);
 
                     // after firing a response we can remove the appointment
                     this.store.removeAppointment(appointment);
@@ -128,7 +125,7 @@ class WatchedAppointmentStore {
 
     private readonly channels: {
         [channelIdentifier: string]: {
-            appointment: IAppointment;
+            appointment: IEthereumAppointment;
             listener: ethers.providers.Listener;
         };
     } = {};
@@ -139,7 +136,7 @@ class WatchedAppointmentStore {
      * @param contract
      * @param listener
      */
-    addOrUpdateAppointment(appointment: IAppointment, contract: ethers.Contract, listener: ethers.providers.Listener) {
+    addOrUpdateAppointment(appointment: IEthereumAppointment, contract: ethers.Contract, listener: ethers.providers.Listener) {
         const appointmentAndListener = this.channels[appointment.getStateLocator()];
 
         if (!appointmentAndListener) {
@@ -174,7 +171,7 @@ class WatchedAppointmentStore {
      * by any existing appointments.
      * @param appointment
      */
-    removeAppointment(appointment: IAppointment) {
+    removeAppointment(appointment: IEthereumAppointment) {
         // remove the appointment
         this.channels[appointment.getStateLocator()] = undefined;
 
@@ -190,7 +187,7 @@ class WatchedAppointmentStore {
      * @param channelLocator
      * @param nonce
      */
-    getPreviousAppointmentForChannel(currentAppointment: IAppointment) {
+    getPreviousAppointmentForChannel(currentAppointment: IEthereumAppointment) {
         // get the stored contract, if there isn't one there cant be an appointment either
         const contract = this.getStoredContract(currentAppointment.getContractAddress());
         if (!contract) return undefined;

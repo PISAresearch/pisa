@@ -1,7 +1,7 @@
 import express, { Response } from "express";
 import httpContext from "express-http-context";
 import logger from "./logger";
-import { PublicInspectionError, PublicDataValidationError } from "./dataEntities";
+import { PublicInspectionError, PublicDataValidationError, IEthereumResponse } from "./dataEntities";
 import { Raiden, Kitsune } from "./integrations";
 import { Watcher } from "./watcher";
 import { PisaTower } from "./tower";
@@ -10,7 +10,7 @@ import { setRequestId } from "./customExpressHttpContext";
 import { Server } from "http";
 import { inspect } from "util";
 import { ethers } from "ethers";
-import { Responder } from "./responder";
+import { EthereumResponderManager } from "./responder";
 
 /**
  * Hosts a PISA service at the endpoint.
@@ -36,8 +36,8 @@ export class PisaService {
             next();
         });
 
-        const responder = new Responder(10);
-        const watcher = new Watcher(jsonRpcProvider, wallet, responder);
+        const ethereumResponderManager = new EthereumResponderManager(wallet);
+        const watcher = new Watcher(jsonRpcProvider, ethereumResponderManager);
         const tower = new PisaTower(jsonRpcProvider, watcher, [Raiden, Kitsune]);
 
         app.post("/appointment", this.appointment(tower));
