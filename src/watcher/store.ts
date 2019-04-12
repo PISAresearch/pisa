@@ -7,8 +7,8 @@ import logger from "../logger";
 export interface IAppointmentStore {
     /**
      * Add an appointment to the store. If an appointment with the same state
-     * locator already exists, it is updated if the supplied appointment has a higher nonce, 
-     * otherwise this does nothing. If an appointment with the same state locator does not 
+     * locator already exists, it is updated if the supplied appointment has a higher nonce,
+     * otherwise this does nothing. If an appointment with the same state locator does not
      * already exist, then appointment is added.
      * @param appointment
      */
@@ -83,8 +83,6 @@ export class MemoryAppointmentStore implements IAppointmentStore {
     }
 
     async getExpiredSince(expiryTime: number): Promise<IEthereumAppointment[]> {
-        return Object.keys(this.appointmentsById)
-            .map(a => this.appointmentsById[a])
-            .filter(a => a.endTime < expiryTime);
+        return Object.values(this.appointmentsById).filter(a => a.endTime < expiryTime);
     }
 }
