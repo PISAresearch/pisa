@@ -12,7 +12,7 @@ interface IAppointmentListener {
  * appointments are keyed only by their filter, so an appointment could be updated, then another
  * process tries to remove the old appointment and in doing so removes the new one. This class
  * assigns appointment ids to listeners and ensures that appointments are only removed from the
- * provided if the provide appointment id matches.
+ * provider if the provide appointment id matches.
  */
 export class AppointmentSubscriber {
     constructor(private readonly provider: ethers.providers.Provider) {}
