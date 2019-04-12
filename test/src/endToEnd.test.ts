@@ -5,7 +5,7 @@ import { ethers, Signer } from "ethers";
 import Ganache from "ganache-core";
 import { ChannelType } from "../../src/dataEntities";
 
-import { Responder } from "../../src/responder";
+import { EthereumResponderManager } from "../../src/responder";
 import { MemoryAppointmentStore } from "../../src/watcher/store";
 const ganache = Ganache.provider({
     mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect"
@@ -64,9 +64,8 @@ describe("End to end", () => {
         await inspector.inspectAndPass(appointment);
 
         // 2. pass this appointment to the watcher
-        const responder = new Responder(10, provider.getSigner(pisaAccount));
-        const memoryStore = new MemoryAppointmentStore();
-        const watcher = new Watcher(provider, responder, 20, memoryStore);
+        const responderManager = new EthereumResponderManager(provider.getSigner(pisaAccount));
+        const watcher = new Watcher(provider, responderManager, 20, new MemoryAppointmentStore());
         const player0Contract = channelContract.connect(provider.getSigner(player0));
 
         await watcher.addAppointment(appointment);

@@ -1,8 +1,8 @@
-import { IAppointment } from "../dataEntities";
+import { IEthereumAppointment } from "../dataEntities";
 import { ethers } from "ethers";
 import logger from "../logger";
 import { EventObserver } from "./eventObserver";
-import { Responder } from "../responder";
+import { EthereumResponderManager } from "../responder";
 import { ConfigurationError } from "../dataEntities/errors";
 import { AppointmentSubscriber } from "./appointmentSubscriber";
 import { IAppointmentStore } from "./store";
@@ -25,7 +25,7 @@ export class Watcher {
      */
     public constructor(
         public readonly provider: ethers.providers.Provider,
-        public readonly responder: Responder,
+        public readonly responder: EthereumResponderManager,
         public readonly confirmationsCount: number,
         public readonly store: IAppointmentStore
     ) {
@@ -76,7 +76,7 @@ export class Watcher {
      * Start watch for an event specified by the appointment, and respond if it the event is raised.
      * @param appointment Contains information about where to watch for events, and what information to suppli as part of a response
      */
-    public async addAppointment(appointment: IAppointment): Promise<boolean> {
+    public async addAppointment(appointment: IEthereumAppointment): Promise<boolean> {
         return await this.withLog(appointment, async () => {
             const watchStartTime = Date.now();
             if (!appointment.passedInspection) throw new ConfigurationError(`Inspection not passed.`);
@@ -107,7 +107,7 @@ export class Watcher {
     }
 
     /** A helper method just for adding some logging */
-    private async withLog(appointment: IAppointment, addAppointment: (appointment: IAppointment) => Promise<boolean>) {
+    private async withLog(appointment: IEthereumAppointment, addAppointment: (appointment: IEthereumAppointment) => Promise<boolean>) {
         logger.info(appointment.formatLog(`Begin watching for event ${appointment.getEventName()}.`));
 
         // business logic

@@ -1,21 +1,21 @@
-import { IAppointment } from "../dataEntities";
+import { IEthereumAppointment } from "../dataEntities";
 import { IAppointmentStore } from "./store";
 import logger from "../logger";
-import { Responder } from "../responder";
+import { EthereumResponderManager } from "../responder";
 import { inspect } from "util";
 
 /**
  * Observes appointment related events
  */
 export class EventObserver {
-    constructor(private readonly responder: Responder, private readonly store: IAppointmentStore) {}
+    constructor(private readonly responder: EthereumResponderManager, private readonly store: IAppointmentStore) {}
 
     /**
      * Calls the responder and removes the appointment from the store
      * @param appointment 
      * @param eventArgs 
      */
-    public async observe(appointment: IAppointment, eventArgs: any[]) {
+    public async observe(appointment: IEthereumAppointment, eventArgs: any[]) {
         return await this.withLogAndCatch(appointment, eventArgs, async () => {
             // pass the appointment to the responder to complete. At this point the job has completed as far as
             // the watcher is concerned, therefore although respond is an async function we do not need to await it for a result
@@ -28,9 +28,9 @@ export class EventObserver {
 
     /** A helper method for wrapping a block in a catch, and logging relevant info */
     private async withLogAndCatch(
-        appointment: IAppointment,
+        appointment: IEthereumAppointment,
         eventArgs: any[],
-        observeEvent: (appointment: IAppointment, eventArgs: any[]) => Promise<void>
+        observeEvent: (appointment: IEthereumAppointment, eventArgs: any[]) => Promise<void>
     ) {
         // this callback should not throw exceptions as they cannot be handled elsewhere
         try {

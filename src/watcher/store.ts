@@ -1,4 +1,4 @@
-import { IAppointment } from "../dataEntities";
+import { IEthereumAppointment } from "../dataEntities";
 import logger from "../logger";
 
 /**
@@ -12,7 +12,7 @@ export interface IAppointmentStore {
      * already exist, then appointment is added.
      * @param appointment
      */
-    addOrUpdateByStateLocator(appointment: IAppointment): Promise<boolean>;
+    addOrUpdateByStateLocator(appointment: IEthereumAppointment): Promise<boolean>;
 
     /**
      * Remove an appointment which matches this id. Do nothing if that appointment does not exist.
@@ -24,7 +24,7 @@ export interface IAppointmentStore {
      * Find all appointments that have expired at a certain time.
      * @param time
      */
-    getExpiredSince(time: number): Promise<IAppointment[]>;
+    getExpiredSince(time: number): Promise<IEthereumAppointment[]>;
 }
 
 /**
@@ -33,13 +33,13 @@ export interface IAppointmentStore {
  */
 export class MemoryAppointmentStore implements IAppointmentStore {
     private readonly appointmentsById: {
-        [appointmentId: string]: IAppointment;
+        [appointmentId: string]: IEthereumAppointment;
     } = {};
     private readonly appointmentsByStateLocator: {
-        [appointmentStateLocator: string]: IAppointment;
+        [appointmentStateLocator: string]: IEthereumAppointment;
     } = {};
 
-    async addOrUpdateByStateLocator(appointment: IAppointment): Promise<boolean> {
+    async addOrUpdateByStateLocator(appointment: IEthereumAppointment): Promise<boolean> {
         const currentAppointment = this.appointmentsByStateLocator[appointment.getStateLocator()];
         // is there a current appointment
         if (currentAppointment) {
@@ -82,7 +82,7 @@ export class MemoryAppointmentStore implements IAppointmentStore {
         return false;
     }
 
-    async getExpiredSince(expiryTime: number): Promise<IAppointment[]> {
+    async getExpiredSince(expiryTime: number): Promise<IEthereumAppointment[]> {
         return Object.keys(this.appointmentsById)
             .map(a => this.appointmentsById[a])
             .filter(a => a.endTime < expiryTime);

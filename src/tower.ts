@@ -1,4 +1,4 @@
-import { Appointment, PublicDataValidationError } from "./dataEntities";
+import { EthereumAppointment, PublicDataValidationError } from "./dataEntities";
 import { Inspector } from "./inspector";
 import { IChannelConfig } from "./integrations";
 import { Watcher } from "./watcher/watcher";
@@ -11,13 +11,13 @@ export class PisaTower {
     constructor(
         public readonly provider: ethers.providers.Provider,
         public readonly watcher: Watcher,
-        channelConfigs: IChannelConfig<Appointment, Inspector<Appointment>>[]
+        channelConfigs: IChannelConfig<EthereumAppointment, Inspector<EthereumAppointment>>[]
     ) {
         channelConfigs.forEach(c => (this.configs[c.channelType] = c));
     }
 
     configs: {
-        [type: number]: IChannelConfig<Appointment, Inspector<Appointment>>;
+        [type: number]: IChannelConfig<EthereumAppointment, Inspector<EthereumAppointment>>;
     } = {};
 
     /**

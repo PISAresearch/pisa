@@ -1,7 +1,7 @@
-import { Appointment, ChannelType } from "./dataEntities";
+import { EthereumAppointment, ChannelType } from "./dataEntities";
 import logger from "./logger";
 
-export abstract class Inspector<TAppointment extends Appointment> {
+export abstract class Inspector<TAppointment extends EthereumAppointment> {
     protected constructor(public readonly channelType: ChannelType) {}
 
     public abstract async checkInspection(appointment): Promise<void>;
@@ -11,7 +11,7 @@ export abstract class Inspector<TAppointment extends Appointment> {
      * Sets an the result of the inspection on the appointment
      * @param appointment
      */
-    async inspectAndPass(appointment: TAppointment): Promise<void> {
+    async inspectAndPass(appointment: EthereumAppointment): Promise<void> {
         logger.info(appointment.formatLog("Begin inspection."));
         logger.debug(appointment.formatLog(JSON.stringify(appointment)));
         await this.checkInspection(appointment);

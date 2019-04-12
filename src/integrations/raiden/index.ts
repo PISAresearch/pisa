@@ -1,10 +1,10 @@
 import {
-    Appointment,
+    EthereumAppointment,
     ChannelType,
     checkAppointment,
     propertyExistsAndIsOfType,
     doesPropertyExist,
-    PublicDataValidationError
+    PublicDataValidationError,
 } from "../../dataEntities";
 import { ethers, utils } from "ethers";
 import { RaidenTools } from "./tools";
@@ -34,7 +34,7 @@ interface IRaidenStateUpdate {
 /**
  * An appointment containing Raiden specific information
  */
-export class RaidenAppointment extends Appointment {
+export class RaidenAppointment extends EthereumAppointment {
     constructor(obj: { stateUpdate: IRaidenStateUpdate; expiryPeriod: number; type: ChannelType.Raiden });
     constructor(obj: any) {
         if (RaidenAppointment.checkRaidenAppointment(obj)) {
@@ -137,18 +137,21 @@ export class RaidenAppointment extends Appointment {
         return RaidenTools.ContractAbi;
     }
 
-    getSubmitStateFunction(): (contract: ethers.Contract) => Promise<any> {
-        return async (contract: ethers.Contract) =>
-            await contract.updateNonClosingBalanceProof(
-                this.stateUpdate.channel_identifier,
-                this.stateUpdate.closing_participant,
-                this.stateUpdate.non_closing_participant,
-                this.stateUpdate.balance_hash,
-                this.stateUpdate.nonce,
-                this.stateUpdate.additional_hash,
-                this.stateUpdate.closing_signature,
-                this.stateUpdate.non_closing_signature
-            );
+    getResponseFunctionName(): string {
+        return "updateNonClosingBalanceProof";
+    }
+
+    getResponseFunctionArgs(): any[] {
+        return [
+            this.stateUpdate.channel_identifier,
+            this.stateUpdate.closing_participant,
+            this.stateUpdate.non_closing_participant,
+            this.stateUpdate.balance_hash,
+            this.stateUpdate.nonce,
+            this.stateUpdate.additional_hash,
+            this.stateUpdate.closing_signature,
+            this.stateUpdate.non_closing_signature
+        ]
     }
 }
 
