@@ -5,8 +5,25 @@ import logger from "../logger";
  * The functionality required in an appointment store
  */
 export interface IAppointmentStore {
+    /**
+     * Add an appointment to the store. If an appointment with the same state
+     * locator already exists, it is updated if the supplied appointment has a higher nonce, 
+     * otherwise this does nothing. If an appointment with the same state locator does not 
+     * already exist, then appointment is added.
+     * @param appointment
+     */
     addOrUpdateByStateLocator(appointment: IAppointment): Promise<boolean>;
+
+    /**
+     * Remove an appointment which matches this id. Do nothing if that appointment does not exist.
+     * @param appointmentId
+     */
     removeById(appointmentId: string): Promise<boolean>;
+
+    /**
+     * Find all appointments that have expired at a certain time.
+     * @param time
+     */
     getExpiredSince(time: number): Promise<IAppointment[]>;
 }
 
@@ -27,12 +44,11 @@ export class MemoryAppointmentStore implements IAppointmentStore {
         // is there a current appointment
         if (currentAppointment) {
             if (currentAppointment.getStateNonce() >= appointment.getStateNonce()) {
-                // the new appointment has a lower nonce than the one we're currently storing, so don't add it
                 logger.info(
                     appointment.formatLog(
                         `Nonce ${appointment.getStateNonce()} is lower than current appointment ${
-                            appointment.id
-                        } nonce ${appointment.getStateNonce()}`
+                            currentAppointment.id
+                        } nonce ${currentAppointment.getStateNonce()}`
                     )
                 );
 
@@ -42,7 +58,7 @@ export class MemoryAppointmentStore implements IAppointmentStore {
                 delete this.appointmentsById[currentAppointment.id];
             }
         }
-        
+
         // add the new appointment
         this.appointmentsByStateLocator[appointment.getStateLocator()] = appointment;
         this.appointmentsById[appointment.id] = appointment;
@@ -67,8 +83,6 @@ export class MemoryAppointmentStore implements IAppointmentStore {
     }
 
     async getExpiredSince(expiryTime: number): Promise<IAppointment[]> {
-        // 102: very inefficient sort, only useful for small appoinment numbers
-
         return Object.keys(this.appointmentsById)
             .map(a => this.appointmentsById[a])
             .filter(a => a.endTime < expiryTime);

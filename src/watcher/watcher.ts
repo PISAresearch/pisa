@@ -1,12 +1,12 @@
 import { IAppointment } from "../dataEntities";
 import { ethers } from "ethers";
 import logger from "../logger";
-import { inspect } from "util";
+import { EventObserver } from "./eventObserver";
 import { Responder } from "../responder";
 import { ConfigurationError } from "../dataEntities/errors";
 import { AppointmentSubscriber } from "./appointmentSubscriber";
 import { IAppointmentStore } from "./store";
-import { AppointmentStoreGarbageCollector } from "./garbageCollector";
+import { AppointmentStoreGarbageCollector as AppointmentGarbageCollector } from "./garbageCollector";
 
 /**
  * Watches the chain for events related to the supplied appointments. When an event is noticed data is forwarded to the
@@ -27,11 +27,13 @@ export class Watcher {
         public readonly provider: ethers.providers.Provider,
         public readonly responder: Responder,
         public readonly confirmationsCount: number,
-        public store: IAppointmentStore
+        public readonly store: IAppointmentStore
     ) {
         this.appointmentSubscriber = new AppointmentSubscriber(provider);
-        this.zStore = store;
-        this.appointmentStoreGarbageCollector = new AppointmentStoreGarbageCollector(
+        this.eventObserver = new EventObserver(responder, store);
+
+        // When we start watching for appointments it is relevant to start searching for expired ones
+        this.appointmentStoreGarbageCollector = new AppointmentGarbageCollector(
             provider,
             confirmationsCount,
             store,
@@ -40,9 +42,9 @@ export class Watcher {
         this.appointmentStoreGarbageCollector.start();
     }
 
+    private readonly eventObserver: EventObserver;
     private readonly appointmentSubscriber: AppointmentSubscriber;
-    private readonly zStore: IAppointmentStore;
-    private readonly appointmentStoreGarbageCollector: AppointmentStoreGarbageCollector;
+    private readonly appointmentStoreGarbageCollector: AppointmentGarbageCollector;
 
     // there are three separate processes that can run concurrently as part of the watcher
     // each of them updates the data store.
@@ -70,65 +72,58 @@ export class Watcher {
     //      appointment id, and it shouldn't matter if an appointment does not exist to be deleted. (Although this
     //      should be unlikely)
 
-    async observeEvent(appointment: IAppointment, ...eventArgs: any[]) {
-        // this callback should not throw exceptions as they cannot be handled elsewhere
-        try {
-            logger.info(
-                appointment.formatLog(
-                    `Observed event ${appointment.getEventName()} in contract ${appointment.getContractAddress()} with arguments : ${eventArgs.slice(
-                        0,
-                        eventArgs.length - 1
-                    )}.`
-                )
-            );
-            logger.debug(`Event info: ${inspect(eventArgs)}`);
-
-            // pass the appointment to the responder to complete. At this point the job has completed as far as
-            // the watcher is concerned, therefore although respond is an async function we do not need to await it for a result
-            this.responder.respond(appointment);
-
-            // after firing a response we can remove the local store
-            await this.zStore.removeById(appointment.id);
-        } catch (doh) {
-            // an error occured whilst responding to the callback - this is serious and the problem needs to be correctly diagnosed
-            logger.error(
-                appointment.formatLog(
-                    `An unexpected errror occured whilst responding to event ${appointment.getEventName()} in contract ${appointment.getContractAddress()}.`
-                )
-            );
-            logger.error(appointment.formatLog(doh));
-        }
-    }
-
     /**
      * Start watch for an event specified by the appointment, and respond if it the event is raised.
      * @param appointment Contains information about where to watch for events, and what information to suppli as part of a response
      */
-    async addAppointment(appointment: IAppointment) {
-        //PISA: also check rate limiting
-        const watchStartTime = Date.now();
-        if (!appointment.passedInspection) throw new ConfigurationError(`Inspection not passed.`);
-        if (appointment.startTime > watchStartTime || appointment.endTime <= watchStartTime) {
-            throw new ConfigurationError(
-                `Time now: ${watchStartTime} is not between start time: ${appointment.startTime} and end time ${
-                    appointment.endTime
-                }.`
+    public async addAppointment(appointment: IAppointment): Promise<boolean> {
+        return await this.withLog(appointment, async () => {
+            const watchStartTime = Date.now();
+            if (!appointment.passedInspection) throw new ConfigurationError(`Inspection not passed.`);
+            if (appointment.startTime > watchStartTime || appointment.endTime <= watchStartTime) {
+                throw new ConfigurationError(
+                    `Time now: ${watchStartTime} is not between start time: ${appointment.startTime} and end time ${
+                        appointment.endTime
+                    }.`
+                );
+            }
+
+            // update this appointment in the store
+            const updated = await this.store.addOrUpdateByStateLocator(appointment);
+
+            if (updated) {
+                // remove the subscription, this is blocking code so we don't have to worry that an event will be observed
+                // whilst we remove these listeners and add new ones
+                const filter = appointment.getEventFilter();
+                this.appointmentSubscriber.unsubscribeAll(filter);
+
+                // subscribe the listener
+                const listener = async (...args: any[]) => await this.eventObserver.observe(appointment, args);
+                this.appointmentSubscriber.subscribeOnce(appointment.id, filter, listener);
+            }
+
+            return updated;
+        });
+    }
+
+    /** A helper method just for adding some logging */
+    private async withLog(appointment: IAppointment, addAppointment: (appointment: IAppointment) => Promise<boolean>) {
+        logger.info(appointment.formatLog(`Begin watching for event ${appointment.getEventName()}.`));
+
+        // business logic
+        const result = await addAppointment(appointment);
+
+        if (result) {
+            // the new appointment has a lower nonce than the one we're currently storing, so don't add it
+            logger.info(appointment.formatLog(`Appointment added to watcher.`));
+        } else {
+            logger.info(
+                appointment.formatLog(
+                    `An appointment with a higher nonce than ${appointment.getStateNonce()} already exists. Appointment not added to watcher.`
+                )
             );
         }
 
-        logger.info(appointment.formatLog(`Begin watching for event ${appointment.getEventName()}.`));
-
-        // update this appointment in the store
-        const updated = await this.zStore.addOrUpdateByStateLocator(appointment);
-        if (updated) {
-            // remove the subscription, this is blocking code so we don't have to worry that an event will be observed
-            // whilst we remove these listeners and add new ones
-            const filter = appointment.getEventFilter();
-            this.appointmentSubscriber.unsubscribeAll(filter);
-
-            // subscribe the listener
-            const listener = async (...args: any[]) => await this.observeEvent(appointment, args);
-            this.appointmentSubscriber.subscribeOnce(appointment.id, filter, listener);
-        }
+        return result;
     }
 }
