@@ -83,7 +83,7 @@ export abstract class Responder extends EventEmitter {
  * were waiting for a transaction to be mined. This might likely signal a failure of
  * the provider.
  */
-class NoNewBlockError extends Error {
+export class NoNewBlockError extends Error {
     constructor(message: string) {
         super(message);
         this.name = "NoNewBlockError";
@@ -141,8 +141,10 @@ export class EthereumDedicatedResponder extends EthereumResponder {
     public static readonly WAIT_TIME_BETWEEN_ATTEMPTS = 1000;
 
     // Waiting time before considering a request to the provider failed, in milliseconds
-    public static readonly WAIT_TIME_FOR_PROVIDER_RESPONSE = 30000;
+    public static readonly WAIT_TIME_FOR_PROVIDER_RESPONSE = 30*1000;
 
+    // Waiting time before throwing an error if no new blocks are received, in milliseconds
+    public static readonly WAIT_TIME_FOR_NEW_BLOCK = 120*1000
 
     // Timestamp in milliseconds when the last block was received (or since the creation of this object)
     private timeLastBlockReceived: number = Date.now();
@@ -202,7 +204,7 @@ export class EthereumDedicatedResponder extends EthereumResponder {
                     const intervalHandle = setInterval( () => {
                         // milliseconds since the last block was received (or the responder was instantiated)
                         const msSinceLastBlock = Date.now() - this.timeLastBlockReceived;
-                        if (msSinceLastBlock > 60*1000) {
+                        if (msSinceLastBlock > EthereumDedicatedResponder.WAIT_TIME_FOR_NEW_BLOCK) {
                             clearInterval(intervalHandle)
                             reject(new NoNewBlockError(`No new block was received for ${Math.round(msSinceLastBlock/1000)} seconds; provider might be down.`));
                         }

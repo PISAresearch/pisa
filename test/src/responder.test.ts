@@ -4,9 +4,10 @@ import "mocha";
 import { ethers } from "ethers";
 import Ganache from "ganache-core";
 import { KitsuneAppointment, KitsuneInspector, KitsuneTools } from "../../src/integrations/kitsune";
-import { EthereumDedicatedResponder, ResponderEvent } from "../../src/responder";
+import { EthereumDedicatedResponder, ResponderEvent, NoNewBlockError } from "../../src/responder";
 import { ChannelType } from "../../src/dataEntities";
 import chaiAsPromised from "chai-as-promised";
+import { TimeoutError } from "../../src/utils";
 
 const ganache = Ganache.provider({
     mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect"
@@ -198,6 +199,46 @@ describe("DedicatedEthereumResponder", () => {
         expect(responseFailedSpy.callCount, "emitted ResponseFailed exactly once").to.equal(1);
         expect(responseSentSpy.called, "did not emit ResponseSent").to.be.false;
         expect(responseConfirmedSpy.called, "did not emit ResponseConfirmed").to.be.false;
+
+        this.clock.restore();
+        sinon.restore();
+    });
+
+    it("emits the AttemptFailed with a NoNewBlockError if there is no new block for too long", async () => {
+        this.clock = sinon.useFakeTimers({ shouldAdvanceTime: true });
+
+        const { signer, appointment, response } = await getTestData();
+
+        const nAttempts = 1;
+        const responder = new EthereumDedicatedResponder(signer, appointment.id, response, 40, nAttempts);
+
+        const attemptFailedSpy = sinon.spy();
+        const responseFailedSpy = sinon.spy();
+        const responseSentSpy = sinon.spy();
+        const responseConfirmedSpy = sinon.spy();
+
+        sinon.spy(signer, 'sendTransaction');
+
+        responder.on(ResponderEvent.AttemptFailed, attemptFailedSpy);
+        responder.on(ResponderEvent.ResponseFailed, responseFailedSpy);
+        responder.on(ResponderEvent.ResponseSent, responseSentSpy);
+        responder.on(ResponderEvent.ResponseConfirmed, responseConfirmedSpy);
+
+        // Start the response flow
+        responder.respond();
+
+        // Wait for the response to be sent
+        // We assume it will be done using the sendTransaction method on the signer
+        await waitForSpy(signer.sendTransaction);
+
+        // Wait for 1 second more than the deadline for throwing if no new blocks are seen
+        this.clock.tick(1000 + EthereumDedicatedResponder.WAIT_TIME_FOR_NEW_BLOCK);
+
+        await waitForSpy(attemptFailedSpy);
+
+        // Check if the parameter of the attemptFailed event is an error of type NoNewBlockError
+        const args = attemptFailedSpy.args[0]; //arguments of the first call
+        expect(args[1] instanceof NoNewBlockError, "AttemptFailed emitted with NoNewBlockError").to.be.true;
 
         this.clock.restore();
         sinon.restore();
