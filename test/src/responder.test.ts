@@ -7,9 +7,6 @@ import { KitsuneAppointment, KitsuneInspector, KitsuneTools } from "../../src/in
 import { EthereumDedicatedResponder, ResponderEvent } from "../../src/responder";
 import { ChannelType } from "../../src/dataEntities";
 import chaiAsPromised from "chai-as-promised";
-import { wait, promiseTimeout } from "../../src/utils";
-import { TransactionResponse } from "ethers/providers";
-import { toUtf8String } from "ethers/utils";
 
 const ganache = Ganache.provider({
     mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect"
@@ -157,7 +154,9 @@ describe("DedicatedEthereumResponder", () => {
 
         await promise; // Make sure the ResponseSent event is generated
 
-        // TODO: test that the contract state is correct
+        // Test if the channel hashed state has been updated
+        const channelState = await channelContract.hstate();
+        expect(channelState).to.equal(hashState);
     });
 
     it("emits the AttemptFailed and ResponseFailed events the correct number of times on failure", async () => {
