@@ -76,7 +76,7 @@ describe("DedicatedEthereumResponder", () => {
                 }
                 setTimeout(testSpy, 20);
             };
-            setTimeout(testSpy, 0);
+            testSpy();
         });
     }
 
