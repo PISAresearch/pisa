@@ -7,7 +7,6 @@ import { KitsuneAppointment, KitsuneInspector, KitsuneTools } from "../../src/in
 import { EthereumDedicatedResponder, ResponderEvent, NoNewBlockError } from "../../src/responder";
 import { ChannelType } from "../../src/dataEntities";
 import chaiAsPromised from "chai-as-promised";
-import { TimeoutError } from "../../src/utils";
 
 const ganache = Ganache.provider({
     mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect"
@@ -30,7 +29,12 @@ describe("DedicatedEthereumResponder", () => {
     function takeGanacheSnapshot(): Promise<string> {
         return new Promise(async (resolve, reject) => {
             ganache.sendAsync({"id": 1, "jsonrpc":"2.0", "method":"evm_snapshot", "params": []}, (err, res: any) => {
-                if (err) reject(err); else resolve(res.result);
+                if (err){
+                    console.log("WARNING: error while creating ganache snapshot");
+                    reject(err);
+                } else {
+                    resolve(res.result);
+                }
             });
         });
     }
@@ -39,7 +43,12 @@ describe("DedicatedEthereumResponder", () => {
     function restoreGanacheSnapshot(id: string) {
         return new Promise(async (resolve, reject) => {
             ganache.sendAsync({"id": 1, "jsonrpc":"2.0", "method":"evm_revert", "params": [id]}, (err, _) => {
-                if (err) reject(err); else resolve();
+                if (err) {
+                    console.log("WARNING: error while restoring ganache snapshot");
+                    reject(err);
+                } else {
+                    resolve();
+                }
             });
         });
     }
@@ -103,15 +112,25 @@ describe("DedicatedEthereumResponder", () => {
         const account0Contract = channelContract.connect(provider.getSigner(account0));
         const tx = await account0Contract.triggerDispute();
         await tx.wait();
+    });
 
-        // Make a snapshot of the blockchain for re-using it in many tests
+    beforeEach(async () => {
+        // The block number at the beginning of the test should be equal to 2.
+        // There are occasional failures happening that seem to be due to incorrect restoring of the snapshot in ganache.
+        // For now we at least provide an approprate error message.
+        // TODO: find out how to get reliable snapshots.
+        const blockNumber = await provider.getBlockNumber();
+        if (blockNumber != 2) {
+            console.log(`WARNING: Sarting test with block #${blockNumber}. It should be 2 instead. Snapshot might be incorrectly restored. Tests will probably fail.`);
+        }
+
         initialSnapshotId = await takeGanacheSnapshot();
     });
 
     // Restore the initial snapshot for the next test
     afterEach(async () => {
+        sinon.restore();
         await restoreGanacheSnapshot(initialSnapshotId);
-        initialSnapshotId = await takeGanacheSnapshot();
     });
 
 
@@ -248,7 +267,7 @@ describe("DedicatedEthereumResponder", () => {
         const { signer, appointment, response } = await getTestData();
 
         const nAttempts = 5;
-        const nConfirmations = 10;
+        const nConfirmations = 5;
         const responder = new EthereumDedicatedResponder(signer, appointment.id, response, nConfirmations, nAttempts);
 
         const attemptFailedSpy = sinon.spy();
@@ -267,8 +286,7 @@ describe("DedicatedEthereumResponder", () => {
         responder.respond();
 
         // Wait for the response to be sent
-        // We assume it will be done using the sendTransaction method on the signer
-        await waitForSpy(signer.sendTransaction);
+        await waitForSpy(responseSentSpy);
 
         expect(responseSentSpy.called, "emitted ResponseSent").to.be.true;
         expect(responseConfirmedSpy.called, "did not emit ResponseConfirmed prematurely").to.be.false;
@@ -289,5 +307,5 @@ describe("DedicatedEthereumResponder", () => {
         expect(responseFailedSpy.called, "did not emit ResponseFailed").to.be.false;
 
         sinon.restore();
-    });
+    }).timeout(5000);
 });
