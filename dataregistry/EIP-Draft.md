@@ -99,7 +99,7 @@ This kills the DataShard. It is only callable by the DataRegistry conntract. Thi
 There is a single implementation by PISA Research Limited.
 
 #### Example implementations are available at
-- [PISA  implementation] https://github.com/PISAresearch/pisa/tree/master/sol/contracts
+- [PISA  implementation] https://github.com/PISAresearch/pisa/tree/master/dataregistry/contracts
 
 
 ## History
