@@ -7,7 +7,9 @@ import { KitsuneAppointment, KitsuneInspector, KitsuneTools } from "../../src/in
 import { EthereumDedicatedResponder, ResponderEvent } from "../../src/responder";
 import { ChannelType } from "../../src/dataEntities";
 import chaiAsPromised from "chai-as-promised";
-import { wait } from "../../src/utils";
+import { wait, promiseTimeout } from "../../src/utils";
+import { TransactionResponse } from "ethers/providers";
+import { toUtf8String } from "ethers/utils";
 
 const ganache = Ganache.provider({
     mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect"
@@ -44,18 +46,36 @@ describe("DedicatedEthereumResponder", () => {
         });
     }
 
-    // Instructs ganache to mine a block
+    // Instructs ganache to mine a block, returns only one at least one block has been mined
     function mineBlock() {
-        new Promise(async (resolve, reject) => {
-            // Wait for a block to actually be mined
-            provider.once("block", () => {
-                // Make sure that all listeners for this block are processed before resolving the promise.
-                setTimeout(resolve, 200);
-            });
+        return new Promise(async (resolve, reject) => {
+            const initialBlockNumber = await provider.getBlockNumber();
 
             ganache.sendAsync({"id": 1, "jsonrpc":"2.0", "method":"evm_mine", "params": []}, (err, _) => {
                 if (err) reject(err);
             });
+
+            const testBlockNumber = async function() {
+                if (await provider.getBlockNumber() > initialBlockNumber){
+                    resolve();
+                } else {
+                    setTimeout(testBlockNumber, 20);
+                }
+            };
+            setTimeout(testBlockNumber, 20);
+        });
+    }
+
+    // Returns a promise that waits for a sinon spy to be called and resolves to the return value of the first call.
+    function waitForSpy(spy: any) {
+        return new Promise( resolve => {
+            const testSpy = function() {
+                if (spy.called) {
+                    resolve(spy.getCall(0).returnValue);
+                }
+                setTimeout(testSpy, 20);
+            };
+            setTimeout(testSpy, 0);
         });
     }
 
@@ -174,10 +194,10 @@ describe("DedicatedEthereumResponder", () => {
         this.clock.tick(tickWaitTime);
         await Promise.resolve();
 
-        expect(attemptFailedSpy.callCount).to.equal(nAttempts);
-        expect(responseFailedSpy.callCount).to.equal(1);
-        expect(responseSentSpy.called).to.be.false;
-        expect(responseConfirmedSpy.called).to.be.false;
+        expect(attemptFailedSpy.callCount, "emitted AttemptFailed the right number of times").to.equal(nAttempts);
+        expect(responseFailedSpy.callCount, "emitted ResponseFailed exactly once").to.equal(1);
+        expect(responseSentSpy.called, "did not emit ResponseSent").to.be.false;
+        expect(responseConfirmedSpy.called, "did not emit ResponseConfirmed").to.be.false;
 
         this.clock.restore();
         sinon.restore();
@@ -200,22 +220,22 @@ describe("DedicatedEthereumResponder", () => {
         responder.on(ResponderEvent.ResponseSent, responseSentSpy);
         responder.on(ResponderEvent.ResponseConfirmed, responseConfirmedSpy);
 
+        sinon.spy(signer, 'sendTransaction');
+
         // Start the response flow
         responder.respond();
 
-        // TODO: is there a better wait to make sure that the responder's request is done?
-        await wait(100);
+        // Wait for the response to be sent
+        // We assume it will be done using the sendTransaction method on the signer
+        await waitForSpy(signer.sendTransaction);
 
         expect(responseSentSpy.called, "emitted ResponseSent").to.be.true;
         expect(responseConfirmedSpy.called, "did not emit ResponseConfirmed prematurely").to.be.false;
 
         // Now wait for enough confirmations
         for (let i = 0; i < nConfirmations; i++) {
-            // this.clock.tick(15000);
             await mineBlock();
         }
-
-        await wait(100);
 
         // Now the response is confirmed
         expect(responseConfirmedSpy.called, "emitted ResponseConfirmed").to.be.true;
@@ -223,5 +243,7 @@ describe("DedicatedEthereumResponder", () => {
         // No failed event should have been generated
         expect(attemptFailedSpy.called, "did not emit AttemptFailed").to.be.false;
         expect(responseFailedSpy.called, "did not emit ResponseFailed").to.be.false;
+
+        sinon.restore();
     });
 });
