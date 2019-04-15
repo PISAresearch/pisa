@@ -125,12 +125,28 @@ describe("DedicatedEthereumResponder", () => {
         }
 
         initialSnapshotId = await takeGanacheSnapshot();
+
+        const newBlockNumber = await provider.getBlockNumber();
+        if (newBlockNumber != 2) {
+            console.log(`WARNING: blockNumber is ${newBlockNumber} right after taking the snapshot. This should not happen.`);
+        }
+
     });
 
     // Restore the initial snapshot for the next test
     afterEach(async () => {
         sinon.restore();
+
+        // Without this, the revert to the snapshot seems to occasionally fail.
+        // TODO: figure out the reason.
+        await provider.getBlockNumber();
+
         await restoreGanacheSnapshot(initialSnapshotId);
+
+        const blockNumber = await provider.getBlockNumber();
+        if (blockNumber != 2) {
+            console.log(`WARNING: block number is ${blockNumber} after evm_revert. It should be 2.`);
+        }
     });
 
 
