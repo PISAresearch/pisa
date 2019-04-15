@@ -46,7 +46,8 @@ describe("DedicatedEthereumResponder", () => {
         });
     }
 
-    // Instructs ganache to mine a block, returns only one at least one block has been mined
+    // Instructs ganache to mine a block; returns a promise that resolves only
+    // when one at least one block has been mined.
     function mineBlock() {
         return new Promise(async (resolve, reject) => {
             const initialBlockNumber = await provider.getBlockNumber();
@@ -236,6 +237,9 @@ describe("DedicatedEthereumResponder", () => {
         for (let i = 0; i < nConfirmations; i++) {
             await mineBlock();
         }
+
+        // There might still be a short interval before the response is sent; we wait for the spy before continuing.
+        await waitForSpy(responseConfirmedSpy);
 
         // Now the response is confirmed
         expect(responseConfirmedSpy.called, "emitted ResponseConfirmed").to.be.true;
