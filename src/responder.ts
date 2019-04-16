@@ -2,16 +2,17 @@ import { EventEmitter } from "events";
 import { ethers } from "ethers";
 import { wait, promiseTimeout, plural } from "./utils";
 import { waitForConfirmations } from "./utils/ethers";
-import { IEthereumAppointment, IEthereumResponse } from "./dataEntities/appointment";
+import { IEthereumAppointment, IEthereumResponseData } from "./dataEntities/appointment";
 import logger from "./logger";
 import { TransactionResponse } from "ethers/providers";
+import { ApplicationError } from "./dataEntities";
 
 /**
  * Responsible for storing the state and managing the flow of a single response.
  */
 // TODO-93: This class and ResponseState are not currently used in any meaningful way.
 //          The plan is to use them for accounting, make sure this is the case.
-export class ResponseFlow {
+export abstract class ResponseFlow {
     private static nextId: number = 0;
 
     readonly id: number;
@@ -19,9 +20,19 @@ export class ResponseFlow {
 
     public status = ResponseState.Started;
 
-    constructor() {
+    constructor(readonly appointmentId: string) {
         this.id = ResponseFlow.nextId++;
         this.creationTimestamp = Date.now();
+    }
+}
+
+/**
+ * This class stores the state of a response on the Ethereum blockchain.
+ */
+export class EthereumResponseFlow extends ResponseFlow {
+    txHash: string = null; // if a transaction has been sent, this is its hash
+    constructor(appointmentId: string, readonly ethereumResponseData: IEthereumResponseData) {
+        super(appointmentId);
     }
 }
 
@@ -51,31 +62,17 @@ export enum ResponderEvent {
  * The responder is solely responsible for ensuring that a transaction gets to the blockchain.
  */
 export abstract class Responder extends EventEmitter {
-    public readonly responseFlow: ResponseFlow;
     /**
      * Creates a new Response object, initiating the flow of submitting state to the blockchain.
      */
     constructor() {
         super();
-        this.responseFlow = new ResponseFlow();
     }
 
     // Commodity function to emit events asynchronously
     protected asyncEmit(...args: any[]): Promise<boolean> {
         return new Promise(resolve => resolve(this.emit.apply(this, args)))
     }
-
-    /**
-     * This function tries to submit the transaction that resolves the dispute, protecting the channel.
-     */
-    protected abstract submitStateFunction(): Promise<any>;
-
-    /**
-     * Initiates the response, implementing the strategy of this responder.
-     *
-     * @param responseFlow The ResponseFlow object of this response.
-     */
-    public abstract respond(): Promise<any>;
 }
 
 /**
@@ -92,32 +89,25 @@ export class NoNewBlockError extends Error {
 
 /**
  * A generic abstract responder for the Ethereum blockchain.
+ * It has exclusive control of a wallet, that is, no two instances should share the same wallet.
  * It implements the submitStateFunction, but no strategy.
  */
 export abstract class EthereumResponder extends Responder {
     // TODO-93: the correct gas limit should be provided based on the appointment/integration.
     //          200000 is enough for Kitsune and Raiden (see https://github.com/raiden-network/raiden-contracts/blob/master/raiden_contracts/data/gas.json).
     private static GAS_LIMIT = 200000;
-    /**
-     * @param signer The signer of the wallet associated with this responder. Each responder should have exclusive access to his wallet.
-     * @param appointmentId The id of the Appointment this object is responding to.
-     * @param ethereumResponse The IEthereumResponse containing what needs to be submitted.
-     */
-    constructor(
-        readonly signer: ethers.Signer,
-        public readonly appointmentId: string,
-        public readonly ethereumResponse: IEthereumResponse
-    ) {
+
+    constructor(public readonly signer: ethers.Signer) {
         super();
     }
 
-    protected submitStateFunction(): Promise<TransactionResponse> {
+    protected submitStateFunction(responseData: IEthereumResponseData): Promise<TransactionResponse> {
         // form the interface so that we can serialise the args and the function name
-        const abiInterface = new ethers.utils.Interface(this.ethereumResponse.contractAbi);
-        const data = abiInterface.functions[this.ethereumResponse.functionName].encode(this.ethereumResponse.functionArgs);
+        const abiInterface = new ethers.utils.Interface(responseData.contractAbi);
+        const data = abiInterface.functions[responseData.functionName].encode(responseData.functionArgs);
         // now create a transaction, specifying possible oher variables
         const transactionRequest = {
-            to: this.ethereumResponse.contractAddress,
+            to: responseData.contractAddress,
             gasLimit: EthereumResponder.GAS_LIMIT,
             // nonce: 0,
             gasPrice: 21000000000, // TODO: choose an appropriate gas price
@@ -146,6 +136,9 @@ export class EthereumDedicatedResponder extends EthereumResponder {
     // Waiting time before throwing an error if no new blocks are received, in milliseconds
     public static readonly WAIT_TIME_FOR_NEW_BLOCK = 120*1000
 
+
+    public readonly responseFlow: EthereumResponseFlow;
+
     // Timestamp in milliseconds when the last block was received (or since the creation of this object)
     private timeLastBlockReceived: number = Date.now();
     private mAttemptsDone: number = 0;
@@ -157,19 +150,21 @@ export class EthereumDedicatedResponder extends EthereumResponder {
     /**
      * @param signer The signer of the wallet associated with this responder. Each responder should have exclusive access to his wallet.
      * @param appointmentId The id of the Appointment this object is responding to.
-     * @param ethereumResponse The IEthereumResponse containing what needs to be submitted.
+     * @param response The IEthereumResponse containing what needs to be submitted.
      * @param [confirmationsRequired=40] The number of confirmations required before a transaction is trusted.
      * @param [maxAttempts=10] The maximum number of retries before the Responder will give up.
      */
     constructor(
-        readonly signer: ethers.Signer,
+        signer: ethers.Signer,
         public readonly appointmentId: string,
-        public readonly ethereumResponse: IEthereumResponse,
+        public readonly responseData: IEthereumResponseData,
 
         public readonly confirmationsRequired = 40,
         private readonly maxAttempts: number = 10
     ) {
-        super(signer, appointmentId, ethereumResponse);
+        super(signer);
+
+        this.responseFlow = new EthereumResponseFlow(appointmentId, responseData);
 
         signer.provider.on("block", this.updateLastBlockTime);
     }
@@ -191,10 +186,11 @@ export class EthereumDedicatedResponder extends EthereumResponder {
             try {
                 // Try to call submitStateFunction, but timeout with an error if
                 // there is no response for 30 seconds.
-                const tx = await promiseTimeout(this.submitStateFunction(), EthereumDedicatedResponder.WAIT_TIME_FOR_PROVIDER_RESPONSE);
+                const tx = await promiseTimeout(this.submitStateFunction(this.responseData), EthereumDedicatedResponder.WAIT_TIME_FOR_PROVIDER_RESPONSE);
 
                 // The response has been sent, but should not be considered confirmed yet.
                 this.responseFlow.status = ResponseState.ResponseSent;
+                this.responseFlow.txHash = tx.hash;
                 this.asyncEmit(ResponderEvent.ResponseSent, this.responseFlow);
 
                 // Wait for enough confirmations before declaring success
@@ -223,6 +219,9 @@ export class EthereumDedicatedResponder extends EthereumResponder {
             } catch (doh) {
                 this.asyncEmit(ResponderEvent.AttemptFailed, this.responseFlow, doh);
 
+                // TODO: if there is a reorg, should check if the txHash is still valid;
+                //       if not, update the respoonseFlow and go back to Started state
+
                 // TODO: does waiting a longer time before retrying help in any way?
                 await wait(EthereumDedicatedResponder.WAIT_TIME_BETWEEN_ATTEMPTS);
             }
@@ -232,6 +231,66 @@ export class EthereumDedicatedResponder extends EthereumResponder {
         this.destroy();
     }
 }
+
+/**
+ * This is a high throughput responder for disputes on ethereum.
+ * It can submit transactions at a much bigger pace, handling many sumultaneous disputes with the same wallet.
+ */
+export class EthereumMultiResponder extends EthereumResponder {
+    private timeoutHandle = setTimeout(this.processTimeout, 1000);
+    private lastBlockNumberSeen: Number = null;
+
+    // Map of the state of this responder, indexed by appointmentId
+    state: {
+        [appointmentId: string]: {
+            responseFlow: EthereumResponseFlow,
+            txLastChecked: Number
+        }
+    } = {}
+
+
+    constructor(signer: ethers.Signer) {
+        super(signer);
+
+        signer.provider.on("block", this.processNewBlock);
+    }
+
+    // TODO: add a destroy function to dispose of this responder instance.
+
+    // Do the work needed whenever a new block is received
+    private processNewBlock(blockNumber: Number) {
+        this.lastBlockNumberSeen = blockNumber
+
+        clearTimeout(this.timeoutHandle);
+
+        // TODO
+
+
+        // Set a timer to react if no new block is received in a long time
+        this.timeoutHandle = setTimeout(this.processTimeout, 120000)
+    }
+
+    // If too much time passes since the last block, do appropriate actions
+    private processTimeout() {
+        // TODO
+
+        throw new Error("Not implemented");
+    }
+
+    public startReponse(appointmentId: string, responseData: IEthereumResponseData) {
+        if (appointmentId in this.state) {
+            throw new ApplicationError(`This responder was already hired for appointment ${appointmentId}.`);
+        }
+
+        const flow = new EthereumResponseFlow(appointmentId, responseData);
+        this.state[appointmentId] = {
+            responseFlow: flow,
+            txLastChecked: null
+        };
+    }
+
+}
+
 
 /**
  * Responsible for handling the business logic of the Responders.
@@ -247,9 +306,9 @@ export class EthereumResponderManager {
     }
 
     public respond(appointment: IEthereumAppointment) {
-        const ethereumResponse = appointment.getResponse();
+        const ethereumResponseData = appointment.getResponseData();
 
-        const responder = new EthereumDedicatedResponder(this.signer, appointment.id, ethereumResponse, 10);
+        const responder = new EthereumDedicatedResponder(this.signer, appointment.id, ethereumResponseData, 10);
         this.responders.add(responder);
         responder
             .on(ResponderEvent.ResponseSent, (responseFlow: ResponseFlow) => {

@@ -169,18 +169,18 @@ describe("DedicatedEthereumResponder", () => {
             type: ChannelType.Kitsune
         });
 
-        const response = appointment.getResponse();
+        const responseData = appointment.getResponseData();
 
         return {
-            signer, round, setStateHash, sig0, sig1, expiryPeriod, appointment, response
+            signer, round, setStateHash, sig0, sig1, expiryPeriod, appointment, responseData
         };
     }
 
 
     it("correctly submits an appointment to the blockchain", async () => {
-        const { signer, appointment, response } = await getTestData();
+        const { signer, appointment, responseData } = await getTestData();
 
-        const responder = new EthereumDedicatedResponder(signer, appointment.id, response, 10);
+        const responder = new EthereumDedicatedResponder(signer, appointment.id, responseData, 10);
         const promise = new Promise((resolve, reject)=> {
             responder.on(ResponderEvent.ResponseSent, resolve);
             responder.on(ResponderEvent.AttemptFailed, reject)
@@ -198,10 +198,10 @@ describe("DedicatedEthereumResponder", () => {
     it("emits the AttemptFailed and ResponseFailed events the correct number of times on failure", async () => {
         this.clock = sinon.useFakeTimers({ shouldAdvanceTime: true });
 
-        const { signer, appointment, response } = await getTestData();
+        const { signer, appointment, responseData } = await getTestData();
 
         const nAttempts = 5;
-        const responder = new EthereumDedicatedResponder(signer, appointment.id, response, 40, nAttempts);
+        const responder = new EthereumDedicatedResponder(signer, appointment.id, responseData, 40, nAttempts);
 
         const attemptFailedSpy = sinon.spy();
         const responseFailedSpy = sinon.spy();
@@ -242,10 +242,10 @@ describe("DedicatedEthereumResponder", () => {
     it("emits the AttemptFailed with a NoNewBlockError if there is no new block for too long", async () => {
         this.clock = sinon.useFakeTimers({ shouldAdvanceTime: true });
 
-        const { signer, appointment, response } = await getTestData();
+        const { signer, appointment, responseData } = await getTestData();
 
         const nAttempts = 1;
-        const responder = new EthereumDedicatedResponder(signer, appointment.id, response, 40, nAttempts);
+        const responder = new EthereumDedicatedResponder(signer, appointment.id, responseData, 40, nAttempts);
 
         const attemptFailedSpy = sinon.spy();
         const responseFailedSpy = sinon.spy();
@@ -280,11 +280,11 @@ describe("DedicatedEthereumResponder", () => {
     });
 
     it("emits the ResponseSent event, followed by ResponseConfirmed after enough confirmations", async () => {
-        const { signer, appointment, response } = await getTestData();
+        const { signer, appointment, responseData } = await getTestData();
 
         const nAttempts = 5;
         const nConfirmations = 5;
-        const responder = new EthereumDedicatedResponder(signer, appointment.id, response, nConfirmations, nAttempts);
+        const responder = new EthereumDedicatedResponder(signer, appointment.id, responseData, nConfirmations, nAttempts);
 
         const attemptFailedSpy = sinon.spy();
         const responseFailedSpy = sinon.spy();
