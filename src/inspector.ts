@@ -1,8 +1,9 @@
 import { EthereumAppointment, ChannelType } from "./dataEntities";
+import { ethers } from "ethers";
 import logger from "./logger";
 
 export abstract class Inspector<TAppointment extends EthereumAppointment> {
-    protected constructor(public readonly channelType: ChannelType) {}
+    protected constructor(public readonly channelType: ChannelType, protected readonly provider: ethers.providers.Provider) {}
 
     public abstract async checkInspection(appointment): Promise<void>;
 
@@ -15,11 +16,14 @@ export abstract class Inspector<TAppointment extends EthereumAppointment> {
         logger.info(appointment.formatLog("Begin inspection."));
         logger.debug(appointment.formatLog(JSON.stringify(appointment)));
         await this.checkInspection(appointment);
+
         // if we pass the inspection then set the result
-        appointment.setInspectionResult(true, Date.now());
+        const currentBlock = await this.provider.getBlockNumber()
+        appointment.setInspectionResult(true, currentBlock);
+
         logger.info(
             appointment.formatLog(
-                `Passed inspection. Start time: ${appointment.startTime}. End time: ${appointment.endTime}.`
+                `Passed inspection. Start block: ${appointment.startBlock}. End block: ${appointment.endBlock}.`
             )
         );
     }

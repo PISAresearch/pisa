@@ -83,6 +83,6 @@ export class MemoryAppointmentStore implements IAppointmentStore {
     }
 
     async getExpiredSince(expiryTime: number): Promise<IEthereumAppointment[]> {
-        return Object.values(this.appointmentsById).filter(a => a.endTime < expiryTime);
+        return Object.values(this.appointmentsById).filter(a => a.endBlock < expiryTime);
     }
 }

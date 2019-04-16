@@ -5,15 +5,15 @@ import uuid from "uuid/v4";
 /**
  * An appointment that has been accepted by PISA
  *
- * @member startTime: start time, in milliseconds elapsed since January 1, 1970, 00:00:00 UTC.
- * @member endTime: end time, in milliseconds elapsed since January 1, 1970, 00:00:00 UTC.
+ * @member startBlock: start block, when the appointment begins.
+ * @member endBlock: end time, when the appointment ends.
  * @member passedInspection: true iff this appointment passed the inspection.
- * @member expiryPeriod: duration of the appointment in milliseconds.
+ * @member expiryPeriod: duration of the appointment in blocks.
  * @member type: one of the supported channel types.
  */
 export interface IAppointment {
-    startTime: number;
-    endTime: number;
+    startBlock: number;
+    endBlock: number;
     passedInspection: boolean;
     expiryPeriod: number;
     type: ChannelType;
@@ -48,23 +48,23 @@ export abstract class EthereumAppointment implements IEthereumAppointment {
         this.id = uuid();
     }
  
-    private mStartTime: number;
-    get startTime() {
-        return this.mStartTime;
+    private mStartBlock: number;
+    get startBlock() {
+        return this.mStartBlock;
     }
-    private mEndTime: number;
-    get endTime() {
-        return this.mEndTime;
+    private mEndBlock: number;
+    get endBlock() {
+        return this.mEndBlock;
     }
     private mPassedInspection: boolean;
     get passedInspection() {
         return this.mPassedInspection;
     }
-    setInspectionResult(passed, startTime) {
+    setInspectionResult(passed, startBlock) {
         this.mPassedInspection = passed;
         if (passed) {
-            this.mStartTime = startTime;
-            this.mEndTime = startTime + this.expiryPeriod;
+            this.mStartBlock = startBlock;
+            this.mEndBlock = startBlock + this.expiryPeriod;
         }
     }
     formatLog(message: string): string {

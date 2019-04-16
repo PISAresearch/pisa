@@ -9,7 +9,6 @@ import {
     isArrayOfStrings,
     PublicDataValidationError,
     checkAppointment,
-    IEthereumResponse
 } from "../../dataEntities";
 import { Inspector } from "../../inspector";
 import { PublicInspectionError, ConfigurationError } from "../../dataEntities/errors";
@@ -120,8 +119,8 @@ export class KitsuneAppointment extends EthereumAppointment {
  * Responsible for deciding whether to accept Kitsune appointments
  */
 export class KitsuneInspector extends Inspector<KitsuneAppointment> {
-    constructor(public readonly minimumDisputePeriod: number, public readonly provider: ethers.providers.Provider) {
-        super(ChannelType.Kitsune);
+    constructor(public readonly minimumDisputePeriod: number, provider: ethers.providers.Provider) {
+        super(ChannelType.Kitsune, provider);
     }
 
     /**

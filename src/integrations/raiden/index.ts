@@ -159,8 +159,8 @@ export class RaidenAppointment extends EthereumAppointment {
  * Responsible for deciding whether to accept appointments
  */
 export class RaidenInspector extends Inspector<RaidenAppointment> {
-    constructor(private readonly minimumDisputePeriod: number, private readonly provider: ethers.providers.Provider) {
-        super(ChannelType.Raiden);
+    constructor(private readonly minimumDisputePeriod: number, provider: ethers.providers.Provider) {
+        super(ChannelType.Raiden, provider);
     }
 
     /**

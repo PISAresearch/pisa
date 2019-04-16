@@ -78,15 +78,7 @@ export class Watcher {
      */
     public async addAppointment(appointment: IEthereumAppointment): Promise<boolean> {
         return await this.withLog(appointment, async () => {
-            const watchStartTime = Date.now();
             if (!appointment.passedInspection) throw new ConfigurationError(`Inspection not passed.`);
-            if (appointment.startTime > watchStartTime || appointment.endTime <= watchStartTime) {
-                throw new ConfigurationError(
-                    `Time now: ${watchStartTime} is not between start time: ${appointment.startTime} and end time ${
-                        appointment.endTime
-                    }.`
-                );
-            }
 
             // update this appointment in the store
             const updated = await this.store.addOrUpdateByStateLocator(appointment);
@@ -107,7 +99,10 @@ export class Watcher {
     }
 
     /** A helper method just for adding some logging */
-    private async withLog(appointment: IEthereumAppointment, addAppointment: (appointment: IEthereumAppointment) => Promise<boolean>) {
+    private async withLog(
+        appointment: IEthereumAppointment,
+        addAppointment: (appointment: IEthereumAppointment) => Promise<boolean>
+    ) {
         logger.info(appointment.formatLog(`Begin watching for event ${appointment.getEventName()}.`));
 
         // business logic

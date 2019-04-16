@@ -63,7 +63,7 @@ export class AppointmentStoreGarbageCollector {
 
                     // log the expired appointmets
                     expiredAppointments.forEach(a =>
-                        logger.info(a.formatLog(`GC: Appointment with end: ${a.endTime}.`))
+                        logger.info(a.formatLog(`GC: Appointment with end: ${a.endBlock}.`))
                     );
                 }
             } catch (doh) {

@@ -1,4 +1,4 @@
-import { ChannelType, EthereumAppointment, IEthereumResponse } from "../dataEntities";
+import { ChannelType, EthereumAppointment } from "../dataEntities";
 import { Inspector } from "../inspector";
 import { ethers } from "ethers";
 
