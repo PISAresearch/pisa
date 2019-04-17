@@ -11,7 +11,7 @@
     "start-dev": "ts-node src/startUp.ts",
     "start-evm": "ganache-cli -d -l 15000000 --allowUnlimitedContractSize --defaultBalanceEther 1000000 --mnemonic 'myth like bonus scare over problem client lizard pioneer submit female collect'",
     "submodule": "git submodule init && git submodule update",
-    "test": "NODE_ENV=test && npm run build && mocha build/test/src --exit && npm run test-mocked",
+    "test": "NODE_ENV=test && npm run build && mocha build/test/src --exit --recursive && npm run test-mocked",
     "test-load": "node build/test/load/loadTest.js 10 20000",
     "test-coverage": "npm run build && nyc mocha build/test/src --exit",
     "test-smoke": "node build/test/smoke/smokeTests.js",

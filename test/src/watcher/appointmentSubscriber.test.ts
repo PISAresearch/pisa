@@ -8,7 +8,7 @@ import Ganache from "ganache-core";
 describe("AppointmentSubscriber", () => {
     //return true;
     const eventFilter1 = "eventFilter1";
-    const eventFilter2 = "omg";
+    const eventFilter2 = "eventFilter2";
     const appointmentId1 = uuid();
     const appointmentId2 = uuid();
     const testListener = () => {
