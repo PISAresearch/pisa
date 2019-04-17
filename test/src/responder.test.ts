@@ -180,13 +180,13 @@ describe("DedicatedEthereumResponder", () => {
     it("correctly submits an appointment to the blockchain", async () => {
         const { signer, appointment, responseData } = await getTestData();
 
-        const responder = new EthereumDedicatedResponder(signer, appointment.id, responseData, 10);
+        const responder = new EthereumDedicatedResponder(signer, 10);
         const promise = new Promise((resolve, reject)=> {
             responder.on(ResponderEvent.ResponseSent, resolve);
             responder.on(ResponderEvent.AttemptFailed, reject)
         });
 
-        responder.respond();
+        responder.startResponse(appointment.id, responseData);
 
         await promise; // Make sure the ResponseSent event is generated
 
@@ -201,7 +201,7 @@ describe("DedicatedEthereumResponder", () => {
         const { signer, appointment, responseData } = await getTestData();
 
         const nAttempts = 5;
-        const responder = new EthereumDedicatedResponder(signer, appointment.id, responseData, 40, nAttempts);
+        const responder = new EthereumDedicatedResponder(signer, 40, nAttempts);
 
         const attemptFailedSpy = sinon.spy();
         const responseFailedSpy = sinon.spy();
@@ -217,7 +217,7 @@ describe("DedicatedEthereumResponder", () => {
         responder.on(ResponderEvent.ResponseConfirmed, responseConfirmedSpy);
 
         // Start the response flow
-        responder.respond();
+        responder.startResponse(appointment.id, responseData);
 
         const tickWaitTime = 1000 + EthereumDedicatedResponder.WAIT_TIME_FOR_PROVIDER_RESPONSE + EthereumDedicatedResponder.WAIT_TIME_BETWEEN_ATTEMPTS;
         // The test seems to fail if we make time steps that are too large; instead, we proceed at 1 second ticks
@@ -245,7 +245,7 @@ describe("DedicatedEthereumResponder", () => {
         const { signer, appointment, responseData } = await getTestData();
 
         const nAttempts = 1;
-        const responder = new EthereumDedicatedResponder(signer, appointment.id, responseData, 40, nAttempts);
+        const responder = new EthereumDedicatedResponder(signer, 40, nAttempts);
 
         const attemptFailedSpy = sinon.spy();
         const responseFailedSpy = sinon.spy();
@@ -260,7 +260,7 @@ describe("DedicatedEthereumResponder", () => {
         responder.on(ResponderEvent.ResponseConfirmed, responseConfirmedSpy);
 
         // Start the response flow
-        responder.respond();
+        responder.startResponse(appointment.id, responseData);
 
         // Wait for the response to be sent
         // We assume it will be done using the sendTransaction method on the signer
@@ -284,7 +284,7 @@ describe("DedicatedEthereumResponder", () => {
 
         const nAttempts = 5;
         const nConfirmations = 5;
-        const responder = new EthereumDedicatedResponder(signer, appointment.id, responseData, nConfirmations, nAttempts);
+        const responder = new EthereumDedicatedResponder(signer, nConfirmations, nAttempts);
 
         const attemptFailedSpy = sinon.spy();
         const responseFailedSpy = sinon.spy();
@@ -299,7 +299,7 @@ describe("DedicatedEthereumResponder", () => {
         sinon.spy(signer, 'sendTransaction');
 
         // Start the response flow
-        responder.respond();
+        responder.startResponse(appointment.id, responseData);
 
         // Wait for the response to be sent
         await waitForSpy(responseSentSpy);
