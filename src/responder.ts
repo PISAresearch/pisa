@@ -4,10 +4,8 @@ import { wait, promiseTimeout, plural } from "./utils";
 import { waitForConfirmations, ReorgError } from "./utils/ethers";
 import { IEthereumAppointment, IEthereumResponseData } from "./dataEntities/appointment";
 import logger from "./logger";
-import { TransactionResponse, TransactionReceipt } from "ethers/providers";
+import { TransactionResponse } from "ethers/providers";
 import { ApplicationError } from "./dataEntities";
-import { startTimer } from "winston";
-import { text } from "body-parser";
 
 /**
  * Responsible for storing the state and managing the flow of a single response.
@@ -124,7 +122,7 @@ export abstract class EthereumResponder extends Responder {
     * @param appointmentId The id of the Appointment this object is responding to.
     * @param response The IEthereumResponse containing what needs to be submitted.
     */
-    public abstract startResponse(appointmentId: string, responseData: IEthereumResponseData);
+    public abstract startResponse(appointmentId: string, responseData: IEthereumResponseData): void;
 }
 
 
@@ -176,8 +174,8 @@ export class EthereumDedicatedResponder extends EthereumResponder {
      * Release any resources used by this instance.
      */
     private destroy() {
-        this.locked = false;
         this.signer.provider.removeListener("block", this.updateLastBlockTime);
+        this.locked = false;
     }
 
     private updateLastBlockTime() {
@@ -248,7 +246,7 @@ export class EthereumDedicatedResponder extends EthereumResponder {
 interface EthereumMultiResponderResponseState {
     responseFlow: EthereumResponseFlow,
     txLastChecked?: number, // block height when the tx was last checked
-    attemptsDone?: number, // number of attempts already executed
+    attemptsDone: number, // number of attempts already executed
     responsePromise?: Promise<TransactionResponse> // TODO: more specific type
 }
 
@@ -257,6 +255,14 @@ interface EthereumMultiResponderResponseState {
  * It can submit transactions at a much bigger pace, handling many simultaneous disputes with the same wallet.
  */
 export class EthereumMultiResponder extends EthereumResponder {
+    // Waiting time before considering a request to the provider failed, in milliseconds
+    public static readonly WAIT_TIME_FOR_PROVIDER_RESPONSE = 30*1000;
+
+    // Waiting time before throwing an error if no new blocks are received, in milliseconds
+    public static readonly WAIT_TIME_FOR_NEW_BLOCK = 120*1000;
+
+    public static readonly WAIT_TIME_BETWEEN_ATTEMPTS = 0;
+
     private timeoutHandle = setTimeout(this.processTimeout, 1000);
     private lastBlockNumberSeen: number = null;
 
@@ -273,7 +279,7 @@ export class EthereumMultiResponder extends EthereumResponder {
     ) {
         super(signer);
 
-        signer.provider.on("block", this.processNewBlock);
+        signer.provider.on("block", this.processNewBlock.bind(this));
     }
 
     private handleFailedAttempt(responseState: EthereumMultiResponderResponseState, err: Error) {
@@ -283,6 +289,7 @@ export class EthereumMultiResponder extends EthereumResponder {
         this.asyncEmit(ResponderEvent.AttemptFailed, responseFlow, err);
 
         if (responseState.attemptsDone >= this.maxAttempts) {
+            responseFlow.state = ResponseState.Failed;
             this.asyncEmit(ResponderEvent.ResponseFailed, responseFlow);
 
             // remove from list of appointments handled by this responder 
@@ -302,13 +309,13 @@ export class EthereumMultiResponder extends EthereumResponder {
             switch (st.responseFlow.state) {
                 case ResponseState.Started:
                     if (st.responsePromise) {
-                        // nothing to do, there is a running promise already
+                        // nothing to do, there is already a pending promise
                         return;
                     }
 
                     // Try to call submitStateFunction, but timeout with an error if
                     // there is no response for 30 seconds.
-                    st.responsePromise = promiseTimeout(this.submitStateFunction(st.responseFlow.ethereumResponseData), 30000);
+                    st.responsePromise = promiseTimeout(this.submitStateFunction(st.responseFlow.ethereumResponseData), EthereumMultiResponder.WAIT_TIME_FOR_PROVIDER_RESPONSE);
 
                     st.responsePromise
                         .then(tx => {
@@ -319,18 +326,17 @@ export class EthereumMultiResponder extends EthereumResponder {
 
                             this.asyncEmit(ResponderEvent.ResponseSent, st.responseFlow);
                         })
-                        .catch(err => {
+                        .catch(doh => {
                             st.responsePromise = null;
-                            this.handleFailedAttempt(st, err);
+                            this.handleFailedAttempt(st, doh);
                         })
+                    break;
 
-                    // TODO
-                    throw new Error("Not implemented");
                 case ResponseState.ResponseSent:
                     // Periodically check if the transaction has enough confirmations
 
                     // Prevent from checking too often
-                    if (st.txLastChecked <= this.lastBlockNumberSeen - 10 ) {
+                    if (st.txLastChecked <= this.lastBlockNumberSeen - 10) {
                         return;
                     }
 
@@ -352,10 +358,12 @@ export class EthereumMultiResponder extends EthereumResponder {
                                 st.txLastChecked = blockNumber;
                             }
                         })
-                        .catch(err => {
-                            // TODO: what to we do in this situation?
-                            throw err;
+                        .catch(doh => {
+                            console.log(doh);
+                            // TODO: what do we do in this situation?
+                            throw doh;
                         })
+                    break;
                 default:
                     // no other states should be possible here
                     throw new ApplicationError(`Unexpected Responseflow status: ${st.responseFlow.state}`);
@@ -364,12 +372,12 @@ export class EthereumMultiResponder extends EthereumResponder {
 
 
         // Set a timer to react if no new block is received in a long time
-        this.timeoutHandle = setTimeout(this.processTimeout, 120000)
+        this.timeoutHandle = setTimeout(this.processTimeout.bind(this), EthereumMultiResponder.WAIT_TIME_FOR_NEW_BLOCK);
     }
 
     // If too much time passes since the last block, do appropriate actions
     private processTimeout() {
-        // TODOs
+        // TODO: properly react to timeout
         throw new Error("Not implemented");
     }
 
@@ -380,7 +388,7 @@ export class EthereumMultiResponder extends EthereumResponder {
 
         const flow = new EthereumResponseFlow(appointmentId, responseData);
         flow.state = ResponseState.Started;
-        this.state[appointmentId] = { responseFlow: flow };
+        this.state[appointmentId] = { responseFlow: flow, attemptsDone: 0 };
     }
 
 }
