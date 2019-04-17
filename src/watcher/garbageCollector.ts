@@ -47,7 +47,6 @@ export class AppointmentStoreGarbageCollector {
                 // appointments expire when the current block is greater than their end time
                 // find all blocks that are expired
                 // we then allow a number of confirmations to ensure that we can safely dispose the block
-                // 102: currently we're mixing dates and blocks here - decide what it should be and name it appropriately
                 const expiredAppointments = await this.store.getExpiredSince(blockNumber - this.confirmationCount);
 
                 if (expiredAppointments.length > 0) {
