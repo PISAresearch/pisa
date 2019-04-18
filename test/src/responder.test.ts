@@ -110,7 +110,8 @@ function restoreGanacheSnapshot(ganache, id: string) {
 
 // Instructs ganache to mine a block; returns a promise that resolves only
 // when one at least one block has been mined.
-function mineBlock(ganache, provider: ethers.providers.Web3Provider): Promise<void> {
+// Resolves to the number of the last block mined.
+function mineBlock(ganache, provider: ethers.providers.Web3Provider): Promise<number> {
     return new Promise(async (resolve, reject) => {
         const initialBlockNumber = await provider.getBlockNumber();
 
@@ -119,13 +120,14 @@ function mineBlock(ganache, provider: ethers.providers.Web3Provider): Promise<vo
         });
 
         const testBlockNumber = async function() {
-            if (await provider.getBlockNumber() > initialBlockNumber){
-                resolve();
+            const blockNumber = await provider.getBlockNumber();
+            if (blockNumber > initialBlockNumber){
+                resolve(blockNumber);
             } else {
-                setTimeout(testBlockNumber, 20);
+                setTimeout(testBlockNumber, 10);
             }
         };
-        setTimeout(testBlockNumber, 20);
+        setTimeout(testBlockNumber, 10);
     });
 }
 
@@ -142,6 +144,19 @@ function waitForSpy(spy: any) {
     });
 }
 
+// Tests `predicate()` every `interval` milliseconds; resolve only when `predicate` is truthy. 
+function waitFor(predicate: () => boolean, interval: number = 10): Promise<void> {
+    return new Promise(resolve => {
+        function test() {
+            if (predicate()) {
+                resolve();
+            } else {
+                setTimeout(test, interval);
+            }
+        }
+        test();
+    });
+}
 
 
 describe("EthereumDedicatedResponder", () => {
@@ -303,7 +318,7 @@ describe("EthereumDedicatedResponder", () => {
 
         // Now wait for enough confirmations
         for (let i = 0; i < nConfirmations; i++) {
-            await mineBlock(ganache, provider);
+            const blockNumber = await mineBlock(ganache, provider);
         }
 
         // There might still be a short interval before the response is sent; we wait for the spy before continuing.
@@ -369,12 +384,10 @@ describe("EthereumMultiResponder", () => {
     });
 
     it("emits the AttemptFailed and ResponseFailed events the correct number of times on failure", async () => {
-        this.clock = sinon.useFakeTimers({ shouldAdvanceTime: true });
-
         const { signer, appointment, responseData } = this.testData;
 
-        const nAttempts = 5;
-        const responder = new EthereumMultiResponder(signer, 40, 5);
+        const nAttempts = 3;
+        const responder = new EthereumMultiResponder(signer, 40, nAttempts);
 
         const attemptFailedSpy = sinon.spy();
         const responseFailedSpy = sinon.spy();
@@ -392,110 +405,105 @@ describe("EthereumMultiResponder", () => {
         // Start the response flow
         responder.startResponse(appointment.id, responseData);
 
-        const tickWaitTime = 1000 + EthereumMultiResponder.WAIT_TIME_FOR_PROVIDER_RESPONSE + EthereumMultiResponder.WAIT_TIME_BETWEEN_ATTEMPTS;
-        // The test seems to fail if we make time steps that are too large; instead, we proceed at 1 second ticks
-
-        for (let i = 0; i < 2 * nAttempts; i++) {
-            await mineBlock(ganache, provider);
-            await Promise.resolve();
+        // Mine a bunch of blocks (more than nAttempts)
+        for (let i = 0; i < nAttempts + 2; i++) {
+            const lastBlock = await mineBlock(ganache, provider);
+            // Make sure the mined blocks were all processed
+            await waitFor(() => (responder._lastBlockNumberSeen >= lastBlock));
         }
-
-        // Let's make sure there is time after the last iteration
-        this.clock.tick(tickWaitTime);
-        await Promise.resolve();
 
         expect(attemptFailedSpy.callCount, "emitted AttemptFailed the right number of times").to.equal(nAttempts);
         expect(responseFailedSpy.callCount, "emitted ResponseFailed exactly once").to.equal(1);
         expect(responseSentSpy.called, "did not emit ResponseSent").to.be.false;
         expect(responseConfirmedSpy.called, "did not emit ResponseConfirmed").to.be.false;
 
+        sinon.restore();
+    });
+
+    it("emits the AttemptFailed with a NoNewBlockError if there is no new block for too long", async () => {
+        this.clock = sinon.useFakeTimers({ shouldAdvanceTime: true });
+
+        const { signer, appointment, responseData } = this.testData;
+
+        const nAttempts = 1;
+        const responder = new EthereumMultiResponder(signer, 40, nAttempts);
+
+        const attemptFailedSpy = sinon.spy();
+        const responseFailedSpy = sinon.spy();
+        const responseSentSpy = sinon.spy();
+        const responseConfirmedSpy = sinon.spy();
+
+        sinon.spy(signer, 'sendTransaction');
+
+        responder.on(ResponderEvent.AttemptFailed, attemptFailedSpy);
+        responder.on(ResponderEvent.ResponseFailed, responseFailedSpy);
+        responder.on(ResponderEvent.ResponseSent, responseSentSpy);
+        responder.on(ResponderEvent.ResponseConfirmed, responseConfirmedSpy);
+
+        // Start the response flow
+        responder.startResponse(appointment.id, responseData);
+
+        // Wait for the response to be sent
+        // We assume it will be done using the sendTransaction method on the signer
+        await waitForSpy(signer.sendTransaction);
+
+        // Wait for 1 second more than the deadline for throwing if no new blocks are seen
+        this.clock.tick(1000 + EthereumMultiResponder.WAIT_TIME_FOR_NEW_BLOCK);
+        await Promise.resolve();
+
+        await waitForSpy(attemptFailedSpy);
+
+        // Check if the parameter of the attemptFailed event is an error of type NoNewBlockError
+        const args = attemptFailedSpy.args[0]; //arguments of the first call
+        expect(args[1] instanceof NoNewBlockError, "AttemptFailed emitted with NoNewBlockError").to.be.true;
+
         this.clock.restore();
         sinon.restore();
     });
 
-    // it("emits the AttemptFailed with a NoNewBlockError if there is no new block for too long", async () => {
-    //     this.clock = sinon.useFakeTimers({ shouldAdvanceTime: true });
+    it("emits the ResponseSent event, followed by ResponseConfirmed after enough confirmations", async () => {
+        const { signer, appointment, responseData } = this.testData;
 
-    //     const { signer, appointment, responseData } = this.testData;
+        const nAttempts = 5;
+        const nConfirmations = 5;
+        const responder = new EthereumMultiResponder(signer, nConfirmations, nAttempts);
 
-    //     const nAttempts = 1;
-    //     const responder = new EthereumMultiResponder(signer, 40, nAttempts);
+        const attemptFailedSpy = sinon.spy();
+        const responseFailedSpy = sinon.spy();
+        const responseSentSpy = sinon.spy();
+        const responseConfirmedSpy = sinon.spy();
 
-    //     const attemptFailedSpy = sinon.spy();
-    //     const responseFailedSpy = sinon.spy();
-    //     const responseSentSpy = sinon.spy();
-    //     const responseConfirmedSpy = sinon.spy();
+        responder.on(ResponderEvent.AttemptFailed, attemptFailedSpy);
+        responder.on(ResponderEvent.ResponseFailed, responseFailedSpy);
+        responder.on(ResponderEvent.ResponseSent, responseSentSpy);
+        responder.on(ResponderEvent.ResponseConfirmed, responseConfirmedSpy);
 
-    //     sinon.spy(signer, 'sendTransaction');
+        sinon.spy(signer, 'sendTransaction');
 
-    //     responder.on(ResponderEvent.AttemptFailed, attemptFailedSpy);
-    //     responder.on(ResponderEvent.ResponseFailed, responseFailedSpy);
-    //     responder.on(ResponderEvent.ResponseSent, responseSentSpy);
-    //     responder.on(ResponderEvent.ResponseConfirmed, responseConfirmedSpy);
+        // Start the response flow
+        responder.startResponse(appointment.id, responseData);
 
-    //     // Start the response flow
-    //     responder.startResponse(appointment.id, responseData);
+        // Wait for the response to be sent
+        await waitForSpy(responseSentSpy);
 
-    //     // Wait for the response to be sent
-    //     // We assume it will be done using the sendTransaction method on the signer
-    //     await waitForSpy(signer.sendTransaction);
+        expect(responseSentSpy.called, "emitted ResponseSent").to.be.true;
+        expect(responseConfirmedSpy.called, "did not emit ResponseConfirmed prematurely").to.be.false;
 
-    //     // Wait for 1 second more than the deadline for throwing if no new blocks are seen
-    //     this.clock.tick(1000 + EthereumMultiResponder.WAIT_TIME_FOR_NEW_BLOCK);
+        // Now wait for enough confirmations
+        for (let i = 0; i < nConfirmations; i++) {
+            await mineBlock(ganache, provider);
+        }
 
-    //     await waitForSpy(attemptFailedSpy);
+        // There might still be a short interval before the response is sent; we wait for the spy before continuing.
+        await waitForSpy(responseConfirmedSpy);
 
-    //     // Check if the parameter of the attemptFailed event is an error of type NoNewBlockError
-    //     const args = attemptFailedSpy.args[0]; //arguments of the first call
-    //     expect(args[1] instanceof NoNewBlockError, "AttemptFailed emitted with NoNewBlockError").to.be.true;
+        // Now the response is confirmed
+        expect(responseConfirmedSpy.called, "emitted ResponseConfirmed").to.be.true;
 
-    //     this.clock.restore();
-    //     sinon.restore();
-    // });
+        // No failed event should have been generated
+        expect(attemptFailedSpy.called, "did not emit AttemptFailed").to.be.false;
+        expect(responseFailedSpy.called, "did not emit ResponseFailed").to.be.false;
 
-    // it("emits the ResponseSent event, followed by ResponseConfirmed after enough confirmations", async () => {
-    //     const { signer, appointment, responseData } = this.testData;
-
-    //     const nAttempts = 5;
-    //     const nConfirmations = 5;
-    //     const responder = new EthereumMultiResponder(signer, nConfirmations, nAttempts);
-
-    //     const attemptFailedSpy = sinon.spy();
-    //     const responseFailedSpy = sinon.spy();
-    //     const responseSentSpy = sinon.spy();
-    //     const responseConfirmedSpy = sinon.spy();
-
-    //     responder.on(ResponderEvent.AttemptFailed, attemptFailedSpy);
-    //     responder.on(ResponderEvent.ResponseFailed, responseFailedSpy);
-    //     responder.on(ResponderEvent.ResponseSent, responseSentSpy);
-    //     responder.on(ResponderEvent.ResponseConfirmed, responseConfirmedSpy);
-
-    //     sinon.spy(signer, 'sendTransaction');
-
-    //     // Start the response flow
-    //     responder.startResponse(appointment.id, responseData);
-
-    //     // Wait for the response to be sent
-    //     await waitForSpy(responseSentSpy);
-
-    //     expect(responseSentSpy.called, "emitted ResponseSent").to.be.true;
-    //     expect(responseConfirmedSpy.called, "did not emit ResponseConfirmed prematurely").to.be.false;
-
-    //     // Now wait for enough confirmations
-    //     for (let i = 0; i < nConfirmations; i++) {
-    //         await mineBlock(ganache, provider);
-    //     }
-
-    //     // There might still be a short interval before the response is sent; we wait for the spy before continuing.
-    //     await waitForSpy(responseConfirmedSpy);
-
-    //     // Now the response is confirmed
-    //     expect(responseConfirmedSpy.called, "emitted ResponseConfirmed").to.be.true;
-
-    //     // No failed event should have been generated
-    //     expect(attemptFailedSpy.called, "did not emit AttemptFailed").to.be.false;
-    //     expect(responseFailedSpy.called, "did not emit ResponseFailed").to.be.false;
-
-    //     sinon.restore();
-    // }).timeout(5000);
+        sinon.restore();
+    }).timeout(5000);
 });

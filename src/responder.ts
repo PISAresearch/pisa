@@ -261,9 +261,9 @@ export class EthereumMultiResponder extends EthereumResponder {
     // Waiting time before throwing an error if no new blocks are received, in milliseconds
     public static readonly WAIT_TIME_FOR_NEW_BLOCK = 120*1000;
 
-    public static readonly WAIT_TIME_BETWEEN_ATTEMPTS = 0;
-
-    private timeoutHandle = setTimeout(this.processTimeout, 1000);
+    private blockTimeoutHandle = setTimeout(this.processTimeout.bind(this), 1000);
+    // Timestamp in milliseconds when the last block was received (or since the creation of this object)
+    private timeLastBlockReceived: number = Date.now();
     private lastBlockNumberSeen: number = null;
 
     // Map of the state of this responder, indexed by appointmentId
@@ -282,18 +282,23 @@ export class EthereumMultiResponder extends EthereumResponder {
         signer.provider.on("block", this.processNewBlock.bind(this));
     }
 
+    private handleFailedResponse(responseState: EthereumMultiResponderResponseState, err: Error) {
+        const responseFlow = responseState.responseFlow;
+        responseFlow.state = ResponseState.Failed;
+        this.asyncEmit(ResponderEvent.ResponseFailed, responseFlow);
+
+        // remove from list of appointments handled by this responder 
+        delete this.state[responseFlow.appointmentId];
+    }
+
     private handleFailedAttempt(responseState: EthereumMultiResponderResponseState, err: Error) {
         responseState.attemptsDone++;
-        const responseFlow = responseState.responseFlow as EthereumResponseFlow;
+        const responseFlow = responseState.responseFlow;
 
         this.asyncEmit(ResponderEvent.AttemptFailed, responseFlow, err);
 
         if (responseState.attemptsDone >= this.maxAttempts) {
-            responseFlow.state = ResponseState.Failed;
-            this.asyncEmit(ResponderEvent.ResponseFailed, responseFlow);
-
-            // remove from list of appointments handled by this responder 
-            delete this.state[responseFlow.appointmentId];
+            this.handleFailedResponse(responseState, err);
         }
     }
 
@@ -301,84 +306,98 @@ export class EthereumMultiResponder extends EthereumResponder {
 
     // Do the work needed for each response whenever a new block is received
     private processNewBlock(blockNumber: number) {
-        this.lastBlockNumberSeen = blockNumber
+        this.timeLastBlockReceived = Date.now();
+        this.lastBlockNumberSeen = blockNumber;
 
-        clearTimeout(this.timeoutHandle);
+        clearTimeout(this.blockTimeoutHandle);
 
-        for (const [appointmentId, st] of Object.entries(this.state)) {
-            switch (st.responseFlow.state) {
-                case ResponseState.Started:
-                    if (st.responsePromise) {
-                        // nothing to do, there is already a pending promise
-                        return;
-                    }
-
-                    // Try to call submitStateFunction, but timeout with an error if
-                    // there is no response for 30 seconds.
-                    st.responsePromise = promiseTimeout(this.submitStateFunction(st.responseFlow.ethereumResponseData), EthereumMultiResponder.WAIT_TIME_FOR_PROVIDER_RESPONSE);
-
-                    st.responsePromise
-                        .then(tx => {
-                            st.responseFlow.state = ResponseState.ResponseSent;
-                            st.responseFlow.txHash = tx.hash;
-                            st.txLastChecked = this.lastBlockNumberSeen;
-                            st.responsePromise = null;
-
-                            this.asyncEmit(ResponderEvent.ResponseSent, st.responseFlow);
-                        })
-                        .catch(doh => {
-                            st.responsePromise = null;
-                            this.handleFailedAttempt(st, doh);
-                        })
-                    break;
-
-                case ResponseState.ResponseSent:
-                    // Periodically check if the transaction has enough confirmations
-
-                    // Prevent from checking too often
-                    if (st.txLastChecked <= this.lastBlockNumberSeen - 10) {
-                        return;
-                    }
-
-                    const blockNumber = this.lastBlockNumberSeen; // store block number at the beginning of the request
-                    this.signer.provider.getTransactionReceipt(st.responseFlow.txHash)
-                        .then(receipt => {
-                            if (receipt === null) {
-                                // Transaction not found, emit attempt failed, go back to state Started
-                                st.responseFlow.state = ResponseState.Started;
-                                st.responseFlow.txHash = null;
-
-                                this.handleFailedAttempt(st, new ReorgError("Transaction not found"))
-                            } else if (receipt.confirmations >= this.confirmationsRequired) {
-                                // Response completed
-                                this.asyncEmit(ResponderEvent.ResponseConfirmed, st.responseFlow);
-                                delete this.state[appointmentId];
-                            } else {
-                                // Not yet enough confirmations; check again later
-                                st.txLastChecked = blockNumber;
-                            }
-                        })
-                        .catch(doh => {
-                            console.log(doh);
-                            // TODO: what do we do in this situation?
-                            throw doh;
-                        })
-                    break;
-                default:
-                    // no other states should be possible here
-                    throw new ApplicationError(`Unexpected Responseflow status: ${st.responseFlow.state}`);
-            }
+        // Process all jobs
+        for (const appointmentId of Object.keys(this.state)) {
+            this.processJob(appointmentId);
         }
 
-
         // Set a timer to react if no new block is received in a long time
-        this.timeoutHandle = setTimeout(this.processTimeout.bind(this), EthereumMultiResponder.WAIT_TIME_FOR_NEW_BLOCK);
+        this.blockTimeoutHandle = setTimeout(this.processTimeout.bind(this), EthereumMultiResponder.WAIT_TIME_FOR_NEW_BLOCK);
+    }
+
+    private processJob(appointmentId: string) {
+        const st = this.state[appointmentId];
+        switch (st.responseFlow.state) {
+            case ResponseState.Started:
+                if (st.responsePromise) {
+                    // nothing to do, there is already a pending promise
+                    return;
+                }
+
+                // Try to call submitStateFunction, but timeout with an error if
+                // there is no response for 30 seconds.
+                st.responsePromise = promiseTimeout(this.submitStateFunction(st.responseFlow.ethereumResponseData), EthereumMultiResponder.WAIT_TIME_FOR_PROVIDER_RESPONSE);
+
+                st.responsePromise
+                    .then(tx => {
+                        st.responseFlow.state = ResponseState.ResponseSent;
+                        st.responseFlow.txHash = tx.hash;
+                        st.txLastChecked = this.lastBlockNumberSeen;
+                        st.responsePromise = null;
+
+                        this.asyncEmit(ResponderEvent.ResponseSent, st.responseFlow);
+                    })
+                    .catch(doh => {
+                        st.responsePromise = null;
+                        this.handleFailedAttempt(st, doh);
+                    })
+                break;
+
+            case ResponseState.ResponseSent:
+                // Periodically check if the transaction has enough confirmations
+
+                // Prevent from checking too often
+                if (st.txLastChecked <= this.lastBlockNumberSeen - 10) {
+                    return;
+                }
+
+                const blockNumber = this.lastBlockNumberSeen; // store block number at the beginning of the request
+                this.signer.provider.getTransactionReceipt(st.responseFlow.txHash)
+                    .then(receipt => {
+                        if (receipt === null) {
+                            // Transaction not found, emit attempt failed, go back to state Started
+                            st.responseFlow.state = ResponseState.Started;
+                            st.responseFlow.txHash = null;
+
+                            this.handleFailedAttempt(st, new ReorgError("Transaction not found"))
+                        } else if (receipt.confirmations >= this.confirmationsRequired) {
+                            // Response completed
+                            this.asyncEmit(ResponderEvent.ResponseConfirmed, st.responseFlow);
+                            delete this.state[appointmentId];
+                        } else {
+                            // Not yet enough confirmations; check again later
+                            st.txLastChecked = blockNumber;
+                        }
+                    })
+                    .catch(doh => {
+                        console.log(doh);
+                        // TODO: what do we do in this situation? Perhaps just consider it failed.
+                        throw doh;
+                    })
+                break;
+            default:
+                // no other states should be possible here
+                throw new ApplicationError(`Unexpected Responseflow status: ${st.responseFlow.state}`);
+        }
     }
 
     // If too much time passes since the last block, do appropriate actions
     private processTimeout() {
-        // TODO: properly react to timeout
-        throw new Error("Not implemented");
+        for (const st of Object.values(this.state)) {
+            // We consider each response failed.
+            const msSinceLastBlock = Date.now() - this.timeLastBlockReceived;
+            this.handleFailedAttempt(
+                st,
+                new NoNewBlockError(
+                    `No new block was received for ${Math.round(msSinceLastBlock/1000)} seconds; provider might be down.`
+                )
+            );
+        }
     }
 
     public startResponse(appointmentId: string, responseData: IEthereumResponseData) {
@@ -389,8 +408,13 @@ export class EthereumMultiResponder extends EthereumResponder {
         const flow = new EthereumResponseFlow(appointmentId, responseData);
         flow.state = ResponseState.Started;
         this.state[appointmentId] = { responseFlow: flow, attemptsDone: 0 };
+
+        this.processJob(appointmentId);
     }
 
+
+    // Used for testing purposes only
+    public get _lastBlockNumberSeen() { return this.lastBlockNumberSeen }
 }
 
 
