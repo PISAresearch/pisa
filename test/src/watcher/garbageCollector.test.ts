@@ -1,4 +1,5 @@
 import "mocha";
+import { assert } from "chai";
 import { anything, verify, resetCalls, anyString, when, mock, instance } from "ts-mockito";
 import { MemoryAppointmentStore } from "../../../src/watcher";
 import { KitsuneAppointment } from "../../../src/integrations/kitsune";
@@ -125,7 +126,7 @@ describe("GarbageCollector", () => {
 
         // call start twice
         gc.start();
-        gc.start();
+        assert.throw(gc.start);
         gc.stop();
 
         //the block event was only subscribed to once

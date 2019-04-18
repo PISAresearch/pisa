@@ -2,7 +2,7 @@ import { IAppointmentStore } from "./store";
 import { AppointmentSubscriber } from "./appointmentSubscriber";
 import { ethers } from "ethers";
 import logger from "../logger";
-import { IEthereumAppointment, IAppointment } from "../dataEntities";
+import { IEthereumAppointment, IAppointment, ConfigurationError } from "../dataEntities";
 
 /**
  * Scans the current appointments to find expired ones. Upon finding expired appointments it removes them appointment
@@ -36,10 +36,9 @@ export class AppointmentStoreGarbageCollector {
      * Start the monitoring for expired appointments
      */
     public start() {
-        if (!this.started) {
-            this.provider.on("block", this.listener);
-            this.started = true;
-        }
+        if (this.started) throw new ConfigurationError("GC: Already started.");
+        this.provider.on("block", this.listener);
+        this.started = true;
     }
 
     /**
@@ -49,11 +48,13 @@ export class AppointmentStoreGarbageCollector {
         if (this.started) {
             this.started = false;
             this.provider.removeListener("block", this.listener);
+        } else {
+            logger.error("GC: Two calls to stop were made.");
         }
     }
 
     /**
-     * Find appointments that have expired then remove them from the subsciber and store.
+     * Find appointments that have expired then remove them from the subscriber and store.
      * @param blockNumber
      */
     private async removeExpired(blockNumber: number) {
