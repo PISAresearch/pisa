@@ -1,50 +1,26 @@
 import { IEthereumAppointment } from "../dataEntities";
-import { ethers } from "ethers";
 import logger from "../logger";
 import { EventObserver } from "./eventObserver";
-import { EthereumResponderManager } from "../responder";
 import { ConfigurationError } from "../dataEntities/errors";
 import { AppointmentSubscriber } from "./appointmentSubscriber";
 import { IAppointmentStore } from "./store";
-import { AppointmentStoreGarbageCollector as AppointmentGarbageCollector } from "./garbageCollector";
 
 /**
  * Watches the chain for events related to the supplied appointments. When an event is noticed data is forwarded to the
- * supplied responder to complete the task. The watcher is not responsible for ensuring that observed events are properly
+ * supplied event observer to complete the task. The watcher is not responsible for ensuring that observed events are properly
  * acted upon, that is the responsibility of the responder.
  */
 export class Watcher {
     /**
      * Watches the chain for events related to the supplied appointments. When an event is noticed data is forwarded to the
-     * supplied responder to complete the task. The watcher is not responsible for ensuring that observed events are properly
+     * supplied event observer to complete the task. The watcher is not responsible for ensuring that observed events are properly
      * acted upon, that is the responsibility of the responder.
-     * @param provider The provider used to monitor for events
-     * @param responder The responder to notify in when an event is observed
-     * @param confirmationsCount The number of confirmations to be observed before considering a event final
-     * @param store A repository for storing the current appointments being watched for
      */
     public constructor(
-        public readonly provider: ethers.providers.Provider,
-        public readonly responder: EthereumResponderManager,
-        public readonly confirmationsCount: number,
-        public readonly store: IAppointmentStore
-    ) {
-        this.appointmentSubscriber = new AppointmentSubscriber(provider);
-        this.eventObserver = new EventObserver(responder, store);
-
-        // When we start watching for appointments it is relevant to start searching for expired ones
-        this.appointmentStoreGarbageCollector = new AppointmentGarbageCollector(
-            provider,
-            confirmationsCount,
-            store,
-            this.appointmentSubscriber
-        );
-        this.appointmentStoreGarbageCollector.start();
-    }
-
-    private readonly eventObserver: EventObserver;
-    private readonly appointmentSubscriber: AppointmentSubscriber;
-    private readonly appointmentStoreGarbageCollector: AppointmentGarbageCollector;
+        private readonly eventObserver: EventObserver,
+        private readonly appointmentSubscriber: AppointmentSubscriber,
+        private readonly store: IAppointmentStore
+    ) {}
 
     // there are three separate processes that can run concurrently as part of the watcher
     // each of them updates the data store.
@@ -82,7 +58,6 @@ export class Watcher {
 
             // update this appointment in the store
             const updated = await this.store.addOrUpdateByStateLocator(appointment);
-
             if (updated) {
                 // remove the subscription, this is blocking code so we don't have to worry that an event will be observed
                 // whilst we remove these listeners and add new ones
