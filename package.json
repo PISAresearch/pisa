@@ -18,8 +18,7 @@
     "test-integration": "npm run build && npm run build-raiden-pisa-daemon && npm run build-autominer && mocha build/test/integration --exit",
     "test-mocked": "NODE_ENV=test mocha build/test/mocked --exit",
     "test-raiden": "NODE_ENV=test mocha -r ts-node/register test/mocked/raidenInspector.test.ts",
-    "test-ts": "mocha -r ts-node/register test/src && npm run test-raiden",
-    "test-watcher": "NODE_ENV=test mocha -r ts-node/register test/src/watcher/*.test.ts --exit"
+    "test-ts": "NODE_ENV=test mocha -r ts-node/register test/src && npm run test-raiden"
   },
   "repository": {
     "type": "git",
