@@ -19,7 +19,6 @@ async function initTest(ganacheProviderOptions: any = {}) {
     const provider = new ethers.providers.Web3Provider(ganache);
     provider.pollingInterval = 100;
 
-
     // Set up the accounts
     const accounts = await provider.listAccounts();
     const account0 = accounts[0];
@@ -36,6 +35,10 @@ async function initTest(ganacheProviderOptions: any = {}) {
         provider.getSigner()
     );
     const channelContract = await channelContractFactory.deploy([account0, account1], disputePeriod);
+    if (!!ganacheProviderOptions.blockTime) {
+        // If a blockTime is specified, we force mining a block now, as ganache doesn't do it automatically.
+        ganache.sendAsync({"id": 1, "jsonrpc":"2.0", "method":"evm_mine", "params": []}, () => {});
+    }
 
     // store an off-chain hashState
     const hashState = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("to the moon"));
@@ -45,8 +48,8 @@ async function initTest(ganacheProviderOptions: any = {}) {
     const tx = await account0Contract.triggerDispute();
 
     if (!!ganacheProviderOptions.blockTime) {
-        // If a blockTime is specified, we force mining a block now.
-        mineBlock(ganache, provider);
+        // If a blockTime is specified, we force mining a block now, as ganache doesn't do it automatically.
+        ganache.sendAsync({"id": 1, "jsonrpc":"2.0", "method":"evm_mine", "params": []}, () => {});
     }
 
     await tx.wait();
@@ -198,7 +201,7 @@ describe("EthereumDedicatedResponder", () => {
         const { signer, appointment, responseData } = this.testData;
 
         const responder = new EthereumDedicatedResponder(signer, 10);
-        const promise = new Promise((resolve, reject)=> {
+        const promise = new Promise((resolve, reject) => {
             responder.on(ResponderEvent.ResponseSent, resolve);
             responder.on(ResponderEvent.AttemptFailed, reject)
         });
@@ -206,6 +209,9 @@ describe("EthereumDedicatedResponder", () => {
         responder.startResponse(appointment.id, responseData);
 
         await promise; // Make sure the ResponseSent event is generated
+
+        // Make sure that transaction is confirmed
+        await mineBlock(ganache, provider);
 
         // Test if the channel hashed state has been updated
         const channelState = await channelContract.hstate();
