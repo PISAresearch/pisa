@@ -2,7 +2,7 @@ import { ethers } from "ethers";
 import { ApplicationError } from "../dataEntities/errors";
 
 /** A helper interface for the additional markup we require on a listener */
-interface IAppointmentListener {
+export interface IAppointmentListener {
     (...args: any[]): void;
     appointmentId: string;
 }
@@ -15,7 +15,7 @@ interface IAppointmentListener {
  * provider if the provide appointment id matches.
  */
 export class AppointmentSubscriber {
-    constructor(private readonly provider: ethers.providers.Provider) {}
+    constructor(private provider: ethers.providers.Provider) {}
 
     /**
      * Subscribe a listener to an appointment event. Only allows one subscription per filter.
@@ -24,24 +24,31 @@ export class AppointmentSubscriber {
      * @param listener The listener to activate when the event is observed
      * @throws Throws if a listener is already subscribed to this filter.
      */
-    subscribeOnce(appointmentId: string, filter: ethers.providers.EventType, listener: ethers.providers.Listener) {
+    public subscribeOnce(
+        appointmentId: string,
+        filter: ethers.providers.EventType,
+        listener: ethers.providers.Listener
+    ) {
         // don't allow an appointment to be subscribed twice
         if (this.provider.listenerCount(filter) !== 0) {
             // this is an unexpected error, it could mean that we're subscribing to this filter elsewhere which we want to avoid
             // or it could mean we're trying to subscribe appointments without removing existing ones, which is also a problem
-            const listener = this.provider.listeners(filter)[0] as IAppointmentListener;
+            const currentListener = this.provider.listeners(filter)[0] as IAppointmentListener;
             throw new ApplicationError(
                 `Only one appointment should be subscribed to a given filter at any one time. Appointment: ${appointmentId} cannot be subscribed since appointment: ${
-                    listener.appointmentId
+                    currentListener.appointmentId
                 } is already subscribed.`
             );
         }
-
-        // create a listener object with am appointment id property for lookup later
-        const listenerAndAppointment: IAppointmentListener = Object.assign(listener, {
-            appointmentId
-        });
-
+        // -- create a listener object with am appointment id property for lookup later --
+        // there's a bug in ethersjs that when an event filter is added with a listener
+        // that is already on the provider, they are somehow matched internally. The
+        // result is that when calling for listeners with the any of the events, the last
+        // added event for any of those listeners is returned. Subscribe shouldn't be called
+        // with the same listener each time, but to ensure it isn't we clone the listener using
+        // bind, then we can safely assign the appointmentId to a guaranteed new object
+        const listenerAndAppointment = Object.assign(listener.bind({}), { appointmentId })
+        
         this.provider.once(filter, listenerAndAppointment);
     }
 
@@ -52,10 +59,10 @@ export class AppointmentSubscriber {
      * @param filter The event filter used to locate the relevant listener
      * @throw If there are not zero or one listeners to the supplied filter
      */
-    unsubscribe(appointmentId: string, filter: ethers.providers.EventType) {
+    public unsubscribe(appointmentId: string, filter: ethers.providers.EventType) {
         const listeners = this.provider.listeners(filter) as IAppointmentListener[];
-        this.checkCurrentlyZeroOrOneListener(filter)
-        if(listeners.length === 0) return;
+        this.checkCurrentlyZeroOrOneListener(filter);
+        if (listeners.length === 0) return;
 
         // therefore there must be one listener
         if (listeners[0].appointmentId === appointmentId) {
@@ -70,7 +77,7 @@ export class AppointmentSubscriber {
      * @param filter The event filter used to locate the listeners
      * @throw If there are not zero or one listeners to the supplied filter
      */
-    unsubscribeAll(filter: ethers.providers.EventType) {
+    public unsubscribeAll(filter: ethers.providers.EventType) {
         this.checkCurrentlyZeroOrOneListener(filter);
         // for consistency lets check that the correct number of listeners exists
         this.provider.removeAllListeners(filter);
@@ -78,10 +85,10 @@ export class AppointmentSubscriber {
 
     /**
      * Sanity check that there can only be zero or one listener for a given filter at any one time.
-     * @param filter 
+     * @param filter
      * @throws ApplicationError there are not zero or one listeners.
      */
-    checkCurrentlyZeroOrOneListener(filter: ethers.providers.EventType) {
+    private checkCurrentlyZeroOrOneListener(filter: ethers.providers.EventType) {
         const listeners = this.provider.listeners(filter) as IAppointmentListener[];
 
         // there should always only be none or one appointments for each filter

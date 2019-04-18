@@ -21,7 +21,7 @@ export interface IAppointmentStore {
     removeById(appointmentId: string): Promise<boolean>;
 
     /**
-     * Find all appointments that have expired at a certain time.
+     * Find all appointments that have expired at a certain block.
      * @param time
      */
     getExpiredSince(time: number): Promise<IEthereumAppointment[]>;

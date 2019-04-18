@@ -11,12 +11,16 @@ import { Server } from "http";
 import { inspect } from "util";
 import { ethers } from "ethers";
 import { EthereumResponderManager } from "./responder";
+import { EventObserver } from "./watcher/eventObserver";
+import { AppointmentStoreGarbageCollector } from "./watcher/garbageCollector";
+import { AppointmentSubscriber } from "./watcher/appointmentSubscriber";
 
 /**
  * Hosts a PISA service at the endpoint.
  */
 export class PisaService {
     private readonly server: Server;
+    private readonly garbageCollector: AppointmentStoreGarbageCollector;
 
     /**
      *
@@ -36,9 +40,17 @@ export class PisaService {
             next();
         });
 
+        // dependencies
+        const store = new MemoryAppointmentStore();
         const ethereumResponderManager = new EthereumResponderManager(wallet);
-        const watcher = new Watcher(jsonRpcProvider, ethereumResponderManager, 20, new MemoryAppointmentStore());
+        const eventObserver = new EventObserver(ethereumResponderManager, store);
+        const appointmentSubscriber = new AppointmentSubscriber(jsonRpcProvider);
+        const watcher = new Watcher(eventObserver, appointmentSubscriber, store);
         const tower = new PisaTower(jsonRpcProvider, watcher, [Raiden, Kitsune]);
+
+        // start gc
+        this.garbageCollector = new AppointmentStoreGarbageCollector(jsonRpcProvider, 20, store, appointmentSubscriber);
+        this.garbageCollector.start();
 
         app.post("/appointment", this.appointment(tower));
 
@@ -82,6 +94,7 @@ export class PisaService {
     private closed = false;
     public stop() {
         if (!this.closed) {
+            this.garbageCollector.stop();
             this.server.close(logger.info(`PISA shutdown.`));
             this.closed = true;
         }
