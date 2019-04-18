@@ -14,10 +14,8 @@ chai.use(require('sinon-chai'));
 const expect = chai.expect;
 
 
-async function initTest() {
-    const ganache = Ganache.provider({
-        mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect"
-    });
+async function initTest(ganacheProviderOptions: any = {}) {
+    const ganache = Ganache.provider(ganacheProviderOptions);
     const provider = new ethers.providers.Web3Provider(ganache);
     provider.pollingInterval = 100;
 
@@ -45,6 +43,12 @@ async function initTest() {
     // trigger a dispute
     const account0Contract = channelContract.connect(provider.getSigner(account0));
     const tx = await account0Contract.triggerDispute();
+
+    if (!!ganacheProviderOptions.blockTime) {
+        // If a blockTime is specified, we force mining a block now.
+        mineBlock(ganache, provider);
+    }
+
     await tx.wait();
 
     return { ganache, provider, account0, account1, responderAccount, disputePeriod, channelContract, hashState };
@@ -166,8 +170,8 @@ describe("EthereumDedicatedResponder", () => {
     let account0: string, account1: string, responderAccount: string;
     let disputePeriod: number, channelContract: ethers.Contract, hashState: string;
 
-    beforeEach(async () => {
-        const d = await initTest();
+    const setup = async (ganacheOptions = {}) => {
+        const d = await initTest(ganacheOptions);
         ganache = d.ganache;
         provider = d.provider;
         account0 = d.account0;
@@ -178,6 +182,10 @@ describe("EthereumDedicatedResponder", () => {
         hashState = d.hashState;
 
         this.testData = await getTestData(provider, account0, account1, responderAccount, hashState, channelContract, disputePeriod);
+    }
+
+    beforeEach(async () => {
+        await setup();
     });
 
     afterEach(async () => {
@@ -318,7 +326,7 @@ describe("EthereumDedicatedResponder", () => {
 
         // Now wait for enough confirmations
         for (let i = 0; i < nConfirmations; i++) {
-            const blockNumber = await mineBlock(ganache, provider);
+            await mineBlock(ganache, provider);
         }
 
         // There might still be a short interval before the response is sent; we wait for the spy before continuing.
@@ -346,8 +354,8 @@ describe("EthereumMultiResponder", () => {
     let account0: string, account1: string, channelContract: ethers.Contract, hashState: string, disputePeriod: number;
     let responderAccount: string;
 
-    beforeEach(async () => {
-        const d = await initTest();
+    const setup = async (ganacheOptions = {}) => {
+        const d = await initTest(ganacheOptions);
         ganache = d.ganache;
         provider = d.provider;
         account0 = d.account0;
@@ -358,6 +366,10 @@ describe("EthereumMultiResponder", () => {
         hashState = d.hashState;
 
         this.testData = await getTestData(provider, account0, account1, responderAccount, hashState, channelContract, disputePeriod);
+    }
+
+    beforeEach(async () => {
+        await setup();
     });
 
     // Restore the initial snapshot for the next test
