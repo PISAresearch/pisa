@@ -12,6 +12,7 @@
     }
 
     const $account = $(".account");
+    const $toolbarSpacer = $(".toolbar-spacer");
     if ($account.length) {
       loaded = true;
 
@@ -25,8 +26,8 @@
         const currentName = result[`name-${accountAddr}`] || null;
   
         if (showPisa) {
-          $account.before('<span id="plusWhite"></span>');
-          $account.before('<span id="pisaLogo"></span>');
+          $toolbarSpacer.before('<span id="plusWhite"></span>');
+          $toolbarSpacer.before('<span id="pisaLogo"></span>');
         }
   
         if (!!currentName) {

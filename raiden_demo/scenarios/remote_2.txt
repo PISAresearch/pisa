@@ -12,9 +12,9 @@ docker network create raiden_demo_remote
 
 ## start pisa
 # running on 0x9991D866400920248caBcC80c453C701436F9924
-docker run -it -p 3000:3000 --network raiden_demo_remote --network-alias pisa -v ${PWD}/ropsten-test-accounts/ropsten.json:/usr/pisa/build/src/config.json pisaresearch/pisa:latest
+docker run -it -p 3000:3000 --network raiden_demo_remote --network-alias pisa -v ${PWD}/ropsten-test-accounts/ropsten.json:/usr/pisa/build/src/config.json pisaresearch/pisa:0.1
 
 ## start the raiden-pisa-daemon for alice
-docker run -it -v ${PWD}/ropsten-test-accounts/password--0xcc19aee8fe950b0ce03effb43d707e34bc325e06:/home/password.txt -v ${PWD}/ropsten-test-accounts/UTC--2019-03-29T15-13-27.687Z--0xcc19aee8fe950b0ce03effb43d707e34bc325e06:/.ethereum/keystore/keyfile -v ${PWD}/.raiden/node_cc19aee8/netid_3/network_bdcaa7f5/v16_log.db:/home/db --network raiden_demo_remote --entrypoint "npm" pisaresearch/raiden-pisa-daemon:latest run start -- --pisa=pisa:3000 --keyfile=/.ethereum/keystore/keyfile  --password-file=/home/password.txt --db=/home/db
+docker run -it -v ${PWD}/ropsten-test-accounts/password--0xcc19aee8fe950b0ce03effb43d707e34bc325e06:/home/password.txt -v ${PWD}/ropsten-test-accounts/UTC--2019-03-29T15-13-27.687Z--0xcc19aee8fe950b0ce03effb43d707e34bc325e06:/.ethereum/keystore/keyfile -v ${PWD}/.raiden/node_cc19aee8/netid_3/network_bdcaa7f5/v16_log.db:/home/db --network raiden_demo_remote --entrypoint "npm" pisaresearch/raiden-pisa-daemon:0.1 run start -- --pisa=pisa:3000 --keyfile=/.ethereum/keystore/keyfile  --password-file=/home/password.txt --db=/home/db
 
 
