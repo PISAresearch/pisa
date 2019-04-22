@@ -26,7 +26,6 @@ export class AppointmentStoreGarbageCollector {
 
     // only allow the gc to be started once
     private started: boolean = false;
-    private listener = (blockNumber: number) => this.removeExpired(blockNumber);
     // only allow one collection at a time
     private collecting = false;
     // we want to record how many consecutive errors have taken place in gc
@@ -37,7 +36,7 @@ export class AppointmentStoreGarbageCollector {
      */
     public start() {
         if (this.started) throw new ConfigurationError("GC: Already started.");
-        this.provider.on("block", this.listener);
+        this.provider.on("block", this.removeExpiredSince);
         this.started = true;
     }
 
@@ -47,7 +46,7 @@ export class AppointmentStoreGarbageCollector {
     public stop() {
         if (this.started) {
             this.started = false;
-            this.provider.removeListener("block", this.listener);
+            this.provider.removeListener("block", this.removeExpiredSince);
         } else {
             logger.error("GC: Two calls to stop were made.");
         }
@@ -57,7 +56,7 @@ export class AppointmentStoreGarbageCollector {
      * Find appointments that have expired then remove them from the subscriber and store.
      * @param blockNumber
      */
-    private async removeExpired(blockNumber: number) {
+    public async removeExpiredSince(blockNumber: number) {
         logger.info(`GC: Block mined ${blockNumber}.`);
         // it is safe for this function to be called concurrently
         // but there's no point, both would try to the same work which is wasteful
