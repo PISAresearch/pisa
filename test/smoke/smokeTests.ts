@@ -5,6 +5,17 @@ import config from "../../src/dataEntities/config";
 import { getJsonRPCProvider } from "../../src/provider";
 let account0: string, account1: string, channelContract: ethers.Contract, hashState: string, disputePeriod: number;
 
+const mineBlock = async (wallet: ethers.Signer) => {
+    const tx = await wallet.sendTransaction({ to: "0x0000000000000000000000000000000000000000", value: 1 });
+    await tx.wait();
+};
+const mineBlocks = async (wallet: ethers.Signer, blockCount: number) => {
+    for (let index = 0; index < blockCount; index++) {
+        await mineBlock(wallet);
+    }
+};
+
+
 let setup = async () => {
     // accounts
     const provider = await getJsonRPCProvider();
@@ -27,6 +38,7 @@ let setup = async () => {
 
 let execute = async () => {
     const provider = await getJsonRPCProvider();
+    const wallet = new ethers.Wallet(config.watcherKey, provider);
     const round = 1,
         setStateHash = KitsuneTools.hashForSetState(hashState, round, channelContract.address),
         sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash)),
@@ -57,6 +69,9 @@ let execute = async () => {
     // trigger a dispute
     const tx = await channelContract.triggerDispute();
     await tx.wait();
+
+    // mine some blocks to ensure the watcher catches up
+    await mineBlocks(wallet, 13);
 
     // wait for the success result
     await waitForPredicate(successResult, s => s.success, 1000);
