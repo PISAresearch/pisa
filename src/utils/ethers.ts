@@ -21,7 +21,7 @@ export class ReorgError extends Error {
  * @param txHash 
  * @param confirmationsRequired 
  */
-export function waitForConfirmations(provider: Provider, txHash: string, confirmationsRequired: number) : Promise<void> {
+export function waitForConfirmations(provider: Provider, txHash: string, confirmationsRequired: number): Promise<void> {
     return new Promise((resolve, reject) => {
         const cleanup = () => {
             provider.removeListener("block", newBlockHandler);

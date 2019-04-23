@@ -5,6 +5,7 @@ import { ethers } from "ethers";
 import Ganache from "ganache-core";
 import { KitsuneAppointment, KitsuneTools } from "../../src/integrations/kitsune";
 import { EthereumDedicatedResponder, EthereumMultiResponder, ResponderEvent, NoNewBlockError } from "../../src/responder";
+import { ReorgError } from "../../src/utils/ethers";
 import { ChannelType } from "../../src/dataEntities";
 import chaiAsPromised from "chai-as-promised";
 
@@ -313,6 +314,55 @@ describe("EthereumDedicatedResponder", () => {
         sinon.restore();
     });
 
+    // TODO: this test currently passes but node complains with UnhandledPromiseRejectionWarning for Reorg (but exception is caught in the responder!)
+    it("emits the AttemptFailed with a ReorgError if a re-org kicks out the transaction before enough confirmations", async () => {
+        const { signer, appointment, responseData } = this.testData;
+
+        const nAttempts = 1;
+        const responder = new EthereumDedicatedResponder(signer, 40, nAttempts);
+
+        const attemptFailedSpy = sinon.spy();
+        const responseFailedSpy = sinon.spy();
+        const responseSentSpy = sinon.spy();
+        const responseConfirmedSpy = sinon.spy();
+
+        sinon.spy(signer, 'sendTransaction');
+
+        responder.on(ResponderEvent.AttemptFailed, attemptFailedSpy);
+        responder.on(ResponderEvent.ResponseFailed, responseFailedSpy);
+        responder.on(ResponderEvent.ResponseSent, responseSentSpy);
+        responder.on(ResponderEvent.ResponseConfirmed, responseConfirmedSpy);
+
+        const snapshotId = await takeGanacheSnapshot(ganache);
+
+        // Start the response flow
+        responder.startResponse(appointment.id, responseData);
+
+        // Wait for the response to be sent
+        // We assume it will be done using the sendTransaction method on the signer
+        await waitForSpy(signer.sendTransaction);
+
+        await mineBlock(ganache, provider);
+
+        // Simulate a reorg to a state prior to the transaction being mined
+        await restoreGanacheSnapshot(ganache, snapshotId);
+
+        await mineBlock(ganache, provider);
+
+        console.log("Waiting for failed error");
+        await waitForSpy(attemptFailedSpy);
+
+        console.log("All done");
+
+        // Check if the parameter of the attemptFailed event is an error of type NoNewBlockError
+        const args = attemptFailedSpy.args[0]; //arguments of the first call
+        expect(args[1] instanceof ReorgError, "AttemptFailed emitted with ReorgError").to.be.true;
+
+        console.log("Restoring");
+        sinon.restore();
+    });
+
+    // TODO: this test occasionally fails with timeout
     it("emits the ResponseSent event, followed by ResponseConfirmed after enough confirmations", async () => {
         const { signer, appointment, responseData } = this.testData;
 
