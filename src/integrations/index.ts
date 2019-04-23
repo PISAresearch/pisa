@@ -10,7 +10,6 @@ export const Raiden: IChannelConfig<RaidenAppointment, RaidenInspector> = {
     appointment: obj => new RaidenAppointment(obj),
     inspector: (minimumDisputePeriod: number, provider: ethers.providers.Provider) =>
         new RaidenInspector(minimumDisputePeriod, provider),
-    // PISA: currently set to 4 for the demo - should be configurable
     minimumDisputePeriod: 4
 };
 

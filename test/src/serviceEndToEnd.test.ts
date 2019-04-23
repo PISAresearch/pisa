@@ -34,7 +34,7 @@ describe("Service end-to-end", () => {
 
     beforeEach(async () => {
         const watcherWallet = new ethers.Wallet(config.watcherKey, provider);
-        service = new PisaService(config.host.name, config.host.port, provider, watcherWallet);
+        service = new PisaService(config.host.name, config.host.port, provider, watcherWallet, provider);
 
         // accounts
         const accounts = await provider.listAccounts();

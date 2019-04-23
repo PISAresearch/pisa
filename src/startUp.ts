@@ -2,6 +2,7 @@ import { PisaService } from "./service";
 import { ethers } from "ethers";
 import config from "./dataEntities/config";
 import { getJsonRPCProvider } from "./provider";
+import { withDelay } from "./utils/ethers";
 
 const argv = require('yargs')
     .scriptName("pisa")
@@ -22,12 +23,16 @@ if (argv.hostName) config.host.name = argv.hostName;
 if (argv.hostPort) config.host.port = argv.hostPort;
 if (argv.watcherKey) config.watcherKey = argv.watcherKey;
 
-getJsonRPCProvider(config.jsonRpcUrl).then(
-    provider => {
+Promise.all([getJsonRPCProvider(config.jsonRpcUrl), getJsonRPCProvider(config.jsonRpcUrl)]).then(
+    providers => {
+        const provider = providers[0];
+        const delayedProvider = providers[1];
+        withDelay(delayedProvider, 2);
+
         const watcherWallet = new ethers.Wallet(config.watcherKey, provider);
 
         // start the pisa service
-        const service = new PisaService(config.host.name, config.host.port, provider, watcherWallet);
+        const service = new PisaService(config.host.name, config.host.port, provider, watcherWallet, delayedProvider);
 
         // wait for a stop signal
         waitForStop(service);

@@ -26,10 +26,17 @@ export class PisaService {
      *
      * @param hostname The location to host the pisa service. eg. 0.0.0.0
      * @param port The port on which to host the pisa service
-     * @param jsonRpcProvider A connection to ethereum
+     * @param provider A connection to ethereum
      * @param wallet A signing authority for submitting transactions
+     * @param delayedProvider A connection to ethereum that is delayed by a number of confirmations
      */
-    constructor(hostname: string, port: number, jsonRpcProvider: ethers.providers.Provider, wallet: ethers.Wallet) {
+    constructor(
+        hostname: string,
+        port: number,
+        provider: ethers.providers.Provider,
+        wallet: ethers.Wallet,
+        delayedProvider: ethers.providers.Provider
+    ) {
         const app = express();
         // accept json request bodies
         app.use(express.json());
@@ -44,12 +51,12 @@ export class PisaService {
         const store = new MemoryAppointmentStore();
         const ethereumResponderManager = new EthereumResponderManager(wallet);
         const eventObserver = new EventObserver(ethereumResponderManager, store);
-        const appointmentSubscriber = new AppointmentSubscriber(jsonRpcProvider);
+        const appointmentSubscriber = new AppointmentSubscriber(delayedProvider);
         const watcher = new Watcher(eventObserver, appointmentSubscriber, store);
-        const tower = new PisaTower(jsonRpcProvider, watcher, [Raiden, Kitsune]);
+        const tower = new PisaTower(provider, watcher, [Raiden, Kitsune]);
 
         // start gc
-        this.garbageCollector = new AppointmentStoreGarbageCollector(jsonRpcProvider, 20, store, appointmentSubscriber);
+        this.garbageCollector = new AppointmentStoreGarbageCollector(provider, 10, store, appointmentSubscriber);
         this.garbageCollector.start();
 
         app.post("/appointment", this.appointment(tower));

@@ -30,13 +30,14 @@ export class AppointmentStoreGarbageCollector {
     private collecting = false;
     // we want to record how many consecutive errors have taken place in gc
     private consecutiveErrors = 0;
+    private boundExpired = this.removeExpiredSince.bind(this);
 
     /**
      * Start the monitoring for expired appointments
      */
     public start() {
         if (this.started) throw new ConfigurationError("GC: Already started.");
-        this.provider.on("block", this.removeExpiredSince);
+        this.provider.on("block", this.boundExpired);
         this.started = true;
     }
 
@@ -46,7 +47,7 @@ export class AppointmentStoreGarbageCollector {
     public stop() {
         if (this.started) {
             this.started = false;
-            this.provider.removeListener("block", this.removeExpiredSince);
+            this.provider.removeListener("block", this.boundExpired);
         } else {
             logger.error("GC: Two calls to stop were made.");
         }

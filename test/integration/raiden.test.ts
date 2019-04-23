@@ -22,7 +22,7 @@ const pisaRoot = path.normalize(`${__dirname}/../../..`);
 const demoDir = `${pisaRoot}/build/raiden_demo`;
 
 const blockTime = 500; //block time in ms
-const reveal_timeout = 5;
+const reveal_timeout = 10;
 
 const initialDeposit = "20000000000000000"; // balance when channel is opened
 const paymentAmount = "1000000000000000"; // amount sent from Bob
@@ -108,6 +108,8 @@ describe("Raiden end-to-end tests for scenario 2 (with Pisa)", function() {
     };
 
     beforeEach(async () => {
+        if (!fse.existsSync(`${pisaRoot}/logs`)) await fse.mkdirp(`${pisaRoot}/logs`);
+
         // Test if all the ports we will need are available, abort otherwise
         console.log("Testing availability of ports for the test");
 
@@ -293,7 +295,7 @@ describe("Raiden end-to-end tests for scenario 2 (with Pisa)", function() {
             }
             // restart alice and bob and try to pay again if we have less than 5 errors
             if (paymentAttempts >= 20) {
-                console.log("Payment failed after 20 tries.")
+                console.log("Payment failed after 20 tries.");
                 throw lastError;
             }
             await restartAliceAndBob();
