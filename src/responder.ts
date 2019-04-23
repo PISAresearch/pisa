@@ -88,6 +88,18 @@ export class NoNewBlockError extends Error {
 }
 
 /**
+ * A simple custom Error class to signal that new blocks are being received, but the transaction
+ * is not being mined, suggesting it might be necessary to bump the gas price.
+ */
+export class StuckTransactionError extends Error {
+    constructor(message: string) {
+        super(message);
+        this.name = "StuckTransactionError";
+    }
+}
+
+
+/**
  * A generic abstract responder for the Ethereum blockchain.
  * It has exclusive control of a wallet, that is, no two instances should share the same wallet.
  * It implements the submitStateFunction, but no strategy.
@@ -96,6 +108,8 @@ export abstract class EthereumResponder extends Responder {
     // TODO-93: the correct gas limit should be provided based on the appointment/integration.
     //          200000 is enough for Kitsune and Raiden (see https://github.com/raiden-network/raiden-contracts/blob/master/raiden_contracts/data/gas.json).
     private static GAS_LIMIT = 200000;
+
+    protected gasPrice = new ethers.utils.BigNumber(21000000000);
 
     constructor(public readonly signer: ethers.Signer) {
         super();
@@ -110,7 +124,7 @@ export abstract class EthereumResponder extends Responder {
             to: responseData.contractAddress,
             gasLimit: EthereumResponder.GAS_LIMIT,
             // nonce: 0,
-            gasPrice: 21000000000, // TODO: choose an appropriate gas price
+            gasPrice: this.gasPrice,
             data: data
         };
 
@@ -142,9 +156,13 @@ export class EthereumDedicatedResponder extends EthereumResponder {
     // Waiting time before throwing an error if no new blocks are received, in milliseconds
     public static readonly WAIT_TIME_FOR_NEW_BLOCK = 120*1000;
 
+    // Number of blocks to wait for the first confirmation
+    public static readonly WAIT_BLOCKS_BEFORE_RETRYING = 20;
+
     private locked = false; // Lock to prevent this responder from accepting multiple requests
 
     // Timestamp in milliseconds when the last block was received (or since the creation of this object)
+    private lastBlockNumberSeen = 0;
     private timeLastBlockReceived: number = Date.now();
     private mAttemptsDone: number = 0;
 
@@ -167,18 +185,19 @@ export class EthereumDedicatedResponder extends EthereumResponder {
 
     private setup() {
         this.locked = true;
-        this.signer.provider.on("block", this.updateLastBlockTime);
+        this.signer.provider.on("block", this.newBlockReceived);
     }
 
     /**
      * Release any resources used by this instance.
      */
     private destroy() {
-        this.signer.provider.removeListener("block", this.updateLastBlockTime);
+        this.signer.provider.removeListener("block", this.newBlockReceived);
         this.locked = false;
     }
 
-    private updateLastBlockTime() {
+    private newBlockReceived(blockNumber: number) {
+        this.lastBlockNumberSeen = blockNumber;
         this.timeLastBlockReceived = Date.now();
     }
 
@@ -190,21 +209,48 @@ export class EthereumDedicatedResponder extends EthereumResponder {
         const responseFlow = new EthereumResponseFlow(appointmentId, responseData);
 
         this.setup();
+
+        this.gasPrice = await this.signer.provider.getGasPrice();
+
         while (this.mAttemptsDone < this.maxAttempts) {
             this.mAttemptsDone++;
             try {
                 // Try to call submitStateFunction, but timeout with an error if
-                // there is no response for 30 seconds.
-                const tx = await promiseTimeout(this.submitStateFunction(responseData), EthereumDedicatedResponder.WAIT_TIME_FOR_PROVIDER_RESPONSE);
+                // there is no response for WAIT_TIME_FOR_PROVIDER_RESPONSE ms.
+                const tx = await promiseTimeout(
+                    this.submitStateFunction(responseData),
+                    EthereumDedicatedResponder.WAIT_TIME_FOR_PROVIDER_RESPONSE
+                );
 
                 // The response has been sent, but should not be considered confirmed yet.
                 responseFlow.state = ResponseState.ResponseSent;
                 responseFlow.txHash = tx.hash;
                 this.asyncEmit(ResponderEvent.ResponseSent, responseFlow);
 
-                // Wait for enough confirmations before declaring success
-                const confirmationsPromise = waitForConfirmations(this.signer.provider, tx.hash, this.confirmationsRequired);
+
+                // Last block seen when transaction was first sent
+                const txSentBlockNumber = this.lastBlockNumberSeen;
+
+                // Promise that waits for the first confirmation
+                const firstConfirmationPromise = waitForConfirmations(this.signer.provider, tx.hash, 1);
+
+                // Promise that rejects after WAIT_BLOCKS_BEFORE_RETRYING are mined since the transaction was first sent
+                const firstConfirmationTimeoutPromise = new Promise((resolve, reject) => {
+                    const testCondition = () => {
+                        if (this.lastBlockNumberSeen > txSentBlockNumber + EthereumDedicatedResponder.WAIT_BLOCKS_BEFORE_RETRYING) {
+                            reject();
+                        }
+                        setTimeout(testCondition, 20);
+                    }
+                    testCondition();
+                });
+
+                // Promise that waits for enough confirmations before declaring success
+                const enoughConfirmationsPromise = waitForConfirmations(this.signer.provider, tx.hash, this.confirmationsRequired);
+
+
                 // ...but stop with error if no new blocks come for too long
+                // TODO: make this does not cause memory leaks
                 const noNewBlockPromise = new Promise((_, reject) => {
                     const intervalHandle = setInterval( () => {
                         // milliseconds since the last block was received (or the responder was instantiated)
@@ -216,7 +262,18 @@ export class EthereumDedicatedResponder extends EthereumResponder {
                     }, 1000);
                 });
 
-                await Promise.race([confirmationsPromise, noNewBlockPromise]);
+                // First, wait to get at least 1 confirmation
+                await Promise.race([
+                    firstConfirmationPromise,
+                    firstConfirmationTimeoutPromise,
+                    noNewBlockPromise
+                ]);
+
+                // Then, wait to get at enough confirmations
+                await Promise.race([
+                    enoughConfirmationsPromise,
+                    noNewBlockPromise
+                ]);
 
                 // The response has now enough confirmations to be considered safe.
                 responseFlow.state = ResponseState.Success;
@@ -228,8 +285,11 @@ export class EthereumDedicatedResponder extends EthereumResponder {
             } catch (doh) {
                 this.asyncEmit(ResponderEvent.AttemptFailed, responseFlow, doh);
 
-                // TODO: if there is a reorg, should check if the txHash is still valid;
-                //       if not, update the respoonseFlow and go back to Started state
+                if (doh instanceof StuckTransactionError) {
+                    // Double the gas price before the next attempt
+                    // TODO: think of better strategies (e.g.: check network conditions again)
+                    this.gasPrice = this.gasPrice.mul(2);
+                }
 
                 // TODO: does waiting a longer time before retrying help in any way?
                 await wait(EthereumDedicatedResponder.WAIT_TIME_BETWEEN_ATTEMPTS);
