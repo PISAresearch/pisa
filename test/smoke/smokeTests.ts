@@ -38,7 +38,7 @@ let setup = async () => {
 
 let execute = async () => {
     const provider = await getJsonRPCProvider();
-    const wallet = new ethers.Wallet(config.watcherKey, provider);
+    const wallet = new ethers.Wallet(config.responderKey, provider);
     const round = 1,
         setStateHash = KitsuneTools.hashForSetState(hashState, round, channelContract.address),
         sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash)),

@@ -6,7 +6,7 @@ export interface IConfig {
         name: string;
         port: number;
     },
-    watcherKey: string;
+    responderKey: string;
 }
 
 export default config as IConfig;

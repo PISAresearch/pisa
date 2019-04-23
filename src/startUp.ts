@@ -10,8 +10,8 @@ const argv = require('yargs')
     .describe('json-rpc-url', 'Overrides jsonRpcUrl from config.json.')
     .describe('host-name', 'Overrides host.name from config.json')
     .describe('host-port', 'Overrides host.porg from config.json')
-    .option('watcher-key', {
-        description: 'Overrides watcherKey from config.json',
+    .option('responder-key', {
+        description: 'Overrides responderKey from config.json',
         string: true
     })
     .help()
@@ -21,7 +21,7 @@ const argv = require('yargs')
 if (argv.jsonRpcUrl) config.jsonRpcUrl = argv.jsonRpcUrl;
 if (argv.hostName) config.host.name = argv.hostName;
 if (argv.hostPort) config.host.port = argv.hostPort;
-if (argv.watcherKey) config.watcherKey = argv.watcherKey;
+if (argv.responderKey) config.responderKey = argv.responderKey;
 
 Promise.all([getJsonRPCProvider(config.jsonRpcUrl), getJsonRPCProvider(config.jsonRpcUrl)]).then(
     providers => {
@@ -29,7 +29,7 @@ Promise.all([getJsonRPCProvider(config.jsonRpcUrl), getJsonRPCProvider(config.js
         const delayedProvider = providers[1];
         withDelay(delayedProvider, 2);
 
-        const watcherWallet = new ethers.Wallet(config.watcherKey, provider);
+        const watcherWallet = new ethers.Wallet(config.responderKey, provider);
 
         // start the pisa service
         const service = new PisaService(config.host.name, config.host.port, provider, watcherWallet, delayedProvider);

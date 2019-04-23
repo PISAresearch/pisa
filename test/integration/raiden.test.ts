@@ -172,7 +172,7 @@ describe("Raiden end-to-end tests for scenario 2 (with Pisa)", function() {
         // Start Pisa
         console.log("Starting Pisa");
         pisa = exec(
-            `node ${pisaRoot}/build/src/startUp.js --json-rpc-url=http://localhost:8545 --host-name=0.0.0.0 --host-port:3000 --watcher-key=0xc364a5ea32a4c267263e99ddda36e05bcb0e5724601c57d6504cccb68e1fe6ae`
+            `node ${pisaRoot}/build/src/startUp.js --json-rpc-url=http://localhost:8545 --host-name=0.0.0.0 --host-port:3000 --responder-key=0xc364a5ea32a4c267263e99ddda36e05bcb0e5724601c57d6504cccb68e1fe6ae`
         );
         subprocesses.push(pisa);
         const pisaLogStream = await fse.createWriteStream(`${pisaRoot}/logs/pisa.test.log`, { flags: "a" });
