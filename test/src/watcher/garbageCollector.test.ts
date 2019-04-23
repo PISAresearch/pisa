@@ -125,7 +125,7 @@ describe("GarbageCollector", () => {
         gc.start();
 
         //the block event was only subscribed to once
-        verify(mockedProvider.on("block", gc.removeExpiredSince)).once();
+        verify(mockedProvider.on("block", gc.boundExpired)).once();
     });
 
     it("start can only be called once", () => {
@@ -146,7 +146,7 @@ describe("GarbageCollector", () => {
         gc.stop();
 
         //the block event was only subscribed to once
-        verify(mockedProvider.on("block", gc.removeExpiredSince)).once();
+        verify(mockedProvider.on("block", gc.boundExpired)).once();
     });
 
     it("stop correctly removes listener", async () => {
@@ -166,8 +166,8 @@ describe("GarbageCollector", () => {
         gc.stop();
 
         //the block event was only subscribed to once
-        verify(mockedProvider.on("block", gc.removeExpiredSince)).once();
-        verify(mockedProvider.removeListener("block", gc.removeExpiredSince)).once();
+        verify(mockedProvider.on("block", gc.boundExpired)).once();
+        verify(mockedProvider.removeListener("block", gc.boundExpired)).once();
     });
 
     it("stop does nothing if called twice", () => {
@@ -189,8 +189,8 @@ describe("GarbageCollector", () => {
         gc.stop();
 
         //the block event was only subscribed to once
-        verify(mockedProvider.on("block", gc.removeExpiredSince)).once();
-        verify(mockedProvider.removeListener("block", gc.removeExpiredSince)).once();
+        verify(mockedProvider.on("block", gc.boundExpired)).once();
+        verify(mockedProvider.removeListener("block", gc.boundExpired)).once();
     });
 
     it("can collect two appointments on two events", async () => {

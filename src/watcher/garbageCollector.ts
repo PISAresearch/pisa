@@ -30,7 +30,8 @@ export class AppointmentStoreGarbageCollector {
     private collecting = false;
     // we want to record how many consecutive errors have taken place in gc
     private consecutiveErrors = 0;
-    private boundExpired = this.removeExpiredSince.bind(this);
+    // the remove expired since function bound to this gc
+    public boundExpired = this.removeExpiredSince.bind(this);
 
     /**
      * Start the monitoring for expired appointments
