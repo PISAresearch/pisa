@@ -4,10 +4,11 @@ import "mocha";
 import { ethers } from "ethers";
 import Ganache from "ganache-core";
 import { KitsuneAppointment, KitsuneTools } from "../../src/integrations/kitsune";
-import { EthereumDedicatedResponder, EthereumMultiResponder, ResponderEvent, NoNewBlockError } from "../../src/responder";
+import { EthereumDedicatedResponder, EthereumMultiResponder, ResponderEvent, NoNewBlockError, StuckTransactionError } from "../../src/responder";
 import { ReorgError } from "../../src/utils/ethers";
 import { ChannelType } from "../../src/dataEntities";
 import chaiAsPromised from "chai-as-promised";
+import { wait } from "../../src/utils";
 
 chai.use(chaiAsPromised);
 chai.use(require('sinon-chai'));
@@ -354,6 +355,53 @@ describe("EthereumDedicatedResponder", () => {
         // Check if the parameter of the attemptFailed event is an error of type NoNewBlockError
         const args = attemptFailedSpy.args[0]; //arguments of the first call
         expect(args[1] instanceof ReorgError, "AttemptFailed emitted with ReorgError").to.be.true;
+
+        sinon.restore();
+    });
+
+    it("emits StuckTransactionError if WAIT_BLOCKS_BEFORE_RETRYING blocks are mined and the transaction is not included", async () => {
+        // setup ganache so that blocks are created manually
+        await setup({ blockTime: 10000 });
+
+        const { signer, appointment, responseData } = this.testData;
+
+        const nAttempts = 1;
+        const responder = new EthereumDedicatedResponder(signer, 40, nAttempts);
+
+        const attemptFailedSpy = sinon.spy();
+        const responseFailedSpy = sinon.spy();
+        const responseSentSpy = sinon.spy();
+        const responseConfirmedSpy = sinon.spy();
+
+        sinon.spy(signer, 'sendTransaction');
+
+        responder.on(ResponderEvent.AttemptFailed, attemptFailedSpy);
+        responder.on(ResponderEvent.ResponseFailed, responseFailedSpy);
+        responder.on(ResponderEvent.ResponseSent, responseSentSpy);
+        responder.on(ResponderEvent.ResponseConfirmed, responseConfirmedSpy);
+
+
+        // Start the response flow
+        responder.startResponse(appointment.id, responseData);
+
+        // Wait for the response to be sent and save the transaction
+        const tx = await waitForSpy(signer.sendTransaction);
+
+        const fakeTx = sinon.fake.returns(tx);
+
+        // From now on, make attempts to sendTransaction and getTransactionReceipt return tx, so it looks like the transaction is not confirmed
+        sinon.replace(signer, 'sendTransaction', fakeTx);
+        sinon.replace(provider, 'getTransactionReceipt', sinon.fake.returns(tx));
+
+        // Mine more than WAIT_BLOCKS_BEFORE_RETRYING blocks
+        for (let i = 0; i < 1 + EthereumDedicatedResponder.WAIT_BLOCKS_BEFORE_RETRYING; i++) {
+            await mineBlock(ganache, provider);
+        }
+
+        await waitForSpy(attemptFailedSpy);
+
+        const args = attemptFailedSpy.args[0]; //arguments of the first call
+        expect(args[1] instanceof StuckTransactionError, "AttemptFailed emitted with StuckTransactionError").to.be.true;
 
         sinon.restore();
     });

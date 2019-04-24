@@ -185,7 +185,7 @@ export class EthereumDedicatedResponder extends EthereumResponder {
 
     private setup() {
         this.locked = true;
-        this.signer.provider.on("block", this.newBlockReceived);
+        this.signer.provider.on("block", this.newBlockReceived.bind(this));
     }
 
     /**
@@ -234,11 +234,11 @@ export class EthereumDedicatedResponder extends EthereumResponder {
                 // Promise that waits for the first confirmation
                 const firstConfirmationPromise = waitForConfirmations(this.signer.provider, tx.hash, 1);
 
-                // Promise that rejects after WAIT_BLOCKS_BEFORE_RETRYING are mined since the transaction was first sent
-                const firstConfirmationTimeoutPromise = new Promise((resolve, reject) => {
+                // Promise that rejects after WAIT_BLOCKS_BEFORE_RETRYING blocks are mined since the transaction was first sent
+                const firstConfirmationTimeoutPromise = new Promise((_, reject) => {
                     const testCondition = () => {
                         if (this.lastBlockNumberSeen > txSentBlockNumber + EthereumDedicatedResponder.WAIT_BLOCKS_BEFORE_RETRYING) {
-                            reject();
+                            reject(new StuckTransactionError(`Transaction still not mined after ${this.lastBlockNumberSeen - txSentBlockNumber} blocks`));
                         }
                         setTimeout(testCondition, 20);
                     }
@@ -262,14 +262,15 @@ export class EthereumDedicatedResponder extends EthereumResponder {
                     }, 1000);
                 });
 
-                // First, wait to get at least 1 confirmation
+                // First, wait to get at least 1 confirmation, but throw an error if the transaction is stuck
+                // (that is, new blocks are coming, but the transaction is not included)
                 await Promise.race([
                     firstConfirmationPromise,
                     firstConfirmationTimeoutPromise,
                     noNewBlockPromise
                 ]);
 
-                // Then, wait to get at enough confirmations
+                // Then, wait to get at enough confirmations; now only throw an error if there is a reorg
                 await Promise.race([
                     enoughConfirmationsPromise,
                     noNewBlockPromise
