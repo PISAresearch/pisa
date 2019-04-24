@@ -349,16 +349,12 @@ describe("EthereumDedicatedResponder", () => {
 
         await mineBlock(ganache, provider);
 
-        console.log("Waiting for failed error");
         await waitForSpy(attemptFailedSpy);
-
-        console.log("All done");
 
         // Check if the parameter of the attemptFailed event is an error of type NoNewBlockError
         const args = attemptFailedSpy.args[0]; //arguments of the first call
         expect(args[1] instanceof ReorgError, "AttemptFailed emitted with ReorgError").to.be.true;
 
-        console.log("Restoring");
         sinon.restore();
     });
 
