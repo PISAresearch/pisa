@@ -390,6 +390,7 @@ describe("EthereumDedicatedResponder", () => {
         const fakeTx = sinon.fake.returns(tx);
 
         // From now on, make attempts to sendTransaction and getTransactionReceipt return tx, so it looks like the transaction is not confirmed
+        // TODO: it would be cleaner to prevent Ganache from mining the transaction.
         sinon.replace(signer, 'sendTransaction', fakeTx);
         sinon.replace(provider, 'getTransactionReceipt', sinon.fake.returns(tx));
 
