@@ -8,7 +8,6 @@ import { EthereumDedicatedResponder, EthereumMultiResponder, ResponderEvent, NoN
 import { ReorgError } from "../../src/utils/ethers";
 import { ChannelType } from "../../src/dataEntities";
 import chaiAsPromised from "chai-as-promised";
-import { wait } from "../../src/utils";
 
 chai.use(chaiAsPromised);
 chai.use(require('sinon-chai'));
@@ -144,30 +143,31 @@ function mineBlock(ganache, provider: ethers.providers.Web3Provider): Promise<nu
     });
 }
 
-// Returns a promise that waits for a sinon spy to be called and resolves to the return value of the first call.
-function waitForSpy(spy: any) {
-    return new Promise( resolve => {
-        const testSpy = function() {
-            if (spy.called) {
-                resolve(spy.getCall(0).returnValue);
-            }
-            _setTimeout(testSpy, 20);
-        };
-        testSpy();
-    });
-}
-
 // Tests `predicate()` every `interval` milliseconds; resolve only when `predicate` is truthy. 
-function waitFor(predicate: () => boolean, interval: number = 10): Promise<void> {
+function waitFor(predicate: () => boolean, interval: number = 50): Promise<void> {
     return new Promise(resolve => {
-        function test() {
+        const test = function() {
             if (predicate()) {
                 resolve();
             } else {
                 _setTimeout(test, interval);
             }
-        }
+        };
         test();
+    });
+}
+
+// Returns a promise that waits for a sinon spy to be called and resolves to the return value of the first call.
+function waitForSpy(spy: any, interval = 10) {
+    return new Promise(resolve => {
+        const testSpy = function() {
+            if (spy.called) {
+                resolve(spy.getCall(0).returnValue);
+            } else {
+                _setTimeout(testSpy, 20);
+            }
+        };
+        testSpy();
     });
 }
 
@@ -201,8 +201,6 @@ describe("EthereumDedicatedResponder", () => {
         sinon.restore();
     });
 
-
-
     it("correctly submits an appointment to the blockchain", async () => {
         const { signer, appointment, responseData } = this.testData;
 
@@ -224,7 +222,7 @@ describe("EthereumDedicatedResponder", () => {
         expect(channelState).to.equal(hashState);
     });
 
-    // TODO: fix this test, failing
+    // TODO: this test is failing because of the timeouts. It seems due to sinon's fake timers not working well with Promises.
     // it("emits the AttemptFailed and ResponseFailed events the correct number of times on failure", async () => {
     //     this.clock = sinon.useFakeTimers();
 
@@ -253,18 +251,15 @@ describe("EthereumDedicatedResponder", () => {
 
     //     // The test seems to fail if we make time steps that are too large; instead, we proceed at 1 second ticks
     //     for (let i = 0; i < nAttempts; i++) {
-    //         for (let j = 0; j < tickWaitTime/1000; j++){
-    //             this.clock.tick(1000);
-    //             await Promise.resolve();
-    //         }
+    //         this.clock.tick(tickWaitTime);
+    //         await Promise.resolve();
+
     //         await waitFor(() => attemptFailedSpy.callCount > i);
     //     }
 
     //     // Let's make sure there is time after the last iteration
     //     this.clock.tick(tickWaitTime);
     //     await Promise.resolve();
-
-    //     await waitFor(() => attemptFailedSpy.callCount >= nAttempts);
 
     //     expect(attemptFailedSpy.callCount, "emitted AttemptFailed the right number of times").to.equal(nAttempts);
     //     expect(responseFailedSpy.callCount, "emitted ResponseFailed exactly once").to.equal(1);
