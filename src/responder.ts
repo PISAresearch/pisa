@@ -109,7 +109,11 @@ export abstract class EthereumResponder extends Responder {
     //          200000 is enough for Kitsune and Raiden (see https://github.com/raiden-network/raiden-contracts/blob/master/raiden_contracts/data/gas.json).
     private static GAS_LIMIT = 200000;
 
+    // implementations should query the provider (or a service) to figure out the appropriate gas price
     protected gasPrice = new ethers.utils.BigNumber(21000000000);
+
+    // the nonce that will be used when submitStateFunction is called
+    protected nonce = null;
 
     constructor(public readonly signer: ethers.Signer) {
         super();
@@ -123,7 +127,7 @@ export abstract class EthereumResponder extends Responder {
         const transactionRequest = {
             to: responseData.contractAddress,
             gasLimit: EthereumResponder.GAS_LIMIT,
-            // nonce: 0,
+            nonce: this.nonce,
             gasPrice: this.gasPrice,
             data: data
         };
@@ -210,7 +214,22 @@ export class EthereumDedicatedResponder extends EthereumResponder {
 
         this.setup();
 
-        this.gasPrice = await this.signer.provider.getGasPrice();
+        const signerAddress = await promiseTimeout(
+            this.signer.getAddress(),
+            EthereumDedicatedResponder.WAIT_TIME_FOR_PROVIDER_RESPONSE
+        );
+
+        // Get the current nonce to be used
+        this.nonce = await promiseTimeout(
+            this.signer.provider.getTransactionCount(signerAddress),
+            EthereumDedicatedResponder.WAIT_TIME_FOR_PROVIDER_RESPONSE
+        );
+
+        // Get the initial gas price
+        this.gasPrice = await promiseTimeout(
+            this.signer.provider.getGasPrice(),
+            EthereumDedicatedResponder.WAIT_TIME_FOR_PROVIDER_RESPONSE
+        );
 
         while (this.mAttemptsDone < this.maxAttempts) {
             this.mAttemptsDone++;
@@ -250,7 +269,7 @@ export class EthereumDedicatedResponder extends EthereumResponder {
 
 
                 // ...but stop with error if no new blocks come for too long
-                // TODO: make this does not cause memory leaks
+                // TODO: make sure this does not cause memory leaks
                 const noNewBlockPromise = new Promise((_, reject) => {
                     const intervalHandle = setInterval( () => {
                         // milliseconds since the last block was received (or the responder was instantiated)
@@ -314,6 +333,7 @@ interface EthereumMultiResponderResponseState {
 /**
  * This is a high throughput responder for disputes on ethereum.
  * It can submit transactions at a much bigger pace, handling many simultaneous disputes with the same wallet.
+ * TODO: this class is still a stub.
  */
 export class EthereumMultiResponder extends EthereumResponder {
     // Waiting time before considering a request to the provider failed, in milliseconds
