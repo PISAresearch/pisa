@@ -108,14 +108,9 @@ export abstract class EthereumAppointment implements IEthereumAppointment {
 }
 
 /**
- * Base interface representing all the necessary information for a response from Pisa.
- */
-export interface IResponseData {}
-
-/**
  * Represents the necessary data for an on-chain response from Pisa on the Ethereum blockchain.
  */
-export interface IEthereumResponseData extends IResponseData {
+export interface IEthereumResponseData {
     contractAddress: string,
     contractAbi: any,
     functionName: string,
