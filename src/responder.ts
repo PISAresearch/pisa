@@ -112,14 +112,11 @@ export abstract class EthereumResponder extends Responder {
     // implementations should query the provider (or a service) to figure out the appropriate gas price
     protected gasPrice = new ethers.utils.BigNumber(21000000000);
 
-    // the nonce that will be used when submitStateFunction is called
-    protected nonce = null;
-
     constructor(public readonly signer: ethers.Signer) {
         super();
     }
 
-    protected submitStateFunction(responseData: IEthereumResponseData): Promise<TransactionResponse> {
+    protected submitStateFunction(responseData: IEthereumResponseData, nonce: number = null): Promise<TransactionResponse> {
         // form the interface so that we can serialise the args and the function name
         const abiInterface = new ethers.utils.Interface(responseData.contractAbi);
         const data = abiInterface.functions[responseData.functionName].encode(responseData.functionArgs);
@@ -127,7 +124,7 @@ export abstract class EthereumResponder extends Responder {
         const transactionRequest = {
             to: responseData.contractAddress,
             gasLimit: EthereumResponder.GAS_LIMIT,
-            nonce: this.nonce,
+            nonce: nonce,
             gasPrice: this.gasPrice,
             data: data
         };
@@ -220,7 +217,7 @@ export class EthereumDedicatedResponder extends EthereumResponder {
         );
 
         // Get the current nonce to be used
-        this.nonce = await promiseTimeout(
+        const nonce = await promiseTimeout(
             this.signer.provider.getTransactionCount(signerAddress),
             EthereumDedicatedResponder.WAIT_TIME_FOR_PROVIDER_RESPONSE
         );
@@ -237,7 +234,7 @@ export class EthereumDedicatedResponder extends EthereumResponder {
                 // Try to call submitStateFunction, but timeout with an error if
                 // there is no response for WAIT_TIME_FOR_PROVIDER_RESPONSE ms.
                 const tx = await promiseTimeout(
-                    this.submitStateFunction(responseData),
+                    this.submitStateFunction(responseData, nonce),
                     EthereumDedicatedResponder.WAIT_TIME_FOR_PROVIDER_RESPONSE
                 );
 
