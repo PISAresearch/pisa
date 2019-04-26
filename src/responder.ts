@@ -10,7 +10,7 @@ import { ApplicationError } from "./dataEntities";
 /**
  * Responsible for storing the state and managing the flow of a single response.
  */
-// TODO-93: This class and ResponseState are not currently used in any meaningful way.
+// TODO:93: This class and ResponseState are not currently used in any meaningful way.
 //          The plan is to use them for accounting, make sure this is the case.
 export abstract class ResponseFlow {
     private static nextId: number = 0;
