@@ -30,8 +30,8 @@ export abstract class ResponseFlow {
  * This class stores the state of a response on the Ethereum blockchain.
  */
 export class EthereumResponseFlow extends ResponseFlow {
-    txHash: string = null; // if a transaction has been sent, this is its hash
-    constructor(appointmentId: string, readonly ethereumResponseData: IEthereumResponseData) {
+    public txHash: string = null; // if a transaction has been sent, this is its hash
+    constructor(public appointmentId: string, public readonly ethereumResponseData: IEthereumResponseData) {
         super(appointmentId);
     }
 }
