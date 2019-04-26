@@ -173,13 +173,13 @@ export class EthereumDedicatedResponder extends EthereumResponder {
 
     /**
      * @param signer The signer of the wallet associated with this responder. Each responder should have exclusive access to his wallet.
-     * @param [confirmationsRequired=40] The number of confirmations required before a transaction is trusted.
-     * @param [maxAttempts=10] The maximum number of retries before the Responder will give up.
+     * @param [confirmationsRequired] The number of confirmations required before a transaction is trusted.
+     * @param [maxAttempts] The maximum number of retries before the Responder will give up.
      */
     constructor(
         signer: ethers.Signer,
-        public readonly confirmationsRequired = 40,
-        private readonly maxAttempts: number = 10
+        public readonly confirmationsRequired,
+        private readonly maxAttempts: number
     ) {
         super(signer);
     }
@@ -350,8 +350,8 @@ export class EthereumMultiResponder extends EthereumResponder {
 
     constructor(
         signer: ethers.Signer,
-        public readonly confirmationsRequired = 40,
-        private readonly maxAttempts: number = 10
+        public readonly confirmationsRequired,
+        private readonly maxAttempts: number
     ) {
         super(signer);
 
@@ -510,7 +510,7 @@ export class EthereumResponderManager {
     public respond(appointment: IEthereumAppointment) {
         const ethereumResponseData = appointment.getResponseData();
 
-        const responder = new EthereumDedicatedResponder(this.signer, 10);
+        const responder = new EthereumDedicatedResponder(this.signer, 40, 10);
         this.responders.add(responder);
         responder
             .on(ResponderEvent.ResponseSent, (responseFlow: ResponseFlow) => {

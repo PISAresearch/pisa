@@ -204,7 +204,7 @@ describe("EthereumDedicatedResponder", () => {
     it("correctly submits an appointment to the blockchain", async () => {
         const { signer, appointment, responseData } = this.testData;
 
-        const responder = new EthereumDedicatedResponder(signer, 10);
+        const responder = new EthereumDedicatedResponder(signer, 40, 10);
         const promise = new Promise((resolve, reject) => {
             responder.on(ResponderEvent.ResponseSent, resolve);
             responder.on(ResponderEvent.AttemptFailed, reject)
@@ -486,7 +486,7 @@ describe("EthereumMultiResponder", () => {
     it("correctly submits an appointment to the blockchain", async () => {
         const { signer, appointment, responseData } = this.testData;
 
-        const responder = new EthereumMultiResponder(signer, 10);
+        const responder = new EthereumMultiResponder(signer, 40, 10);
         const promise = new Promise((resolve, reject)=> {
             responder.on(ResponderEvent.ResponseSent, resolve);
             responder.on(ResponderEvent.AttemptFailed, reject)
