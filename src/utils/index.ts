@@ -30,14 +30,20 @@ export class CancellablePromise<T> extends Promise<T> {
         return this.mCancelled;
     }
 
-    constructor(executor: (resolve: (value?: T | PromiseLike<T>) => void, reject: (reason?: any) => void) => void) {
+    constructor(
+        executor: (resolve: (value?: T | PromiseLike<T>) => void, reject: (reason?: any) => void) => void,
+        private canceller?: () => void
+    ) {
         super(executor);
     }
 
     /**
-     * Sets this promise as cancelled, enabling it to free any resources.
+     * If a canceller was provided in the constructor, it calls it. Then it sets `cancelled` to true.
      */
     public cancel() {
+        if (!!this.canceller) {
+            this.canceller();
+        }
         this.mCancelled = true;
     }
 }

@@ -1,7 +1,7 @@
 import { EventEmitter } from "events";
 import { ethers } from "ethers";
-import { wait, waitFor, promiseTimeout, plural } from "./utils";
-import { waitForConfirmations, ReorgError } from "./utils/ethers";
+import { wait, promiseTimeout, plural } from "./utils";
+import { waitForConfirmations, BlockThresholdReachedError, rejectAfterBlocks } from "./utils/ethers";
 import { IEthereumAppointment, IEthereumResponseData } from "./dataEntities/appointment";
 import logger from "./logger";
 import { TransactionResponse } from "ethers/providers";
@@ -86,17 +86,6 @@ export class NoNewBlockError extends Error {
     }
 }
 
-/**
- * A simple custom Error class to signal that new blocks are being received, but the transaction
- * is not being mined, suggesting it might be necessary to bump the gas price.
- */
-export class StuckTransactionError extends Error {
-    constructor(message: string) {
-        super(message);
-        this.name = "StuckTransactionError";
-    }
-}
-
 
 /**
  * A generic abstract responder for the Ethereum blockchain.
@@ -141,6 +130,16 @@ export abstract class EthereumResponder extends Responder {
 
 
 /* CONCRETE RESPONDER IMPLEMENTATIONS */
+
+/**
+* A simple custom Error class to signal that the speified number of blocks has been mined.
+*/
+export class StuckTransactionError extends Error {
+   constructor(message: string) {
+       super(message);
+       this.name = "StuckTransactionError";
+   }
+}
 
 /**
  * This responder can only handle one response. The wallet used by this responder should not be used for any other purpose
@@ -249,17 +248,10 @@ export class EthereumDedicatedResponder extends EthereumResponder {
                     // Promise that waits for the first confirmation
                     const firstConfirmationPromise = waitForConfirmations(this.signer.provider, tx.hash, 1);
 
-                    // Promise that rejects after WAIT_BLOCKS_BEFORE_RETRYING blocks are mined since the transaction was first sent
-                    const firstConfirmationTimeoutPromise = new Promise((_, reject) => {
-                        const testCondition = () => {
-                            if (this.lastBlockNumberSeen > txSentBlockNumber + EthereumDedicatedResponder.WAIT_BLOCKS_BEFORE_RETRYING) {
-                                reject(new StuckTransactionError(`Transaction still not mined after ${this.lastBlockNumberSeen - txSentBlockNumber} blocks`));
-                            } else {
-                                setTimeout(testCondition, 1000);
-                            }
-                        }
-                        testCondition();
-                    });
+                    // Promise that rejects after WAIT_BLOCKS_BEFORE_RETRYING blocks are mined
+                    const firstConfirmationTimeoutPromise = rejectAfterBlocks(
+                        this.signer.provider, txSentBlockNumber, EthereumDedicatedResponder.WAIT_BLOCKS_BEFORE_RETRYING
+                    );
 
                     // Promise that waits for enough confirmations before declaring success
                     const enoughConfirmationsPromise = waitForConfirmations(this.signer.provider, tx.hash, this.confirmationsRequired);
@@ -288,6 +280,8 @@ export class EthereumDedicatedResponder extends EthereumResponder {
                         noNewBlockPromise
                     ]);
 
+                    firstConfirmationTimeoutPromise.cancel();
+
                     // Then, wait to get at enough confirmations; now only throw an error if there is a reorg
                     await Promise.race([
                         enoughConfirmationsPromise,
@@ -300,12 +294,19 @@ export class EthereumDedicatedResponder extends EthereumResponder {
 
                     return;
                 } catch (doh) {
-                    this.asyncEmit(ResponderEvent.AttemptFailed, responseFlow, doh);
-
-                    if (doh instanceof StuckTransactionError) {
+                    if (doh instanceof BlockThresholdReachedError) {
                         // Double the gas price before the next attempt
                         // TODO: think of better strategies (e.g.: check network conditions again)
                         this.gasPrice = this.gasPrice.mul(2);
+                        this.asyncEmit(
+                            ResponderEvent.AttemptFailed,
+                            responseFlow,
+                            new StuckTransactionError(
+                                `Transaction not mined after ${EthereumDedicatedResponder.WAIT_BLOCKS_BEFORE_RETRYING} blocks.`
+                            )
+                        );
+                    } else {
+                        this.asyncEmit(ResponderEvent.AttemptFailed, responseFlow, doh);
                     }
 
                     // TODO: does waiting a longer time before retrying help in any way?

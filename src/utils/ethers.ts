@@ -1,6 +1,8 @@
 // Utility functions for ethers.js
 
+import ethers from 'ethers';
 import { Provider, BaseProvider } from "ethers/providers";
+import { CancellablePromise } from '.';
 
 /**
  * A simple custom Error class to provide more details in case of a re-org.
@@ -21,13 +23,15 @@ export class ReorgError extends Error {
  * @param txHash 
  * @param confirmationsRequired 
  */
-export function waitForConfirmations(provider: Provider, txHash: string, confirmationsRequired: number): Promise<void> {
-    return new Promise((resolve, reject) => {
-        const cleanup = () => {
-            provider.removeListener("block", newBlockHandler);
-        }
+export function waitForConfirmations(provider: Provider, txHash: string, confirmationsRequired: number): CancellablePromise<void> {
+    let newBlockHandler: () => any;
 
-        const newBlockHandler = async () => {
+    const cleanup = () => {
+        provider.removeListener("block", newBlockHandler);
+    }
+
+    return new CancellablePromise((resolve, reject) => {
+        newBlockHandler = async () => {
             const receipt = await provider.getTransactionReceipt(txHash);
             if (receipt == null) {
                 // There was likely a re-org at this provider.
@@ -39,7 +43,44 @@ export function waitForConfirmations(provider: Provider, txHash: string, confirm
             }
         };
         provider.on("block", newBlockHandler);
-    });
+    }, cleanup);
+}
+
+/**
+ * A simple custom Error class to signal that the speified number of blocks has been mined.
+ */
+export class BlockThresholdReachedError extends Error {
+    constructor(message: string) {
+        super(message);
+        this.name = "BlockThresholdReachedError";
+    }
+}
+
+/**
+ * Returns a CancellablePromise that observes the `provider` and rejects as soon as at least `blockCount`
+ * new blocks are mined since `sinceBlock`. 
+ *
+ * @param provider
+ * @param sinceBlock
+ * @param blockCount
+ */
+export function rejectAfterBlocks(provider: ethers.providers.Provider, sinceBlock: number, blockCount: number) {
+    let newBlockHandler: (blockNumber: number) => any;
+
+    const cleanup = () => {
+        provider.removeListener("block", newBlockHandler);
+    }
+
+    return new CancellablePromise((_, reject) => {
+        newBlockHandler = (blockNumber: number) => {
+            if (blockNumber >= sinceBlock + blockCount) {
+                cleanup();
+                reject(new BlockThresholdReachedError("Block threshold reached"));
+            }
+        };
+
+        provider.on("block", newBlockHandler);
+    }, cleanup);
 }
 
 
