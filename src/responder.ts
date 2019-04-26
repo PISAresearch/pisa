@@ -1,11 +1,10 @@
 import { EventEmitter } from "events";
 import { ethers } from "ethers";
-import { wait, promiseTimeout, plural } from "./utils";
+import { wait, waitFor, promiseTimeout, plural } from "./utils";
 import { waitForConfirmations, ReorgError } from "./utils/ethers";
 import { IEthereumAppointment, IEthereumResponseData } from "./dataEntities/appointment";
 import logger from "./logger";
 import { TransactionResponse } from "ethers/providers";
-import { ApplicationError } from "./dataEntities";
 
 /**
  * Responsible for storing the state and managing the flow of a single response.
