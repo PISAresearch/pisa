@@ -84,6 +84,55 @@ export function rejectAfterBlocks(provider: ethers.providers.Provider, sinceBloc
 }
 
 
+/**
+ * A simple custom Error class to signal that no new block was received while we
+ * were waiting for a transaction to be mined. This might likely signal a failure of
+ * the provider.
+ */
+export class NoNewBlockError extends Error {
+    constructor(message: string) {
+        super(message);
+        this.name = "NoNewBlockError";
+    }
+}
+
+/**
+ * Returns a CancellablePromise that observes the `provider` and rejects with NoNewBlockError if no new block is received for `timeout`
+ * milliseconds starting from `startTime`. The condition is tested every `pollInterval` milliseconds.
+ *
+ */
+export function rejectIfNoNewBlock(provider: ethers.providers.Provider, startTime: number, timeout: number, pollInterval: number): CancellablePromise<void> {
+    let newBlockHandler: (blockNumber: number) => any;
+    let timeoutHandler: NodeJS.Timeout;
+
+    let timeLastBlockReceived = startTime;
+
+    const cleanup = () => {
+        provider.removeListener("block", newBlockHandler);
+        clearTimeout(timeoutHandler);
+    }
+
+    return new CancellablePromise((_, reject) => {
+        newBlockHandler = () => {
+            timeLastBlockReceived = Date.now();
+        };
+
+        provider.on("block", newBlockHandler);
+
+        function testCondition() {
+            const msSinceLastBlock = Date.now() - timeLastBlockReceived;
+            if (msSinceLastBlock > timeout) {
+                cleanup();
+                reject(new NoNewBlockError(`No new block was received for ${Math.round(msSinceLastBlock/1000)} seconds; provider might be down.`));
+            } else {
+                timeoutHandler = setTimeout(testCondition, pollInterval);
+            }
+        }
+        testCondition();
+    }, cleanup);
+}
+
+
  /**
  * Adds a delay to the provider. When polling, or getting block number, or waiting for confirmations,
  * the provider will behave as if the head is delay blocks deep. Use this function with caution,

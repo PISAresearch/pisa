@@ -4,8 +4,8 @@ import "mocha";
 import { ethers } from "ethers";
 import Ganache from "ganache-core";
 import { KitsuneAppointment, KitsuneTools } from "../../src/integrations/kitsune";
-import { EthereumDedicatedResponder, ResponderEvent, NoNewBlockError, StuckTransactionError } from "../../src/responder";
-import { ReorgError } from "../../src/utils/ethers";
+import { EthereumDedicatedResponder, ResponderEvent, StuckTransactionError } from "../../src/responder";
+import { ReorgError, NoNewBlockError } from "../../src/utils/ethers";
 import { ChannelType } from "../../src/dataEntities";
 import chaiAsPromised from "chai-as-promised";
 

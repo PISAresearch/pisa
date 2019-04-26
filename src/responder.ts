@@ -1,7 +1,7 @@
 import { EventEmitter } from "events";
 import { ethers } from "ethers";
 import { wait, promiseTimeout, plural } from "./utils";
-import { waitForConfirmations, BlockThresholdReachedError, rejectAfterBlocks } from "./utils/ethers";
+import { waitForConfirmations, rejectAfterBlocks, BlockThresholdReachedError, rejectIfNoNewBlock } from "./utils/ethers";
 import { IEthereumAppointment, IEthereumResponseData } from "./dataEntities/appointment";
 import logger from "./logger";
 import { TransactionResponse } from "ethers/providers";
@@ -73,19 +73,6 @@ export abstract class Responder extends EventEmitter {
         return new Promise(resolve => resolve(this.emit.apply(this, args)))
     }
 }
-
-/**
- * A simple custom Error class to signal that no new block was received while we
- * were waiting for a transaction to be mined. This might likely signal a failure of
- * the provider.
- */
-export class NoNewBlockError extends Error {
-    constructor(message: string) {
-        super(message);
-        this.name = "NoNewBlockError";
-    }
-}
-
 
 /**
  * A generic abstract responder for the Ethereum blockchain.
@@ -206,6 +193,8 @@ export class EthereumDedicatedResponder extends EthereumResponder {
 
     public async startResponse(appointmentId: string, responseData: IEthereumResponseData) {
         this.withLock(async () => {
+            const cancellablePromises = []; // Promises to cancel on cleanup to prevent memory leaks
+
             const responseFlow = new EthereumResponseFlow(appointmentId, responseData);
 
             const signerAddress = await promiseTimeout(
@@ -257,20 +246,14 @@ export class EthereumDedicatedResponder extends EthereumResponder {
                     const enoughConfirmationsPromise = waitForConfirmations(this.signer.provider, tx.hash, this.confirmationsRequired);
 
                     // ...but stop with error if no new blocks come for too long
-                    // TODO: make sure this does not cause memory leaks
-                    const noNewBlockPromise = new Promise((_, reject) => {
-                        const testCondition = () => {
-                            // milliseconds since the last block was received (or the responder was instantiated)
-                            const msSinceLastBlock = Date.now() - this.timeLastBlockReceived;
-                            if (msSinceLastBlock > EthereumDedicatedResponder.WAIT_TIME_FOR_NEW_BLOCK) {
-                                reject(new NoNewBlockError(`No new block was received for ${Math.round(msSinceLastBlock/1000)} seconds; provider might be down.`));
-                            } else {
-                                setTimeout(testCondition, 1000);
-                            }
-                        };
-                        testCondition();
-                    });
+                    const noNewBlockPromise = rejectIfNoNewBlock(
+                        this.signer.provider,
+                        this.timeLastBlockReceived || Date.now(),
+                        EthereumDedicatedResponder.WAIT_TIME_FOR_NEW_BLOCK,
+                        1000
+                    );
 
+                    cancellablePromises.push(enoughConfirmationsPromise, noNewBlockPromise)
 
                     // First, wait to get at least 1 confirmation, but throw an error if the transaction is stuck
                     // (that is, new blocks are coming, but the transaction is not included)
@@ -280,13 +263,12 @@ export class EthereumDedicatedResponder extends EthereumResponder {
                         noNewBlockPromise
                     ]);
 
-                    firstConfirmationTimeoutPromise.cancel();
-
                     // Then, wait to get at enough confirmations; now only throw an error if there is a reorg
                     await Promise.race([
                         enoughConfirmationsPromise,
                         noNewBlockPromise
                     ]);
+
 
                     // The response has now enough confirmations to be considered safe.
                     responseFlow.state = ResponseState.Success;
@@ -311,6 +293,11 @@ export class EthereumDedicatedResponder extends EthereumResponder {
 
                     // TODO: does waiting a longer time before retrying help in any way?
                     await wait(EthereumDedicatedResponder.WAIT_TIME_BETWEEN_ATTEMPTS);
+                } finally {
+                    // Make sure any pending CancellablePromise is released
+                    for (let p of cancellablePromises) {
+                        p.cancel();
+                    }
                 }
             }
             responseFlow.state = ResponseState.Failed;
