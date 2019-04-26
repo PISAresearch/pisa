@@ -163,13 +163,8 @@ export class EthereumDedicatedResponder extends EthereumResponder {
     private locked = false; // Lock to prevent this responder from accepting multiple requests
 
     // Timestamp in milliseconds when the last block was received (or since the creation of this object)
-    private lastBlockNumberSeen = 0;
-    private timeLastBlockReceived: number = Date.now();
-    private mAttemptsDone: number = 0;
-
-    get attemptsDone() {
-        return this.mAttemptsDone;
-    }
+    private lastBlockNumberSeen: number;
+    private timeLastBlockReceived: number;
 
     /**
      * @param signer The signer of the wallet associated with this responder. Each responder should have exclusive access to his wallet.
@@ -191,8 +186,12 @@ export class EthereumDedicatedResponder extends EthereumResponder {
         }
 
         this.locked = true;
+
         const listener = this.newBlockReceived.bind(this);
         this.signer.provider.on("block", listener);
+
+        this.lastBlockNumberSeen = 0;
+        this.timeLastBlockReceived = Date.now();
 
         try {
             await fn();
@@ -228,8 +227,9 @@ export class EthereumDedicatedResponder extends EthereumResponder {
                 EthereumDedicatedResponder.WAIT_TIME_FOR_PROVIDER_RESPONSE
             );
 
-            while (this.mAttemptsDone < this.maxAttempts) {
-                this.mAttemptsDone++;
+            let attemptsDone = 0;
+            while (attemptsDone < this.maxAttempts) {
+                attemptsDone++;
                 try {
                     // Try to call submitStateFunction, but timeout with an error if
                     // there is no response for WAIT_TIME_FOR_PROVIDER_RESPONSE ms.
@@ -255,8 +255,9 @@ export class EthereumDedicatedResponder extends EthereumResponder {
                         const testCondition = () => {
                             if (this.lastBlockNumberSeen > txSentBlockNumber + EthereumDedicatedResponder.WAIT_BLOCKS_BEFORE_RETRYING) {
                                 reject(new StuckTransactionError(`Transaction still not mined after ${this.lastBlockNumberSeen - txSentBlockNumber} blocks`));
+                            } else {
+                                setTimeout(testCondition, 1000);
                             }
-                            setTimeout(testCondition, 20);
                         }
                         testCondition();
                     });
@@ -264,19 +265,21 @@ export class EthereumDedicatedResponder extends EthereumResponder {
                     // Promise that waits for enough confirmations before declaring success
                     const enoughConfirmationsPromise = waitForConfirmations(this.signer.provider, tx.hash, this.confirmationsRequired);
 
-
                     // ...but stop with error if no new blocks come for too long
                     // TODO: make sure this does not cause memory leaks
                     const noNewBlockPromise = new Promise((_, reject) => {
-                        const intervalHandle = setInterval( () => {
+                        const testCondition = () => {
                             // milliseconds since the last block was received (or the responder was instantiated)
                             const msSinceLastBlock = Date.now() - this.timeLastBlockReceived;
                             if (msSinceLastBlock > EthereumDedicatedResponder.WAIT_TIME_FOR_NEW_BLOCK) {
-                                clearInterval(intervalHandle)
                                 reject(new NoNewBlockError(`No new block was received for ${Math.round(msSinceLastBlock/1000)} seconds; provider might be down.`));
+                            } else {
+                                setTimeout(testCondition, 1000);
                             }
-                        }, 1000);
+                        };
+                        testCondition();
                     });
+
 
                     // First, wait to get at least 1 confirmation, but throw an error if the transaction is stuck
                     // (that is, new blocks are coming, but the transaction is not included)
@@ -512,33 +515,35 @@ export class EthereumResponderManager {
 
         const responder = new EthereumDedicatedResponder(this.signer, 40, 10);
         this.responders.add(responder);
+        let attemptsDone = 0;
         responder
             .on(ResponderEvent.ResponseSent, (responseFlow: ResponseFlow) => {
                 logger.info(
-                    `Successfully responded to appointment ${appointment.id} after ${responder.attemptsDone} ${plural(responder.attemptsDone, "attempt")}.
-                     Waiting for enough confirmations.`
+                    `Successfully responded to appointment ${appointment.id}. Waiting for enough confirmations.`
                 );
 
                 // TODO: Should we store information about past responders anywhere?
                 this.responders.delete(responder);
             })
             .on(ResponderEvent.ResponseConfirmed, (responseFlow: ResponseFlow) => {
+                attemptsDone++;
                 logger.info(
-                    `Successfully responded to appointment ${appointment.id} after ${responder.attemptsDone} ${plural(responder.attemptsDone, "attempt")}.`
+                    `Successfully responded to appointment ${appointment.id} after ${attemptsDone} ${plural(attemptsDone, "attempt")}.`
                 );
 
                 // Should we keep inactive responders anywhere?
                 this.responders.delete(responder);
             })
             .on(ResponderEvent.AttemptFailed, (responseFlow: ResponseFlow, doh) => {
+                attemptsDone++;
                 logger.error(
-                    `Failed to respond to appointment ${appointment.id}; ${responder.attemptsDone} ${plural(responder.attemptsDone, "attempt")}.`
+                    `Failed to respond to appointment ${appointment.id}; ${attemptsDone} ${plural(attemptsDone, "attempt")}.`
                 );
                 logger.error(doh);
             })
             .on(ResponderEvent.ResponseFailed, (responseFlow: ResponseFlow) => {
                 logger.error(
-                    `Failed to respond to ${appointment.id}, after ${responder.attemptsDone} ${plural(responder.attemptsDone, "attempt")}. Giving up.`
+                    `Failed to respond to ${appointment.id}, after ${attemptsDone} ${plural(attemptsDone, "attempt")}. Giving up.`
                 );
 
                 // TODO: this is serious and should be escalated.
