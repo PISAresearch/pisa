@@ -4,7 +4,7 @@ import "mocha";
 import { ethers } from "ethers";
 import Ganache from "ganache-core";
 import { KitsuneAppointment, KitsuneTools } from "../../src/integrations/kitsune";
-import { EthereumDedicatedResponder, ResponderEvent, StuckTransactionError } from "../../src/responder";
+import { EthereumDedicatedResponder, ResponderEvent, StuckTransactionError, DoublingGasPolicy } from "../../src/responder";
 import { ReorgError, NoNewBlockError } from "../../src/utils/ethers";
 import { ChannelType } from "../../src/dataEntities";
 import chaiAsPromised from "chai-as-promised";
@@ -204,7 +204,7 @@ describe("EthereumDedicatedResponder", () => {
     it("correctly submits an appointment to the blockchain", async () => {
         const { signer, appointment, responseData } = this.testData;
 
-        const responder = new EthereumDedicatedResponder(signer, 40, 10);
+        const responder = new EthereumDedicatedResponder(signer, new DoublingGasPolicy(provider), 40, 10);
         const promise = new Promise((resolve, reject) => {
             responder.on(ResponderEvent.ResponseSent, resolve);
             responder.on(ResponderEvent.AttemptFailed, reject)
@@ -229,7 +229,7 @@ describe("EthereumDedicatedResponder", () => {
     //     const { signer, appointment, responseData } = this.testData;
 
     //     const nAttempts = 5;
-    //     const responder = new EthereumDedicatedResponder(signer, 40, nAttempts);
+    //     const responder = new EthereumDedicatedResponder(signer, new DoublingGasPolicy(provider), 40, nAttempts);
 
     //     const attemptFailedSpy = sinon.spy();
     //     const responseFailedSpy = sinon.spy();
@@ -276,7 +276,7 @@ describe("EthereumDedicatedResponder", () => {
         const { signer, appointment, responseData } = this.testData;
 
         const nAttempts = 1;
-        const responder = new EthereumDedicatedResponder(signer, 40, nAttempts);
+        const responder = new EthereumDedicatedResponder(signer, new DoublingGasPolicy(provider), 40, nAttempts);
 
         const attemptFailedSpy = sinon.spy();
         const responseFailedSpy = sinon.spy();
@@ -315,7 +315,7 @@ describe("EthereumDedicatedResponder", () => {
         const { signer, appointment, responseData } = this.testData;
 
         const nAttempts = 1;
-        const responder = new EthereumDedicatedResponder(signer, 40, nAttempts);
+        const responder = new EthereumDedicatedResponder(signer, new DoublingGasPolicy(provider), 40, nAttempts);
 
         const attemptFailedSpy = sinon.spy();
         const responseFailedSpy = sinon.spy();
@@ -361,7 +361,7 @@ describe("EthereumDedicatedResponder", () => {
         const { signer, appointment, responseData } = this.testData;
 
         const nAttempts = 1;
-        const responder = new EthereumDedicatedResponder(signer, 40, nAttempts);
+        const responder = new EthereumDedicatedResponder(signer, new DoublingGasPolicy(provider), 40, nAttempts);
 
         const attemptFailedSpy = sinon.spy();
         const responseFailedSpy = sinon.spy();
@@ -408,7 +408,7 @@ describe("EthereumDedicatedResponder", () => {
 
         const nAttempts = 5;
         const nConfirmations = 5;
-        const responder = new EthereumDedicatedResponder(signer, nConfirmations, nAttempts);
+        const responder = new EthereumDedicatedResponder(signer, new DoublingGasPolicy(provider), nConfirmations, nAttempts);
 
         const attemptFailedSpy = sinon.spy();
         const responseFailedSpy = sinon.spy();

@@ -119,6 +119,31 @@ export abstract class EthereumResponder extends Responder {
 /* CONCRETE RESPONDER IMPLEMENTATIONS */
 
 /**
+ * A gas policy implements the strategy for the choice of the gas price for subsequent attempts at submitting a transaction.
+ */
+export interface GasPolicy {
+    getInitialPrice(): Promise<ethers.utils.BigNumber>
+    getIncreasedGasPrice(previousPrice: ethers.utils.BigNumber): Promise<ethers.utils.BigNumber>
+}
+
+
+/**
+ * A simple gas choice strategy that queries the provider for an initial estimate of the gas price, and then it doubles it
+ * at each subsequent attempt.
+ */
+export class DoublingGasPolicy implements GasPolicy {
+    constructor(private readonly provider: ethers.providers.Provider) { }
+
+    getInitialPrice(): Promise<ethers.utils.BigNumber> {
+        return this.provider.getGasPrice();
+    }
+
+    getIncreasedGasPrice(previousPrice: ethers.utils.BigNumber): Promise<ethers.utils.BigNumber> {
+        return Promise.resolve(previousPrice.mul(2));
+    }
+}
+
+/**
 * A simple custom Error class to signal that the speified number of blocks has been mined.
 */
 export class StuckTransactionError extends Error {
@@ -158,7 +183,8 @@ export class EthereumDedicatedResponder extends EthereumResponder {
      */
     constructor(
         signer: ethers.Signer,
-        public readonly confirmationsRequired,
+        private readonly gasPolicy: GasPolicy,
+        public readonly confirmationsRequired: number,
         private readonly maxAttempts: number
     ) {
         super(signer);
@@ -209,15 +235,21 @@ export class EthereumDedicatedResponder extends EthereumResponder {
             );
 
             // Get the initial gas price
-            this.gasPrice = await promiseTimeout(
-                this.signer.provider.getGasPrice(),
-                EthereumDedicatedResponder.WAIT_TIME_FOR_PROVIDER_RESPONSE
-            );
+            this.gasPrice = await this.gasPolicy.getInitialPrice();
+
+            // Set to true if the next attempt should raise the gas price
+            let shouldIncreaseGasPrice = false;
+
 
             let attemptsDone = 0;
             while (attemptsDone < this.maxAttempts) {
                 attemptsDone++;
                 try {
+                    if (shouldIncreaseGasPrice) {
+                        this.gasPrice = await this.gasPolicy.getIncreasedGasPrice(this.gasPrice);
+                        shouldIncreaseGasPrice = false;
+                    }
+
                     // Try to call submitStateFunction, but timeout with an error if
                     // there is no response for WAIT_TIME_FOR_PROVIDER_RESPONSE ms.
                     const tx = await promiseTimeout(
@@ -277,9 +309,9 @@ export class EthereumDedicatedResponder extends EthereumResponder {
                     return;
                 } catch (doh) {
                     if (doh instanceof BlockThresholdReachedError) {
-                        // Double the gas price before the next attempt
-                        // TODO: think of better strategies (e.g.: check network conditions again)
-                        this.gasPrice = this.gasPrice.mul(2);
+                        // Bump the gas price before the next attempt
+                        shouldIncreaseGasPrice = true;
+
                         this.asyncEmit(
                             ResponderEvent.AttemptFailed,
                             responseFlow,
@@ -315,15 +347,16 @@ export class EthereumDedicatedResponder extends EthereumResponder {
 
 export class EthereumResponderManager {
     private responders: Set<EthereumResponder> = new Set();
+    private gasPolicy: GasPolicy;
 
     constructor(private readonly signer: ethers.Signer) {
-
+        this.gasPolicy = new DoublingGasPolicy(this.signer.provider);
     }
 
     public respond(appointment: IEthereumAppointment) {
         const ethereumResponseData = appointment.getResponseData();
 
-        const responder = new EthereumDedicatedResponder(this.signer, 40, 10);
+        const responder = new EthereumDedicatedResponder(this.signer, this.gasPolicy, 40, 10);
         this.responders.add(responder);
         let attemptsDone = 0;
         responder
