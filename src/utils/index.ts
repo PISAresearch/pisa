@@ -78,7 +78,7 @@ export function promiseTimeout<T>(promise: Promise<T>, milliseconds: number): Pr
  */
 export function waitFor(predicate: () => boolean, interval: number = 20): CancellablePromise<void> {
     return new CancellablePromise((resolve: () => void) => {
-        const test = function() {
+        const test = () => {
             if (predicate()) {
                 resolve();
             } else if (!this.cancelled) {

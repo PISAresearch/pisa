@@ -64,7 +64,7 @@ export class BlockThresholdReachedError extends Error {
  * @param sinceBlock
  * @param blockCount
  */
-export function rejectAfterBlocks(provider: ethers.providers.Provider, sinceBlock: number, blockCount: number) {
+export function rejectAfterBlocks(provider: ethers.providers.Provider, sinceBlock: number, blockCount: number): CancellablePromise<void> {
     let newBlockHandler: (blockNumber: number) => any;
 
     const cleanup = () => {

@@ -1,13 +1,11 @@
 import "mocha";
-import mockito from "ts-mockito";
 import { expect, assert } from "chai";
-import chaiAsPromised from "chai-as-promised";
 import lolex from "lolex";
 
 import { ethers } from "ethers";
 import { withDelay, rejectIfAnyBlockTimesOut, rejectAfterBlocks } from "../../../src/utils/ethers";
 import Ganache from "ganache-core";
-import { wait } from "../../../src/utils";
+import { wait, waitFor } from "../../../src/utils";
 import { KitsuneTools, KitsuneAppointment } from "../../../src/integrations/kitsune";
 import { ChannelType } from "../../../src/dataEntities";
 
@@ -131,5 +129,37 @@ describe("rejectIfAnyBlockTimesOut", async () => {
         expect(promiseThrew, "threw after the timeout").to.be.true;
 
         clock.uninstall();
+    });
+});
+
+
+describe("rejectAfterBlocks", async () => {
+    it("rejects if enough blocks are mined, but not before", async () => {
+        const ganache = Ganache.provider({});
+        const provider = new ethers.providers.Web3Provider(ganache);
+        provider.pollingInterval = 20;
+
+        let promiseResolved = false;
+        let promiseThrew = false;
+        const initialBlockNumber = await provider.getBlockNumber();
+        const nBlocks = 3;
+
+        const p = rejectAfterBlocks(provider, initialBlockNumber, nBlocks)
+            .then(() => { promiseResolved = true; })
+            .catch(() => { promiseThrew = true; });
+
+        for (let i = 0; i < nBlocks - 1; i++) {
+            await mineBlock(provider);
+            await wait(40); // wait longer than the polling period
+        }
+
+        expect(promiseThrew, "did not throw before enough blocks were mined").to.be.false;
+
+        // Mine one more block
+        await mineBlock(provider);
+        await wait(40); // wait longer than the polling period
+
+        expect(promiseResolved, "did not resolve").to.be.false;
+        expect(promiseThrew, "threw after enough blocks were mined").to.be.true;
     });
 });
