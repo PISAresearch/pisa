@@ -1,11 +1,25 @@
 import "mocha";
-import { ethers } from "ethers";
-import { withDelay } from "../../../src/utils/ethers";
-import Ganache from "ganache-core";
+import mockito from "ts-mockito";
 import { expect, assert } from "chai";
+import chaiAsPromised from "chai-as-promised";
+import lolex from "lolex";
+
+import { ethers } from "ethers";
+import { withDelay, rejectIfAnyBlockTimesOut, rejectAfterBlocks } from "../../../src/utils/ethers";
+import Ganache from "ganache-core";
 import { wait } from "../../../src/utils";
 import { KitsuneTools, KitsuneAppointment } from "../../../src/integrations/kitsune";
 import { ChannelType } from "../../../src/dataEntities";
+
+
+const sendTo = async (provider: ethers.providers.Web3Provider, to: string, value: number) => {
+    const tx = await provider.getSigner(0).sendTransaction({ to, value });
+    await tx.wait();
+};
+
+ const mineBlock = async (provider: ethers.providers.Web3Provider) => {
+    await sendTo(provider, "0x0000000000000000000000000000000000000000", 1);
+};
 
  describe("withDelay", () => {
     it("correctly delays getblock", async () => {
@@ -88,13 +102,34 @@ import { ChannelType } from "../../../src/dataEntities";
         error = false;
         await mineBlock(provider);
     });
+});
 
-     const sendTo = async (provider: ethers.providers.Web3Provider, to: string, value: number) => {
-        const tx = await provider.getSigner(0).sendTransaction({ to, value });
-        await tx.wait();
-    };
 
-     const mineBlock = async (provider: ethers.providers.Web3Provider) => {
-        await sendTo(provider, "0x0000000000000000000000000000000000000000", 1);
-    };
+
+describe("rejectIfAnyBlockTimesOut", async () => {
+    it("rejects if no new block is mined for long enough, but not before the timeout", async () => {
+        const clock = lolex.install();
+        const ganache = Ganache.provider({});
+        const provider = new ethers.providers.Web3Provider(ganache);
+
+        let promiseResolved = false;
+        let promiseThrew = false;
+        const p = rejectIfAnyBlockTimesOut(provider, Date.now(), 10000, 20)
+            .then(() => { promiseResolved = true; })
+            .catch(() => { promiseThrew = true; });
+
+        clock.tick(9999);
+        await Promise.resolve();
+
+        expect(promiseThrew, "did not throw before the timeout").to.be.false;
+
+        clock.tick(2 + 20); // go past timeout + polling interval
+        await Promise.resolve();
+        await p;
+
+        expect(promiseResolved, "did not resolve").to.be.false;
+        expect(promiseThrew, "threw after the timeout").to.be.true;
+
+        clock.uninstall();
+    });
 });

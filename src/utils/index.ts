@@ -15,6 +15,11 @@ export class TimeoutError extends Error {
     }
 }
 
+
+export interface ICancellable {
+    cancel(): void;
+}
+
 /**
  * A promise that can be canceled to release any resource.
  * Instances of this class should guarantee that all resources will eventually be released if `cancel()` is called,
@@ -23,7 +28,7 @@ export class TimeoutError extends Error {
  * Once `cancel()` is called, the behaviour of the promise is undefined, and the caller
  * should not expect it to reject or fulfill, nor to be pending forever.
  */
-export class CancellablePromise<T> extends Promise<T> {
+export class CancellablePromise<T> extends Promise<T> implements ICancellable {
     private mCancelled = false;
 
     public get cancelled(): boolean {

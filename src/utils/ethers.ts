@@ -2,7 +2,7 @@
 
 import ethers from 'ethers';
 import { Provider, BaseProvider } from "ethers/providers";
-import { CancellablePromise } from '.';
+import { CancellablePromise, ICancellable } from '.';
 
 /**
  * A simple custom Error class to provide more details in case of a re-org.
@@ -96,12 +96,13 @@ export class NoNewBlockError extends Error {
     }
 }
 
+
 /**
  * Returns a CancellablePromise that observes the `provider` and rejects with NoNewBlockError if no new block is received for `timeout`
  * milliseconds starting from `startTime`. The condition is tested every `pollInterval` milliseconds.
  *
  */
-export function rejectIfNoNewBlock(provider: ethers.providers.Provider, startTime: number, timeout: number, pollInterval: number): CancellablePromise<void> {
+export function rejectIfAnyBlockTimesOut(provider: ethers.providers.Provider, startTime: number, timeout: number, pollInterval: number): CancellablePromise<void> {
     let newBlockHandler: (blockNumber: number) => any;
     let timeoutHandler: NodeJS.Timeout;
 

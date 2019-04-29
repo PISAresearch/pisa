@@ -1,5 +1,5 @@
 import * as chai from "chai";
-import * as sinon from "sinon";
+import sinon from "sinon";
 import "mocha";
 import { ethers } from "ethers";
 import Ganache from "ganache-core";

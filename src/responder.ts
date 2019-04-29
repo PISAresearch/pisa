@@ -1,7 +1,7 @@
 import { EventEmitter } from "events";
 import { ethers } from "ethers";
 import { wait, promiseTimeout, plural } from "./utils";
-import { waitForConfirmations, rejectAfterBlocks, BlockThresholdReachedError, rejectIfNoNewBlock } from "./utils/ethers";
+import { waitForConfirmations, rejectAfterBlocks, BlockThresholdReachedError, rejectIfAnyBlockTimesOut } from "./utils/ethers";
 import { IEthereumAppointment, IEthereumResponseData } from "./dataEntities/appointment";
 import logger from "./logger";
 import { TransactionResponse } from "ethers/providers";
@@ -246,7 +246,7 @@ export class EthereumDedicatedResponder extends EthereumResponder {
                     const enoughConfirmationsPromise = waitForConfirmations(this.signer.provider, tx.hash, this.confirmationsRequired);
 
                     // ...but stop with error if no new blocks come for too long
-                    const noNewBlockPromise = rejectIfNoNewBlock(
+                    const noNewBlockPromise = rejectIfAnyBlockTimesOut(
                         this.signer.provider,
                         this.timeLastBlockReceived || Date.now(),
                         EthereumDedicatedResponder.WAIT_TIME_FOR_NEW_BLOCK,
