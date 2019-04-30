@@ -298,6 +298,7 @@ describe("EthereumDedicatedResponder", () => {
 
         // Wait for 1 second more than the deadline for throwing if no new blocks are seen
         this.clock.tick(1000 + EthereumDedicatedResponder.WAIT_TIME_FOR_NEW_BLOCK);
+        await Promise.resolve();
 
         await waitForSpy(attemptFailedSpy);
 

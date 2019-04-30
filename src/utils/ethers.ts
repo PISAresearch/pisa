@@ -102,7 +102,7 @@ export class NoNewBlockError extends Error {
 
 
 /**
- * Returns a CancellablePromise that observes the `provider` and rejects with NoNewBlockError if no new block is received for `timeout`
+ * Returns a CancellablePromise that observes the `provider` and rejects with `NoNewBlockError` if no new block is received for `timeout`
  * milliseconds starting from `startTime`. The condition is tested every `pollInterval` milliseconds.
  *
  */
