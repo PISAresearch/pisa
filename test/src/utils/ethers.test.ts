@@ -15,39 +15,39 @@ const sendTo = async (provider: ethers.providers.Web3Provider, to: string, value
     await tx.wait();
 };
 
- const mineBlock = async (provider: ethers.providers.Web3Provider) => {
+const mineBlock = async (provider: ethers.providers.Web3Provider) => {
     await sendTo(provider, "0x0000000000000000000000000000000000000000", 1);
 };
 
- describe("withDelay", () => {
+describe("withDelay", () => {
     it("correctly delays getblock", async () => {
         const ganache = Ganache.provider({});
         const provider = new ethers.providers.Web3Provider(ganache);
         provider.pollingInterval = 20;
 
-         // new blockchain
+        // new blockchain
         let expectedBlock = 0;
         expect(await provider.getBlockNumber()).to.equal(expectedBlock);
 
-         // mine 3 blocks
+        // mine 3 blocks
         await mineBlock(provider);
         await mineBlock(provider);
         await mineBlock(provider);
         expectedBlock += 3;
 
-         expect(await provider.getBlockNumber()).to.equal(expectedBlock);
+        expect(await provider.getBlockNumber()).to.equal(expectedBlock);
 
-         // set a delay of 2
+        // set a delay of 2
         withDelay(provider, 2);
         expectedBlock -= 2;
 
-         expect(await provider.getBlockNumber()).to.equal(expectedBlock);
+        expect(await provider.getBlockNumber()).to.equal(expectedBlock);
     });
 
-     it("only emits event after delay", async () => {
+    it("only emits event after delay", async () => {
         const ganache = Ganache.provider({});
 
-         const provider = new ethers.providers.Web3Provider(ganache);
+        const provider = new ethers.providers.Web3Provider(ganache);
         provider.pollingInterval = 20;
         await mineBlock(provider);
         await mineBlock(provider);
@@ -71,7 +71,7 @@ const sendTo = async (provider: ethers.providers.Web3Provider, to: string, value
         const sig0 = await provider.getSigner(player0).signMessage(ethers.utils.arrayify(setStateHash));
         const sig1 = await provider.getSigner(player1).signMessage(ethers.utils.arrayify(setStateHash));
 
-         // watch for a dispute
+        // watch for a dispute
         const appointment = new KitsuneAppointment({
             stateUpdate: {
                 contractAddress: channelContract.address,
@@ -83,18 +83,18 @@ const sendTo = async (provider: ethers.providers.Web3Provider, to: string, value
             type: ChannelType.Kitsune
         });
 
-         // add the listener
+        // add the listener
         const filter = appointment.getEventFilter();
         let error = true;
         provider.once(filter, () => {
             assert.isFalse(error, "Listener fired before error was set to true.");
         });
 
-         const player0Contract = channelContract.connect(provider.getSigner(player0));
+        const player0Contract = channelContract.connect(provider.getSigner(player0));
         const tx = await player0Contract.triggerDispute();
         await tx.wait();
 
-         await mineBlock(provider);
+        await mineBlock(provider);
         // wait longer than the polling interval, then set error to false and mine
         await wait(40);
         error = false;
