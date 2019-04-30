@@ -6,6 +6,7 @@ import Ganache from "ganache-core";
 import { KitsuneAppointment, KitsuneTools } from "../../src/integrations/kitsune";
 import { EthereumDedicatedResponder, ResponderEvent, StuckTransactionError, DoublingGasPolicy } from "../../src/responder";
 import { ReorgError, NoNewBlockError } from "../../src/utils/ethers";
+import { wait } from "../../src/utils";
 import { ChannelType } from "../../src/dataEntities";
 import chaiAsPromised from "chai-as-promised";
 
@@ -431,6 +432,7 @@ describe("EthereumDedicatedResponder", () => {
         // Now wait for enough confirmations
         for (let i = 0; i < nConfirmations; i++) {
             await mineBlock(ganache, provider);
+            await wait(20);
         }
 
         // There might still be a short interval before the response is sent; we wait for the spy before continuing.
