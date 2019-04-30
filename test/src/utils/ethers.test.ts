@@ -105,61 +105,169 @@ const sendTo = async (provider: ethers.providers.Web3Provider, to: string, value
 
 
 describe("rejectIfAnyBlockTimesOut", async () => {
-    it("rejects if no new block is mined for long enough, but not before the timeout", async () => {
-        const clock = lolex.install();
-        const ganache = Ganache.provider({});
-        const provider = new ethers.providers.Web3Provider(ganache);
+    beforeEach(() => {
+        this.clock = lolex.install({ shouldAdvanceTime: true});
+        this.ganache = Ganache.provider({});
+        this.provider = new ethers.providers.Web3Provider(this.ganache);
+        this.provider.pollingInterval = 20;
+    });
 
+    afterEach(() => {
+        this.clock.uninstall();
+    });
+
+    it("does not reject before the timeout", async () => {
         let promiseResolved = false;
         let promiseThrew = false;
-        const p = rejectIfAnyBlockTimesOut(provider, Date.now(), 10000, 20)
+
+        const p = rejectIfAnyBlockTimesOut(this.provider, Date.now(), 10000, 20)
             .then(() => { promiseResolved = true; })
             .catch(() => { promiseThrew = true; });
 
-        clock.tick(9999);
+        this.clock.tick(9999);
         await Promise.resolve();
-
-        expect(promiseThrew, "did not throw before the timeout").to.be.false;
-
-        clock.tick(2 + 20); // go past timeout + polling interval
-        await Promise.resolve();
-        await p;
 
         expect(promiseResolved, "did not resolve").to.be.false;
-        expect(promiseThrew, "threw after the timeout").to.be.true;
+        expect(promiseThrew, "did not throw before the timeout").to.be.false;
+    });
 
-        clock.uninstall();
+    it("rejects after the timeout if no blocks are mined", async () => {
+        let promiseResolved = false;
+        let promiseThrew = false;
+
+        const p = rejectIfAnyBlockTimesOut(this.provider, Date.now(), 10000, 20)
+            .then(() => { promiseResolved = true; })
+            .catch(() => { promiseThrew = true; });
+
+        this.clock.tick(10000 + 20 + 1); // Add a delay for the polling interval
+
+        await Promise.resolve();
+
+        expect(promiseResolved, "did not resolve").to.be.false;
+        expect(promiseThrew).to.be.true;
+    });
+
+    it("does not reject if multiple blocks are mined before the timeout", async () => {
+        let promiseResolved = false;
+        let promiseThrew = false;
+
+        const p = rejectIfAnyBlockTimesOut(this.provider, Date.now(), 10000, 20)
+            .then(() => { promiseResolved = true; })
+            .catch(() => { promiseThrew = true; });
+
+        // Fake timers seem to break block creation, so we fake a "new block" event every 9000 ms
+        let blockNumber = await this.provider.getBlockNumber();
+        const intervalHandle = this.clock.setInterval(async () => {
+            blockNumber++;
+            this.provider.emit("block", blockNumber);
+        }, 9000);
+
+        // Wait 10 times the timeout period, in 100 ms steps
+        for (let i = 0; i < 10 * 10000 / 100; i++) {
+            this.clock.tick(100);
+            await Promise.resolve();
+        }
+
+        this.clock.clearInterval(intervalHandle);
+
+        expect(promiseResolved, "did not resolve").to.be.false;
+        expect(promiseThrew).to.be.false;
+    });
+
+    it("rejects after a timeout after a block is mined", async () => {
+        let promiseResolved = false;
+        let promiseThrew = false;
+
+        const p = rejectIfAnyBlockTimesOut(this.provider, Date.now(), 10000, 20)
+            .then(() => { promiseResolved = true; })
+            .catch(() => { promiseThrew = true; });
+
+        this.clock.tick(10000 + 20 + 1); // Add a delay for the polling interval
+
+        await Promise.resolve();
+
+        expect(promiseResolved, "did not resolve").to.be.false;
+        expect(promiseThrew).to.be.true;
+    });
+
+
+    it("rejects after a timeout after a few blocks are mined", async () => {
+        let promiseResolved = false;
+        let promiseThrew = false;
+
+        const p = rejectIfAnyBlockTimesOut(this.provider, Date.now(), 10000, 20)
+            .then(() => { promiseResolved = true; })
+            .catch(() => { promiseThrew = true; });
+
+        // Fake timers seem to break block creation, so we fake a "new block" event every 9000 ms
+        let blockNumber = await this.provider.getBlockNumber();
+        const intervalHandle = this.clock.setInterval(async () => {
+            blockNumber++;
+            this.provider.emit("block", blockNumber);
+        }, 9000);
+
+        // Wait 10 times the timeout period, in 100 ms steps
+        for (let i = 0; i < 10 * 10000 / 100; i++) {
+            this.clock.tick(100);
+            await Promise.resolve();
+        }
+
+        this.clock.clearInterval(intervalHandle);
+
+        // Now wait longer than the timeout
+        this.clock.tick(11000);
+        await Promise.resolve();
+
+        expect(promiseResolved, "did not resolve").to.be.false;
+        expect(promiseThrew).to.be.true;
     });
 });
 
 
 describe("rejectAfterBlocks", async () => {
-    it("rejects if enough blocks are mined, but not before", async () => {
-        const ganache = Ganache.provider({});
-        const provider = new ethers.providers.Web3Provider(ganache);
-        provider.pollingInterval = 20;
+    let ganache, provider: ethers.providers.Web3Provider;
+    let initialBlockNumber: number;
+    const nBlocks = 3;
 
+    beforeEach( async () => {
+        ganache = Ganache.provider({});
+        provider = new ethers.providers.Web3Provider(ganache);
+        provider.pollingInterval = 20;
+        initialBlockNumber = await provider.getBlockNumber();
+    });
+
+    it("does not reject when less than nBlocks blocks are mined", async () => {
         let promiseResolved = false;
         let promiseThrew = false;
-        const initialBlockNumber = await provider.getBlockNumber();
-        const nBlocks = 3;
 
         const p = rejectAfterBlocks(provider, initialBlockNumber, nBlocks)
             .then(() => { promiseResolved = true; })
             .catch(() => { promiseThrew = true; });
 
+        // Mine less than nBlocks blocks
         for (let i = 0; i < nBlocks - 1; i++) {
             await mineBlock(provider);
-            await wait(40); // wait longer than the polling period
+            await wait(30); // wait longer than the polling period
+        }
+        expect(promiseResolved, "did not resolve").to.be.false;
+        expect(promiseThrew).to.be.false;
+    });
+
+    it("rejects if nBlocks blocks are mined", async () => {
+        let promiseResolved = false;
+        let promiseThrew = false;
+
+        // Mine nBlocks blocks
+        const p = rejectAfterBlocks(provider, initialBlockNumber, nBlocks)
+            .then(() => { promiseResolved = true; })
+            .catch(() => { promiseThrew = true; });
+
+        for (let i = 0; i < nBlocks; i++) {
+            await mineBlock(provider);
+            await wait(30); // wait longer than the polling period
         }
 
-        expect(promiseThrew, "did not throw before enough blocks were mined").to.be.false;
-
-        // Mine one more block
-        await mineBlock(provider);
-        await wait(40); // wait longer than the polling period
-
         expect(promiseResolved, "did not resolve").to.be.false;
-        expect(promiseThrew, "threw after enough blocks were mined").to.be.true;
+        expect(promiseThrew).to.be.true;
     });
 });
