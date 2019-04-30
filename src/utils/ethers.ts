@@ -19,6 +19,10 @@ export class ReorgError extends Error {
  * Throws a `ReorgError` if the corresponding transaction is not found; assuming that it was found when this function
  * is called, this is likely caused by a block re-org.
  *
+ * This promise is similar in to the `tx.wait` function from ethers.js, but the behavior of ethers.js in case of a re-org
+ * is unclear (in particular, what happens if the transaction is mined, but it is kicked out of the blockchain because of
+ * a re-org before reaching the required number of confirmations?).
+ *
  * @param provider
  * @param txHash 
  * @param confirmationsRequired 
