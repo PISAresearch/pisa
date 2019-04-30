@@ -5,6 +5,7 @@ import { waitForConfirmations, rejectAfterBlocks, BlockThresholdReachedError, re
 import { IEthereumAppointment, IEthereumResponseData } from "./dataEntities/appointment";
 import logger from "./logger";
 import { TransactionResponse } from "ethers/providers";
+import { ApplicationError } from "./dataEntities";
 
 /**
  * Responsible for storing the state and managing the flow of a single response.
@@ -123,7 +124,7 @@ export abstract class EthereumResponder extends Responder {
  */
 export interface GasPolicy {
     getInitialPrice(): Promise<ethers.utils.BigNumber>
-    getIncreasedGasPrice(previousPrice: ethers.utils.BigNumber): Promise<ethers.utils.BigNumber>
+    getIncreasedGasPrice(previousPrice: ethers.utils.BigNumber): ethers.utils.BigNumber
 }
 
 
@@ -138,8 +139,8 @@ export class DoublingGasPolicy implements GasPolicy {
         return this.provider.getGasPrice();
     }
 
-    getIncreasedGasPrice(previousPrice: ethers.utils.BigNumber): Promise<ethers.utils.BigNumber> {
-        return Promise.resolve(previousPrice.mul(2));
+    getIncreasedGasPrice(previousPrice: ethers.utils.BigNumber): ethers.utils.BigNumber {
+        return previousPrice.mul(2);
     }
 }
 
@@ -193,7 +194,7 @@ export class EthereumDedicatedResponder extends EthereumResponder {
     // Makes sure that the class is locked while `fn` is running, and that any listener is registered and cleared correctly
     private async withLock(fn: () => Promise<any>) {
         if (this.locked) {
-            throw new Error("This responder can ony handle one response at a time."); // TODO:93: more specific Error type?
+            throw new ApplicationError("This responder can ony handle one response at a time."); // TODO:93: more specific Error type?
         }
 
         this.locked = true;
@@ -237,19 +238,10 @@ export class EthereumDedicatedResponder extends EthereumResponder {
             // Get the initial gas price
             this.gasPrice = await this.gasPolicy.getInitialPrice();
 
-            // Set to true if the next attempt should raise the gas price
-            let shouldIncreaseGasPrice = false;
-
-
             let attemptsDone = 0;
             while (attemptsDone < this.maxAttempts) {
                 attemptsDone++;
                 try {
-                    if (shouldIncreaseGasPrice) {
-                        this.gasPrice = await this.gasPolicy.getIncreasedGasPrice(this.gasPrice);
-                        shouldIncreaseGasPrice = false;
-                    }
-
                     // Try to call submitStateFunction, but timeout with an error if
                     // there is no response for WAIT_TIME_FOR_PROVIDER_RESPONSE ms.
                     const tx = await promiseTimeout(
@@ -262,16 +254,12 @@ export class EthereumDedicatedResponder extends EthereumResponder {
                     responseFlow.txHash = tx.hash;
                     this.asyncEmit(ResponderEvent.ResponseSent, responseFlow);
 
-
-                    // Last block seen when transaction was first sent
-                    const txSentBlockNumber = this.lastBlockNumberSeen;
-
                     // Promise that waits for the first confirmation
                     const firstConfirmationPromise = waitForConfirmations(this.signer.provider, tx.hash, 1);
 
                     // Promise that rejects after WAIT_BLOCKS_BEFORE_RETRYING blocks are mined
                     const firstConfirmationTimeoutPromise = rejectAfterBlocks(
-                        this.signer.provider, txSentBlockNumber, EthereumDedicatedResponder.WAIT_BLOCKS_BEFORE_RETRYING
+                        this.signer.provider, this.lastBlockNumberSeen, EthereumDedicatedResponder.WAIT_BLOCKS_BEFORE_RETRYING
                     );
 
                     // Promise that waits for enough confirmations before declaring success
@@ -310,7 +298,7 @@ export class EthereumDedicatedResponder extends EthereumResponder {
                 } catch (doh) {
                     if (doh instanceof BlockThresholdReachedError) {
                         // Bump the gas price before the next attempt
-                        shouldIncreaseGasPrice = true;
+                        this.gasPrice = this.gasPolicy.getIncreasedGasPrice(this.gasPrice);
 
                         this.asyncEmit(
                             ResponderEvent.AttemptFailed,
