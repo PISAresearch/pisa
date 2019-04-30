@@ -5,7 +5,7 @@ import lolex from "lolex";
 import { ethers } from "ethers";
 import { withDelay, rejectIfAnyBlockTimesOut, rejectAfterBlocks } from "../../../src/utils/ethers";
 import Ganache from "ganache-core";
-import { wait, waitFor } from "../../../src/utils";
+import { wait } from "../../../src/utils";
 import { KitsuneTools, KitsuneAppointment } from "../../../src/integrations/kitsune";
 import { ChannelType } from "../../../src/dataEntities";
 

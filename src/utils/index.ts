@@ -16,10 +16,6 @@ export class TimeoutError extends Error {
 }
 
 
-export interface ICancellable {
-    cancel(): void;
-}
-
 /**
  * A promise that can be canceled to release any resource.
  * Instances of this class should guarantee that all resources will eventually be released if `cancel()` is called,
@@ -28,16 +24,10 @@ export interface ICancellable {
  * Once `cancel()` is called, the behaviour of the promise is undefined, and the caller
  * should not expect it to reject or fulfill, nor to be pending forever.
  */
-export class CancellablePromise<T> extends Promise<T> implements ICancellable {
-    private mCancelled = false;
-
-    public get cancelled(): boolean {
-        return this.mCancelled;
-    }
-
+export class CancellablePromise<T> extends Promise<T> {
     constructor(
         executor: (resolve: (value?: T | PromiseLike<T>) => void, reject: (reason?: any) => void) => void,
-        private canceller?: () => void
+        private canceller: () => void
     ) {
         super(executor);
     }
@@ -46,10 +36,7 @@ export class CancellablePromise<T> extends Promise<T> implements ICancellable {
      * If a canceller was provided in the constructor, it calls it. Then it sets `cancelled` to true.
      */
     public cancel() {
-        if (!!this.canceller) {
-            this.canceller();
-        }
-        this.mCancelled = true;
+        this.canceller();
     }
 }
 
@@ -69,24 +56,6 @@ export function promiseTimeout<T>(promise: Promise<T>, milliseconds: number): Pr
             }, milliseconds)
         })
     ]);
-}
-
-/**
- * Tests `predicate()` every `interval` milliseconds; resolve only when `predicate` is truthy.
- *  @param predicate the condition to be tested. It should not have any side effect
- *  @param interval the number of milliseconds between tests of the predicate
- */
-export function waitFor(predicate: () => boolean, interval: number = 20): CancellablePromise<void> {
-    return new CancellablePromise((resolve: () => void) => {
-        const test = () => {
-            if (predicate()) {
-                resolve();
-            } else if (!this.cancelled) {
-                setTimeout(test, interval);
-            }
-        };
-        test();
-    });
 }
 
 /**

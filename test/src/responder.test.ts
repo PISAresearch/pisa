@@ -90,7 +90,6 @@ async function getTestData(provider, account0, account1, responderAccount, hashS
 
 //make a copy of the global time-related functions for tests that use sinon fake timers.
 const _setTimeout = global.setTimeout;
-const _setImmediate = global.setImmediate;
 
 // Save a snapshot of the state of the blockchain in ganache; resolves to the id of the snapshot
 function takeGanacheSnapshot(ganache): Promise<string> {
@@ -158,13 +157,13 @@ function waitFor(predicate: () => boolean, interval: number = 50): Promise<void>
 }
 
 // Returns a promise that waits for a sinon spy to be called and resolves to the return value of the first call.
-function waitForSpy(spy: any, interval = 10) {
+function waitForSpy(spy: any, interval = 20) {
     return new Promise(resolve => {
         const testSpy = function() {
             if (spy.called) {
                 resolve(spy.getCall(0).returnValue);
             } else {
-                _setTimeout(testSpy, 20);
+                _setTimeout(testSpy, interval);
             }
         };
         testSpy();

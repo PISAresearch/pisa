@@ -2,7 +2,7 @@
 
 import ethers from 'ethers';
 import { Provider, BaseProvider } from "ethers/providers";
-import { CancellablePromise, ICancellable } from '.';
+import { CancellablePromise } from '.';
 
 /**
  * A simple custom Error class to provide more details in case of a re-org.
