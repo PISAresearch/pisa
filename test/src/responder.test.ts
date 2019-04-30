@@ -282,9 +282,8 @@ describe("EthereumDedicatedResponder", () => {
         const responseSentSpy = sinon.spy();
         const responseConfirmedSpy = sinon.spy();
 
-        sinon.spy(signer, 'sendTransaction');
-
         responder.on(ResponderEvent.AttemptFailed, attemptFailedSpy);
+        responder.on(ResponderEvent.ResponseSent, responseSentSpy);
         responder.on(ResponderEvent.ResponseFailed, responseFailedSpy);
         responder.on(ResponderEvent.ResponseConfirmed, responseConfirmedSpy);
 
@@ -292,8 +291,7 @@ describe("EthereumDedicatedResponder", () => {
         responder.startResponse(appointment.id, responseData);
 
         // Wait for the response to be sent
-        // We assume it will be done using the sendTransaction method on the signer
-        await waitForSpy(signer.sendTransaction);
+        await waitForSpy(responseSentSpy);
 
         // Wait for 1 second more than the deadline for throwing if no new blocks are seen
         this.clock.tick(1000 + EthereumDedicatedResponder.WAIT_TIME_FOR_NEW_BLOCK);
