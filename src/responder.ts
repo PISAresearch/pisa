@@ -161,82 +161,62 @@ export class StuckTransactionError extends Error {
 /**
  * This class encapsulates the logic of trying to send a transaction and make sure it is mined with enough confirmations.
  */
-export class EthereumTransactionMiner extends EventEmitter {
-    private timeLastBlockReceived: number;
+export class EthereumTransactionMiner {
 
     /**
      * @param signer The Signer to use to send the transaction.
-     * @param transactionRequest The TransactionRequest to be sent.
      * @param confirmationsRequired The number of confirmations required.
      * @param blocksThresholdForStuckTransaction The number of new blocks without the transaction is mined before considering
      *                                           the transaction "stuck".
-     * @param newBlockTimeout The number of milliseconds since `timeLastBlockReceived` (or since the creation of this instance)
-     *                        after which the provider is considered non-responsive.
-     * @param timeLastBlockReceived Optional; if known, the time when the last block was received by the provider.
-     *                              If not given, the current time returned by `Date.now()` will be used.
+     * @param newBlockTimeout The number of milliseconds since after which the provider is considered non-responsive.
      */
     constructor(
         public readonly signer: ethers.Signer,
-        public readonly transactionRequest: ethers.providers.TransactionRequest,
         public readonly confirmationsRequired: number,
         public readonly blocksThresholdForStuckTransaction: number,
-        public readonly newBlockTimeout: number,
-        timeLastBlockReceived?: number
-    ) {
-        super();
+        public readonly newBlockTimeout: number
+    ) {}
 
-        this.timeLastBlockReceived = timeLastBlockReceived || Date.now()
-
-        this.newBlockReceived = this.newBlockReceived.bind(this);
-        signer.provider.on("block", this.newBlockReceived);
-    }
-
-    private newBlockReceived() {
-        this.timeLastBlockReceived = Date.now();
+    /**
+     * This method sends the transaction, and resolves to the transaction hash.
+     * If an error is thrown, see ethers.js documentation for `JsonRpcSigner.sendTransaction`.
+     * @param transactionRequest The TransactionRequest to be sent.
+     */
+    public async sendTransaction(transactionRequest: ethers.providers.TransactionRequest): Promise<string> {
+        const txResponse = await this.signer.sendTransaction(transactionRequest);
+        return txResponse.hash;
     }
 
     /**
-     * Starts the transaction flow. The returned promise will resolve once the transaction is mined and confirmed with enough confirmations.
+     * Resolves after the transaction receives the first confirmation.
+     * Rejects with `NoNewBlockError` the provider does not receive a new block for `newBlockTimeout` milliseconds.
+     * Rejects with `BlockThresholdReachedError` if the transaction is still unconfirmed
+     * after `blocksThresholdForStuckTransaction` blocks are mined.
      *
-     * It will generate the "sent" event with the `ethers.provider.TransactionResponse` when returned by the provider.
-     * Usually, this will happen before the transaction is mined (except on a provider on top of Ganache, which might mine a block
-     * upon receiving a transaction).
-     * If at any point the provider does not receive a new block for `newBlockTimeout` milliseconds, the promis will reject
-     * with a `NoNewBlockError`.
-     * Then, it will wait for the transaction to get the first confirmation; if that does not happen within
-     * `blocksThresholdForStuckTransaction` blocks, the promise will reject with `BlockThresholdReachedError`.
-     * After the first confirmation, it will still wait until the transaction has `confirmationsRequired` confirmations.
-     * If the transaction is not found on the blockchain anymore because of a re-org, it will reject with `ReorgError`.
-     * Once the the transaction has `confirmationsRequired` confirmations, the promise will resolve.
+     * @param txHash The transaction hash, returned by `sendTransaction`.
+     * @param timeLastBlockReceived Optional; if known, the time when the last block was received by the provider.
+     *                              The provider will be considered unresponsive after `newBlockTimeout` from `timeLastBlockReceived`.
+     *                              If not given, the current time returned by `Date.now()` will be used.
      */
-    public async sendTransaction(): Promise<void> {
-        const txResponse = await this.signer.sendTransaction(this.transactionRequest);
-
-        // Signal event that transaction is sent
-        this.emit("sent", txResponse);
-
+    public async waitForFirstConfirmation(txHash: string, timeLastBlockReceived: number = Date.now()) {
         const lastBlockNumberSeen = await this.signer.provider.getBlockNumber();
 
         // Promise that waits for the first confirmation
-        const firstConfirmationPromise = waitForConfirmations(this.signer.provider, txResponse.hash, 1);
+        const firstConfirmationPromise = waitForConfirmations(this.signer.provider, txHash, 1);
 
         // Promise that rejects after WAIT_BLOCKS_BEFORE_RETRYING blocks are mined
         const firstConfirmationTimeoutPromise = rejectAfterBlocks(
             this.signer.provider, lastBlockNumberSeen, this.blocksThresholdForStuckTransaction
         );
 
-        // Promise that waits for enough confirmations before declaring success
-        const enoughConfirmationsPromise = waitForConfirmations(this.signer.provider, txResponse.hash, this.confirmationsRequired);
-
         // ...but stop with error if no new blocks come for too long
         const noNewBlockPromise = rejectIfAnyBlockTimesOut(
             this.signer.provider,
-            this.timeLastBlockReceived || Date.now(),
+            timeLastBlockReceived,
             this.newBlockTimeout,
             1000
         );
 
-        const cancellablePromises = [enoughConfirmationsPromise, noNewBlockPromise]
         try {
             // First, wait to get at least 1 confirmation, but throw an error if the transaction is stuck
             // (that is, new blocks are coming, but the transaction is not included)
@@ -245,7 +225,33 @@ export class EthereumTransactionMiner extends EventEmitter {
                 firstConfirmationTimeoutPromise,
                 noNewBlockPromise
             ]);
+        } finally {
+            // Make sure any pending CancellablePromise is released
+            firstConfirmationPromise.cancel();
+            firstConfirmationTimeoutPromise.cancel();
+            noNewBlockPromise.cancel();
+        }
+    }
 
+
+    /**
+     * Resolves after the transaction `txHash` receives `confirmationsRequired`.
+     * Rejects with `NoNewBlockError` the provider does not receive a new block for `newBlockTimeout` milliseconds.
+     * Rejects with `ReorgError` if the transaction is not found by the provider.
+     */
+    public async waitForEnoughConfirmations(txHash: string, timeLastBlockReceived = Date.now()) {
+        // Promise that waits for enough confirmations before declaring success
+        const enoughConfirmationsPromise = waitForConfirmations(this.signer.provider, txHash, this.confirmationsRequired);
+
+        // ...but stop with error if no new blocks come for too long
+        const noNewBlockPromise = rejectIfAnyBlockTimesOut(
+            this.signer.provider,
+            timeLastBlockReceived,
+            this.newBlockTimeout,
+            1000
+        );
+
+        try {
             // Then, wait to get at enough confirmations; now only throw an error if there is a reorg
             await Promise.race([
                 enoughConfirmationsPromise,
@@ -253,10 +259,8 @@ export class EthereumTransactionMiner extends EventEmitter {
             ]);
         } finally {
             // Make sure any pending CancellablePromise is released
-            for (let p of cancellablePromises) {
-                p.cancel();
-            }
-            this.signer.provider.removeListener("block", this.newBlockReceived);
+            enoughConfirmationsPromise.cancel();
+            noNewBlockPromise.cancel();
         }
     }
 }
@@ -281,8 +285,9 @@ export class EthereumDedicatedResponder extends EthereumResponder {
     private locked = false; // Lock to prevent this responder from accepting multiple requests
 
     // Timestamp in milliseconds when the last block was received (or since the creation of this object)
-    private lastBlockNumberSeen: number;
     private timeLastBlockReceived: number;
+
+    private transactionMiner: EthereumTransactionMiner;
 
     /**
      * @param signer The signer of the wallet associated with this responder. Each responder should have exclusive access to his wallet.
@@ -293,9 +298,17 @@ export class EthereumDedicatedResponder extends EthereumResponder {
         signer: ethers.Signer,
         private readonly gasPolicy: GasPolicy,
         public readonly confirmationsRequired: number,
-        private readonly maxAttempts: number
+        private readonly maxAttempts: number,
+        transactionMiner?: EthereumTransactionMiner
     ) {
         super(signer);
+
+        this.transactionMiner = transactionMiner || new EthereumTransactionMiner(
+            this.signer,
+            this.confirmationsRequired,
+            EthereumDedicatedResponder.WAIT_BLOCKS_BEFORE_RETRYING,
+            EthereumDedicatedResponder.WAIT_TIME_FOR_NEW_BLOCK
+        );
     }
 
     // Makes sure that the class is locked while `fn` is running, and that any listener is registered and cleared correctly
@@ -309,7 +322,6 @@ export class EthereumDedicatedResponder extends EthereumResponder {
         const listener = this.newBlockReceived.bind(this);
         this.signer.provider.on("block", listener);
 
-        this.lastBlockNumberSeen = 0;
         this.timeLastBlockReceived = Date.now();
 
         try {
@@ -321,7 +333,6 @@ export class EthereumDedicatedResponder extends EthereumResponder {
     }
 
     private newBlockReceived(blockNumber: number) {
-        this.lastBlockNumberSeen = blockNumber;
         this.timeLastBlockReceived = Date.now();
     }
 
@@ -353,23 +364,16 @@ export class EthereumDedicatedResponder extends EthereumResponder {
                     // there is no response for WAIT_TIME_FOR_PROVIDER_RESPONSE ms.
                     const txRequest = this.prepareTransactionRequest(responseData, nonce);
 
-                    const txMiner = new EthereumTransactionMiner(
-                        this.signer,
-                        txRequest,
-                        this.confirmationsRequired,
-                        EthereumDedicatedResponder.WAIT_BLOCKS_BEFORE_RETRYING,
-                        EthereumDedicatedResponder.WAIT_TIME_FOR_NEW_BLOCK
-                    );
+                    const txHash = await this.transactionMiner.sendTransaction(txRequest);
 
-                    txMiner
-                        .on("sent", (txResponse: ethers.providers.TransactionResponse) => {
-                            // The response has been sent, but should not be considered confirmed yet.
-                            responseFlow.state = ResponseState.ResponseSent;
-                            responseFlow.txHash = txResponse.hash;
-                            this.asyncEmit(ResponderEvent.ResponseSent, responseFlow, attemptsDone);
-                        })
+                    // Emit the ResponseSent event
+                    responseFlow.state = ResponseState.ResponseSent;
+                    responseFlow.txHash = txHash;
+                    this.asyncEmit(ResponderEvent.ResponseSent, responseFlow, attemptsDone);
 
-                    await txMiner.sendTransaction();
+                    await this.transactionMiner.waitForFirstConfirmation(txHash, this.timeLastBlockReceived);
+
+                    await this.transactionMiner.waitForEnoughConfirmations(txHash, this.timeLastBlockReceived);
 
                     // The response has now enough confirmations to be considered safe.
                     responseFlow.state = ResponseState.Success;

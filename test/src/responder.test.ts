@@ -286,7 +286,6 @@ describe("EthereumDedicatedResponder", () => {
 
         responder.on(ResponderEvent.AttemptFailed, attemptFailedSpy);
         responder.on(ResponderEvent.ResponseFailed, responseFailedSpy);
-        responder.on(ResponderEvent.ResponseSent, responseSentSpy);
         responder.on(ResponderEvent.ResponseConfirmed, responseConfirmedSpy);
 
         // Start the response flow
