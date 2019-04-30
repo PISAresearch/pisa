@@ -2,13 +2,13 @@ import { IAppointmentStore } from "./store";
 import { AppointmentSubscriber } from "./appointmentSubscriber";
 import { ethers } from "ethers";
 import logger from "../logger";
-import { IEthereumAppointment, IAppointment, ConfigurationError } from "../dataEntities";
+import { StartStoppable } from "../dataEntities/startStoppable";
 
 /**
  * Scans the current appointments to find expired ones. Upon finding expired appointments it removes them appointment
  * from the store and from the subscriber.
  */
-export class AppointmentStoreGarbageCollector {
+export class AppointmentStoreGarbageCollector extends StartStoppable {
     /**
      * Scans the current appointments to find expired ones. Upon finding expired appointments it removes them appointment
      * from the store and from the subscriber.
@@ -22,10 +22,10 @@ export class AppointmentStoreGarbageCollector {
         private readonly confirmationCount: number,
         private readonly store: IAppointmentStore,
         private readonly appointmentSubscriber: AppointmentSubscriber
-    ) {}
+    ) {
+        super("GC");
+    }
 
-    // only allow the gc to be started once
-    private started: boolean = false;
     // only allow one collection at a time
     private collecting = false;
     // we want to record how many consecutive errors have taken place in gc
@@ -36,22 +36,15 @@ export class AppointmentStoreGarbageCollector {
     /**
      * Start the monitoring for expired appointments
      */
-    public start() {
-        if (this.started) throw new ConfigurationError("GC: Already started.");
+    protected startInternal() {
         this.provider.on("block", this.boundExpired);
-        this.started = true;
     }
 
     /**
      * Stop monitoring for expired events
      */
-    public stop() {
-        if (this.started) {
-            this.started = false;
-            this.provider.removeListener("block", this.boundExpired);
-        } else {
-            logger.error("GC: Two calls to stop were made.");
-        }
+    protected stopInternal() {
+        this.provider.removeListener("block", this.boundExpired);
     }
 
     /**
@@ -95,9 +88,9 @@ export class AppointmentStoreGarbageCollector {
                 logger.error("GC: Unexpected error.");
                 logger.error(`GC: Consecutive errors: ${this.consecutiveErrors}.`);
                 logger.error(doh);
+            } finally {
+                this.collecting = false;
             }
-
-            this.collecting = false;
         }
     }
 }
