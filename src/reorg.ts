@@ -1,84 +1,109 @@
 import { ethers } from "ethers";
-import { JsonRpcProvider } from "ethers/providers";
 
-class ReorgDetector {
+import { ApplicationError } from "./dataEntities";
+import { EventEmitter } from "events";
+
+class BlockStub {
+    // TODO:113: constructor for genesis
+
+    constructor(public readonly height: number, public readonly hash: string, private parent: BlockStub) {
+        // TODO:113: guard against null?
+    }
+
+    private findInChain(predicate: (block: BlockStub) => boolean) {
+        if (!this.parent) {
+            return false;
+        } else if (predicate(this.parent)) {
+            return this.parent;
+        } else return this.parent.findInChain(predicate);
+    }
+
+    public ancestorWithHash(hash: string): BlockStub | false {
+        return this.findInChain(block => block.hash === hash);
+    }
+    public ancestorWithHeight(height: number): BlockStub | false {
+        return this.findInChain(block => block.height === height);
+    }
+
+    public prune(depth: number) {
+        const minHeight = this.height - depth;
+        let ancestor: BlockStub | false;
+        if ((ancestor = this.ancestorWithHeight(minHeight))) {
+            ancestor.parent = null;
+        }
+    }
+
+    public asBlockData(): IBlockData {
+        return {
+            hash: this.hash,
+            number: this.height,
+            parentHash: this.parent.hash
+        };
+    }
+}
+
+interface IBlockData {
+    hash: string;
+    number: number;
+    parentHash: string;
+}
+
+class ReorgDetector extends EventEmitter {
+    private headBlock: BlockStub;
+    public readonly REORG_EVENT_NAME = "reorg";
+
     // detects reorgs, allows subscribtion to the reorg event
-    constructor(jsonRpcLocation: string, private readonly maxDepth: number) {
-        // TODO: async is a real problem here + do we need more info eg. chain id
-        this.provider = new JsonRpcProvider(jsonRpcLocation);
-        this.provider.on("block", this.extendChain);
+    // TODO:113: put a clear warning on this provider param, saying that it will reset
+    constructor(private readonly provider: ethers.providers.BaseProvider, private readonly maxDepth: number) {
+        super();
+        this.provider.on("block", this.newBlock);
     }
 
-    private readonly  provider: ethers.providers.BaseProvider;
+    private async newBlock(blockNumber) {
+        // first prune the existing tree
+        this.headBlock.prune(this.maxDepth);
 
-    headHash: string;
-    parentOf: {
-        [hash: string]: string;
-    } = {};
-    heightByHash: {
-        [hash: string]: number;
-    } = {};
-    hashByheight: {
-        [height: number]: string;
-    } = {};
-
-    private async getBlockAndCheckAncestor(hash: string) {
-        const block = await this.provider.getBlock(hash);
-
-        if (this.parentOf[block.parentHash]) {
-            return this.parentOf[block.parentHash];
-        } else {
-            return await this.getBlockAndCheckAncestor(block.parentHash);
+        // now try to extend the existing chain
+        const fullBlock = await this.provider.getBlock(blockNumber);
+        if (!this.tryExtendChain(fullBlock, this.headBlock)) {
+            // if we couldn't extend this is a re-org, reset to the common ancestor
+            const commonAncestor = await this.resetToCommonAncestor(fullBlock, this.headBlock);
+            this.emit(this.REORG_EVENT_NAME, fullBlock, commonAncestor);
         }
     }
 
-    private resetToRoot(hash: string)  {
-        // find the height
-        const height = this.heightByHash[hash];
+    private async commonAncestor(remoteBlockHash: string, localBlock: BlockStub): Promise<BlockStub> {
+        const blockRemote = await this.provider.getBlock(remoteBlockHash);
 
-        // remove everything above this height
-        const hashesAbove = hash
+        const ancestor = localBlock.ancestorWithHash(blockRemote.parentHash);
+        if (ancestor) return ancestor;
 
-        // set the head
-        this.headHash = hash;
+        const finalBlock = await this.commonAncestor(blockRemote.parentHash, localBlock);
+        if (!finalBlock) throw new ApplicationError(`Chain re-org beyond max depth: ${this.maxDepth}.`);
+        return finalBlock;
+    }
 
-        // reset this provider
-        this.provider.resetEventsBlock(height);
-    };
+    private tryExtendChain(newBlock: IBlockData, currentHead: BlockStub): boolean {
+        if (newBlock.parentHash === currentHead.hash) {
+            this.headBlock = new BlockStub(newBlock.number, newBlock.hash, currentHead);
+            return true;
+        } else return false;
+    }
 
-    private async extendChain(blockNumber) {
-        // get the full block info
-        const block = await this.provider.getBlock(blockNumber);
-
-        if (block.parentHash === this.headHash) {
-            // great we're extending the chain
-            this.headHash = block.hash;
-
-            // TODO: also push to parent of an block by height
-
-            // no re-org -just a new block
-        } else {
-            // is this parent block in our hash chain?
-            let commonAncestor;
-            if (this.parentOf[block.hash]) {
-                // reorg depth 1
-                commonAncestor = this.parentOf[block.hash];
-            } else if (this.parentOf[block.parentHash]) {
-                // reorg depth 2
-                // we can save an rpc call by just checking the common ancestor of the parent
-                commonAncestor = this.parentOf[block.parentHash];
-            } else {
-                // reorg rest
-                commonAncestor = await this.getBlockAndCheckAncestor(block.parentHash);
-            }
-
-            // notify subscibers - reset local root
-
-            // re-org event
-
-            this.resetToRoot(commonAncestor);
+    private async resetToCommonAncestor(newBlock: IBlockData, currentHead: BlockStub): Promise<IBlockData> {
+        let commonAncestor: BlockStub | false;
+        // the chain has reduced linearly
+        if ((commonAncestor = currentHead.ancestorWithHash(newBlock.hash))) {
         }
+        // sibling or greater
+        else if ((commonAncestor = currentHead.ancestorWithHash(newBlock.parentHash))) {
+        }
+        // recurse down the ancestry of the provided block, looking for a common ancestor
+        else commonAncestor = await this.commonAncestor(newBlock.parentHash, currentHead);
 
-        // subribe to the block - each time we get a new one check it's lineage
+        // reorg - reset to common ancestor
+        this.provider.resetEventsBlock(commonAncestor.height + 1);
+        this.headBlock = commonAncestor;
+        return commonAncestor.asBlockData();
     }
 }
