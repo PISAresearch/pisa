@@ -34,13 +34,16 @@ class ReorgDetector {
 
     private resetToRoot(hash: string)  {
         // find the height
-        const commonParentHeight = this.heightByHash[hash];
+        const height = this.heightByHash[hash];
 
         // remove everything above this height
-        // TODO:
+        const hashesAbove = hash
+
+        // set the head
+        this.headHash = hash;
 
         // reset this provider
-        this.provider.resetEventsBlock(commonParentHeight);
+        this.provider.resetEventsBlock(height);
     };
 
     private async extendChain(blockNumber) {
@@ -52,6 +55,8 @@ class ReorgDetector {
             this.headHash = block.hash;
 
             // TODO: also push to parent of an block by height
+
+            // no re-org -just a new block
         } else {
             // is this parent block in our hash chain?
             let commonAncestor;
@@ -68,6 +73,8 @@ class ReorgDetector {
             }
 
             // notify subscibers - reset local root
+
+            // re-org event
 
             this.resetToRoot(commonAncestor);
         }
