@@ -8,7 +8,7 @@ import {
     doesPropertyExist,
     isArrayOfStrings,
     PublicDataValidationError,
-    checkAppointment,
+    checkAppointment
 } from "../../dataEntities";
 import { Inspector } from "../../inspector";
 import { PublicInspectionError, ConfigurationError } from "../../dataEntities/errors";

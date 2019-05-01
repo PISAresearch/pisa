@@ -34,7 +34,7 @@ export interface IEthereumAppointment extends IAppointment {
     formatLog(message: string): string;
     getResponseFunctionName(): string;
     getResponseFunctionArgs(): any[];
-    getResponse(): IEthereumResponse;
+    getResponseData(): IEthereumResponseData;
 }
 
 
@@ -95,9 +95,9 @@ export abstract class EthereumAppointment implements IEthereumAppointment {
     abstract getResponseFunctionArgs(): any[];
 
     /**
-     * Returns the IEthereumResponse object for this appointment
+     * Returns the IEthereumResponseData object for this appointment
      */
-    public getResponse(): IEthereumResponse {
+    public getResponseData(): IEthereumResponseData {
         return {
             contractAddress: this.getContractAddress(),
             contractAbi: this.getContractAbi(),
@@ -110,7 +110,7 @@ export abstract class EthereumAppointment implements IEthereumAppointment {
 /**
  * Represents the necessary data for an on-chain response from Pisa on the Ethereum blockchain.
  */
-export interface IEthereumResponse {
+export interface IEthereumResponseData {
     contractAddress: string,
     contractAbi: any,
     functionName: string,

@@ -1,7 +1,7 @@
 import "mocha";
 import { Watcher } from "../../src/watcher/watcher";
 import { KitsuneInspector, KitsuneAppointment, KitsuneTools } from "../../src/integrations/kitsune";
-import { ethers, Signer } from "ethers";
+import { ethers } from "ethers";
 import Ganache from "ganache-core";
 import { ChannelType } from "../../src/dataEntities";
 
@@ -9,6 +9,7 @@ import { EthereumResponderManager } from "../../src/responder";
 import { MemoryAppointmentStore } from "../../src/watcher/store";
 import { EventObserver } from "../../src/watcher/eventObserver";
 import { AppointmentSubscriber } from "../../src/watcher/appointmentSubscriber";
+import { wait } from "../../src/utils";
 const ganache = Ganache.provider({
     mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect"
 });
@@ -83,13 +84,3 @@ describe("End to end", () => {
         await wait(2000);
     }).timeout(3000);
 });
-
-const wait = async (timeout: number) => {
-    const testPromise = new Promise(function(resolve, reject) {
-        setTimeout(function() {
-            resolve();
-        }, timeout);
-    });
-
-    return await testPromise;
-};

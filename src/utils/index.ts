@@ -15,11 +15,37 @@ export class TimeoutError extends Error {
     }
 }
 
+
+/**
+ * A promise that can be canceled to release any resource.
+ * Instances of this class should guarantee that all resources will eventually be released if `cancel()` is called,
+ * regardless of wether the Promise is fulfilled or rejected.
+ *
+ * Once `cancel()` is called, the behaviour of the promise is undefined, and the caller
+ * should not expect it to reject or fulfill, nor to be pending forever.
+ */
+export class CancellablePromise<T> extends Promise<T> {
+    constructor(
+        executor: (resolve: (value?: T | PromiseLike<T>) => void, reject: (reason?: any) => void) => void,
+        private canceller: () => void
+    ) {
+        super(executor);
+    }
+
+    /**
+     * If a canceller was provided in the constructor, it calls it. Then it sets `cancelled` to true.
+     */
+    public cancel() {
+        this.canceller();
+    }
+}
+
+
 /**
  * Wraps `promise` in a new promise that rejects with a `TimeoutError` after waiting `milliseconds` if `promise` is still pending.
  *
  * @param promise the original promise
- * @param milliseconds the amount of milliseconds before the returned promise is rejected.
+ * @param milliseconds the amount of milliseconds before the returned promise is rejected
  */
 export function promiseTimeout<T>(promise: Promise<T>, milliseconds: number): Promise<T> {
     return Promise.race([
