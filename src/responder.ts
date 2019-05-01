@@ -125,7 +125,7 @@ export abstract class EthereumResponder extends Responder {
 /**
  * A gas policy implements the strategy for the choice of the gas price for subsequent attempts at submitting a transaction.
  */
-export interface GasPolicy {
+export interface IGasPolicy {
     getInitialPrice(): Promise<ethers.utils.BigNumber>
     getIncreasedGasPrice(previousPrice: ethers.utils.BigNumber): ethers.utils.BigNumber
 }
@@ -135,7 +135,7 @@ export interface GasPolicy {
  * A simple gas choice strategy that queries the provider for an initial estimate of the gas price, and then it doubles it
  * at each subsequent attempt.
  */
-export class DoublingGasPolicy implements GasPolicy {
+export class DoublingGasPolicy implements IGasPolicy {
     constructor(private readonly provider: ethers.providers.Provider) { }
 
     getInitialPrice(): Promise<ethers.utils.BigNumber> {
@@ -196,9 +196,8 @@ export class EthereumTransactionMiner {
      * @param txHash The transaction hash, returned by `sendTransaction`.
      * @param timeLastBlockReceived Optional; if known, the time when the last block was received by the provider.
      *                              The provider will be considered unresponsive after `newBlockTimeout` from `timeLastBlockReceived`.
-     *                              If not given, the current time returned by `Date.now()` will be used.
      */
-    public async waitForFirstConfirmation(txHash: string, timeLastBlockReceived: number = Date.now()) {
+    public async waitForFirstConfirmation(txHash: string, timeLastBlockReceived: number) {
         const lastBlockNumberSeen = await this.signer.provider.getBlockNumber();
 
         // Promise that waits for the first confirmation
@@ -236,10 +235,10 @@ export class EthereumTransactionMiner {
 
     /**
      * Resolves after the transaction `txHash` receives `confirmationsRequired`.
-     * Rejects with `NoNewBlockError` the provider does not receive a new block for `newBlockTimeout` milliseconds.
+     * Rejects with `NoNewBlockError` the provider does not receive a new block for `newBlockTimeout` milliseconds (starting from `timeLastBlockReceived`).
      * Rejects with `ReorgError` if the transaction is not found by the provider.
      */
-    public async waitForEnoughConfirmations(txHash: string, timeLastBlockReceived = Date.now()) {
+    public async waitForEnoughConfirmations(txHash: string, timeLastBlockReceived: number) {
         // Promise that waits for enough confirmations before declaring success
         const enoughConfirmationsPromise = waitForConfirmations(this.signer.provider, txHash, this.confirmationsRequired);
 
@@ -296,7 +295,7 @@ export class EthereumDedicatedResponder extends EthereumResponder {
      */
     constructor(
         signer: ethers.Signer,
-        private readonly gasPolicy: GasPolicy,
+        private readonly gasPolicy: IGasPolicy,
         public readonly confirmationsRequired: number,
         private readonly maxAttempts: number,
         transactionMiner?: EthereumTransactionMiner
@@ -332,7 +331,7 @@ export class EthereumDedicatedResponder extends EthereumResponder {
         }
     }
 
-    private newBlockReceived(blockNumber: number) {
+    private newBlockReceived() {
         this.timeLastBlockReceived = Date.now();
     }
 
@@ -420,7 +419,7 @@ export class EthereumDedicatedResponder extends EthereumResponder {
 
 export class EthereumResponderManager {
     private responders: Set<EthereumResponder> = new Set();
-    private gasPolicy: GasPolicy;
+    private gasPolicy: IGasPolicy;
 
     constructor(private readonly signer: ethers.Signer) {
         this.gasPolicy = new DoublingGasPolicy(this.signer.provider);
