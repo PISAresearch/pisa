@@ -95,10 +95,9 @@ export abstract class EthereumResponder extends Responder {
      * Creates the transaction request to be sent to handle the response in `resposeData`.
      *
      * @param responseData the response data used to create the transaction
-     * @param nonce The nonce to be used. If `null`, the provider will set the nonce. It is recommended to explicitly provide a nonce,
-     *              especially if the same wallet might send multiple transactions concurrently or in a short span.
+     * @param nonce The nonce to be used.
      */
-    protected prepareTransactionRequest(responseData: IEthereumResponseData, nonce: number = null): ethers.providers.TransactionRequest {
+    protected prepareTransactionRequest(responseData: IEthereumResponseData, nonce: number): ethers.providers.TransactionRequest {
         // form the interface so that we can serialise the args and the function name
         const abiInterface = new ethers.utils.Interface(responseData.contractAbi);
         const data = abiInterface.functions[responseData.functionName].encode(responseData.functionArgs);
@@ -341,16 +340,10 @@ export class EthereumDedicatedResponder extends EthereumResponder {
 
             const responseFlow = new EthereumResponseFlow(appointmentId, responseData);
 
-            const signerAddress = await promiseTimeout(
-                this.signer.getAddress(),
-                EthereumDedicatedResponder.WAIT_TIME_FOR_PROVIDER_RESPONSE
-            );
+            const signerAddress = await this.signer.getAddress();
 
             // Get the current nonce to be used
-            const nonce = await promiseTimeout(
-                this.signer.provider.getTransactionCount(signerAddress),
-                EthereumDedicatedResponder.WAIT_TIME_FOR_PROVIDER_RESPONSE
-            );
+            const nonce = await this.signer.provider.getTransactionCount(signerAddress);
 
             // Get the initial gas price
             this.gasPrice = await this.gasPolicy.getInitialPrice();
