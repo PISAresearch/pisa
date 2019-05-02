@@ -2,13 +2,13 @@ import { IAppointmentStore } from "./store";
 import { AppointmentSubscriber } from "./appointmentSubscriber";
 import { ethers } from "ethers";
 import logger from "../logger";
-import { StartStoppable } from "../dataEntities/startStoppable";
+import { StartStopService } from "../dataEntities";
 
 /**
  * Scans the current appointments to find expired ones. Upon finding expired appointments it removes them appointment
  * from the store and from the subscriber.
  */
-export class AppointmentStoreGarbageCollector extends StartStoppable {
+export class AppointmentStoreGarbageCollector extends StartStopService {
     /**
      * Scans the current appointments to find expired ones. Upon finding expired appointments it removes them appointment
      * from the store and from the subscriber.

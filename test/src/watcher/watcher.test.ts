@@ -1,14 +1,19 @@
 import "mocha";
 import { assert } from "chai";
-import mockito, { mock, instance, when, verify, anything, resetCalls } from "ts-mockito";
+import mockito, { mock, instance, when, verify, anything, resetCalls, capture } from "ts-mockito";
 import uuid from "uuid/v4";
-import { EventObserver } from "../../../src/watcher/eventObserver";
 import { MemoryAppointmentStore, Watcher } from "../../../src/watcher";
 import { KitsuneAppointment } from "../../../src/integrations/kitsune";
 import { ethers } from "ethers";
 import { AppointmentSubscriber } from "../../../src/watcher/appointmentSubscriber";
+import * as Ganache from "ganache-core";
+import { EthereumResponderManager } from "../../../src/responder";
+import { ReorgDetector } from "../../../src/blockMonitor";
 
 describe("Watcher", () => {
+    const ganache = Ganache.provider({});
+    const provider = new ethers.providers.Web3Provider(ganache);
+
     // appointment mocks
     const appointmentId1 = uuid();
     const appointmentId2 = uuid();
@@ -37,16 +42,12 @@ describe("Watcher", () => {
     const appointmentErrorUnsubscribe = createMockAppointment(appointmentErrorUnsubscribeId, errorEventFilter, true);
     const appointmentErrorSubscribeOnce = createMockAppointment(appointmentErrorSubscribeOnceId, eventFilter, true);
 
-    // observer mock
-    const mockedObserver = mock(EventObserver);
-    const observer = instance(mockedObserver);
-
     // appointment subscriber mock
     const mockedAppointmentSubscriber = mock(AppointmentSubscriber);
-    when(mockedAppointmentSubscriber.subscribeOnce(appointmentId1, eventFilter, anything()));
+    when(mockedAppointmentSubscriber.subscribe(appointmentId1, eventFilter, anything()));
     when(mockedAppointmentSubscriber.unsubscribeAll(eventFilter));
     when(
-        mockedAppointmentSubscriber.subscribeOnce(
+        mockedAppointmentSubscriber.subscribe(
             appointmentErrorSubscribeOnce.id,
             appointmentErrorSubscribeOnce.getEventFilter(),
             anything()
@@ -66,21 +67,45 @@ describe("Watcher", () => {
     when(mockedStore.addOrUpdateByStateLocator(appointmentErrorUpdate)).thenReject(new Error("Store update failure."));
     const store = instance(mockedStore);
 
+    const mockedResponder = mock(EthereumResponderManager);
+    when(mockedResponder.respond(appointmentCanBeUpdated));
+    const responderInstance = instance(mockedResponder);
+
+    const mockedResponderThatThrows = mock(EthereumResponderManager);
+    when(mockedResponderThatThrows.respond(appointmentCanBeUpdated)).thenThrow(new Error("Responder error."));
+    const responderInstanceThrow = instance(mockedResponderThatThrows);
+
+    const mockedStoreThatThrows = mock(MemoryAppointmentStore);
+    when(mockedStoreThatThrows.removeById(appointmentCanBeUpdated.id)).thenReject(new Error("Store error."));
+    const storeInstanceThrow = instance(mockedStoreThatThrows);
+
+    const mockedReorgDetector = mock(ReorgDetector);
+    when(mockedReorgDetector.addReorgHeightListener(anything())).thenReturn();
+    const reorgDetectorInstance = instance(mockedReorgDetector);
+
+    const event = {
+        blockNumber: 10
+    } as ethers.Event;
+
     afterEach(() => {
         resetCalls(mockedStore);
-        resetCalls(mockedAppointmentSubscriber);
-        resetCalls(mockedObserver);
+        resetCalls(mockedAppointmentSubscriber);        
+        resetCalls(mockedResponder);
+        resetCalls(mockedStore);
+        resetCalls(mockedResponderThatThrows);
+        resetCalls(mockedStoreThatThrows);
+        resetCalls(mockedReorgDetector);
     });
 
     it("add appointment updates store and subscriptions", async () => {
-        const watcher = new Watcher(observer, appointmentSubscriber, store);
+        const watcher = new Watcher(provider, responderInstance, reorgDetectorInstance, appointmentSubscriber, store);
 
         assert.strictEqual(await watcher.addAppointment(appointmentCanBeUpdated), true);
 
         verify(mockedStore.addOrUpdateByStateLocator(appointmentCanBeUpdated)).once();
         verify(mockedAppointmentSubscriber.unsubscribeAll(appointmentCanBeUpdated.getEventFilter())).once();
         verify(
-            mockedAppointmentSubscriber.subscribeOnce(
+            mockedAppointmentSubscriber.subscribe(
                 appointmentCanBeUpdated.id,
                 appointmentCanBeUpdated.getEventFilter(),
                 anything()
@@ -89,14 +114,14 @@ describe("Watcher", () => {
     });
 
     it("add appointment without update does not update subscriptions and returns false", async () => {
-        const watcher = new Watcher(observer, appointmentSubscriber, store);
+        const watcher = new Watcher(provider, responderInstance, reorgDetectorInstance, appointmentSubscriber, store);
 
         assert.strictEqual(await watcher.addAppointment(appointmentNotUpdated), false);
 
         verify(mockedStore.addOrUpdateByStateLocator(appointmentNotUpdated)).once();
         verify(mockedAppointmentSubscriber.unsubscribeAll(appointmentNotUpdated.getEventFilter())).never();
         verify(
-            mockedAppointmentSubscriber.subscribeOnce(
+            mockedAppointmentSubscriber.subscribe(
                 appointmentNotUpdated.id,
                 appointmentNotUpdated.getEventFilter(),
                 anything()
@@ -104,7 +129,7 @@ describe("Watcher", () => {
         ).never();
     });
     it("add appointment not passed inspection throws error", async () => {
-        const watcher = new Watcher(observer, appointmentSubscriber, store);
+        const watcher = new Watcher(provider, responderInstance, reorgDetectorInstance, appointmentSubscriber, store);
 
         try {
             await watcher.addAppointment(appointmentNotInspected);
@@ -113,7 +138,7 @@ describe("Watcher", () => {
             verify(mockedStore.addOrUpdateByStateLocator(appointmentNotInspected)).never();
             verify(mockedAppointmentSubscriber.unsubscribeAll(appointmentNotInspected.getEventFilter())).never();
             verify(
-                mockedAppointmentSubscriber.subscribeOnce(
+                mockedAppointmentSubscriber.subscribe(
                     appointmentNotInspected.id,
                     appointmentNotInspected.getEventFilter(),
                     anything()
@@ -122,7 +147,7 @@ describe("Watcher", () => {
         }
     });
     it("add appointment throws error when update store throws error", async () => {
-        const watcher = new Watcher(observer, appointmentSubscriber, store);
+        const watcher = new Watcher(provider, responderInstance, reorgDetectorInstance, appointmentSubscriber, store);
 
         try {
             await watcher.addAppointment(appointmentErrorUpdate);
@@ -131,7 +156,7 @@ describe("Watcher", () => {
             verify(mockedStore.addOrUpdateByStateLocator(appointmentErrorUpdate)).once();
             verify(mockedAppointmentSubscriber.unsubscribeAll(appointmentErrorUpdate.getEventFilter())).never();
             verify(
-                mockedAppointmentSubscriber.subscribeOnce(
+                mockedAppointmentSubscriber.subscribe(
                     appointmentErrorUpdate.id,
                     appointmentErrorUpdate.getEventFilter(),
                     anything()
@@ -140,7 +165,7 @@ describe("Watcher", () => {
         }
     });
     it("add appointment throws error when subscribe unsubscribeall throws error", async () => {
-        const watcher = new Watcher(observer, appointmentSubscriber, store);
+        const watcher = new Watcher(provider, responderInstance, reorgDetectorInstance, appointmentSubscriber, store);
 
         try {
             await watcher.addAppointment(appointmentErrorUnsubscribe);
@@ -149,7 +174,7 @@ describe("Watcher", () => {
             verify(mockedStore.addOrUpdateByStateLocator(appointmentErrorUnsubscribe)).once();
             verify(mockedAppointmentSubscriber.unsubscribeAll(appointmentErrorUnsubscribe.getEventFilter())).once();
             verify(
-                mockedAppointmentSubscriber.subscribeOnce(
+                mockedAppointmentSubscriber.subscribe(
                     appointmentErrorUnsubscribe.id,
                     appointmentErrorUnsubscribe.getEventFilter(),
                     anything()
@@ -158,7 +183,7 @@ describe("Watcher", () => {
         }
     });
     it("add appointment throws error when subscriber once throw error", async () => {
-        const watcher = new Watcher(observer, appointmentSubscriber, store);
+        const watcher = new Watcher(provider, responderInstance, reorgDetectorInstance, appointmentSubscriber, store);
 
         try {
             await watcher.addAppointment(appointmentErrorSubscribeOnce);
@@ -167,12 +192,47 @@ describe("Watcher", () => {
             verify(mockedStore.addOrUpdateByStateLocator(appointmentErrorSubscribeOnce)).once();
             verify(mockedAppointmentSubscriber.unsubscribeAll(appointmentErrorSubscribeOnce.getEventFilter())).once();
             verify(
-                mockedAppointmentSubscriber.subscribeOnce(
+                mockedAppointmentSubscriber.subscribe(
                     appointmentErrorSubscribeOnce.id,
                     appointmentErrorSubscribeOnce.getEventFilter(),
                     anything()
                 )
             ).once();
         }
+    });
+
+    it("observe succussfully responds and updates store", () => {
+        const watcher = new Watcher(provider, responderInstance, reorgDetectorInstance, appointmentSubscriber, store);
+        
+        watcher.observe(appointmentCanBeUpdated, event);
+
+        // respond, reorg and remove were called in that order
+        verify(mockedResponder.respond(appointmentCanBeUpdated)).once();
+        verify(mockedStore.removeById(appointmentCanBeUpdated.id)).once();
+        verify(mockedReorgDetector.addReorgHeightListener(anything())).once();
+        verify(mockedResponder.respond(appointmentCanBeUpdated)).calledBefore(mockedStore.removeById(appointmentCanBeUpdated.id));
+        verify(mockedReorgDetector.addReorgHeightListener(anything())).calledBefore(
+            mockedStore.removeById(appointmentCanBeUpdated.id)
+        );
+        const [firstArg] = capture(mockedReorgDetector.addReorgHeightListener).last();
+        assert.strictEqual(firstArg.height, event.blockNumber, "Event block height incorrect.")
+    });
+
+    it("observe doesnt propogate errors from responder", () => {
+        const watcher = new Watcher(provider, responderInstanceThrow, reorgDetectorInstance, appointmentSubscriber, store);
+        watcher.observe(appointmentCanBeUpdated, event);
+
+        verify(mockedResponderThatThrows.respond(appointmentCanBeUpdated)).once();
+        verify(mockedStore.removeById(appointmentCanBeUpdated.id)).never();
+        verify(mockedReorgDetector.addReorgHeightListener(anything())).never();
+    });
+
+    it("observe doesnt propogate errors from store", () => {
+        const watcher = new Watcher(provider, responderInstance, reorgDetectorInstance, appointmentSubscriber, storeInstanceThrow);
+        watcher.observe(appointmentCanBeUpdated, event);
+
+        verify(mockedResponder.respond(appointmentCanBeUpdated)).once();
+        verify(mockedReorgDetector.addReorgHeightListener(anything())).once();
+        verify(mockedStoreThatThrows.removeById(anything())).once();
     });
 });

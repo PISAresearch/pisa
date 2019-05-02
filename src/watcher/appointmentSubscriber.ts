@@ -24,7 +24,7 @@ export class AppointmentSubscriber {
      * @param listener The listener to activate when the event is observed
      * @throws Throws if a listener is already subscribed to this filter.
      */
-    public subscribeOnce(
+    public subscribe(
         appointmentId: string,
         filter: ethers.providers.EventType,
         listener: ethers.providers.Listener
@@ -49,7 +49,7 @@ export class AppointmentSubscriber {
         // bind, then we can safely assign the appointmentId to a guaranteed new object
         const listenerAndAppointment = Object.assign(listener.bind({}), { appointmentId })
         
-        this.provider.once(filter, listenerAndAppointment);
+        this.provider.on(filter, listenerAndAppointment);
     }
 
     /**

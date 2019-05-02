@@ -1,5 +1,5 @@
 export { IAppointment, IEthereumAppointment, EthereumAppointment, IEthereumResponseData } from "./appointment";
-export { PublicDataValidationError, PublicInspectionError, ConfigurationError, ApplicationError } from "./errors";
+export { ArgumentError, PublicDataValidationError, PublicInspectionError, ConfigurationError, ApplicationError } from "./errors";
 export { ChannelType } from "./channelType";
 export {
     checkAppointment,
@@ -8,3 +8,4 @@ export {
     isPropertyOfType,
     isArrayOfStrings
 } from "./checkAppointment";
+export { StartStopService } from "./startStop";
