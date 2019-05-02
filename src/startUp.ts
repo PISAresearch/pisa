@@ -59,7 +59,7 @@ if (argv.rateLimitUserWindowms || argv.rateLimitUserMax || argv.rateLimitUserMes
         message: argv.rateLimitUserMessage || config.apiEndpoint.ratePerUser.message
     };
 }
-if ((argv.rateLimitUserWindowms && !argv.rateLimitUserMax) || (!argv.rateLimitUserWindowms && argv.rateLimitUserMax)) {
+if ((argv.rateLimitGlobalWindowms && !argv.rateLimitGlobalMax) || (!argv.rateLimitGlobalWindowms && argv.rateLimitGlobalMax)) {
     console.error("Options 'rate-limit-global-windowms' and 'rate-limit-global-max' must be provided together.");
     process.exit(1);
 }
