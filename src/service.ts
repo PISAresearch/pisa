@@ -62,13 +62,20 @@ export class PisaService {
                 message: "PISA is overloaded right now. Please try again later.",
                 ...config.rateGlobal
             }));
+            logger.info(`PISA api global rate limit: ${config.rateGlobal.max} requests every: ${config.rateGlobal.windowMs/1000} seconds.`);
+        } else {
+            logger.warn(`PISA api global rate limit: NOT SET.`);
         }
+
         if (config && config.ratePerUser) {
             app.use(rateLimit({
                 statusCode: 429, // = Too Many Requests (RFC 6585)
                 message: "Too many requests. Please try again later.",
                 ...config.ratePerUser
             }));
+            logger.info(`PISA api per-user rate limit: ${config.ratePerUser.max} requests every: ${config.ratePerUser.windowMs/1000} seconds.`);
+        } else {
+            logger.warn(`PISA api per-user rate limit: NOT SET.`);
         }
 
         // dependencies

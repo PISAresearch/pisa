@@ -32,7 +32,7 @@ Promise.all([getJsonRPCProvider(config.jsonRpcUrl), getJsonRPCProvider(config.js
         const watcherWallet = new ethers.Wallet(config.responderKey, provider);
 
         // start the pisa service
-        const service = new PisaService(config.host.name, config.host.port, provider, watcherWallet, delayedProvider);
+        const service = new PisaService(config.host.name, config.host.port, provider, watcherWallet, delayedProvider, config.apiEndpoint);
 
         // wait for a stop signal
         waitForStop(service);
