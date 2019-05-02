@@ -1,5 +1,8 @@
 import express, { Response } from "express";
 import httpContext from "express-http-context";
+
+import rateLimit from "express-rate-limit";
+
 import logger from "./logger";
 import { PublicInspectionError, PublicDataValidationError, ApplicationError } from "./dataEntities";
 import { Raiden, Kitsune } from "./integrations";
@@ -14,6 +17,8 @@ import { EthereumResponderManager } from "./responder";
 import { EventObserver } from "./watcher/eventObserver";
 import { AppointmentStoreGarbageCollector } from "./watcher/garbageCollector";
 import { AppointmentSubscriber } from "./watcher/appointmentSubscriber";
+import { IApiEndpointConfig } from "./dataEntities/config";
+
 
 /**
  * Hosts a PISA service at the endpoint.
@@ -29,13 +34,15 @@ export class PisaService {
      * @param provider A connection to ethereum
      * @param wallet A signing authority for submitting transactions
      * @param delayedProvider A connection to ethereum that is delayed by a number of confirmations
+     * @param config Optional configuration of the Pisa endpoint
      */
     constructor(
         hostname: string,
         port: number,
         provider: ethers.providers.Provider,
         wallet: ethers.Wallet,
-        delayedProvider: ethers.providers.Provider
+        delayedProvider: ethers.providers.Provider,
+        config?: IApiEndpointConfig
     ) {
         const app = express();
         // accept json request bodies
@@ -46,6 +53,23 @@ export class PisaService {
             setRequestId();
             next();
         });
+
+        // rate limits
+        if (config && config.rateGlobal) {
+            app.use(rateLimit({
+                key: () => "global", // use the same key for all users
+                statusCode: 503, // = Too Many Requests (RFC 7231)
+                message: "PISA is overloaded right now. Please try again later.",
+                ...config.rateGlobal
+            }));
+        }
+        if (config && config.ratePerUser) {
+            app.use(rateLimit({
+                statusCode: 429, // = Too Many Requests (RFC 6585)
+                message: "Too many requests. Please try again later.",
+                ...config.ratePerUser
+            }));
+        }
 
         // dependencies
         const store = new MemoryAppointmentStore();
