@@ -6,10 +6,14 @@
     },
     "responderKey": "0x6370fd033278c143179d81c5526140625662b8daa446c22ee2d73db3707e620c",
     "apiEndpoint": {
+        "rateGlobal": {
+            "windowMs": 60000,
+            "max": 100
+        },
         "ratePerUser": {
             "windowMs": 60000,
             "max": 5,
-            "message": "Please be nice to Pisa and limit requests to 5 per minute."
+            "message": "Too many requests. Please try again later and limit requests to 5 per minute."
         }
     }
 }
