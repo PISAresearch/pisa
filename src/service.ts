@@ -56,8 +56,8 @@ export class PisaService {
 
         // rate limits
         if (config && config.rateGlobal) {
-            app.use(rateLimit({
-                key: () => "global", // use the same key for all users
+            app.use(new rateLimit({
+                keyGenerator: () => "global", // use the same key for all users
                 statusCode: 503, // = Too Many Requests (RFC 7231)
                 message: "PISA is overloaded right now. Please try again later.",
                 ...config.rateGlobal
@@ -68,7 +68,7 @@ export class PisaService {
         }
 
         if (config && config.ratePerUser) {
-            app.use(rateLimit({
+            app.use(new rateLimit({
                 statusCode: 429, // = Too Many Requests (RFC 6585)
                 message: "Too many requests. Please try again later.",
                 ...config.ratePerUser
