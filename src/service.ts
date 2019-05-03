@@ -1,5 +1,10 @@
 import express, { Response } from "express";
 import httpContext from "express-http-context";
+import rateLimit from "express-rate-limit";
+import { Server } from "http";
+import { inspect } from "util";
+import { ethers } from "ethers";
+
 import logger from "./logger";
 import { PublicInspectionError, PublicDataValidationError, ApplicationError } from "./dataEntities";
 import { Raiden, Kitsune } from "./integrations";
@@ -7,13 +12,12 @@ import { Watcher, MemoryAppointmentStore } from "./watcher";
 import { PisaTower } from "./tower";
 // PISA: this isn working properly, it seems that watchers are sharing the last set value...
 import { setRequestId } from "./customExpressHttpContext";
-import { Server } from "http";
-import { inspect } from "util";
-import { ethers } from "ethers";
 import { EthereumResponderManager } from "./responder";
 import { EventObserver } from "./watcher/eventObserver";
 import { AppointmentStoreGarbageCollector } from "./watcher/garbageCollector";
 import { AppointmentSubscriber } from "./watcher/appointmentSubscriber";
+import { IApiEndpointConfig } from "./dataEntities/config";
+
 
 /**
  * Hosts a PISA service at the endpoint.
@@ -29,23 +33,19 @@ export class PisaService {
      * @param provider A connection to ethereum
      * @param wallet A signing authority for submitting transactions
      * @param delayedProvider A connection to ethereum that is delayed by a number of confirmations
+     * @param config Optional configuration of the Pisa endpoint
      */
     constructor(
         hostname: string,
         port: number,
         provider: ethers.providers.Provider,
         wallet: ethers.Wallet,
-        delayedProvider: ethers.providers.Provider
+        delayedProvider: ethers.providers.Provider,
+        config?: IApiEndpointConfig
     ) {
         const app = express();
-        // accept json request bodies
-        app.use(express.json());
-        // use http context middleware to create a request id available on all requests
-        app.use(httpContext.middleware);
-        app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
-            setRequestId();
-            next();
-        });
+
+        this.applyMiddlewares(app, config);
 
         // dependencies
         const store = new MemoryAppointmentStore();
@@ -64,6 +64,42 @@ export class PisaService {
         const service = app.listen(port, hostname);
         logger.info(`PISA listening on: ${hostname}:${port}.`);
         this.server = service;
+    }
+
+    private applyMiddlewares(app: express.Express, config?: IApiEndpointConfig) {
+        // accept json request bodies
+        app.use(express.json());
+        // use http context middleware to create a request id available on all requests
+        app.use(httpContext.middleware);
+        app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
+            setRequestId();
+            next();
+        });
+
+        // rate limits
+        if (config && config.rateGlobal) {
+            app.use(new rateLimit({
+                keyGenerator: () => "global", // use the same key for all users
+                statusCode: 503, // = Too Many Requests (RFC 7231)
+                message: "Server request limit reached. Please try again later.",
+                ...config.rateGlobal
+            }));
+            logger.info(`PISA api global rate limit: ${config.rateGlobal.max} requests every: ${config.rateGlobal.windowMs/1000} seconds.`);
+        } else {
+            logger.warn(`PISA api global rate limit: NOT SET.`);
+        }
+
+        if (config && config.ratePerUser) {
+            app.use(new rateLimit({
+                keyGenerator: (req) => req.ip, // limit per IP
+                statusCode: 429, // = Too Many Requests (RFC 6585)
+                message: "Too many requests. Please try again later.",
+                ...config.ratePerUser
+            }));
+            logger.info(`PISA api per-user rate limit: ${config.ratePerUser.max} requests every: ${config.ratePerUser.windowMs/1000} seconds.`);
+        } else {
+            logger.warn(`PISA api per-user rate limit: NOT SET.`);
+        }
     }
 
     // PISA: it would be much nicer to log with appointment data in this handler
