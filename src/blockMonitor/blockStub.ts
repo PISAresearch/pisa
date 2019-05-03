@@ -57,14 +57,22 @@ export class BlockStubChain {
      * @param predicate Used to search for the correct block
      * @returns null if no matching block found
      */
-    private findInChain(predicate: (block: BlockStubChain) => boolean): BlockStubChain {
+    private findInChainDeep(predicate: (block: BlockStubChain) => boolean): BlockStubChain {
         if (!this.parent) {
             return null;
-        } else if (predicate(this)) {
-            return this;
         } else if (predicate(this.parent)) {
             return this.parent;
-        } else return this.parent.findInChain(predicate);
+        } else return this.parent.findInChainDeep(predicate);
+    }
+
+    /**
+     * Checks itself before traversing the whole ancestry
+     * @param predicate Used to search for the correct block
+     * @returns null if no matching block found
+     */
+    private findInChain(predicate: (block: BlockStubChain) => boolean): BlockStubChain {
+        if(predicate(this)) return this;
+        else return this.findInChainDeep(predicate);
     }
 
     /**
@@ -72,7 +80,7 @@ export class BlockStubChain {
      * @param hash Search for ancestor with this hash
      * @returns null if no matching block found
      */
-    public ancestorWithHash(hash: string): BlockStubChain {
+    public blockInChainWithHash(hash: string): BlockStubChain {
         return this.findInChain(block => block.hash === hash);
     }
 
@@ -81,7 +89,7 @@ export class BlockStubChain {
      * @param height Search for ancestor with this height
      * @returns null if no matching block found
      */
-    public ancestorWithHeight(height: number): BlockStubChain {
+    public blockInChainWithHeight(height: number): BlockStubChain {
         return this.findInChain(block => block.height === height);
     }
 
@@ -94,9 +102,7 @@ export class BlockStubChain {
             throw new ArgumentError("Cannot prune above current height.", minHeight, this.height);
 
         let ancestor: BlockStubChain;
-        if (this.height === minHeight) {
-            this.mParent = null;
-        } else if ((ancestor = this.ancestorWithHeight(minHeight))) {
+        if ((ancestor = this.blockInChainWithHeight(minHeight))) {
             ancestor.mParent = null;
         }
     }

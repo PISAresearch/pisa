@@ -77,23 +77,23 @@ describe("BlockStubChain", () => {
     });
 
     it("ancestorWithHash finds hash", () => {
-        expect(fourthBlock.ancestorWithHash(genesis.hash)).to.equal(genesis);
-        expect(fourthBlock.ancestorWithHash(secondBlock.hash)).to.equal(secondBlock);
-        expect(fourthBlock.ancestorWithHash(thirdBlock.hash)).to.equal(thirdBlock);
+        expect(fourthBlock.blockInChainWithHash(genesis.hash)).to.equal(genesis);
+        expect(fourthBlock.blockInChainWithHash(secondBlock.hash)).to.equal(secondBlock);
+        expect(fourthBlock.blockInChainWithHash(thirdBlock.hash)).to.equal(thirdBlock);
     });
 
     it("ancestorWithHash doesn't find missing hash", () => {
-        expect(fourthBlock.ancestorWithHash("unknown hash")).to.equal(null);
+        expect(fourthBlock.blockInChainWithHash("unknown hash")).to.equal(null);
     });
 
     it("ancestorWithHeight finds height", () => {
-        expect(fourthBlock.ancestorWithHeight(genesis.height)).to.equal(genesis);
-        expect(fourthBlock.ancestorWithHeight(secondBlock.height)).to.equal(secondBlock);
-        expect(fourthBlock.ancestorWithHeight(thirdBlock.height)).to.equal(thirdBlock);
+        expect(fourthBlock.blockInChainWithHeight(genesis.height)).to.equal(genesis);
+        expect(fourthBlock.blockInChainWithHeight(secondBlock.height)).to.equal(secondBlock);
+        expect(fourthBlock.blockInChainWithHeight(thirdBlock.height)).to.equal(thirdBlock);
     });
 
     it("ancestorWithHeight doesnt find missing height", () => {
-        expect(fourthBlock.ancestorWithHeight(5)).to.equal(null);
+        expect(fourthBlock.blockInChainWithHeight(5)).to.equal(null);
     });
 
     it("prune only prunes below height, not above", () => {

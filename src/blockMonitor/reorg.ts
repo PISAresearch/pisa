@@ -179,7 +179,7 @@ export class ReorgDetector extends StartStopService {
         const blockRemote = await this.provider.getBlock(remoteBlockHash);
         differenceBlocks.push(blockRemote);
 
-        const ancestor = localBlock.ancestorWithHash(blockRemote.parentHash);
+        const ancestor = localBlock.blockInChainWithHash(blockRemote.parentHash);
         if (ancestor) return ancestor;
 
         if (blockRemote.number <= minHeight) return null;
@@ -200,10 +200,10 @@ export class ReorgDetector extends StartStopService {
         let differenceBlocks: IBlockStub[] = [];
         const minHeight = this.headBlock.height - this.maxDepth;
         // the chain has reduced linearly
-        if ((commonAncestor = currentHead.ancestorWithHash(newBlock.hash))) {
+        if ((commonAncestor = currentHead.blockInChainWithHash(newBlock.hash))) {
         }
         // sibling or greater
-        else if ((commonAncestor = currentHead.ancestorWithHash(newBlock.parentHash))) {
+        else if ((commonAncestor = currentHead.blockInChainWithHash(newBlock.parentHash))) {
             differenceBlocks.push(newBlock);
         }
         // recurse down the ancestry of the provided block, looking for a common ancestor
