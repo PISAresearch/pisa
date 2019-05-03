@@ -89,7 +89,7 @@ describe("Watcher", () => {
 
     afterEach(() => {
         resetCalls(mockedStore);
-        resetCalls(mockedAppointmentSubscriber);        
+        resetCalls(mockedAppointmentSubscriber);
         resetCalls(mockedResponder);
         resetCalls(mockedStore);
         resetCalls(mockedResponderThatThrows);
@@ -203,36 +203,58 @@ describe("Watcher", () => {
 
     it("observe succussfully responds and updates store", () => {
         const watcher = new Watcher(provider, responderInstance, reorgDetectorInstance, appointmentSubscriber, store);
-        
+
         watcher.observe(appointmentCanBeUpdated, event);
 
         // respond, reorg and remove were called in that order
         verify(mockedResponder.respond(appointmentCanBeUpdated)).once();
         verify(mockedStore.removeById(appointmentCanBeUpdated.id)).once();
         verify(mockedReorgDetector.addReorgHeightListener(anything())).once();
-        verify(mockedResponder.respond(appointmentCanBeUpdated)).calledBefore(mockedStore.removeById(appointmentCanBeUpdated.id));
+        verify(mockedResponder.respond(appointmentCanBeUpdated)).calledBefore(
+            mockedStore.removeById(appointmentCanBeUpdated.id)
+        );
         verify(mockedReorgDetector.addReorgHeightListener(anything())).calledBefore(
             mockedStore.removeById(appointmentCanBeUpdated.id)
         );
+        verify(mockedAppointmentSubscriber.unsubscribe(appointmentCanBeUpdated.id, anything())).once();
+        verify(mockedAppointmentSubscriber.unsubscribe(appointmentCanBeUpdated.id, anything())).calledBefore(
+            mockedStore.removeById(appointmentCanBeUpdated.id)
+        );
         const [firstArg] = capture(mockedReorgDetector.addReorgHeightListener).last();
-        assert.strictEqual(firstArg.height, event.blockNumber, "Event block height incorrect.")
+        assert.strictEqual(firstArg.height, event.blockNumber, "Event block height incorrect.");
     });
 
     it("observe doesnt propogate errors from responder", () => {
-        const watcher = new Watcher(provider, responderInstanceThrow, reorgDetectorInstance, appointmentSubscriber, store);
+        const watcher = new Watcher(
+            provider,
+            responderInstanceThrow,
+            reorgDetectorInstance,
+            appointmentSubscriber,
+            store
+        );
         watcher.observe(appointmentCanBeUpdated, event);
 
         verify(mockedResponderThatThrows.respond(appointmentCanBeUpdated)).once();
         verify(mockedStore.removeById(appointmentCanBeUpdated.id)).never();
+        verify(mockedAppointmentSubscriber.unsubscribe(appointmentCanBeUpdated.id, anything())).never();
         verify(mockedReorgDetector.addReorgHeightListener(anything())).never();
     });
 
     it("observe doesnt propogate errors from store", () => {
-        const watcher = new Watcher(provider, responderInstance, reorgDetectorInstance, appointmentSubscriber, storeInstanceThrow);
+        const watcher = new Watcher(
+            provider,
+            responderInstance,
+            reorgDetectorInstance,
+            appointmentSubscriber,
+            storeInstanceThrow
+        );
         watcher.observe(appointmentCanBeUpdated, event);
 
         verify(mockedResponder.respond(appointmentCanBeUpdated)).once();
         verify(mockedReorgDetector.addReorgHeightListener(anything())).once();
+        verify(mockedAppointmentSubscriber.unsubscribe(appointmentCanBeUpdated.id, anything())).once();
         verify(mockedStoreThatThrows.removeById(anything())).once();
     });
+
+    it("observe does nothing during a reorg")
 });

@@ -9,6 +9,7 @@ import { MemoryAppointmentStore } from "../../src/watcher/store";
 import { AppointmentSubscriber } from "../../src/watcher/appointmentSubscriber";
 import { wait } from "../../src/utils";
 import { ReorgDetector } from "../../src/blockMonitor/reorg";
+import { ReorgHeightListenerStore } from "../../src/blockMonitor";
 const ganache = Ganache.provider({
     mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect"
 });
@@ -65,13 +66,14 @@ describe("End to end", () => {
         });
         await inspector.inspectAndPass(appointment);
 
-        const detector = new ReorgDetector(provider, 200);
+        const detector = new ReorgDetector(provider, 200, new ReorgHeightListenerStore());
         detector.start();
 
         // 2. pass this appointment to the watcher
         const responderManager = new EthereumResponderManager(provider.getSigner(pisaAccount));
         const store = new MemoryAppointmentStore();
         const watcher = new Watcher(provider, responderManager, detector, new AppointmentSubscriber(provider), store);
+        watcher.start();
         const player0Contract = channelContract.connect(provider.getSigner(player0));
 
         await watcher.addAppointment(appointment);

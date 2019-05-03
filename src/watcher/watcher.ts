@@ -10,13 +10,13 @@ import { inspect } from "util";
 
 /**
  * Watches the chain for events related to the supplied appointments. When an event is noticed data is forwarded to the
- * supplied event observer to complete the task. The watcher is not responsible for ensuring that observed events are properly
+ * observe method to complete the task. The watcher is not responsible for ensuring that observed events are properly
  * acted upon, that is the responsibility of the responder.
  */
 export class Watcher extends StartStopService {
     /**
      * Watches the chain for events related to the supplied appointments. When an event is noticed data is forwarded to the
-     * supplied event observer to complete the task. The watcher is not responsible for ensuring that observed events are properly
+     * observe method to complete the task. The watcher is not responsible for ensuring that observed events are properly
      * acted upon, that is the responsibility of the responder.
      */
     public constructor(
@@ -31,7 +31,6 @@ export class Watcher extends StartStopService {
         this.endReorg = this.endReorg.bind(this);
     }
     private reorgInProgress: boolean;
-    //TODO:113: tests for this behaviour
     private startReorg() {
         this.reorgInProgress = true;
     }
@@ -135,7 +134,6 @@ export class Watcher extends StartStopService {
             this.responder.respond(appointment);
 
             // register a reorg event
-            // TODO:113: add tests for this call
             this.reorgDetecteor.addReorgHeightListener({
                 height: event.blockNumber,
                 listener: async () => {
@@ -143,7 +141,6 @@ export class Watcher extends StartStopService {
                 }
             });
 
-            // TODO:113: add tests for this call
             // unsubscribe from the listener
             this.appointmentSubscriber.unsubscribe(appointment.id, appointment.getEventFilter());
 

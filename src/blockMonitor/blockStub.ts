@@ -60,6 +60,8 @@ export class BlockStubChain {
     private findInChain(predicate: (block: BlockStubChain) => boolean): BlockStubChain {
         if (!this.parent) {
             return null;
+        } else if (predicate(this)) {
+            return this;
         } else if (predicate(this.parent)) {
             return this.parent;
         } else return this.parent.findInChain(predicate);

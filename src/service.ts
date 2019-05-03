@@ -17,6 +17,7 @@ import { AppointmentSubscriber } from "./watcher/appointmentSubscriber";
 import { IApiEndpointConfig } from "./dataEntities/config";
 
 import { ReorgDetector } from "./blockMonitor/reorg";
+import { ReorgHeightListenerStore } from "./blockMonitor";
 
 /**
  * Hosts a PISA service at the endpoint.
@@ -49,7 +50,7 @@ export class PisaService {
         this.applyMiddlewares(app, config);
 
         // start reorg detector
-        this.reorgDetector = new ReorgDetector(delayedProvider, 200);
+        this.reorgDetector = new ReorgDetector(delayedProvider, 200, new ReorgHeightListenerStore());
         this.reorgDetector.start();
 
         // dependencies

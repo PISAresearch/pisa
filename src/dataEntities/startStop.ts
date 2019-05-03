@@ -2,13 +2,23 @@ import { ConfigurationError } from "./errors";
 import logger from "../logger";
 import { EventEmitter } from "events";
 
-// TODO:113: move the tests for start stoppable elsewhere - off the gc
-// TODO:113: document this class
+/**
+ * A service that requires starting and stopping.
+ * Always start this service before using it.
+ * Always stop this service when finished with it.
+ */
 export abstract class StartStopService extends EventEmitter {
+    /**
+     * Emitted when the service is started
+     */
     public static readonly STARTED_EVENT = "started";
+
+    /**
+     * Emitted when the service is stopped
+     */
     public static readonly STOPPED_EVENT = "stopped";
 
-    constructor(protected readonly name: string) {
+    protected constructor(protected readonly name: string) {
         super();
     }
     private mStarted: boolean = false;

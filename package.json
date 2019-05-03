@@ -13,7 +13,7 @@
     "submodule": "git submodule init && git submodule update",
     "test": "NODE_ENV=test && npm run build && mocha build/test/src --exit --recursive && npm run test-mocked",
     "test-load": "node build/test/load/loadTest.js 10 20000",
-    "test-coverage": "npm run build && nyc mocha build/test/src --exit",
+    "test-coverage": "npm run build && nyc mocha --recursive build/test/src --exit",
     "test-smoke": "node build/test/smoke/smokeTests.js",
     "test-integration": "npm run build && npm run build-raiden-pisa-daemon && npm run build-autominer && mocha build/test/integration --exit",
     "test-mocked": "NODE_ENV=test mocha build/test/mocked --exit",
