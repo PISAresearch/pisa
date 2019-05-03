@@ -76,23 +76,23 @@ describe("BlockStubChain", () => {
         ).to.throw();
     });
 
-    it("ancestorWithHash finds hash", () => {
+    it("blockInChainWithHash finds hash", () => {
         expect(fourthBlock.blockInChainWithHash(genesis.hash)).to.equal(genesis);
         expect(fourthBlock.blockInChainWithHash(secondBlock.hash)).to.equal(secondBlock);
         expect(fourthBlock.blockInChainWithHash(thirdBlock.hash)).to.equal(thirdBlock);
     });
 
-    it("ancestorWithHash doesn't find missing hash", () => {
+    it("blockInChainWithHash doesn't find missing hash", () => {
         expect(fourthBlock.blockInChainWithHash("unknown hash")).to.equal(null);
     });
 
-    it("ancestorWithHeight finds height", () => {
+    it("blockInChainWithHeight finds height", () => {
         expect(fourthBlock.blockInChainWithHeight(genesis.height)).to.equal(genesis);
         expect(fourthBlock.blockInChainWithHeight(secondBlock.height)).to.equal(secondBlock);
         expect(fourthBlock.blockInChainWithHeight(thirdBlock.height)).to.equal(thirdBlock);
     });
 
-    it("ancestorWithHeight doesnt find missing height", () => {
+    it("blockInChainWithHeight doesnt find missing height", () => {
         expect(fourthBlock.blockInChainWithHeight(5)).to.equal(null);
     });
 
