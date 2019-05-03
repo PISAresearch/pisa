@@ -200,7 +200,7 @@ export class EthereumTransactionMiner {
         const lastBlockNumberSeen = await this.signer.provider.getBlockNumber();
 
         // Promise that waits for the first confirmation
-        const firstConfirmationPromise = waitForConfirmations(this.signer.provider, txHash, 1);
+        const firstConfirmationPromise = waitForConfirmations(this.signer.provider, txHash, 1, false);
 
         // Promise that rejects after WAIT_BLOCKS_BEFORE_RETRYING blocks are mined
         const firstConfirmationTimeoutPromise = rejectAfterBlocks(
@@ -239,7 +239,7 @@ export class EthereumTransactionMiner {
      */
     public async waitForEnoughConfirmations(txHash: string, timeLastBlockReceived: number) {
         // Promise that waits for enough confirmations before declaring success
-        const enoughConfirmationsPromise = waitForConfirmations(this.signer.provider, txHash, this.confirmationsRequired);
+        const enoughConfirmationsPromise = waitForConfirmations(this.signer.provider, txHash, this.confirmationsRequired, true);
 
         // ...but stop with error if no new blocks come for too long
         const noNewBlockPromise = rejectIfAnyBlockTimesOut(
