@@ -4,7 +4,6 @@ import rateLimit from "express-rate-limit";
 import { Server } from "http";
 import { inspect } from "util";
 import { ethers } from "ethers";
-
 import logger from "./logger";
 import { PublicInspectionError, PublicDataValidationError, ApplicationError } from "./dataEntities";
 import { Raiden, Kitsune } from "./integrations";
@@ -15,7 +14,6 @@ import { EthereumResponderManager } from "./responder";
 import { AppointmentStoreGarbageCollector } from "./watcher/garbageCollector";
 import { AppointmentSubscriber } from "./watcher/appointmentSubscriber";
 import { IApiEndpointConfig } from "./dataEntities/config";
-
 import { ReorgDetector } from "./blockMonitor/reorg";
 import { ReorgHeightListenerStore } from "./blockMonitor";
 
