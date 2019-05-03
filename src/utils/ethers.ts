@@ -16,37 +16,54 @@ export class ReorgError extends Error {
 
 /**
  * Observes the `provider` for new blocks until the transaction `txHash` has `confirmationsRequired` confirmations.
- * Throws a `ReorgError` if the corresponding transaction is not found; assuming that it was found when this function
- * is called, this is likely caused by a block re-org.
+ * Throws a `ReorgError` if the corresponding transaction is not found; if `alreadyMined` is `true`, it will assume
+ * that the transaction had already been mined at the time of the call
  *
  * This promise is similar in to the `tx.wait` function from ethers.js, but the behavior of ethers.js in case of a re-org
  * is unclear (in particular, what happens if the transaction is mined, but it is kicked out of the blockchain because of
  * a re-org before reaching the required number of confirmations?).
  *
  * @param provider
- * @param txHash 
- * @param confirmationsRequired 
+ * @param txHash
+ * @param confirmationsRequired
+ * @param alreadyMined If true, it is assumed that the transaction was already mined. Thus, if not found by the provider,
+ *                     a `ReorgError` will be thrown immediately. Otherwise, a `ReorgError` will be thrown only if the
+ *                     provider finds the transaction when a block is received, but it does not after a subsequent block.
  */
-export function waitForConfirmations(provider: Provider, txHash: string, confirmationsRequired: number): CancellablePromise<void> {
-    let newBlockHandler: () => any;
+export function waitForConfirmations(provider: Provider, txHash: string, confirmationsRequired: number, alreadyMined: boolean): CancellablePromise<void> {
+    let verifyTx: () => any;
 
     const cleanup = () => {
-        provider.removeListener("block", newBlockHandler);
+        provider.removeListener("block", verifyTx);
     }
 
-    return new CancellablePromise((resolve, reject) => {
-        newBlockHandler = async () => {
+    return new CancellablePromise(async (resolve, reject) => {
+        verifyTx = async () => {
             const receipt = await provider.getTransactionReceipt(txHash);
-            if (receipt == null) {
-                // There was likely a re-org at this provider.
-                cleanup();
-                reject(new ReorgError("There could have been a re-org, the transaction was sent but was later not found."));
-            } else if (receipt.confirmations! >= confirmationsRequired) {
-                cleanup();
-                resolve();
+            if (receipt === null) {
+                if (alreadyMined) {
+                    // There was likely a re-org at this provider.
+                    cleanup();
+                    reject(new ReorgError("There could have been a re-org, the transaction was sent but was later not found."));
+                    return true;
+                }
+            } else {
+                if (receipt.blockNumber !== null) {
+                    alreadyMined = true;
+                }
+                if (receipt.confirmations! >= confirmationsRequired) {
+                    cleanup();
+                    resolve();
+                    return true;
+                }
             }
+            return false;
         };
-        provider.on("block", newBlockHandler);
+
+        // Check immediately, then at every new block
+        if (await verifyTx() == false) { // no point in subscribing if already fulfilled
+            provider.on("block", verifyTx);
+        }
     }, cleanup);
 }
 

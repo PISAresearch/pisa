@@ -1,10 +1,11 @@
 import * as chai from "chai";
+import mockito, { verify, when } from "ts-mockito";
 import sinon from "sinon";
 import "mocha";
 import { ethers, Contract } from "ethers";
 import Ganache from "ganache-core";
 import { KitsuneAppointment, KitsuneTools } from "../../src/integrations/kitsune";
-import { EthereumDedicatedResponder, ResponderEvent, StuckTransactionError, DoublingGasPolicy } from "../../src/responder";
+import { EthereumDedicatedResponder, ResponderEvent, StuckTransactionError, DoublingGasPolicy, EthereumTransactionMiner } from "../../src/responder";
 import { ReorgError, NoNewBlockError } from "../../src/utils/ethers";
 import { wait } from "../../src/utils";
 import { ChannelType } from "../../src/dataEntities";
@@ -455,4 +456,60 @@ describe("EthereumDedicatedResponder", () => {
 
         sinon.restore();
     }).timeout(5000);
+});
+
+
+
+describe("EthereumTransactionMiner", async () => {
+    let ganache;
+    let provider: ethers.providers.Web3Provider;
+    let accounts: string[];
+    let account0Signer: ethers.Signer;
+    let transactionRequest: ethers.providers.TransactionRequest;
+
+    beforeEach(async () => {
+        ganache = Ganache.provider({
+            blockTime: 100000 // disable automatic blocks
+        } as any); // TODO: remove generic types when @types/ganache-core is updated
+        provider = new ethers.providers.Web3Provider(ganache);
+        provider.pollingInterval = 100;
+        accounts = await provider.listAccounts();
+        account0Signer = provider.getSigner(accounts[0]);
+        transactionRequest = {
+            to: accounts[1],
+            value: ethers.utils.parseEther("0.1")
+        };
+    });
+
+    it("sends a transaction correctly when sendTransaction is called", async () => {
+        const spiedSigner = mockito.spy(account0Signer);
+        const miner = new EthereumTransactionMiner(account0Signer, 5, 10, 120000);
+
+        await miner.sendTransaction(transactionRequest);
+
+        verify(spiedSigner.sendTransaction(transactionRequest)).called();
+    });
+
+    it("re-throws the same error if the signer's sendTransaction throws", async () => {
+        const spiedSigner = mockito.spy(account0Signer);
+        const miner = new EthereumTransactionMiner(account0Signer, 5, 10, 120000);
+        const error = new Error("Some error");
+        when(spiedSigner.sendTransaction(transactionRequest)).thenThrow(error);
+
+        const res = miner.sendTransaction(transactionRequest);
+
+        return expect(res).to.eventually.be.rejectedWith(error);
+    });
+
+    it("waits for the first confirmation when waitForFirstConfirmation is called", async () => {
+
+        const miner = new EthereumTransactionMiner(account0Signer, 5, 10, 120000);
+        const txHash = await miner.sendTransaction(transactionRequest);
+
+        const res = miner.waitForFirstConfirmation(txHash, Date.now());
+        
+        await mineBlock(ganache, provider);
+
+        return expect(res).to.eventually.be.fulfilled;
+    });
 });
