@@ -173,7 +173,8 @@ export class EthereumTransactionMiner {
         public readonly signer: ethers.Signer,
         public readonly confirmationsRequired: number,
         public readonly blocksThresholdForStuckTransaction: number,
-        public readonly newBlockTimeout: number
+        public readonly newBlockTimeout: number,
+        private readonly _pollInterval = 1000 //exposed only for the tests
     ) {}
 
     /**
@@ -212,7 +213,7 @@ export class EthereumTransactionMiner {
             this.signer.provider,
             timeLastBlockReceived,
             this.newBlockTimeout,
-            1000
+            this._pollInterval
         );
 
         try {
@@ -246,7 +247,7 @@ export class EthereumTransactionMiner {
             this.signer.provider,
             timeLastBlockReceived,
             this.newBlockTimeout,
-            1000
+            this._pollInterval
         );
 
         try {
