@@ -184,11 +184,7 @@ export class EthereumTransactionMiner {
         public readonly confirmationsRequired: number,
         public readonly blocksThresholdForStuckTransaction: number,
         public readonly newBlockTimeout: number,
-<<<<<<< HEAD
-        private readonly pollInterval = 1000 //exposed only for the tests
-=======
         private readonly pollInterval: number
->>>>>>> Added more restrictive compiler options; fixed code accordingly
     ) {
         if (!signer.provider) {
             throw new ApplicationError("The given signer is not connected to a provider");
