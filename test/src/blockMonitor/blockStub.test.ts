@@ -32,7 +32,7 @@ describe("BlockStubChain", () => {
     });
 
     it("extend correctly chains parents", () => {
-        expect(fourthBlock.parent.parent.parent).to.equal(genesis);
+        expect(fourthBlock.parent!.parent!.parent).to.equal(genesis);
     });
 
     it("extend twice creates block with two parents", () => {
@@ -57,7 +57,7 @@ describe("BlockStubChain", () => {
         const extendedChain = genesis.extendMany([secondBlock.asBlockStub(), thirdBlock.asBlockStub()]);
         expect(extendedChain.height).to.equal(heights[2]);
         expect(extendedChain.hash).to.equal(hashes[2]);
-        expect(extendedChain.parent.hash).to.equal(hashes[1]);
+        expect(extendedChain.parent!.hash).to.equal(hashes[1]);
     });
 
     it("extend many does not extend a gap", () => {
@@ -139,7 +139,7 @@ describe("BlockStubChain", () => {
         const blockData = fourthBlock.asBlockStub();
         expect(blockData.hash).to.equal(fourthBlock.hash);
         expect(blockData.number).to.equal(fourthBlock.height);
-        expect(blockData.parentHash).to.equal(fourthBlock.parent.hash);
+        expect(blockData.parentHash).to.equal(fourthBlock.parent!.hash);
     });
 
     it("asBlockStub returns null parent for genesis", () => {

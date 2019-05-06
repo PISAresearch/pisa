@@ -8,7 +8,7 @@ chai.use(chaiAsPromised);
 const expect = chai.expect;
 
 describe("Raiden inspector", () => {
-    let provider;
+    let provider: ethers.providers.JsonRpcProvider;
     const minimumDisputePeriod = 10;
     const appointmentObj = {
         expiryPeriod: 10000,

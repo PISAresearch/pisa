@@ -41,7 +41,7 @@ export function waitForConfirmations(provider: Provider, txHash: string, confirm
                 // There was likely a re-org at this provider.
                 cleanup();
                 reject(new ReorgError("There could have been a re-org, the transaction was sent but was later not found."));
-            } else if (receipt.confirmations >= confirmationsRequired) {
+            } else if (receipt.confirmations! >= confirmationsRequired) {
                 cleanup();
                 resolve();
             }

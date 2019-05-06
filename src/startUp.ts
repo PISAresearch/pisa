@@ -54,9 +54,9 @@ if ((argv.rateLimitUserWindowms && !argv.rateLimitUserMax) || (!argv.rateLimitUs
 if (argv.rateLimitUserWindowms || argv.rateLimitUserMax || argv.rateLimitUserMessage) {
     config.apiEndpoint = config.apiEndpoint || {};
     config.apiEndpoint.ratePerUser = {
-        windowMs: argv.rateLimitUserWindowms || config.apiEndpoint.ratePerUser.windowMs,
-        max: argv.rateLimitUserMax || config.apiEndpoint.ratePerUser.max,
-        message: argv.rateLimitUserMessage || config.apiEndpoint.ratePerUser.message
+        windowMs: argv.rateLimitUserWindowms || (config.apiEndpoint.ratePerUser && config.apiEndpoint.ratePerUser.windowMs),
+        max: argv.rateLimitUserMax || (config.apiEndpoint.ratePerUser && config.apiEndpoint.ratePerUser.max),
+        message: argv.rateLimitUserMessage || (config.apiEndpoint.ratePerUser && config.apiEndpoint.ratePerUser.message)
     };
 }
 if ((argv.rateLimitGlobalWindowms && !argv.rateLimitGlobalMax) || (!argv.rateLimitGlobalWindowms && argv.rateLimitGlobalMax)) {
@@ -66,9 +66,9 @@ if ((argv.rateLimitGlobalWindowms && !argv.rateLimitGlobalMax) || (!argv.rateLim
 if (argv.rateLimitGlobalWindowms || argv.rateLimitGlobalMax || argv.rateLimitGlobalMessage) {
     config.apiEndpoint = config.apiEndpoint || {};
     config.apiEndpoint.rateGlobal = {
-        windowMs: argv.rateLimitGlobalWindowms || config.apiEndpoint.rateGlobal.windowMs,
-        max: argv.rateLimitGlobalMax || config.apiEndpoint.rateGlobal.max,
-        message: argv.rateLimitGlobalMessage || config.apiEndpoint.rateGlobal.message
+        windowMs: argv.rateLimitGlobalWindowms || (config.apiEndpoint.rateGlobal && config.apiEndpoint.rateGlobal.windowMs),
+        max: argv.rateLimitGlobalMax || (config.apiEndpoint.rateGlobal && config.apiEndpoint.rateGlobal.max),
+        message: argv.rateLimitGlobalMessage || (config.apiEndpoint.rateGlobal && config.apiEndpoint.rateGlobal.message)
     };
 }
 

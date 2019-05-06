@@ -1,7 +1,7 @@
 import * as chai from "chai";
 import sinon from "sinon";
 import "mocha";
-import { ethers } from "ethers";
+import { ethers, Contract } from "ethers";
 import Ganache from "ganache-core";
 import { KitsuneAppointment, KitsuneTools } from "../../src/integrations/kitsune";
 import { EthereumDedicatedResponder, ResponderEvent, StuckTransactionError, DoublingGasPolicy } from "../../src/responder";
@@ -61,7 +61,15 @@ async function initTest(ganacheProviderOptions: any = {}) {
 
 
 // Repeated code for multiple tests
-async function getTestData(provider, account0, account1, responderAccount, hashState, channelContract, disputePeriod) {
+async function getTestData(
+    provider: ethers.providers.JsonRpcProvider,
+    account0: string,
+    account1: string,
+    responderAccount: string,
+    hashState: string,
+    channelContract: Contract,
+    disputePeriod: number)
+{
     const signer = provider.getSigner(responderAccount);
     const round = 1,
         setStateHash = KitsuneTools.hashForSetState(hashState, round, channelContract.address),
@@ -93,9 +101,9 @@ async function getTestData(provider, account0, account1, responderAccount, hashS
 const _setTimeout = global.setTimeout;
 
 // Save a snapshot of the state of the blockchain in ganache; resolves to the id of the snapshot
-function takeGanacheSnapshot(ganache): Promise<string> {
+function takeGanacheSnapshot(ganache: any): Promise<string> {
     return new Promise(async (resolve, reject) => {
-        ganache.sendAsync({"id": 1, "jsonrpc":"2.0", "method":"evm_snapshot", "params": []}, (err, res: any) => {
+        ganache.sendAsync({"id": 1, "jsonrpc":"2.0", "method":"evm_snapshot", "params": []}, (err: any, res: any) => {
             if (err){
                 console.log("WARNING: error while creating ganache snapshot");
                 reject(err);
@@ -107,9 +115,9 @@ function takeGanacheSnapshot(ganache): Promise<string> {
 }
 
 // Restores a previously saved snapshot given the id. Note: the id _cannot_ be reused
-function restoreGanacheSnapshot(ganache, id: string) {
+function restoreGanacheSnapshot(ganache: any, id: string) {
     return new Promise(async (resolve, reject) => {
-        ganache.sendAsync({"id": 1, "jsonrpc":"2.0", "method":"evm_revert", "params": [id]}, (err, _) => {
+        ganache.sendAsync({"id": 1, "jsonrpc":"2.0", "method":"evm_revert", "params": [id]}, (err: any, _: any) => {
             if (err) {
                 console.log("WARNING: error while restoring ganache snapshot");
                 reject(err);
@@ -123,11 +131,11 @@ function restoreGanacheSnapshot(ganache, id: string) {
 // Instructs ganache to mine a block; returns a promise that resolves only
 // when one at least one block has been mined.
 // Resolves to the number of the last block mined.
-function mineBlock(ganache, provider: ethers.providers.Web3Provider): Promise<number> {
+function mineBlock(ganache: any, provider: ethers.providers.Web3Provider): Promise<number> {
     return new Promise(async (resolve, reject) => {
         const initialBlockNumber = await provider.getBlockNumber();
 
-        ganache.sendAsync({"id": 1, "jsonrpc":"2.0", "method":"evm_mine", "params": []}, (err, _) => {
+        ganache.sendAsync({"id": 1, "jsonrpc":"2.0", "method":"evm_mine", "params": []}, (err: any, _: any) => {
             if (err) reject(err);
         });
 
@@ -173,7 +181,7 @@ function waitForSpy(spy: any, interval = 20) {
 
 
 describe("EthereumDedicatedResponder", () => {
-    let ganache;
+    let ganache: any;
     let provider: ethers.providers.Web3Provider;
 
     let account0: string, account1: string, responderAccount: string;

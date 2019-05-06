@@ -108,7 +108,7 @@ export class KitsuneAppointment extends EthereumAppointment {
         const sig0 = utils.splitSignature(this.stateUpdate.signatures[0]);
         const sig1 = utils.splitSignature(this.stateUpdate.signatures[1]);
         return [
-            [sig0.v - 27, sig0.r, sig0.s, sig1.v - 27, sig1.r, sig1.s],
+            [sig0.v! - 27, sig0.r, sig0.s, sig1.v! - 27, sig1.r, sig1.s],
             this.stateUpdate.round,
             this.stateUpdate.hashState
         ];
