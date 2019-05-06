@@ -167,13 +167,15 @@ export class EthereumTransactionMiner {
      * @param confirmationsRequired The number of confirmations required.
      * @param blocksThresholdForStuckTransaction The number of new blocks without the transaction is mined before considering
      *                                           the transaction "stuck".
-     * @param newBlockTimeout The number of milliseconds since after which the provider is considered non-responsive.
+     * @param newBlockTimeout The number of milliseconds after which the provider is considered non-responsive.
+     * @param pollInterval The number of milliseconds between checks for timeouts on receiving blocks.
      */
     constructor(
         public readonly signer: ethers.Signer,
         public readonly confirmationsRequired: number,
         public readonly blocksThresholdForStuckTransaction: number,
-        public readonly newBlockTimeout: number
+        public readonly newBlockTimeout: number,
+        private readonly pollInterval: number
     ) {}
 
     /**
@@ -200,7 +202,7 @@ export class EthereumTransactionMiner {
         const lastBlockNumberSeen = await this.signer.provider.getBlockNumber();
 
         // Promise that waits for the first confirmation
-        const firstConfirmationPromise = waitForConfirmations(this.signer.provider, txHash, 1);
+        const firstConfirmationPromise = waitForConfirmations(this.signer.provider, txHash, 1, false);
 
         // Promise that rejects after WAIT_BLOCKS_BEFORE_RETRYING blocks are mined
         const firstConfirmationTimeoutPromise = rejectAfterBlocks(
@@ -212,7 +214,7 @@ export class EthereumTransactionMiner {
             this.signer.provider,
             timeLastBlockReceived,
             this.newBlockTimeout,
-            1000
+            this.pollInterval
         );
 
         try {
@@ -239,14 +241,14 @@ export class EthereumTransactionMiner {
      */
     public async waitForEnoughConfirmations(txHash: string, timeLastBlockReceived: number) {
         // Promise that waits for enough confirmations before declaring success
-        const enoughConfirmationsPromise = waitForConfirmations(this.signer.provider, txHash, this.confirmationsRequired);
+        const enoughConfirmationsPromise = waitForConfirmations(this.signer.provider, txHash, this.confirmationsRequired, true);
 
         // ...but stop with error if no new blocks come for too long
         const noNewBlockPromise = rejectIfAnyBlockTimesOut(
             this.signer.provider,
             timeLastBlockReceived,
             this.newBlockTimeout,
-            1000
+            this.pollInterval
         );
 
         try {
@@ -305,7 +307,8 @@ export class EthereumDedicatedResponder extends EthereumResponder {
             this.signer,
             this.confirmationsRequired,
             EthereumDedicatedResponder.WAIT_BLOCKS_BEFORE_RETRYING,
-            EthereumDedicatedResponder.WAIT_TIME_FOR_NEW_BLOCK
+            EthereumDedicatedResponder.WAIT_TIME_FOR_NEW_BLOCK,
+            1000
         );
     }
 
