@@ -55,8 +55,3 @@ export class ReorgHeightListenerStore {
             .forEach(k => delete this.listeners[k]);
     }
 }
-
-// export interface IReorgHeightListener {
-//     height: number;
-//     listener: () => Promise<void>;
-// }
