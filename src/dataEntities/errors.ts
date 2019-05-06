@@ -1,7 +1,17 @@
 /**
+ * Thrown by the application when it encounters an unrecoverable error. Errors of this kind represent a bug.
+ */
+export class ApplicationError extends Error {
+    constructor(message: string) {
+        super(message);
+        this.name = "ApplicationError";
+    }
+}
+
+/**
  * Thrown when startup configuration is incorrect.
  */
-export class ConfigurationError extends Error {
+export class ConfigurationError extends ApplicationError {
     constructor(message: string) {
         super(message);
         this.name = "ConfigurationError";
@@ -12,7 +22,7 @@ export class ConfigurationError extends Error {
  * Thrown when data does not match a specified format
  * Error messages must be safe to expose publicly
  */
-export class PublicDataValidationError extends Error {
+export class PublicDataValidationError extends ApplicationError {
     constructor(message: string) {
         super(message);
         this.name = "PublicDataValidationError";
@@ -23,7 +33,7 @@ export class PublicDataValidationError extends Error {
  * Thrown when an appointment fails inspection
  * Error messages must be safe to expose publicly
  */
-export class PublicInspectionError extends Error {
+export class PublicInspectionError extends ApplicationError {
     constructor(message: string) {
         super(message);
         this.name = "PublicInspectionError";
@@ -31,11 +41,16 @@ export class PublicInspectionError extends Error {
 }
 
 /**
- * Thrown by the application when it encounters an unrecoverable error. Errors of this kind represent a bug.
+ * Thrown when incorrect arguments are supploed to a function
  */
-export class ApplicationError extends Error {
-    constructor(message: string) {
+export class ArgumentError extends ApplicationError {
+    public readonly args: any[]
+
+    constructor(message: string)
+    constructor(message: string, ...args: any[])
+    constructor(message: string, ...args: any[]){
         super(message);
-        this.name = "ApplicationError";
+        this.args = args;
+        this.name = "ArgumentError"
     }
 }

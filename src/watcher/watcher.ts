@@ -1,26 +1,51 @@
-import { IEthereumAppointment } from "../dataEntities";
+import { IEthereumAppointment, StartStopService } from "../dataEntities";
 import logger from "../logger";
-import { EventObserver } from "./eventObserver";
 import { ConfigurationError } from "../dataEntities/errors";
 import { AppointmentSubscriber } from "./appointmentSubscriber";
 import { IAppointmentStore } from "./store";
+import { ethers } from "ethers";
+import { EthereumResponderManager } from "../responder";
+import { ReorgDetector } from "../blockMonitor";
+import { inspect } from "util";
 
 /**
  * Watches the chain for events related to the supplied appointments. When an event is noticed data is forwarded to the
- * supplied event observer to complete the task. The watcher is not responsible for ensuring that observed events are properly
+ * observe method to complete the task. The watcher is not responsible for ensuring that observed events are properly
  * acted upon, that is the responsibility of the responder.
  */
-export class Watcher {
+export class Watcher extends StartStopService {
     /**
      * Watches the chain for events related to the supplied appointments. When an event is noticed data is forwarded to the
-     * supplied event observer to complete the task. The watcher is not responsible for ensuring that observed events are properly
+     * observe method to complete the task. The watcher is not responsible for ensuring that observed events are properly
      * acted upon, that is the responsibility of the responder.
      */
     public constructor(
-        private readonly eventObserver: EventObserver,
+        private readonly provider: ethers.providers.BaseProvider,
+        private readonly responder: EthereumResponderManager,
+        private readonly reorgDetecteor: ReorgDetector,
         private readonly appointmentSubscriber: AppointmentSubscriber,
         private readonly store: IAppointmentStore
-    ) {}
+    ) {
+        super("Watcher");
+        this.startReorg = this.startReorg.bind(this);
+        this.endReorg = this.endReorg.bind(this);
+    }
+    private reorgInProgress: boolean;
+    private startReorg() {
+        this.reorgInProgress = true;
+    }
+    private endReorg(newHead: number) {
+        this.reorgInProgress = false;
+        this.provider.resetEventsBlock(newHead);
+    }
+    protected startInternal() {
+        this.reorgDetecteor.on(ReorgDetector.REORG_START_EVENT, this.startReorg);
+        this.reorgDetecteor.on(ReorgDetector.REORG_END_EVENT, this.endReorg);
+    }
+    protected stopInternal() {
+        this.reorgDetecteor.removeListener(ReorgDetector.REORG_START_EVENT, this.startReorg);
+        this.reorgDetecteor.removeListener(ReorgDetector.REORG_END_EVENT, this.endReorg);
+    }
 
     // there are three separate processes that can run concurrently as part of the watcher
     // each of them updates the data store.
@@ -53,7 +78,7 @@ export class Watcher {
      * @param appointment Contains information about where to watch for events, and what information to suppli as part of a response
      */
     public async addAppointment(appointment: IEthereumAppointment): Promise<boolean> {
-        return await this.withLog(appointment, async () => {
+        return await this.addAppointmentLog(appointment, async () => {
             if (!appointment.passedInspection) throw new ConfigurationError(`Inspection not passed.`);
 
             // update this appointment in the store
@@ -65,8 +90,8 @@ export class Watcher {
                 this.appointmentSubscriber.unsubscribeAll(filter);
 
                 // subscribe the listener
-                const listener = async (...args: any[]) => await this.eventObserver.observe(appointment, args);
-                this.appointmentSubscriber.subscribeOnce(appointment.id, filter, listener);
+                const listener = async (event: ethers.Event) => await this.observe(appointment, event);
+                this.appointmentSubscriber.subscribe(appointment.id, filter, listener);
             }
 
             return updated;
@@ -74,7 +99,7 @@ export class Watcher {
     }
 
     /** A helper method just for adding some logging */
-    private async withLog(
+    private async addAppointmentLog(
         appointment: IEthereumAppointment,
         addAppointment: (appointment: IEthereumAppointment) => Promise<boolean>
     ) {
@@ -95,5 +120,61 @@ export class Watcher {
         }
 
         return result;
+    }
+
+    /**
+     * Calls the responder and removes the appointment from the store
+     * @param appointment
+     * @param event
+     */
+    public async observe(appointment: IEthereumAppointment, event: ethers.Event) {
+        return await this.addObserveLogAndCatch(appointment, event, this.reorgInProgress, async () => {
+            // pass the appointment to the responder to complete. At this point the job has completed as far as
+            // the watcher is concerned, therefore although respond is an async function we do not need to await it for a result
+            this.responder.respond(appointment);
+
+            // register a reorg event
+            this.reorgDetecteor.addReorgHeightListener(event.blockNumber, async () => {
+                await this.addAppointment(appointment);
+            });
+
+            // unsubscribe from the listener
+            this.appointmentSubscriber.unsubscribe(appointment.id, appointment.getEventFilter());
+
+            // after firing a response and adding the reorg event we can remove the appointment from the store
+            await this.store.removeById(appointment.id);
+        });
+    }
+
+    /** A helper method for wrapping a block in a catch, and logging relevant info */
+    private async addObserveLogAndCatch(
+        appointment: IEthereumAppointment,
+        event: ethers.Event,
+        reorgInProgress: boolean,
+        observeEvent: () => Promise<void>
+    ) {
+        // this callback should not throw exceptions as they cannot be handled elsewhere
+        try {
+            logger.info(
+                appointment.formatLog(
+                    `Observed event ${appointment.getEventName()} in contract ${appointment.getContractAddress()}.`
+                )
+            );
+            logger.debug(appointment.formatLog(`Event info: ${inspect(event)}`));
+
+            if (!reorgInProgress) {
+                await observeEvent();
+            } else {
+                logger.info(appointment.formatLog(`Reorg in prgress, doing nothing.`));
+            }
+        } catch (doh) {
+            // an error occured whilst responding to the callback - this is serious and the problem needs to be correctly diagnosed
+            logger.error(
+                appointment.formatLog(
+                    `An unexpected errror occured whilst responding to event ${appointment.getEventName()} in contract ${appointment.getContractAddress()}.`
+                )
+            );
+            logger.error(appointment.formatLog(doh));
+        }
     }
 }

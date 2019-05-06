@@ -4,20 +4,18 @@ import rateLimit from "express-rate-limit";
 import { Server } from "http";
 import { inspect } from "util";
 import { ethers } from "ethers";
-
 import logger from "./logger";
 import { PublicInspectionError, PublicDataValidationError, ApplicationError } from "./dataEntities";
 import { Raiden, Kitsune } from "./integrations";
 import { Watcher, MemoryAppointmentStore } from "./watcher";
 import { PisaTower } from "./tower";
-// PISA: this isn working properly, it seems that watchers are sharing the last set value...
 import { setRequestId } from "./customExpressHttpContext";
 import { EthereumResponderManager } from "./responder";
-import { EventObserver } from "./watcher/eventObserver";
 import { AppointmentStoreGarbageCollector } from "./watcher/garbageCollector";
 import { AppointmentSubscriber } from "./watcher/appointmentSubscriber";
 import { IApiEndpointConfig } from "./dataEntities/config";
-
+import { ReorgDetector } from "./blockMonitor/reorg";
+import { ReorgHeightListenerStore } from "./blockMonitor";
 
 /**
  * Hosts a PISA service at the endpoint.
@@ -25,6 +23,8 @@ import { IApiEndpointConfig } from "./dataEntities/config";
 export class PisaService {
     private readonly server: Server;
     private readonly garbageCollector: AppointmentStoreGarbageCollector;
+    private readonly reorgDetector: ReorgDetector;
+    private readonly watcher: Watcher;
 
     /**
      *
@@ -38,24 +38,29 @@ export class PisaService {
     constructor(
         hostname: string,
         port: number,
-        provider: ethers.providers.Provider,
+        provider: ethers.providers.BaseProvider,
         wallet: ethers.Wallet,
-        delayedProvider: ethers.providers.Provider,
+        delayedProvider: ethers.providers.BaseProvider,
         config?: IApiEndpointConfig
     ) {
         const app = express();
 
         this.applyMiddlewares(app, config);
 
+        // start reorg detector
+        this.reorgDetector = new ReorgDetector(delayedProvider, 200, new ReorgHeightListenerStore());
+        this.reorgDetector.start();
+
         // dependencies
         const store = new MemoryAppointmentStore();
         const ethereumResponderManager = new EthereumResponderManager(wallet);
-        const eventObserver = new EventObserver(ethereumResponderManager, store);
         const appointmentSubscriber = new AppointmentSubscriber(delayedProvider);
-        const watcher = new Watcher(eventObserver, appointmentSubscriber, store);
-        const tower = new PisaTower(provider, watcher, [Raiden, Kitsune]);
+        this.watcher = new Watcher(delayedProvider, ethereumResponderManager, this.reorgDetector, appointmentSubscriber, store);
+        this.watcher.start()
 
-        // start gc
+        const tower = new PisaTower(provider, this.watcher, [Raiden, Kitsune]);
+
+        // gc
         this.garbageCollector = new AppointmentStoreGarbageCollector(provider, 10, store, appointmentSubscriber);
         this.garbageCollector.start();
 
@@ -138,6 +143,8 @@ export class PisaService {
     public stop() {
         if (!this.closed) {
             this.garbageCollector.stop();
+            this.reorgDetector.stop();
+            this.watcher.stop();
             this.server.close(logger.info(`PISA shutdown.`));
             this.closed = true;
         }
