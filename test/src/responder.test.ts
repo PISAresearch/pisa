@@ -461,7 +461,7 @@ describe("EthereumDedicatedResponder", () => {
 
 
 describe("EthereumTransactionMiner", async () => {
-    let ganache;
+    let ganache: any;
     let provider: ethers.providers.Web3Provider;
     let accounts: string[];
     let account0Signer: ethers.Signer;
