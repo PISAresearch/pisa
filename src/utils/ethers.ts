@@ -31,7 +31,7 @@ export class ReorgError extends Error {
  *                     provider finds the transaction when a block is received, but it does not after a subsequent block.
  */
 export function waitForConfirmations(provider: Provider, txHash: string, confirmationsRequired: number, alreadyMined: boolean): CancellablePromise<void> {
-    let verifyTx: () => any;
+    let verifyTx: () => Promise<boolean>;
 
     const cleanup = () => {
         provider.removeListener("block", verifyTx);
@@ -61,7 +61,7 @@ export function waitForConfirmations(provider: Provider, txHash: string, confirm
         };
 
         // Check immediately, then at every new block
-        if (await verifyTx() == false) { // no point in subscribing if already fulfilled
+        if (await verifyTx() === false) { // no point in subscribing if already fulfilled
             provider.on("block", verifyTx);
         }
     }, cleanup);

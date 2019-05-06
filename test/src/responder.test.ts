@@ -475,7 +475,7 @@ describe("EthereumTransactionMiner", async () => {
 
     it("sendTransaction sends a transaction correctly", async () => {
         const spiedSigner = mockito.spy(account0Signer);
-        const miner = new EthereumTransactionMiner(account0Signer, 5, 10, 120000);
+        const miner = new EthereumTransactionMiner(account0Signer, 5, 10, 120000, 1000);
 
         await miner.sendTransaction(transactionRequest);
 
@@ -484,7 +484,7 @@ describe("EthereumTransactionMiner", async () => {
 
     it("sendTransaction re-throws the same error if the signer's sendTransaction throws", async () => {
         const spiedSigner = mockito.spy(account0Signer);
-        const miner = new EthereumTransactionMiner(account0Signer, 5, 10, 120000);
+        const miner = new EthereumTransactionMiner(account0Signer, 5, 10, 120000, 1000);
         const error = new Error("Some error");
         when(spiedSigner.sendTransaction(transactionRequest)).thenThrow(error);
 
@@ -494,7 +494,7 @@ describe("EthereumTransactionMiner", async () => {
     });
 
     it("waitForFirstConfirmation resolves after the transaction is confirmed", async () => {
-        const miner = new EthereumTransactionMiner(account0Signer, 5, 10, 120000);
+        const miner = new EthereumTransactionMiner(account0Signer, 5, 10, 120000, 1000);
         const txHash = await miner.sendTransaction(transactionRequest);
 
         const res = miner.waitForFirstConfirmation(txHash, Date.now());
@@ -516,7 +516,7 @@ describe("EthereumTransactionMiner", async () => {
 
     it("waitForFirstConfirmation throws BlockThresholdReachedError if the transaction is stuck", async () => {
         const blockThresholdForStuckTransaction = 10;
-        const miner = new EthereumTransactionMiner(account0Signer, 5, blockThresholdForStuckTransaction, 120000); // noNewBlockTimeout = 30ms
+        const miner = new EthereumTransactionMiner(account0Signer, 5, blockThresholdForStuckTransaction, 120000, 10000);
         const txHash = await miner.sendTransaction(transactionRequest);
 
         const res = miner.waitForFirstConfirmation(txHash, Date.now());
@@ -532,7 +532,7 @@ describe("EthereumTransactionMiner", async () => {
 
     it("waitForEnoughConfirmations resolves after enough confirmations", async () => {
         const confirmationsRequired = 5;
-        const miner = new EthereumTransactionMiner(account0Signer, confirmationsRequired, 10, 120000);
+        const miner = new EthereumTransactionMiner(account0Signer, confirmationsRequired, 10, 120000, 1000);
         const txHash = await miner.sendTransaction(transactionRequest);
 
         // Mine the first confirmation
@@ -562,7 +562,7 @@ describe("EthereumTransactionMiner", async () => {
     });
 
     it("waitForEnoughConfirmations throws ReorgError if the transaction is not found by the provider", async () => {
-        const miner = new EthereumTransactionMiner(account0Signer, 5, 10, 120000);
+        const miner = new EthereumTransactionMiner(account0Signer, 5, 10, 120000, 1000);
         const txHash = await miner.sendTransaction(transactionRequest);
 
         const snapshotId = await takeGanacheSnapshot(ganache);

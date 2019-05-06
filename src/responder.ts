@@ -167,14 +167,15 @@ export class EthereumTransactionMiner {
      * @param confirmationsRequired The number of confirmations required.
      * @param blocksThresholdForStuckTransaction The number of new blocks without the transaction is mined before considering
      *                                           the transaction "stuck".
-     * @param newBlockTimeout The number of milliseconds since after which the provider is considered non-responsive.
+     * @param newBlockTimeout The number of milliseconds after which the provider is considered non-responsive.
+     * @param pollInterval The number of milliseconds between checks for timeouts on receiving blocks.
      */
     constructor(
         public readonly signer: ethers.Signer,
         public readonly confirmationsRequired: number,
         public readonly blocksThresholdForStuckTransaction: number,
         public readonly newBlockTimeout: number,
-        private readonly _pollInterval = 1000 //exposed only for the tests
+        private readonly pollInterval: number
     ) {}
 
     /**
@@ -213,7 +214,7 @@ export class EthereumTransactionMiner {
             this.signer.provider,
             timeLastBlockReceived,
             this.newBlockTimeout,
-            this._pollInterval
+            this.pollInterval
         );
 
         try {
@@ -247,7 +248,7 @@ export class EthereumTransactionMiner {
             this.signer.provider,
             timeLastBlockReceived,
             this.newBlockTimeout,
-            this._pollInterval
+            this.pollInterval
         );
 
         try {
@@ -306,7 +307,8 @@ export class EthereumDedicatedResponder extends EthereumResponder {
             this.signer,
             this.confirmationsRequired,
             EthereumDedicatedResponder.WAIT_BLOCKS_BEFORE_RETRYING,
-            EthereumDedicatedResponder.WAIT_TIME_FOR_NEW_BLOCK
+            EthereumDedicatedResponder.WAIT_TIME_FOR_NEW_BLOCK,
+            1000
         );
     }
 
