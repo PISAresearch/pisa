@@ -1,6 +1,6 @@
 import "mocha";
 import { assert } from "chai";
-import mockito, { mock, instance, when, verify, anything, resetCalls, capture } from "ts-mockito";
+import mockito, { mock, instance, when, verify, anything, resetCalls, capture, anyNumber } from "ts-mockito";
 import uuid from "uuid/v4";
 import { MemoryAppointmentStore, Watcher } from "../../../src/watcher";
 import { KitsuneAppointment } from "../../../src/integrations/kitsune";
@@ -80,7 +80,7 @@ describe("Watcher", () => {
     const storeInstanceThrow = instance(mockedStoreThatThrows);
 
     const mockedReorgDetector = mock(ReorgDetector);
-    when(mockedReorgDetector.addReorgHeightListener(anything())).thenReturn();
+    when(mockedReorgDetector.addReorgHeightListener(anyNumber(), anything())).thenReturn();
     const reorgDetectorInstance = instance(mockedReorgDetector);
 
     const event = {
@@ -209,19 +209,19 @@ describe("Watcher", () => {
         // respond, reorg and remove were called in that order
         verify(mockedResponder.respond(appointmentCanBeUpdated)).once();
         verify(mockedStore.removeById(appointmentCanBeUpdated.id)).once();
-        verify(mockedReorgDetector.addReorgHeightListener(anything())).once();
+        verify(mockedReorgDetector.addReorgHeightListener(anyNumber(), anything())).once();
         verify(mockedResponder.respond(appointmentCanBeUpdated)).calledBefore(
             mockedStore.removeById(appointmentCanBeUpdated.id)
         );
-        verify(mockedReorgDetector.addReorgHeightListener(anything())).calledBefore(
+        verify(mockedReorgDetector.addReorgHeightListener(anyNumber(), anything())).calledBefore(
             mockedStore.removeById(appointmentCanBeUpdated.id)
         );
         verify(mockedAppointmentSubscriber.unsubscribe(appointmentCanBeUpdated.id, anything())).once();
         verify(mockedAppointmentSubscriber.unsubscribe(appointmentCanBeUpdated.id, anything())).calledBefore(
             mockedStore.removeById(appointmentCanBeUpdated.id)
         );
-        const [firstArg] = capture(mockedReorgDetector.addReorgHeightListener).last();
-        assert.strictEqual(firstArg.height, event.blockNumber, "Event block height incorrect.");
+        const [firstArg, secondArg] = capture(mockedReorgDetector.addReorgHeightListener).last();
+        assert.strictEqual(firstArg, event.blockNumber, "Event block height incorrect.");
     });
 
     it("observe doesnt propogate errors from responder", () => {
@@ -237,7 +237,7 @@ describe("Watcher", () => {
         verify(mockedResponderThatThrows.respond(appointmentCanBeUpdated)).once();
         verify(mockedStore.removeById(appointmentCanBeUpdated.id)).never();
         verify(mockedAppointmentSubscriber.unsubscribe(appointmentCanBeUpdated.id, anything())).never();
-        verify(mockedReorgDetector.addReorgHeightListener(anything())).never();
+        verify(mockedReorgDetector.addReorgHeightListener(anyNumber(), anything())).never();
     });
 
     it("observe doesnt propogate errors from store", () => {
@@ -251,10 +251,10 @@ describe("Watcher", () => {
         watcher.observe(appointmentCanBeUpdated, event);
 
         verify(mockedResponder.respond(appointmentCanBeUpdated)).once();
-        verify(mockedReorgDetector.addReorgHeightListener(anything())).once();
+        verify(mockedReorgDetector.addReorgHeightListener(anyNumber(), anything())).once();
         verify(mockedAppointmentSubscriber.unsubscribe(appointmentCanBeUpdated.id, anything())).once();
         verify(mockedStoreThatThrows.removeById(anything())).once();
     });
 
-    it("observe does nothing during a reorg")
+    it("observe does nothing during a reorg");
 });

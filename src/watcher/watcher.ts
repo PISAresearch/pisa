@@ -134,11 +134,8 @@ export class Watcher extends StartStopService {
             this.responder.respond(appointment);
 
             // register a reorg event
-            this.reorgDetecteor.addReorgHeightListener({
-                height: event.blockNumber,
-                listener: async () => {
-                    await this.addAppointment(appointment);
-                }
+            this.reorgDetecteor.addReorgHeightListener(event.blockNumber, async () => {
+                await this.addAppointment(appointment);
             });
 
             // unsubscribe from the listener

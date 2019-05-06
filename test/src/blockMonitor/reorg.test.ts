@@ -313,23 +313,14 @@ describe("ReorgDetector", () => {
             fired1 = 0,
             fired2 = 0;
 
-        reorgDetector.addReorgHeightListener({
-            height: 0,
-            listener: async () => {
-                fired0++;
-            }
+        reorgDetector.addReorgHeightListener(0, async () => {
+            fired0++;
         });
-        reorgDetector.addReorgHeightListener({
-            height: 1,
-            listener: async () => {
-                fired1++;
-            }
+        reorgDetector.addReorgHeightListener(1, async () => {
+            fired1++;
         });
-        reorgDetector.addReorgHeightListener({
-            height: 2,
-            listener: async () => {
-                fired2++;
-            }
+        reorgDetector.addReorgHeightListener(2, async () => {
+            fired2++;
         });
 
         await provider.asyncEmit("block", 0);
@@ -386,30 +377,12 @@ describe("ReorgDetector", () => {
     it("prune does remove blocks and listeners", async () => {
         const testCase = TestCase.linear();
         const { provider, reorgDetector, store } = ReorgMocks.getSetup(testCase.blocks, 2);
-        reorgDetector.addReorgHeightListener({
-            height: 0,
-            listener: async () => {}
-        });
-        reorgDetector.addReorgHeightListener({
-            height: 1,
-            listener: async () => {}
-        });
-        reorgDetector.addReorgHeightListener({
-            height: 2,
-            listener: async () => {}
-        });
-        reorgDetector.addReorgHeightListener({
-            height: 3,
-            listener: async () => {}
-        });
-        reorgDetector.addReorgHeightListener({
-            height: 4,
-            listener: async () => {}
-        });
-        reorgDetector.addReorgHeightListener({
-            height: 5,
-            listener: async () => {}
-        });
+        reorgDetector.addReorgHeightListener(0, async () => {});
+        reorgDetector.addReorgHeightListener(1, async () => {});
+        reorgDetector.addReorgHeightListener(2, async () => {});
+        reorgDetector.addReorgHeightListener(3, async () => {});
+        reorgDetector.addReorgHeightListener(4, async () => {});
+        reorgDetector.addReorgHeightListener(5, async () => {});
 
         await provider.asyncEmit("block", 0);
         expect(reorgDetector.head).to.deep.equal(a_block0);

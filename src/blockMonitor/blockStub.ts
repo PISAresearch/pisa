@@ -19,7 +19,7 @@ export class BlockStubChain {
      * @param height The current height
      * @param hash The current hash
      */
-    static genesis(height: number, hash: string) {
+    static newRoot(height: number, hash: string) {
         return new BlockStubChain(height, hash, null);
     }
 
@@ -53,7 +53,7 @@ export class BlockStubChain {
     }
 
     /**
-     * Traverses the ancestry looking for the correct block
+     * Traverses the ancestry looking for the correct block.
      * @param predicate Used to search for the correct block
      * @returns null if no matching block found
      */
@@ -76,20 +76,23 @@ export class BlockStubChain {
     }
 
     /**
-     * Traverses ancestry looking for block with supplied hash
+     * Traverses ancestry looking for block with supplied hash. Also checks the head of the chain.
      * @param hash Search for ancestor with this hash
      * @returns null if no matching block found
      */
-    public blockInChainWithHash(hash: string): BlockStubChain {
+    public ancestorWithHash(hash: string): BlockStubChain {
         return this.findInChain(block => block.hash === hash);
     }
 
     /**
-     * Traverses ancestry looking for block with supplied height
+     * Traverses ancestry looking for block with supplied height. Also checks the head of the chain.
      * @param height Search for ancestor with this height
      * @returns null if no matching block found
      */
-    public blockInChainWithHeight(height: number): BlockStubChain {
+    public ancestorWithHeight(height: number): BlockStubChain {
+        // if the head has height less than this block, no other ancestors can have a greater height.
+        if(height > this.height) return null;
+
         return this.findInChain(block => block.height === height);
     }
 
@@ -102,7 +105,7 @@ export class BlockStubChain {
             throw new ArgumentError("Cannot prune above current height.", minHeight, this.height);
 
         let ancestor: BlockStubChain;
-        if ((ancestor = this.blockInChainWithHeight(minHeight))) {
+        if ((ancestor = this.ancestorWithHeight(minHeight))) {
             ancestor.mParent = null;
         }
     }

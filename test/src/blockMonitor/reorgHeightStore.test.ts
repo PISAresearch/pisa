@@ -1,8 +1,8 @@
-import "mocha"
+import "mocha";
 import { expect } from "chai";
 import { ReorgHeightListenerStore } from "../../../src/blockMonitor";
 
-describe("BlockHeightListenerStore", () => {
+describe("ReorgHeightListenerStore", () => {
     const listener0 = {
         height: 0,
         listener: async () => {}
@@ -30,48 +30,52 @@ describe("BlockHeightListenerStore", () => {
 
     it("addListener/removeListener/getHeight does add/remove one listener", () => {
         const store = new ReorgHeightListenerStore();
-        store.addListener(listener0);
-        expect(store.getListenersFromHeight(0)).to.deep.equal([listener0]);
-        expect(store.removeListener(listener0)).to.be.true;
+        store.addListener(listener0.height, listener0.listener);
+        expect(store.getListenersFromHeight(0)).to.deep.equal([listener0.listener]);
+        expect(store.removeListener(listener0.height, listener0.listener)).to.be.true;
         expect(store.getListenersFromHeight(0)).to.deep.equal([]);
     });
     it("addListener/removeListener/getHeight adds multiple listeners", () => {
         const store = new ReorgHeightListenerStore();
-        store.addListener(listener0);
-        store.addListener(listener1);
-        expect(store.getListenersFromHeight(0)).to.deep.equal([listener0, listener1]);
-        expect(store.removeListener(listener0)).to.be.true;
-        expect(store.getListenersFromHeight(0)).to.deep.equal([listener1]);
+        store.addListener(listener0.height, listener0.listener);
+        store.addListener(listener1.height, listener1.listener);
+        expect(store.getListenersFromHeight(0)).to.deep.equal([listener0.listener, listener1.listener]);
+        expect(store.removeListener(listener0.height, listener0.listener)).to.be.true;
+        expect(store.getListenersFromHeight(0)).to.deep.equal([listener1.listener]);
     });
     it("removeListener does nothing for non existant listener", () => {
         const store = new ReorgHeightListenerStore();
-        store.addListener(listener0);
-        store.addListener(listener1);
-        expect(store.getListenersFromHeight(0)).to.deep.equal([listener0, listener1]);
-        expect(store.removeListener(listener0)).to.be.true;
-        expect(store.getListenersFromHeight(0)).to.deep.equal([listener1]);
+        store.addListener(listener0.height, listener0.listener);
+        store.addListener(listener1.height, listener1.listener);
+        expect(store.getListenersFromHeight(0)).to.deep.equal([listener0.listener, listener1.listener]);
+        expect(store.removeListener(listener0.height, listener0.listener)).to.be.true;
+        expect(store.getListenersFromHeight(0)).to.deep.equal([listener1.listener]);
         // removing again should do nothing
-        expect(store.removeListener(listener0)).to.be.false;
-        expect(store.getListenersFromHeight(0)).to.deep.equal([listener1]);
+        expect(store.removeListener(listener0.height, listener0.listener)).to.be.false;
+        expect(store.getListenersFromHeight(0)).to.deep.equal([listener1.listener]);
     });
     it("prune deletes all listeners below, but not above", () => {
         const store = new ReorgHeightListenerStore();
-        store.addListener(listener0);
-        store.addListener(listener0a);
-        store.addListener(listener0b);
-        store.addListener(listener1);
-        store.addListener(listener1a);
-        store.addListener(listener2);
+        store.addListener(listener0.height, listener0.listener);
+        store.addListener(listener0a.height, listener0a.listener);
+        store.addListener(listener0b.height, listener0b.listener);
+        store.addListener(listener1.height, listener1.listener);
+        store.addListener(listener1a.height, listener1a.listener);
+        store.addListener(listener2.height, listener2.listener);
         expect(store.getListenersFromHeight(0)).to.deep.equal([
-            listener0,
-            listener0a,
-            listener0b,
-            listener1,
-            listener1a,
-            listener2
+            listener0.listener,
+            listener0a.listener,
+            listener0b.listener,
+            listener1.listener,
+            listener1a.listener,
+            listener2.listener
         ]);
 
         store.prune(1);
-        expect(store.getListenersFromHeight(0)).to.deep.equal([listener1, listener1a, listener2]);
+        expect(store.getListenersFromHeight(0)).to.deep.equal([
+            listener1.listener,
+            listener1a.listener,
+            listener2.listener
+        ]);
     });
 });
