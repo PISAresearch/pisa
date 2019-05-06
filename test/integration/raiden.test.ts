@@ -4,7 +4,7 @@ import * as path from "path";
 import * as fse from "fs-extra";
 import net from "net";
 
-import waitPort from "wait-port";
+const waitPort: any = require("wait-port");
 import kill from "tree-kill";
 
 import request from "request-promise";
@@ -38,8 +38,8 @@ let provider: ethers.providers.Provider;
 
 let testTokenAddr: string;
 let tokenContract: Contract;
-let subprocesses = [];
-let parity: ChildProcess = null;
+let subprocesses: ChildProcess[] = [];
+let parity: ChildProcess | null = null;
 let alice: ChildProcess, bob: ChildProcess, pisa: ChildProcess, daemon: ChildProcess, autominer: ChildProcess;
 let aliceTokenBalance_start: BigNumber, bobTokenBalance_start: BigNumber;
 
@@ -67,7 +67,7 @@ const ERC20abi = [
 
 const isPortFree = (port: number) =>
     new Promise<boolean>((resolve, reject) => {
-        const tester = net
+        const tester: net.Server = net
             .createServer()
             .once("error", (err: any) => (err.code == "EADDRINUSE" ? resolve(false) : reject(err)))
             .once("listening", () => tester.once("close", () => resolve(true)).close())

@@ -51,7 +51,7 @@ export function waitForConfirmations(provider: Provider, txHash: string, confirm
                 if (receipt.blockNumber !== null) {
                     alreadyMined = true;
                 }
-                if (receipt.confirmations >= confirmationsRequired) {
+                if (receipt.confirmations! >= confirmationsRequired) {
                     cleanup();
                     resolve();
                     return true;

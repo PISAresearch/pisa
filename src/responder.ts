@@ -1,6 +1,6 @@
 import { EventEmitter } from "events";
 import { ethers } from "ethers";
-import { wait, promiseTimeout, plural } from "./utils";
+import { wait, plural, CancellablePromise } from "./utils";
 import { waitForConfirmations, rejectAfterBlocks, BlockThresholdReachedError, rejectIfAnyBlockTimesOut } from "./utils/ethers";
 import { IEthereumAppointment, IEthereumResponseData } from "./dataEntities/appointment";
 import logger from "./logger";
@@ -29,7 +29,7 @@ export abstract class ResponseFlow {
  * This class stores the state of a response on the Ethereum blockchain.
  */
 export class EthereumResponseFlow extends ResponseFlow {
-    public txHash: string = null; // if a transaction has been sent, this is its hash
+    public txHash: string | null = null; // if a transaction has been sent, this is its hash
     constructor(public appointmentId: string, public readonly ethereumResponseData: IEthereumResponseData) {
         super(appointmentId);
     }
@@ -87,8 +87,16 @@ export abstract class EthereumResponder extends Responder {
     // implementations should query the provider (or a service) to figure out the appropriate gas price
     protected gasPrice = new ethers.utils.BigNumber(21000000000);
 
+    protected provider: ethers.providers.Provider;
+
     constructor(public readonly signer: ethers.Signer) {
         super();
+
+        if (!signer.provider) {
+            throw new ApplicationError("The given signer is not connected to a provider");
+        } else {
+            this.provider = signer.provider;
+        }
     }
 
     /**
@@ -161,6 +169,7 @@ export class StuckTransactionError extends Error {
  * This class encapsulates the logic of trying to send a transaction and make sure it is mined with enough confirmations.
  */
 export class EthereumTransactionMiner {
+    private provider: ethers.providers.Provider;
 
     /**
      * @param signer The Signer to use to send the transaction.
@@ -176,7 +185,13 @@ export class EthereumTransactionMiner {
         public readonly blocksThresholdForStuckTransaction: number,
         public readonly newBlockTimeout: number,
         private readonly pollInterval: number
-    ) {}
+    ) {
+        if (!signer.provider) {
+            throw new ApplicationError("The given signer is not connected to a provider");
+        } else {
+            this.provider = signer.provider;
+        }
+    }
 
     /**
      * This method sends the transaction, and resolves to the transaction hash.
@@ -185,7 +200,7 @@ export class EthereumTransactionMiner {
      */
     public async sendTransaction(transactionRequest: ethers.providers.TransactionRequest): Promise<string> {
         const txResponse = await this.signer.sendTransaction(transactionRequest);
-        return txResponse.hash;
+        return txResponse.hash!;
     }
 
     /**
@@ -199,19 +214,19 @@ export class EthereumTransactionMiner {
      *                              The provider will be considered unresponsive after `newBlockTimeout` from `timeLastBlockReceived`.
      */
     public async waitForFirstConfirmation(txHash: string, timeLastBlockReceived: number) {
-        const lastBlockNumberSeen = await this.signer.provider.getBlockNumber();
+        const lastBlockNumberSeen = await this.provider.getBlockNumber();
 
         // Promise that waits for the first confirmation
-        const firstConfirmationPromise = waitForConfirmations(this.signer.provider, txHash, 1, false);
+        const firstConfirmationPromise = waitForConfirmations(this.provider, txHash, 1, false);
 
         // Promise that rejects after WAIT_BLOCKS_BEFORE_RETRYING blocks are mined
         const firstConfirmationTimeoutPromise = rejectAfterBlocks(
-            this.signer.provider, lastBlockNumberSeen, this.blocksThresholdForStuckTransaction
+            this.provider, lastBlockNumberSeen, this.blocksThresholdForStuckTransaction
         );
 
         // ...but stop with error if no new blocks come for too long
         const noNewBlockPromise = rejectIfAnyBlockTimesOut(
-            this.signer.provider,
+            this.provider,
             timeLastBlockReceived,
             this.newBlockTimeout,
             this.pollInterval
@@ -241,11 +256,11 @@ export class EthereumTransactionMiner {
      */
     public async waitForEnoughConfirmations(txHash: string, timeLastBlockReceived: number) {
         // Promise that waits for enough confirmations before declaring success
-        const enoughConfirmationsPromise = waitForConfirmations(this.signer.provider, txHash, this.confirmationsRequired, true);
+        const enoughConfirmationsPromise = waitForConfirmations(this.provider, txHash, this.confirmationsRequired, true);
 
         // ...but stop with error if no new blocks come for too long
         const noNewBlockPromise = rejectIfAnyBlockTimesOut(
-            this.signer.provider,
+            this.provider,
             timeLastBlockReceived,
             this.newBlockTimeout,
             this.pollInterval
@@ -321,14 +336,14 @@ export class EthereumDedicatedResponder extends EthereumResponder {
         this.locked = true;
 
         const listener = this.newBlockReceived.bind(this);
-        this.signer.provider.on("block", listener);
+        this.provider.on("block", listener);
 
         this.timeLastBlockReceived = Date.now();
 
         try {
             await fn();
         } finally {
-            this.signer.provider.removeListener("block", listener);
+            this.provider.removeListener("block", listener);
             this.locked = false;
         }
     }
@@ -339,14 +354,14 @@ export class EthereumDedicatedResponder extends EthereumResponder {
 
     public async startResponse(appointmentId: string, responseData: IEthereumResponseData) {
         this.withLock(async () => {
-            const cancellablePromises = []; // Promises to cancel on cleanup to prevent memory leaks
+            const cancellablePromises: CancellablePromise<any>[] = []; // Promises to cancel on cleanup to prevent memory leaks
 
             const responseFlow = new EthereumResponseFlow(appointmentId, responseData);
 
             const signerAddress = await this.signer.getAddress();
 
             // Get the current nonce to be used
-            const nonce = await this.signer.provider.getTransactionCount(signerAddress);
+            const nonce = await this.provider.getTransactionCount(signerAddress);
 
             // Get the initial gas price
             this.gasPrice = await this.gasPolicy.getInitialPrice();
@@ -414,11 +429,18 @@ export class EthereumDedicatedResponder extends EthereumResponder {
 //       Should add a pool of wallets to allow concurrent responses.
 
 export class EthereumResponderManager {
+    private provider: ethers.providers.Provider;
     private responders: Set<EthereumResponder> = new Set();
     private gasPolicy: IGasPolicy;
 
     constructor(private readonly signer: ethers.Signer) {
-        this.gasPolicy = new DoublingGasPolicy(this.signer.provider);
+        if (!signer.provider) {
+            throw new ApplicationError("The given signer is not connected to a provider");
+        } else {
+            this.provider = signer.provider;
+        }
+
+        this.gasPolicy = new DoublingGasPolicy(this.provider);
     }
 
     public respond(appointment: IEthereumAppointment) {
@@ -427,7 +449,7 @@ export class EthereumResponderManager {
         const responder = new EthereumDedicatedResponder(this.signer, this.gasPolicy, 40, 10);
         this.responders.add(responder);
         responder
-            .on(ResponderEvent.ResponseSent, (responseFlow: ResponseFlow, attemptNumber) => {
+            .on(ResponderEvent.ResponseSent, (responseFlow: ResponseFlow, attemptNumber: number) => {
                 logger.info(
                     `Successfully responded to appointment ${appointment.id} on attempt #${attemptNumber}. Waiting for enough confirmations.`
                 );
@@ -443,13 +465,13 @@ export class EthereumResponderManager {
                 // Should we keep inactive responders anywhere?
                 this.responders.delete(responder);
             })
-            .on(ResponderEvent.AttemptFailed, (responseFlow: ResponseFlow, doh, attemptNumber) => {
+            .on(ResponderEvent.AttemptFailed, (responseFlow: ResponseFlow, doh, attemptNumber: number) => {
                 logger.error(
                     `Failed to respond to appointment ${appointment.id}; ${attemptNumber} ${plural(attemptNumber, "attempt")}.`
                 );
                 logger.error(doh);
             })
-            .on(ResponderEvent.ResponseFailed, (responseFlow: ResponseFlow, attempts) => {
+            .on(ResponderEvent.ResponseFailed, (responseFlow: ResponseFlow, attempts: number) => {
                 logger.error(
                     `Failed to respond to ${appointment.id}, after ${attempts} ${plural(attempts, "attempt")}. Giving up.`
                 );

@@ -1,6 +1,7 @@
 import { ethers } from "ethers";
 import { ChannelType } from "./channelType";
 import uuid from "uuid/v4";
+import { ApplicationError } from "./errors";
 
 /**
  * An appointment that has been accepted by PISA
@@ -60,11 +61,15 @@ export abstract class EthereumAppointment implements IEthereumAppointment {
     get passedInspection() {
         return this.mPassedInspection;
     }
-    setInspectionResult(passed, startBlock) {
+    setInspectionResult(passed: boolean, startBlock: number | null) {
         this.mPassedInspection = passed;
         if (passed) {
-            this.mStartBlock = startBlock;
-            this.mEndBlock = startBlock + this.expiryPeriod;
+            if (startBlock === null) {
+                throw new ApplicationError("startBlock must be provided on a passed inspection.");
+            } else {
+                this.mStartBlock = startBlock;
+                this.mEndBlock = startBlock + this.expiryPeriod;
+            }
         }
     }
     formatLog(message: string): string {

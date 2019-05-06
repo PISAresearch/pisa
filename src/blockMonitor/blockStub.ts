@@ -4,12 +4,12 @@ import { ArgumentError } from "../dataEntities";
  * A chain of linked block stubs.
  */
 export class BlockStubChain {
-    private mParent: BlockStubChain;
+    private mParent: BlockStubChain | null;
     public get parent() {
         return this.mParent;
     }
 
-    protected constructor(public readonly height: number, public readonly hash: string, parent: BlockStubChain) {
+    protected constructor(public readonly height: number, public readonly hash: string, parent: BlockStubChain | null) {
         if (parent === undefined) throw new ArgumentError("Undefined parent");
         this.mParent = parent;
     }
@@ -57,7 +57,7 @@ export class BlockStubChain {
      * @param predicate Used to search for the correct block
      * @returns null if no matching block found
      */
-    private findInChainDeep(predicate: (block: BlockStubChain) => boolean): BlockStubChain {
+    private findInChainDeep(predicate: (block: BlockStubChain) => boolean): BlockStubChain | null {
         if (!this.parent) {
             return null;
         } else if (predicate(this.parent)) {
@@ -70,7 +70,7 @@ export class BlockStubChain {
      * @param predicate Used to search for the correct block
      * @returns null if no matching block found
      */
-    private findInChain(predicate: (block: BlockStubChain) => boolean): BlockStubChain {
+    private findInChain(predicate: (block: BlockStubChain) => boolean): BlockStubChain | null {
         if(predicate(this)) return this;
         else return this.findInChainDeep(predicate);
     }
@@ -80,7 +80,7 @@ export class BlockStubChain {
      * @param hash Search for ancestor with this hash
      * @returns null if no matching block found
      */
-    public ancestorWithHash(hash: string): BlockStubChain {
+    public ancestorWithHash(hash: string): BlockStubChain | null {
         return this.findInChain(block => block.hash === hash);
     }
 
@@ -89,7 +89,7 @@ export class BlockStubChain {
      * @param height Search for ancestor with this height
      * @returns null if no matching block found
      */
-    public ancestorWithHeight(height: number): BlockStubChain {
+    public ancestorWithHeight(height: number): BlockStubChain | null {
         // if the head has height less than this block, no other ancestors can have a greater height.
         if(height > this.height) return null;
 
@@ -105,7 +105,7 @@ export class BlockStubChain {
             throw new ArgumentError("Cannot prune above current height.", minHeight, this.height);
 
         let ancestor: BlockStubChain;
-        if ((ancestor = this.ancestorWithHeight(minHeight))) {
+        if ((ancestor = this.ancestorWithHeight(minHeight)!)) {
             ancestor.mParent = null;
         }
     }
@@ -125,5 +125,5 @@ export class BlockStubChain {
 export interface IBlockStub {
     hash: string;
     number: number;
-    parentHash: string;
+    parentHash: string | null;
 }

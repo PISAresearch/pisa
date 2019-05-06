@@ -33,7 +33,7 @@ export abstract class StartStopService extends EventEmitter {
         logger.info(`${this.name}: Started.`);
         this.emit(StartStopService.STARTED_EVENT);
     }
-    protected abstract startInternal();
+    protected abstract startInternal(): void;
 
     /**
      * Stop this service
@@ -48,5 +48,5 @@ export abstract class StartStopService extends EventEmitter {
             logger.error(`${this.name}: Already stopped.`);
         }
     }
-    protected abstract stopInternal();
+    protected abstract stopInternal(): void;
 }
