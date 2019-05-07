@@ -26,9 +26,9 @@ export abstract class StartStopService extends EventEmitter {
     /**
      * Start this service
      */
-    public start() {
+    public async start() {
         if (this.mStarted) throw new ConfigurationError(`${this.name}: Already started.`);
-        this.startInternal();
+        await this.startInternal();
         this.mStarted = true;
         logger.info(`${this.name}: Started.`);
         this.emit(StartStopService.STARTED_EVENT);
@@ -38,10 +38,10 @@ export abstract class StartStopService extends EventEmitter {
     /**
      * Stop this service
      */
-    public stop() {
+    public async stop() {
         if (this.mStarted) {
             this.mStarted = false;
-            this.stopInternal();
+            await this.stopInternal();
             logger.info(`${this.name}: Stopped.`);
             this.emit(StartStopService.STOPPED_EVENT);
         } else {

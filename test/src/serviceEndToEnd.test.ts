@@ -35,6 +35,7 @@ describe("Service end-to-end", () => {
     beforeEach(async () => {
         const watcherWallet = new ethers.Wallet(config.responderKey, provider);
         service = new PisaService(config.host.name, config.host.port, provider, watcherWallet, provider);
+        await service.start();
 
         // accounts
         const accounts = await provider.listAccounts();
@@ -54,8 +55,8 @@ describe("Service end-to-end", () => {
         hashState = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("face-off"));
     });
 
-    afterEach(() => {
-        service.stop();
+    afterEach(async () => {
+        await service.stop();
     });
 
     it("create channel, submit appointment, trigger dispute, wait for response", async () => {

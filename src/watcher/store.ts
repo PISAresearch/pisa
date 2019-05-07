@@ -1,6 +1,7 @@
 import { IEthereumAppointment } from "../dataEntities";
 import logger from "../logger";
-
+import { LevelUp } from "levelup";
+import encodingDown from "encoding-down";
 /**
  * The functionality required in an appointment store
  */
@@ -22,22 +23,28 @@ export interface IAppointmentStore {
 
     /**
      * Find all appointments that have expired at a certain block.
-     * @param time
+     * @param block
      */
-    getExpiredSince(time: number): Promise<IEthereumAppointment[]>;
+    getExpiredSince(block: number): Promise<IEthereumAppointment[]>;
 }
 
 /**
  * Stores all appointments in memory. Has very inefficient processes for determining expired appointments so cannot be
  * used for high numbers of appointments.
  */
-export class MemoryAppointmentStore implements IAppointmentStore {
+export class AppointmentStore implements IAppointmentStore {
+    public constructor(private readonly db: LevelUp<encodingDown<string, any>>) {}
+
     private readonly appointmentsById: {
         [appointmentId: string]: IEthereumAppointment;
     } = {};
     private readonly appointmentsByStateLocator: {
         [appointmentStateLocator: string]: IEthereumAppointment;
     } = {};
+
+    protected async startInternal() {}
+
+    protected async stopInternal() {}
 
     async addOrUpdateByStateLocator(appointment: IEthereumAppointment): Promise<boolean> {
         const currentAppointment = this.appointmentsByStateLocator[appointment.getStateLocator()];
@@ -58,6 +65,11 @@ export class MemoryAppointmentStore implements IAppointmentStore {
                 delete this.appointmentsById[currentAppointment.id];
             }
         }
+
+        // TODO:6:
+        const batch = this.db.batch().put(appointment.id, appointment);
+        if (currentAppointment) await batch.del(currentAppointment.id).write();
+        else await batch.write();
 
         // add the new appointment
         this.appointmentsByStateLocator[appointment.getStateLocator()] = appointment;
@@ -82,7 +94,7 @@ export class MemoryAppointmentStore implements IAppointmentStore {
         return false;
     }
 
-    async getExpiredSince(expiryTime: number): Promise<IEthereumAppointment[]> {
-        return Object.values(this.appointmentsById).filter(a => a.endBlock < expiryTime);
+    async getExpiredSince(expiryBlock: number): Promise<IEthereumAppointment[]> {
+        return Object.values(this.appointmentsById).filter(a => a.endBlock < expiryBlock);
     }
 }

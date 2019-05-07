@@ -1,7 +1,7 @@
 import "mocha";
 import { assert } from "chai";
 import { anything, verify, resetCalls, anyString, when, mock, instance } from "ts-mockito";
-import { MemoryAppointmentStore } from "../../../src/watcher";
+import { AppointmentStore } from "../../../src/watcher";
 import { KitsuneAppointment } from "../../../src/integrations/kitsune";
 import { AppointmentStoreGarbageCollector } from "../../../src/watcher/garbageCollector";
 import Ganache from "ganache-core";
@@ -52,7 +52,7 @@ describe("GarbageCollector", () => {
     const errorStoreRemoveByIdAppointment = createMockAppointment(errorRemoveByIdId, eventFilter);
 
     // mock the store
-    const mockedStore = mock(MemoryAppointmentStore);
+    const mockedStore = mock(AppointmentStore);
     when(mockedStore.removeById(appointmentInstance1.id)).thenResolve(true);
     when(mockedStore.removeById(appointmentInstance2.id)).thenResolve(true);
     when(mockedStore.removeById(errorStoreRemoveByIdAppointment.id)).thenReject(new Error("Remove failed."));
@@ -109,7 +109,7 @@ describe("GarbageCollector", () => {
         verify(mockedAppointmentSubscriber.unsubscribe(appointmentId1, eventFilter)).once();
     });
 
-    it("start correctly adds listener", () => {
+    it("start correctly adds listener", async () => {
         const mockedProvider = mock(ethers.providers.Web3Provider);
         when(mockedProvider.on("block", anything()));
         const onProviderInstance = instance(mockedProvider);
@@ -122,13 +122,13 @@ describe("GarbageCollector", () => {
         );
 
         // call start twice
-        gc.start();
+        await gc.start();
 
         //the block event was only subscribed to once
         verify(mockedProvider.on("block", gc.boundExpired)).once();
     });
 
-    it("start can only be called once", () => {
+    it("start can only be called once", async () => {
         const mockedProvider = mock(ethers.providers.Web3Provider);
         when(mockedProvider.on("block", anything()));
         const onProviderInstance = instance(mockedProvider);
@@ -141,9 +141,13 @@ describe("GarbageCollector", () => {
         );
 
         // call start twice
-        gc.start();
-        assert.throw(gc.start);
-        gc.stop();
+        await gc.start();
+
+        try {
+            await gc.start();
+            assert.fail();
+        } catch (err) {}
+        await gc.stop();
 
         //the block event was only subscribed to once
         verify(mockedProvider.on("block", gc.boundExpired)).once();
@@ -162,15 +166,15 @@ describe("GarbageCollector", () => {
             appointmentSubscriberInstance
         );
 
-        gc.start();
-        gc.stop();
+        await gc.start();
+        await gc.stop();
 
         //the block event was only subscribed to once
         verify(mockedProvider.on("block", gc.boundExpired)).once();
         verify(mockedProvider.removeListener("block", gc.boundExpired)).once();
     });
 
-    it("stop does nothing if called twice", () => {
+    it("stop does nothing if called twice", async () => {
         const mockedProvider = mock(ethers.providers.Web3Provider);
         when(mockedProvider.on("block", anything()));
         when(mockedProvider.removeListener("block", anything()));
@@ -184,9 +188,9 @@ describe("GarbageCollector", () => {
         );
 
         // call stop twice
-        gc.start();
-        gc.stop();
-        gc.stop();
+        await gc.start();
+        await gc.stop();
+        await gc.stop();
 
         //the block event was only subscribed to once
         verify(mockedProvider.on("block", gc.boundExpired)).once();
