@@ -498,7 +498,7 @@ describe("EthereumTransactionMiner", async () => {
 
         const res = miner.sendTransaction(transactionRequest);
 
-        return expect(res).to.eventually.be.rejectedWith(error);
+        return expect(res).to.be.rejectedWith(error);
     });
 
     it("waitForFirstConfirmation resolves after the transaction is confirmed", async () => {
@@ -509,17 +509,17 @@ describe("EthereumTransactionMiner", async () => {
         
         await mineBlock(ganache, provider);
 
-        return expect(res).to.eventually.be.fulfilled;
+        return expect(res).to.be.fulfilled;
     });
 
     it("waitForFirstConfirmation throws NoNewBlockError after timeout", async () => {
         const noNewBlockTimeout = 20; // very short timeout for the test
-        const miner = new EthereumTransactionMiner(account0Signer, 5, 10, noNewBlockTimeout, 20);
+        const miner = new EthereumTransactionMiner(account0Signer, 5, 10, noNewBlockTimeout, 100);
         const txHash = await miner.sendTransaction(transactionRequest);
 
         const res = miner.waitForFirstConfirmation(txHash, Date.now());
 
-        return expect(res).to.eventually.be.rejectedWith(NoNewBlockError);
+        return expect(res).to.be.rejectedWith(NoNewBlockError);
     });
 
     it("waitForFirstConfirmation throws BlockThresholdReachedError if the transaction is stuck", async () => {
@@ -535,7 +535,7 @@ describe("EthereumTransactionMiner", async () => {
             provider.emit("block", blockNumber + 1 + i)
         }
 
-        return expect(res).to.eventually.be.rejectedWith(BlockThresholdReachedError);
+        return expect(res).to.be.rejectedWith(BlockThresholdReachedError);
     });
 
     it("waitForEnoughConfirmations resolves after enough confirmations", async () => {
@@ -554,19 +554,20 @@ describe("EthereumTransactionMiner", async () => {
             await mineBlock(ganache, provider);
         }
 
-        return expect(res).to.eventually.be.fulfilled;
+        return expect(res).to.be.fulfilled;
     });
 
     it("waitForEnoughConfirmations throws NoNewBlockError after timeout", async () => {
         const noNewBlockTimeout = 20; // very short timeout for the test
-        const miner = new EthereumTransactionMiner(account0Signer, 5, 10, noNewBlockTimeout, 20);
+        const miner = new EthereumTransactionMiner(account0Signer, 5, 10, noNewBlockTimeout, 100);
         const txHash = await miner.sendTransaction(transactionRequest);
 
         mineBlock(ganache, provider);
         await miner.waitForFirstConfirmation(txHash, Date.now());
 
-        const res = miner.waitForEnoughConfirmations(txHash, Date.now());
-        return expect(res).to.eventually.be.rejectedWith(NoNewBlockError);
+        return expect(
+            miner.waitForEnoughConfirmations(txHash, Date.now())
+        ).to.be.rejectedWith(NoNewBlockError);
     });
 
     it("waitForEnoughConfirmations throws ReorgError if the transaction is not found by the provider", async () => {
@@ -587,6 +588,6 @@ describe("EthereumTransactionMiner", async () => {
         // Mine another block
         mineBlock(ganache, provider);
 
-        return expect(res).to.eventually.be.rejectedWith(ReorgError);
+        return expect(res).to.be.rejectedWith(ReorgError);
     });
 });

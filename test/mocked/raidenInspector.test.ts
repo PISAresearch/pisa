@@ -80,13 +80,13 @@ describe("Raiden inspector", () => {
     it("throws for expiry equal to dispute", async () => {
         const appointment = new RaidenAppointment({ ...appointmentObj, expiryPeriod: 10 });
         const inspector = new RaidenInspector(minimumDisputePeriod, provider);
-        expect(inspector.checkInspection(appointment)).eventually.be.rejected;
+        expect(inspector.checkInspection(appointment)).to.be.rejected;
     });
 
     it("throws for expiry less than dispute", async () => {
         const appointment = new RaidenAppointment({ ...appointmentObj, expiryPeriod: 9 });
         const inspector = new RaidenInspector(minimumDisputePeriod, provider);
-        expect(inspector.checkInspection(appointment)).eventually.be.rejected;
+        expect(inspector.checkInspection(appointment)).to.be.rejected;
     });
 
     it("throws for wrong additional hash", async () => {
@@ -99,7 +99,7 @@ describe("Raiden inspector", () => {
         });
 
         const inspector = new RaidenInspector(minimumDisputePeriod, provider);
-        expect(inspector.checkInspection(appointment)).eventually.be.rejected;
+        expect(inspector.checkInspection(appointment)).to.be.rejected;
     });
 
     it("throws for wrong balance hash", async () => {
@@ -111,7 +111,7 @@ describe("Raiden inspector", () => {
             stateUpdate: { ...appointmentObj.stateUpdate, balance_hash: wrongBalanceHash }
         });
         const inspector = new RaidenInspector(minimumDisputePeriod, provider);
-        expect(inspector.checkInspection(appointment)).eventually.be.rejected;
+        expect(inspector.checkInspection(appointment)).to.be.rejected;
     });
 
     it("throws for incorrect channel identifier", async () => {
@@ -121,7 +121,7 @@ describe("Raiden inspector", () => {
         });
 
         const inspector = new RaidenInspector(minimumDisputePeriod, provider);
-        expect(inspector.checkInspection(appointment)).eventually.be.rejected;
+        expect(inspector.checkInspection(appointment)).to.be.rejected;
     });
 
     it("throws for incorrect closing participant", async () => {
@@ -134,7 +134,7 @@ describe("Raiden inspector", () => {
         });
 
         const inspector = new RaidenInspector(minimumDisputePeriod, provider);
-        expect(inspector.checkInspection(appointment)).eventually.be.rejected;
+        expect(inspector.checkInspection(appointment)).to.be.rejected;
     });
 
     it("throws for wrong closing participant sig", async () => {
@@ -147,7 +147,7 @@ describe("Raiden inspector", () => {
         });
 
         const inspector = new RaidenInspector(minimumDisputePeriod, provider);
-        expect(inspector.checkInspection(appointment)).eventually.be.rejected;
+        expect(inspector.checkInspection(appointment)).to.be.rejected;
     });
 
     it("throws for incorrect non_closing participant", async () => {
@@ -158,7 +158,7 @@ describe("Raiden inspector", () => {
             stateUpdate: { ...appointmentObj.stateUpdate, non_closing_participant: wrongNonClosingParticipant }
         });
         const inspector = new RaidenInspector(minimumDisputePeriod, provider);
-        expect(inspector.checkInspection(appointment)).eventually.be.rejected;
+        expect(inspector.checkInspection(appointment)).to.be.rejected;
     });
 
     it("throws for wrong non_closing participant sig", async () => {
@@ -172,7 +172,7 @@ describe("Raiden inspector", () => {
         });
 
         const inspector = new RaidenInspector(minimumDisputePeriod, provider);
-        expect(inspector.checkInspection(appointment)).eventually.be.rejected;
+        expect(inspector.checkInspection(appointment)).to.be.rejected;
     });
 
     it("throws for nonce too low", async () => {
@@ -182,7 +182,7 @@ describe("Raiden inspector", () => {
         });
 
         const inspector = new RaidenInspector(minimumDisputePeriod, provider);
-        expect(inspector.checkInspection(appointment)).eventually.be.rejected;
+        expect(inspector.checkInspection(appointment)).to.be.rejected;
     });
 
     it("throws for wrong chain id", async () => {
@@ -191,7 +191,7 @@ describe("Raiden inspector", () => {
             stateUpdate: { ...appointmentObj.stateUpdate, chain_id: 4 }
         });
         const inspector = new RaidenInspector(minimumDisputePeriod, provider);
-        expect(inspector.checkInspection(appointment)).eventually.be.rejected;
+        expect(inspector.checkInspection(appointment)).to.be.rejected;
     });
 
     it("throws for wrong token network id", async () => {
@@ -203,7 +203,7 @@ describe("Raiden inspector", () => {
             }
         });
         const inspector = new RaidenInspector(minimumDisputePeriod, provider);
-        expect(inspector.checkInspection(appointment)).eventually.be.rejected;
+        expect(inspector.checkInspection(appointment)).to.be.rejected;
     });
 
     it("throws for no code returned", async () => {
@@ -216,7 +216,7 @@ describe("Raiden inspector", () => {
             }
         });
         const inspector = new RaidenInspector(minimumDisputePeriod, provider);
-        expect(inspector.checkInspection(appointment)).eventually.be.rejected;
+        expect(inspector.checkInspection(appointment)).to.be.rejected;
     });
 
     it("throws for wrong code returned", async () => {
@@ -229,6 +229,6 @@ describe("Raiden inspector", () => {
             }
         });
         const inspector = new RaidenInspector(minimumDisputePeriod, provider);
-        expect(inspector.checkInspection(appointment)).eventually.be.rejected;
+        expect(inspector.checkInspection(appointment)).to.be.rejected;
     });
 });
