@@ -1,5 +1,5 @@
 import { ethers } from "ethers";
-import { StartStopService, ApplicationError } from "../dataEntities";
+import { StartStopService, ArgumentError } from "../dataEntities";
 import logger from "../logger";
 import { BlockStubChain, IBlockStub } from "./blockStub";
 import { ReorgHeightListenerStore } from "./reorgHeightListener";
@@ -203,7 +203,7 @@ export class ReorgDetector extends StartStopService {
         currentHead: BlockStubChain
     ): Promise<{ commonAncestor: BlockStubChain | null; differenceBlocks: IBlockStub[] }> {
         if (newBlock.parentHash === null) {
-            throw new ApplicationError("newBlock should have a parentHash");
+            throw new ArgumentError("newBlock should have a parentHash");
         }
 
         let commonAncestor: BlockStubChain | null;

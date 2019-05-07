@@ -1,7 +1,6 @@
 import { ethers } from "ethers";
 import { ChannelType } from "./channelType";
 import uuid from "uuid/v4";
-import { ApplicationError } from "./errors";
 
 /**
  * An appointment that has been accepted by PISA

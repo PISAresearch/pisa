@@ -4,7 +4,7 @@ import { wait, plural, CancellablePromise } from "./utils";
 import { waitForConfirmations, rejectAfterBlocks, BlockThresholdReachedError, rejectIfAnyBlockTimesOut } from "./utils/ethers";
 import { IEthereumAppointment, IEthereumResponseData } from "./dataEntities/appointment";
 import logger from "./logger";
-import { ApplicationError } from "./dataEntities";
+import { ApplicationError, ArgumentError } from "./dataEntities";
 
 /**
  * Responsible for storing the state and managing the flow of a single response.
@@ -92,11 +92,9 @@ export abstract class EthereumResponder extends Responder {
     constructor(public readonly signer: ethers.Signer) {
         super();
 
-        if (!signer.provider) {
-            throw new ApplicationError("The given signer is not connected to a provider");
-        } else {
-            this.provider = signer.provider;
-        }
+        if (!signer.provider) throw new ArgumentError("The given signer is not connected to a provider");
+
+        this.provider = signer.provider;
     }
 
     /**
@@ -186,11 +184,9 @@ export class EthereumTransactionMiner {
         public readonly newBlockTimeout: number,
         private readonly pollInterval: number
     ) {
-        if (!signer.provider) {
-            throw new ApplicationError("The given signer is not connected to a provider");
-        } else {
-            this.provider = signer.provider;
-        }
+        if (!signer.provider) throw new ArgumentError("The given signer is not connected to a provider");
+
+        this.provider = signer.provider;
     }
 
     /**
@@ -434,11 +430,9 @@ export class EthereumResponderManager {
     private gasPolicy: IGasPolicy;
 
     constructor(private readonly signer: ethers.Signer) {
-        if (!signer.provider) {
-            throw new ApplicationError("The given signer is not connected to a provider");
-        } else {
-            this.provider = signer.provider;
-        }
+        if (!signer.provider) throw new ArgumentError("The given signer is not connected to a provider");
+
+        this.provider = signer.provider;
 
         this.gasPolicy = new DoublingGasPolicy(this.provider);
     }
@@ -465,7 +459,7 @@ export class EthereumResponderManager {
                 // Should we keep inactive responders anywhere?
                 this.responders.delete(responder);
             })
-            .on(ResponderEvent.AttemptFailed, (responseFlow: ResponseFlow, doh, attemptNumber: number) => {
+            .on(ResponderEvent.AttemptFailed, (responseFlow: ResponseFlow, doh: Error, attemptNumber: number) => {
                 logger.error(
                     `Failed to respond to appointment ${appointment.id}; ${attemptNumber} ${plural(attemptNumber, "attempt")}.`
                 );

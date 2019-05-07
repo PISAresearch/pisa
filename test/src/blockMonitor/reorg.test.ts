@@ -125,7 +125,7 @@ class TestCase {
     async traverse(reorgDetector: ReorgDetector, provider: asyncEmitTestProvider) {
         const findReorgSpec = (blockNumber: number) =>
             this.reorgs.filter(r => r.expectedAtBlockNumber === blockNumber && !r.observed)[0];
-        let currentReorg: any;
+        let currentReorg: IReorgInfo | undefined;
 
         reorgDetector.on(ReorgDetector.REORG_END_EVENT, (commonAncestor: number) => {
             // find a reorg with this block number that has not been observed
