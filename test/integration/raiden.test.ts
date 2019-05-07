@@ -102,8 +102,8 @@ describe("Raiden end-to-end tests for scenario 2 (with Pisa)", function() {
         const cmd = `${demoDir}/raiden --gas-price fast --accept-disclaimer --keystore-path ${demoDir}/docker/test-accounts --datadir ${demoDir}/.raiden --network-id ropsten --eth-rpc-endpoint http://0.0.0.0:8545 --address 0x${address} --api-address http://0.0.0.0:${port} --password-file ${demoDir}/docker/test-accounts/password--${addressLow}.txt  --no-sync-check --disable-debug-logfile --tokennetwork-registry-contract-address 0xCa70BfDEa6BD82e45d4fD26Dd9f36DB9fad61796 --secret-registry-contract-address 0xaFa1F14fe33940b22D7f9F9bf0d707860C9233e2 --endpoint-registry-contract-address 0xa4f842B60C8a21c54b16E7940aA16Dda80301d13`;
         const raidenNode = exec(cmd);
         const logStream = await fse.createWriteStream(`${pisaRoot}/logs/${name}.test.log`, { flags: "a" });
-        raidenNode.stdout.pipe(logStream);
-        raidenNode.stderr.pipe(logStream);
+        raidenNode.stdout!.pipe(logStream);
+        raidenNode.stderr!.pipe(logStream);
         return raidenNode;
     };
 
@@ -138,8 +138,8 @@ describe("Raiden end-to-end tests for scenario 2 (with Pisa)", function() {
 
         subprocesses.push(parity);
         const parityLogStream = await fse.createWriteStream(`${pisaRoot}/logs/parity.test.log`, { flags: "a" });
-        parity.stdout.pipe(parityLogStream);
-        parity.stderr.pipe(parityLogStream);
+        parity.stdout!.pipe(parityLogStream);
+        parity.stderr!.pipe(parityLogStream);
 
         // Wait for parity to be ready
         await waitPort({ host: "0.0.0.0", port: 8545 });
@@ -154,8 +154,8 @@ describe("Raiden end-to-end tests for scenario 2 (with Pisa)", function() {
 
         subprocesses.push(autominer);
         const autominerLogStream = await fse.createWriteStream(`${pisaRoot}/logs/autominer.test.log`, { flags: "a" });
-        autominer.stdout.pipe(autominerLogStream);
-        autominer.stderr.pipe(autominerLogStream);
+        autominer.stdout!.pipe(autominerLogStream);
+        autominer.stderr!.pipe(autominerLogStream);
 
         // args are redundant, but if they are removed the provider unpredictably fails
         // throwing "Error: invalid response - 0"; see https://github.com/ethers-io/ethers.js/issues/362
@@ -176,8 +176,8 @@ describe("Raiden end-to-end tests for scenario 2 (with Pisa)", function() {
         );
         subprocesses.push(pisa);
         const pisaLogStream = await fse.createWriteStream(`${pisaRoot}/logs/pisa.test.log`, { flags: "a" });
-        pisa.stdout.pipe(pisaLogStream);
-        pisa.stderr.pipe(pisaLogStream);
+        pisa.stdout!.pipe(pisaLogStream);
+        pisa.stderr!.pipe(pisaLogStream);
 
         // Make sure Alice is fully loaded
         await waitPort({ host: "0.0.0.0", port: 6662 });
@@ -192,8 +192,8 @@ describe("Raiden end-to-end tests for scenario 2 (with Pisa)", function() {
         );
         subprocesses.push(daemon);
         const daemonLogStream = await fse.createWriteStream(`${pisaRoot}/logs/daemon.test.log`, { flags: "a" });
-        daemon.stdout.pipe(daemonLogStream);
-        daemon.stderr.pipe(daemonLogStream);
+        daemon.stdout!.pipe(daemonLogStream);
+        daemon.stderr!.pipe(daemonLogStream);
 
         console.log("Waiting for everyone to be ready.");
 

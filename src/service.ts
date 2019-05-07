@@ -95,7 +95,7 @@ export class PisaService extends StartStopService {
         await this.watcher.stop();
         await this.db.close();
         this.server.close(error => {
-            if (error) logger.error(error.stack);
+            if (error) logger.error(error.stack!);
             logger.info(`PISA shutdown.`);
         });
     }
