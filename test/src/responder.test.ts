@@ -514,7 +514,7 @@ describe("EthereumTransactionMiner", async () => {
 
     it("waitForFirstConfirmation throws NoNewBlockError after timeout", async () => {
         const noNewBlockTimeout = 20; // very short timeout for the test
-        const miner = new EthereumTransactionMiner(account0Signer, 5, 10, noNewBlockTimeout, 20);
+        const miner = new EthereumTransactionMiner(account0Signer, 5, 10, noNewBlockTimeout, 100);
         const txHash = await miner.sendTransaction(transactionRequest);
 
         const res = miner.waitForFirstConfirmation(txHash, Date.now());
@@ -559,7 +559,7 @@ describe("EthereumTransactionMiner", async () => {
 
     it("waitForEnoughConfirmations throws NoNewBlockError after timeout", async () => {
         const noNewBlockTimeout = 20; // very short timeout for the test
-        const miner = new EthereumTransactionMiner(account0Signer, 5, 10, noNewBlockTimeout, 20);
+        const miner = new EthereumTransactionMiner(account0Signer, 5, 10, noNewBlockTimeout, 100);
         const txHash = await miner.sendTransaction(transactionRequest);
 
         mineBlock(ganache, provider);
