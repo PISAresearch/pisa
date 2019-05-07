@@ -19,7 +19,7 @@ export abstract class Inspector<TAppointment extends EthereumAppointment> {
 
         // if we pass the inspection then set the result
         const currentBlock = await this.provider.getBlockNumber()
-        appointment.setInspectionResult(true, currentBlock);
+        appointment.passInspection(currentBlock);
 
         logger.info(
             appointment.formatLog(
