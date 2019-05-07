@@ -76,7 +76,7 @@ describe("Inspector", () => {
                     type: ChannelType.Kitsune
                 })
             )
-        ).to.eventually.be.rejected;
+        ).to.be.rejected;
     });
 
     it("throws for expiry equal dispute time", async () => {
@@ -100,7 +100,7 @@ describe("Inspector", () => {
                     type: ChannelType.Kitsune
                 })
             )
-        ).to.eventually.be.rejected;
+        ).to.be.rejected;
     });
 
     it("throws for expiry less than dispute time", async () => {
@@ -124,7 +124,7 @@ describe("Inspector", () => {
                     type: ChannelType.Kitsune
                 })
             )
-        ).to.eventually.be.rejected;
+        ).to.be.rejected;
     });
 
     it("throws for non existant contract", async () => {
@@ -149,7 +149,7 @@ describe("Inspector", () => {
                     type: ChannelType.Kitsune
                 })
             )
-        ).to.eventually.be.rejected;
+        ).to.be.rejected;
     });
 
     it("throws for wrong state hash", async () => {
@@ -174,7 +174,7 @@ describe("Inspector", () => {
                     type: ChannelType.Kitsune
                 })
             )
-        ).to.eventually.be.rejected;
+        ).to.be.rejected;
     });
 
     it("throws for sigs on wrong hash", async () => {
@@ -199,7 +199,7 @@ describe("Inspector", () => {
                     type: ChannelType.Kitsune
                 })
             )
-        ).to.eventually.be.rejected;
+        ).to.be.rejected;
     });
 
     it("throws for sigs by only one player", async () => {
@@ -224,7 +224,7 @@ describe("Inspector", () => {
                     type: ChannelType.Kitsune
                 })
             )
-        ).to.eventually.be.rejected;
+        ).to.be.rejected;
     });
 
     it("throws for missing sig", async () => {
@@ -248,7 +248,7 @@ describe("Inspector", () => {
                     type: ChannelType.Kitsune
                 })
             )
-        ).to.eventually.be.rejected;
+        ).to.be.rejected;
     });
 
     it("accepts sigs in wrong order", async () => {
