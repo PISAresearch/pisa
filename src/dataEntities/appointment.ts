@@ -60,12 +60,10 @@ export abstract class EthereumAppointment implements IEthereumAppointment {
     get passedInspection() {
         return this.mPassedInspection;
     }
-    setInspectionResult(passed, startBlock) {
-        this.mPassedInspection = passed;
-        if (passed) {
-            this.mStartBlock = startBlock;
-            this.mEndBlock = startBlock + this.expiryPeriod;
-        }
+    passInspection(startBlock: number) {
+        this.mPassedInspection = true;
+        this.mStartBlock = startBlock;
+        this.mEndBlock = startBlock + this.expiryPeriod;
     }
     formatLog(message: string): string {
         return `|${this.getStateIdentifier()}| ${message}`;

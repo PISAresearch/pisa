@@ -1,5 +1,5 @@
 import { ethers } from "ethers";
-import { StartStopService } from "../dataEntities";
+import { StartStopService, ArgumentError } from "../dataEntities";
 import logger from "../logger";
 import { BlockStubChain, IBlockStub } from "./blockStub";
 import { ReorgHeightListenerStore } from "./reorgHeightListener";
@@ -53,7 +53,7 @@ export class ReorgDetector extends StartStopService {
      * Detect a reorg if a new block is observed
      * @param blockNumber
      */
-    private async handleNewBlock(blockNumber) {
+    private async handleNewBlock(blockNumber: number) {
         // we should lock here so that we dont fire reorg events concurrently
         // it doesnt matter if a reorg is missed immediately, it will be picked up on the next block emission
         if (!this.handlingBlock) {
@@ -97,7 +97,7 @@ export class ReorgDetector extends StartStopService {
                 logger.error(`${this.name}: Unexpected error.`);
                 const dohError = doh as Error;
                 if (dohError) {
-                    logger.error(dohError.stack);
+                    logger.error(dohError.stack!);
                 }
             } finally {
                 this.handlingBlock = false;
@@ -180,7 +180,7 @@ export class ReorgDetector extends StartStopService {
         localBlock: BlockStubChain,
         differenceBlocks: IBlockStub[],
         minHeight: number
-    ): Promise<BlockStubChain> {
+    ): Promise<BlockStubChain | null> {
         const blockRemote = await this.provider.getBlock(remoteBlockHash);
         differenceBlocks.push(blockRemote);
 
@@ -201,8 +201,12 @@ export class ReorgDetector extends StartStopService {
     public async findCommonAncestor(
         newBlock: IBlockStub,
         currentHead: BlockStubChain
-    ): Promise<{ commonAncestor: BlockStubChain; differenceBlocks: IBlockStub[] }> {
-        let commonAncestor: BlockStubChain;
+    ): Promise<{ commonAncestor: BlockStubChain | null; differenceBlocks: IBlockStub[] }> {
+        if (newBlock.parentHash === null) {
+            throw new ArgumentError("newBlock should have a parentHash");
+        }
+
+        let commonAncestor: BlockStubChain | null;
         let differenceBlocks: IBlockStub[] = [];
         const minHeight = this.headBlock.height - this.maxDepth;
         // the chain has reduced linearly

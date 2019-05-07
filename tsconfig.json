@@ -6,7 +6,8 @@
         "sourceMap": false /* Generates corresponding '.map' file. */,
         "outDir": "build" /* Redirect output structure to the directory. */,
         "resolveJsonModule": true,
-        "noImplicitAny": false /* Raise error on expressions and declarations with an implied 'any' type. */,
+        "strictNullChecks": true /* Stricter type-checking for nullable objects */,
+        "noImplicitAny": true /* Raise error on expressions and declarations with an implied any type */,
         //"noUnusedLocals": true /* Report errors on unused locals. */,
         "esModuleInterop": true /* Enables emit interoperability between CommonJS and ES Modules via creation of namespace objects for all imports. Implies 'allowSyntheticDefaultImports'. */
     },

@@ -123,9 +123,9 @@ class TestCase {
         );
 
     async traverse(reorgDetector: ReorgDetector, provider: asyncEmitTestProvider) {
-        const findReorgSpec = blockNumber =>
+        const findReorgSpec = (blockNumber: number) =>
             this.reorgs.filter(r => r.expectedAtBlockNumber === blockNumber && !r.observed)[0];
-        let currentReorg;
+        let currentReorg: IReorgInfo | undefined;
 
         reorgDetector.on(ReorgDetector.REORG_END_EVENT, (commonAncestor: number) => {
             // find a reorg with this block number that has not been observed
@@ -154,7 +154,7 @@ class TestCase {
         }
     }
 
-    async testChain(reorgDepth) {
+    async testChain(reorgDepth: number) {
         const { provider, reorgDetector } = ReorgMocks.getSetup(this.blocks, reorgDepth);
 
         await this.traverse(reorgDetector, provider);
@@ -279,9 +279,9 @@ describe("ReorgDetector", () => {
 
         // this will trigger a reorg - and a catastrophic event
         await provider.asyncEmit("block", 5);
-        expect(reorgDetector.head.hash).to.deep.equal(b_block3.hash);
-        expect(reorgDetector.head.number).to.deep.equal(b_block3.number);
-        expect(reorgDetector.head.parentHash).to.deep.equal(null);
+        expect(reorgDetector.head!.hash).to.deep.equal(b_block3.hash);
+        expect(reorgDetector.head!.number).to.deep.equal(b_block3.number);
+        expect(reorgDetector.head!.parentHash).to.deep.equal(null);
 
         const catastrophic = await maxDepthFired;
         expect(catastrophic.local).to.deep.equal(a_block5);

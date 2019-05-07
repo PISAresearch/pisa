@@ -134,7 +134,7 @@ export class PisaService {
 
     private logAndSend(code: number, responseMessage: string, error: Error, res: Response) {
         logger.error(`HTTP Status: ${code}.`);
-        logger.error(error.stack);
+        logger.error(error.stack!);
         res.status(code);
         res.send(responseMessage);
     }

@@ -1,4 +1,4 @@
-import { EthereumAppointment, PublicDataValidationError } from "./dataEntities";
+import { EthereumAppointment, PublicDataValidationError, ChannelType } from "./dataEntities";
 import { Inspector } from "./inspector";
 import { IChannelConfig } from "./integrations";
 import { Watcher } from "./watcher";
@@ -17,7 +17,7 @@ export class PisaTower {
     }
 
     configs: {
-        [type: number]: IChannelConfig<EthereumAppointment, Inspector<EthereumAppointment>>;
+        [type: string]: IChannelConfig<EthereumAppointment, Inspector<EthereumAppointment>>;
     } = {};
 
     /**
