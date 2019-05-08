@@ -2,7 +2,7 @@ import * as chai from "chai";
 import "mocha";
 import request from "request-promise";
 import { KitsuneTools } from "../../src/integrations/kitsune";
-import { ethers } from "ethers";
+import { ethers, Wallet } from "ethers";
 import { PisaService } from "../../src/service";
 import config from "../../src/dataEntities/config";
 import Ganache from "ganache-core";
@@ -23,9 +23,12 @@ config.host = {
 };
 config.jsonRpcUrl = "http://localhost:8545";
 config.responderKey = "0x6370fd033278c143179d81c5526140625662b8daa446c22ee2d73db3707e620c";
+config.receiptKey = "0x6370fd033278c143179d81c5526140625662b8daa446c22ee2d73db3707e620c";
 
 const provider = new ethers.providers.Web3Provider(ganache);
 provider.pollingInterval = 100;
+
+const expect = chai.expect;
 
 describe("Service end-to-end", () => {
     let account0: string,
@@ -45,7 +48,9 @@ describe("Service end-to-end", () => {
             })
         );
 
-        service = new PisaService(config.host.name, config.host.port, provider, watcherWallet, provider, db);
+        const signerWallet = new ethers.Wallet(config.receiptKey!, provider);
+
+        service = new PisaService(config.host.name, config.host.port, provider, watcherWallet, signerWallet, provider, db);
         await service.start();
 
         // accounts
@@ -88,7 +93,7 @@ describe("Service end-to-end", () => {
             }
         };
 
-        await request.post(`http://${config.host.name}:${config.host.port}/appointment`, { json: appointment });
+        const res = await request.post(`http://${config.host.name}:${config.host.port}/appointment`, { json: appointment });
 
         // now register a callback on the setstate event and trigger a response
         const setStateEvent = "EventEvidence(uint256, bytes32)";
@@ -110,6 +115,44 @@ describe("Service end-to-end", () => {
             chai.assert.fail(true, false, "EventEvidence not successfully registered.");
         }
     }).timeout(3000);
+
+    it("contains 'appointment' and 'signatures' in the response; signature is correct", async () => {
+        const round = 1,
+            setStateHash = KitsuneTools.hashForSetState(hashState, round, channelContract.address),
+            sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash)),
+            sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash)),
+            expiryPeriod = disputePeriod + 1;
+        const appointment = {
+            expiryPeriod,
+            type: ChannelType.Kitsune,
+            stateUpdate: {
+                contractAddress: channelContract.address,
+                hashState,
+                round,
+                signatures: [sig0, sig1]
+            }
+        };
+
+        const res = await request.post(`http://${config.host.name}:${config.host.port}/appointment`, { json: appointment });
+
+        const packedData = ethers.utils.solidityPack([
+            'address',
+            'string',
+            'uint',
+            'uint'
+        ], [
+            channelContract.address,
+            channelContract.address, // locator is the same in Kitsune
+            appointment.stateUpdate.round,
+            appointment.expiryPeriod,
+        ]);
+        const digest = ethers.utils.keccak256(packedData);
+        const signer = new Wallet(config.receiptKey!);
+        const sig = await signer.signMessage(digest);
+
+        expect(res).to.include.all.keys("appointment", "signatures");
+        expect(res.signatures[0]).to.equal(sig);
+    });
 
     it("create channel, submit round = 0 too low returns 400", async () => {
         const round = 0,

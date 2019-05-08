@@ -15,7 +15,7 @@ import {
 } from "./dataEntities";
 import { Raiden, Kitsune } from "./integrations";
 import { Watcher, AppointmentStore } from "./watcher";
-import { PisaTower } from "./tower";
+import { PisaTower, HotEthereumAppointmentSigner } from "./tower";
 import { setRequestId } from "./customExpressHttpContext";
 import { EthereumResponderManager } from "./responder";
 import { AppointmentStoreGarbageCollector } from "./watcher/garbageCollector";
@@ -42,6 +42,7 @@ export class PisaService extends StartStopService {
      * @param port The port on which to host the pisa service
      * @param provider A connection to ethereum
      * @param wallet A signing authority for submitting transactions
+     * @param receiptSigner A signing authority for receipts returned from Pisa
      * @param delayedProvider A connection to ethereum that is delayed by a number of confirmations
      * @param config Optional configuration of the Pisa endpoint
      */
@@ -50,6 +51,7 @@ export class PisaService extends StartStopService {
         port: number,
         provider: ethers.providers.BaseProvider,
         wallet: ethers.Wallet,
+        receiptSigner: ethers.Signer,
         delayedProvider: ethers.providers.BaseProvider,
         db: LevelUp<encodingDown<string, any>>,
         config?: IApiEndpointConfig
@@ -88,8 +90,11 @@ export class PisaService extends StartStopService {
             appointmentSubscriber
         );
 
+        // if a key to sign receipts was provided, create an EthereumAppointmentSigner
+        const appointmentSigner = new HotEthereumAppointmentSigner(receiptSigner);
+
         // tower
-        const tower = new PisaTower(provider, this.watcher, configs);
+        const tower = new PisaTower(provider, this.watcher, appointmentSigner, configs);
 
         app.post("/appointment", this.appointment(tower));
 
@@ -168,11 +173,16 @@ export class PisaService extends StartStopService {
     private appointment(tower: PisaTower) {
         return async (req: express.Request, res: express.Response, next: express.NextFunction) => {
             try {
-                const appointment = await tower.addAppointment(req.body);
+                const { appointment, signature } = await tower.addAppointment(req.body);
 
                 // return the appointment
                 res.status(200);
-                res.send(appointment);
+
+                // with signature
+                res.send({
+                    appointment,
+                    signatures: [signature]
+                });
             } catch (doh) {
                 if (doh instanceof PublicInspectionError) this.logAndSend(400, doh.message, doh, res);
                 else if (doh instanceof PublicDataValidationError) this.logAndSend(400, doh.message, doh, res);

@@ -93,19 +93,24 @@ async function startUp() {
     await validateProvider(provider)
     await validateProvider(delayedProvider)
 
+    const receiptSigner = new ethers.Wallet(config.receiptKey); 
+
     // start the pisa service
     const service = new PisaService(
         config.host.name,
         config.host.port,
         provider,
         watcherWallet,
+        receiptSigner,
         delayedProvider,
         db,
         config.apiEndpoint
     );
 
-    // wait for a stop signal
-    waitForStop(service);
+    service.start().then(a => {
+        // wait for a stop signal
+        waitForStop(service);
+    });
 }
 
 function waitForStop(service: PisaService) {

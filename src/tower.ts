@@ -11,6 +11,7 @@ export class PisaTower {
     constructor(
         public readonly provider: ethers.providers.Provider,
         public readonly watcher: Watcher,
+        private readonly appointmentSigner: EthereumAppointmentSigner,
         channelConfigs: IChannelConfig<EthereumAppointment, Inspector<EthereumAppointment>>[]
     ) {
         channelConfigs.forEach(c => (this.configs[c.channelType] = c));
@@ -24,7 +25,7 @@ export class PisaTower {
      * Checks that the object is well formed, that it meets the conditions necessary for watching and assigns it to be watched.
      * @param obj
      */
-    public async addAppointment(obj: any) {
+    async addAppointment(obj: any): Promise<{ appointment: EthereumAppointment, signature: string }> {
         if (!obj) throw new PublicDataValidationError("No content specified.");
 
         // look for a type argument
@@ -42,6 +43,52 @@ export class PisaTower {
         // start watching it if it passed inspection
         await this.watcher.addAppointment(appointment);
 
-        return appointment;
+        const signature = await this.appointmentSigner.signAppointment(appointment);
+        return { appointment, signature };
+    }
+}
+
+/**
+ * This class is responsible for signing Ethereum appointments.
+ */
+export abstract class EthereumAppointmentSigner {
+    /**
+     * Signs `appointment`. Returns a promise that resolves to the signature of the appointment.
+     *
+     * @param appointment
+     */
+    public abstract signAppointment(appointment: EthereumAppointment): Promise<string>;
+}
+
+/**
+ * This EthereumAppointmentSigner signs appointments using a hot wallet.
+ */
+export class HotEthereumAppointmentSigner extends EthereumAppointmentSigner {
+    constructor(private readonly signer: ethers.Signer) {
+        super();
+    }
+
+    /**
+     * Signs `appointment`. Returns a promise that resolves to the signature of the appointment.
+     *
+     * @param appointment
+     */
+    public signAppointment(appointment: EthereumAppointment): Promise<string> {
+        // TODO: this signature format does not match Pisa's contract
+        const packedData = ethers.utils.solidityPack([
+            'address',
+            'string',
+            'uint',
+            'uint'
+        ], [
+            appointment.getContractAddress(),
+            appointment.getStateLocator(),
+            appointment.getStateNonce(),
+            appointment.expiryPeriod,
+        ])
+
+        const digest = ethers.utils.keccak256(packedData);
+
+        return this.signer.signMessage(digest);
     }
 }
