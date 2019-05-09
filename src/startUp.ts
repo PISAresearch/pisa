@@ -125,4 +125,4 @@ function waitForStop(service: PisaService) {
 }
 
 
-startUp().catch(doh => logger.error(doh));
+startUp().catch((doh: Error) => logger.error(doh.stack!));

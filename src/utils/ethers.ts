@@ -1,8 +1,7 @@
 // Utility functions for ethers.js
-
-import ethers from 'ethers';
 import { Provider, BaseProvider } from "ethers/providers";
 import { CancellablePromise } from '.';
+import { ethers } from "ethers";
 
 /**
  * A simple custom Error class to provide more details in case of a re-org.
