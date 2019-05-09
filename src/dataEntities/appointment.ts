@@ -35,19 +35,21 @@ export interface IEthereumAppointment extends IAppointment {
     getResponseFunctionName(): string;
     getResponseFunctionArgs(): any[];
     getResponseData(): IEthereumResponseData;
+    getDBRepresentation(): any;
 }
-
 
 /**
  * An appointment that has been accepted by PISA
  */
 export abstract class EthereumAppointment implements IEthereumAppointment {
     public readonly id: string;
-    
-    constructor(readonly expiryPeriod: number, readonly type: ChannelType) {
+
+    constructor(readonly expiryPeriod: number, readonly type: ChannelType, startBlock: number, endBlock: number) {
         this.id = uuid();
+        if (startBlock) this.mStartBlock = startBlock;
+        if (endBlock) this.mEndBlock = endBlock;
     }
- 
+
     private mStartBlock: number;
     get startBlock() {
         return this.mStartBlock;
@@ -103,14 +105,25 @@ export abstract class EthereumAppointment implements IEthereumAppointment {
             functionArgs: this.getResponseFunctionArgs()
         };
     }
+
+    /**
+     * All the information we need to save in the db
+     */
+    public getDBRepresentation() {
+        return {
+            ...this,
+            startBlock: this.startBlock,
+            endBlock: this.endBlock
+        };
+    }
 }
 
 /**
  * Represents the necessary data for an on-chain response from Pisa on the Ethereum blockchain.
  */
 export interface IEthereumResponseData {
-    contractAddress: string,
-    contractAbi: any,
-    functionName: string,
-    functionArgs: any[]
+    contractAddress: string;
+    contractAbi: any;
+    functionName: string;
+    functionArgs: any[];
 }

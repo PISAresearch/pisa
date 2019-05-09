@@ -5,9 +5,16 @@ import { Server } from "http";
 import { inspect } from "util";
 import { ethers } from "ethers";
 import logger from "./logger";
-import { PublicInspectionError, PublicDataValidationError, ApplicationError } from "./dataEntities";
+import {
+    PublicInspectionError,
+    PublicDataValidationError,
+    ApplicationError,
+    StartStopService,
+    ChannelType,
+    IEthereumAppointment
+} from "./dataEntities";
 import { Raiden, Kitsune } from "./integrations";
-import { Watcher, MemoryAppointmentStore } from "./watcher";
+import { Watcher, AppointmentStore } from "./watcher";
 import { PisaTower } from "./tower";
 import { setRequestId } from "./customExpressHttpContext";
 import { EthereumResponderManager } from "./responder";
@@ -16,15 +23,18 @@ import { AppointmentSubscriber } from "./watcher/appointmentSubscriber";
 import { IApiEndpointConfig } from "./dataEntities/config";
 import { ReorgDetector } from "./blockMonitor/reorg";
 import { ReorgHeightListenerStore } from "./blockMonitor";
+import { LevelUp } from "levelup";
+import encodingDown from "encoding-down";
 
 /**
  * Hosts a PISA service at the endpoint.
  */
-export class PisaService {
+export class PisaService extends StartStopService {
     private readonly server: Server;
     private readonly garbageCollector: AppointmentStoreGarbageCollector;
     private readonly reorgDetector: ReorgDetector;
     private readonly watcher: Watcher;
+    private readonly appointmentStore: AppointmentStore;
 
     /**
      *
@@ -41,34 +51,69 @@ export class PisaService {
         provider: ethers.providers.BaseProvider,
         wallet: ethers.Wallet,
         delayedProvider: ethers.providers.BaseProvider,
+        db: LevelUp<encodingDown<string, any>>,
         config?: IApiEndpointConfig
     ) {
+        super("PISA");
         const app = express();
 
         this.applyMiddlewares(app, config);
 
+        // choose configs
+        const configs = [Raiden, Kitsune];
+
         // start reorg detector
         this.reorgDetector = new ReorgDetector(delayedProvider, 200, new ReorgHeightListenerStore());
-        this.reorgDetector.start();
 
         // dependencies
-        const store = new MemoryAppointmentStore();
+        this.appointmentStore = new AppointmentStore(
+            db,
+            new Map(configs.map<[ChannelType, (obj: any) => IEthereumAppointment]>(c => [c.channelType, c.appointment]))
+        );
         const ethereumResponderManager = new EthereumResponderManager(wallet);
         const appointmentSubscriber = new AppointmentSubscriber(delayedProvider);
-        this.watcher = new Watcher(delayedProvider, ethereumResponderManager, this.reorgDetector, appointmentSubscriber, store);
-        this.watcher.start()
-
-        const tower = new PisaTower(provider, this.watcher, [Raiden, Kitsune]);
+        this.watcher = new Watcher(
+            delayedProvider,
+            ethereumResponderManager,
+            this.reorgDetector,
+            appointmentSubscriber,
+            this.appointmentStore
+        );
 
         // gc
-        this.garbageCollector = new AppointmentStoreGarbageCollector(provider, 10, store, appointmentSubscriber);
-        this.garbageCollector.start();
+        this.garbageCollector = new AppointmentStoreGarbageCollector(
+            provider,
+            10,
+            this.appointmentStore,
+            appointmentSubscriber
+        );
+
+        // tower
+        const tower = new PisaTower(provider, this.watcher, configs);
 
         app.post("/appointment", this.appointment(tower));
 
         const service = app.listen(port, hostname);
         logger.info(`PISA listening on: ${hostname}:${port}.`);
         this.server = service;
+    }
+
+    async startInternal() {
+        await this.reorgDetector.start();
+        await this.watcher.start();
+        await this.garbageCollector.start();
+        await this.appointmentStore.start();
+    }
+
+    async stopInternal() {
+        await this.garbageCollector.stop();
+        await this.reorgDetector.stop();
+        await this.watcher.stop();
+        await this.appointmentStore.stop();
+        this.server.close(error => {
+            if (error) logger.error(error.stack!);
+            logger.info(`PISA shutdown.`);
+        });
     }
 
     private applyMiddlewares(app: express.Express, config?: IApiEndpointConfig) {
@@ -83,25 +128,35 @@ export class PisaService {
 
         // rate limits
         if (config && config.rateGlobal) {
-            app.use(new rateLimit({
-                keyGenerator: () => "global", // use the same key for all users
-                statusCode: 503, // = Too Many Requests (RFC 7231)
-                message: "Server request limit reached. Please try again later.",
-                ...config.rateGlobal
-            }));
-            logger.info(`PISA api global rate limit: ${config.rateGlobal.max} requests every: ${config.rateGlobal.windowMs/1000} seconds.`);
+            app.use(
+                new rateLimit({
+                    keyGenerator: () => "global", // use the same key for all users
+                    statusCode: 503, // = Too Many Requests (RFC 7231)
+                    message: "Server request limit reached. Please try again later.",
+                    ...config.rateGlobal
+                })
+            );
+            logger.info(
+                `PISA api global rate limit: ${config.rateGlobal.max} requests every: ${config.rateGlobal.windowMs /
+                    1000} seconds.`
+            );
         } else {
             logger.warn(`PISA api global rate limit: NOT SET.`);
         }
 
         if (config && config.ratePerUser) {
-            app.use(new rateLimit({
-                keyGenerator: (req) => req.ip, // limit per IP
-                statusCode: 429, // = Too Many Requests (RFC 6585)
-                message: "Too many requests. Please try again later.",
-                ...config.ratePerUser
-            }));
-            logger.info(`PISA api per-user rate limit: ${config.ratePerUser.max} requests every: ${config.ratePerUser.windowMs/1000} seconds.`);
+            app.use(
+                new rateLimit({
+                    keyGenerator: req => req.ip, // limit per IP
+                    statusCode: 429, // = Too Many Requests (RFC 6585)
+                    message: "Too many requests. Please try again later.",
+                    ...config.ratePerUser
+                })
+            );
+            logger.info(
+                `PISA api per-user rate limit: ${config.ratePerUser.max} requests every: ${config.ratePerUser.windowMs /
+                    1000} seconds.`
+            );
         } else {
             logger.warn(`PISA api per-user rate limit: NOT SET.`);
         }
@@ -137,16 +192,5 @@ export class PisaService {
         logger.error(error.stack!);
         res.status(code);
         res.send(responseMessage);
-    }
-
-    private closed = false;
-    public stop() {
-        if (!this.closed) {
-            this.garbageCollector.stop();
-            this.reorgDetector.stop();
-            this.watcher.stop();
-            this.server.close(logger.info(`PISA shutdown.`));
-            this.closed = true;
-        }
     }
 }

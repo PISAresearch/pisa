@@ -544,7 +544,7 @@ describe("EthereumTransactionMiner", async () => {
         const txHash = await miner.sendTransaction(transactionRequest);
 
         // Mine the first confirmation
-        mineBlock(ganache, provider);
+        await mineBlock(ganache, provider);
         await miner.waitForFirstConfirmation(txHash, Date.now());
 
         const res = miner.waitForEnoughConfirmations(txHash, Date.now());
@@ -562,7 +562,7 @@ describe("EthereumTransactionMiner", async () => {
         const miner = new EthereumTransactionMiner(account0Signer, 5, 10, noNewBlockTimeout, 100);
         const txHash = await miner.sendTransaction(transactionRequest);
 
-        mineBlock(ganache, provider);
+        await mineBlock(ganache, provider);
         await miner.waitForFirstConfirmation(txHash, Date.now());
 
         return expect(
@@ -577,7 +577,7 @@ describe("EthereumTransactionMiner", async () => {
         const snapshotId = await takeGanacheSnapshot(ganache);
 
         // Mine the first confirmation
-        mineBlock(ganache, provider);
+        await mineBlock(ganache, provider);
         await miner.waitForFirstConfirmation(txHash, Date.now());
 
         const res = miner.waitForEnoughConfirmations(txHash, Date.now());

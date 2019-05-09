@@ -1,2 +1,2 @@
 export { Watcher } from "./watcher";
-export { MemoryAppointmentStore } from "./store";
+export { AppointmentStore } from "./store";
