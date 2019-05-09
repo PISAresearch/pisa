@@ -138,10 +138,13 @@ function waitForStop(service: PisaService) {
         stdin.on("data", async key => {
             // ctrl-c ( end of text )
             if (key === "\u0003") {
-                // stop the pisa service
-                await service.stop();
-                // shut the db
-                await db.close();
+                await Promise.all([
+                    // stop the pisa service
+                    service.stop(),
+                    // shut the db
+                    db.close()
+                ]);
+
                 // exit the process
                 process.exit();
             }

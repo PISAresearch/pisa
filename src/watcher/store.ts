@@ -47,7 +47,7 @@ export class AppointmentStore extends StartStopService implements IAppointmentSt
             // the typing here insist this is a string
             const type = ((record as any) as IAppointment).type;
             const constrctr = this.appointmentConstructors.get(type);
-            if (!constrctr) throw new ConfigurationError(`Unrecognied channel type: ${type}.`);
+            if (!constrctr) throw new ConfigurationError(`Unrecognised channel type: ${type}.`);
 
             const appointment = constrctr(record);
             // // add too the indexes

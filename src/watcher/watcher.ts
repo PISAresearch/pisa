@@ -7,12 +7,6 @@ import { ethers } from "ethers";
 import { EthereumResponderManager } from "../responder";
 import { ReorgDetector } from "../blockMonitor";
 import { inspect } from "util";
-import levelup, { LevelUp } from "levelup";
-import leveldown from "leveldown";
-import encodingDown from "encoding-down";
-import EncodingDown from "encoding-down";
-import { Readable } from "stream";
-import { ReadStream, createReadStream } from "fs";
 
 /**
  * Watches the chain for events related to the supplied appointments. When an event is noticed data is forwarded to the
