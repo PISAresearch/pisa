@@ -66,7 +66,10 @@ export class PisaService extends StartStopService {
         this.reorgDetector = new ReorgDetector(delayedProvider, 200, new ReorgHeightListenerStore());
 
         // dependencies
-        this.appointmentStore = new AppointmentStore(db, new Map(configs.map(c => [c.channelType, c.appointment])));
+        this.appointmentStore = new AppointmentStore(
+            db,
+            new Map(configs.map<[ChannelType, (obj: any) => IEthereumAppointment]>(c => [c.channelType, c.appointment]))
+        );
         const ethereumResponderManager = new EthereumResponderManager(wallet);
         const appointmentSubscriber = new AppointmentSubscriber(delayedProvider);
         this.watcher = new Watcher(
