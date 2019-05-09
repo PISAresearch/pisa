@@ -34,7 +34,7 @@ export abstract class StartStopService extends EventEmitter {
      */
     public async start() {
         if (this.mStarted) throw new ConfigurationError(`${this.name}: Already started.`);
-        if (this,this.mStarting) throw new ConfigurationError(`${this.name}: Currently starting.`);
+        if (this.mStarting) throw new ConfigurationError(`${this.name}: Currently starting.`);
         // set started straight away to block the code below
         this.mStarting = true;
         await this.startInternal();
