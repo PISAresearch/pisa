@@ -19,7 +19,7 @@ export class Watcher extends StartStopService {
      * observe method to complete the task. The watcher is not responsible for ensuring that observed events are properly
      * acted upon, that is the responsibility of the responder.
      */
-    public constructor(
+    constructor(
         private readonly provider: ethers.providers.BaseProvider,
         private readonly responder: EthereumResponderManager,
         private readonly reorgDetecteor: ReorgDetector,

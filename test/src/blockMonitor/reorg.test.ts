@@ -122,7 +122,7 @@ class TestCase {
             ]
         );
 
-    async traverse(reorgDetector: ReorgDetector, provider: asyncEmitTestProvider) {
+    public async traverse(reorgDetector: ReorgDetector, provider: asyncEmitTestProvider) {
         const findReorgSpec = (blockNumber: number) =>
             this.reorgs.filter(r => r.expectedAtBlockNumber === blockNumber && !r.observed)[0];
         let currentReorg: IReorgInfo | undefined;
@@ -154,7 +154,7 @@ class TestCase {
         }
     }
 
-    async testChain(reorgDepth: number) {
+    public async testChain(reorgDepth: number) {
         const { provider, reorgDetector } = await ReorgMocks.getSetup(this.blocks, reorgDepth);
 
         await this.traverse(reorgDetector, provider);
@@ -171,7 +171,7 @@ type asyncEmitTestProvider = ethers.providers.BaseProvider & {
 };
 
 class ReorgMocks {
-    static async getSetup(blocks: IBlockStub[], maxDepth: number) {
+    public static async getSetup(blocks: IBlockStub[], maxDepth: number) {
         const mockedProvider = mock(ethers.providers.JsonRpcProvider);
         const face: {
             [indexed: number]: MethodStubSetter<Promise<ethers.providers.Block>, ethers.providers.Block, any>;
@@ -194,7 +194,7 @@ class ReorgMocks {
         return { reorgDetector, provider, store };
     }
 
-    static addProviderFuncs(asyncProvider: asyncEmitTestProvider) {
+    public static addProviderFuncs(asyncProvider: asyncEmitTestProvider) {
         let cachedBlockListener: (blockNumber: number) => void;
         asyncProvider.on = (event: EventType, listener: Listener): ethers.providers.Provider => {
             if (event !== "block") throw new ApplicationError("Block should be the only event subscribed to");

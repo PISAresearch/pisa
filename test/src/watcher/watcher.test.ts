@@ -220,7 +220,7 @@ describe("Watcher", () => {
         verify(mockedAppointmentSubscriber.unsubscribe(appointmentCanBeUpdated.id, anything())).calledBefore(
             mockedStore.removeById(appointmentCanBeUpdated.id)
         );
-        const [firstArg, secondArg] = capture(mockedReorgDetector.addReorgHeightListener).last();
+        const [firstArg, _] = capture(mockedReorgDetector.addReorgHeightListener).last();
         assert.strictEqual(firstArg, event.blockNumber, "Event block height incorrect.");
     });
 

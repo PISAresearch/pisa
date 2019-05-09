@@ -16,7 +16,7 @@ export class PisaTower {
         channelConfigs.forEach(c => (this.configs[c.channelType] = c));
     }
 
-    configs: {
+    public configs: {
         [type: string]: IChannelConfig<EthereumAppointment, Inspector<EthereumAppointment>>;
     } = {};
 
@@ -24,7 +24,7 @@ export class PisaTower {
      * Checks that the object is well formed, that it meets the conditions necessary for watching and assigns it to be watched.
      * @param obj
      */
-    async addAppointment(obj: any) {
+    public async addAppointment(obj: any) {
         if (!obj) throw new PublicDataValidationError("No content specified.");
 
         // look for a type argument

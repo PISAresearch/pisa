@@ -67,22 +67,22 @@ export class KitsuneAppointment extends EthereumAppointment {
         isArrayOfStrings(obj["signatures"]);
     }
 
-    getStateNonce() {
+    public getStateNonce() {
         return this.stateUpdate.round;
     }
 
-    getContractAddress() {
+    public getContractAddress() {
         return this.stateUpdate.contractAddress;
     }
 
-    getStateLocator() {
+    public getStateLocator() {
         // in the kitsune paradigm a new contract is created for each state channel
         // and a single nonce is kept per channel
 
         return this.stateUpdate.contractAddress;
     }
 
-    getEventFilter(): ethers.EventFilter {
+    public getEventFilter(): ethers.EventFilter {
         let event = new ethers.utils.Interface(this.getContractAbi());
         let topics = event.events["EventDispute"].encodeTopics([null]);
 
@@ -92,19 +92,19 @@ export class KitsuneAppointment extends EthereumAppointment {
         }
     }
 
-    getEventName() {
+    public getEventName() {
         return "EventDispute(uint256)";
     }
 
-    getContractAbi() {
+    public getContractAbi() {
         return KitsuneTools.ContractAbi;
     }
 
-    getResponseFunctionName(): string {
+    public getResponseFunctionName(): string {
         return "setstate";
     }
 
-    getResponseFunctionArgs(): any[] {
+    public getResponseFunctionArgs(): any[] {
         const sig0 = utils.splitSignature(this.stateUpdate.signatures[0]);
         const sig1 = utils.splitSignature(this.stateUpdate.signatures[1]);
         return [

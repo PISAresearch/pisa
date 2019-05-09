@@ -34,14 +34,14 @@ export interface IAppointmentStore {
  * determining expired appointments so this function should not be used in a loop.
  */
 export class AppointmentStore extends StartStopService implements IAppointmentStore {
-    public constructor(
+    constructor(
         private readonly db: LevelUp<encodingDown<string, any>>,
         private readonly appointmentConstructors: Map<ChannelType, (obj: any) => IEthereumAppointment>
     ) {
         super("Appointment store");
     }
 
-    async startInternal() {
+    public async startInternal() {
         // access the db and load all state
         for await (const record of this.db.createValueStream()) {
             // the typing here insist this is a string
@@ -56,7 +56,7 @@ export class AppointmentStore extends StartStopService implements IAppointmentSt
         }
     }
 
-    async stopInternal() {
+    public async stopInternal() {
         // do nothing
     }
 
@@ -74,7 +74,7 @@ export class AppointmentStore extends StartStopService implements IAppointmentSt
      * Returns true if the supplied item was adde or updated in the store.
      * @param appointment
      */
-    async addOrUpdateByStateLocator(appointment: IEthereumAppointment): Promise<boolean> {
+    public async addOrUpdateByStateLocator(appointment: IEthereumAppointment): Promise<boolean> {
         const currentAppointment = this.appointmentsByStateLocator[appointment.getStateLocator()];
         // is there a current appointment
         if (currentAppointment) {
@@ -110,7 +110,7 @@ export class AppointmentStore extends StartStopService implements IAppointmentSt
      * exist. Returns true if an item existed and was deleted.
      * @param appointmentId
      */
-    async removeById(appointmentId: string): Promise<boolean> {
+    public async removeById(appointmentId: string): Promise<boolean> {
         const appointmentById = this.appointmentsById[appointmentId];
         if (appointmentById) {
             // remove the appointment from the id index
@@ -143,7 +143,7 @@ export class AppointmentStore extends StartStopService implements IAppointmentSt
      * remain effecient as blocks are removed.
      * @param expiryBlock
      */
-    getExpiredSince(expiryBlock: number): IEthereumAppointment[] {
+    public getExpiredSince(expiryBlock: number): IEthereumAppointment[] {
         return Object.values(this.appointmentsById).filter(a => a.endBlock < expiryBlock);
     }
 }

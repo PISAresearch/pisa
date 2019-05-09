@@ -4,7 +4,9 @@ import * as path from "path";
 import * as fse from "fs-extra";
 import net from "net";
 
-const waitPort: any = require("wait-port");
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const waitPort: any = require("wait-port"); // waitPort does not have proper type definitions
+
 import kill from "tree-kill";
 
 import request from "request-promise";

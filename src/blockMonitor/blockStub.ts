@@ -19,7 +19,7 @@ export class BlockStubChain {
      * @param height The current height
      * @param hash The current hash
      */
-    static newRoot(height: number, hash: string) {
+    public static newRoot(height: number, hash: string) {
         return new BlockStubChain(height, hash, null);
     }
 
