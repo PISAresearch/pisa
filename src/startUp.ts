@@ -1,45 +1,45 @@
 import { PisaService } from "./service";
 import { ethers } from "ethers";
 import config from "./dataEntities/config";
-import { getJsonRPCProvider } from "./provider";
-import { withDelay } from "./utils/ethers";
+import { getJsonRPCProvider } from "./utils";
+import { withDelay, validateProvider } from "./utils/ethers";
+import logger from "./logger";
 
-const argv = require('yargs')
+const argv = require("yargs")
     .scriptName("pisa")
-    .usage('$0 [args]')
-    .describe('json-rpc-url', 'Overrides jsonRpcUrl from config.json.')
-    .describe('host-name', 'Overrides host.name from config.json')
-    .describe('host-port', 'Overrides host.porg from config.json')
-    .option('responder-key', {
-        description: 'Overrides responderKey from config.json',
+    .usage("$0 [args]")
+    .describe("json-rpc-url", "Overrides jsonRpcUrl from config.json.")
+    .describe("host-name", "Overrides host.name from config.json")
+    .describe("host-port", "Overrides host.porg from config.json")
+    .option("responder-key", {
+        description: "Overrides responderKey from config.json",
         string: true
     })
-    .option('rate-limit-user-windowms', {
-        description: 'Overrides apiEndPoint.ratePerUser.windowMs from config.json',
+    .option("rate-limit-user-windowms", {
+        description: "Overrides apiEndPoint.ratePerUser.windowMs from config.json",
         number: true
     })
-    .option('rate-limit-user-max', {
-        description: 'Overrides apiEndPoint.ratePerUser.max from config.json',
+    .option("rate-limit-user-max", {
+        description: "Overrides apiEndPoint.ratePerUser.max from config.json",
         number: true
     })
-    .option('rate-limit-user-message', {
-        description: 'Overrides apiEndPoint.ratePerUser.message from config.json',
+    .option("rate-limit-user-message", {
+        description: "Overrides apiEndPoint.ratePerUser.message from config.json",
         string: true
     })
-    .option('rate-limit-global-windowms', {
-        description: 'Overrides apiEndPoint.rateGlobal.windowMs from config.json',
+    .option("rate-limit-global-windowms", {
+        description: "Overrides apiEndPoint.rateGlobal.windowMs from config.json",
         number: true
     })
-    .option('rate-limit-global-max', {
-        description: 'Overrides apiEndPoint.rateGlobal.max from config.json',
+    .option("rate-limit-global-max", {
+        description: "Overrides apiEndPoint.rateGlobal.max from config.json",
         number: true
     })
-    .option('rate-limit-global-message', {
-        description: 'Overrides apiEndPoint.rateGlobal.message from config.json',
+    .option("rate-limit-global-message", {
+        description: "Overrides apiEndPoint.rateGlobal.message from config.json",
         string: true
     })
-    .help()
-    .argv;
+    .help().argv;
 
 //Override config.json if arguments are provided
 if (argv.jsonRpcUrl) config.jsonRpcUrl = argv.jsonRpcUrl;
@@ -54,44 +54,51 @@ if ((argv.rateLimitUserWindowms && !argv.rateLimitUserMax) || (!argv.rateLimitUs
 if (argv.rateLimitUserWindowms || argv.rateLimitUserMax || argv.rateLimitUserMessage) {
     config.apiEndpoint = config.apiEndpoint || {};
     config.apiEndpoint.ratePerUser = {
-        windowMs: argv.rateLimitUserWindowms || (config.apiEndpoint.ratePerUser && config.apiEndpoint.ratePerUser.windowMs),
+        windowMs:
+            argv.rateLimitUserWindowms || (config.apiEndpoint.ratePerUser && config.apiEndpoint.ratePerUser.windowMs),
         max: argv.rateLimitUserMax || (config.apiEndpoint.ratePerUser && config.apiEndpoint.ratePerUser.max),
         message: argv.rateLimitUserMessage || (config.apiEndpoint.ratePerUser && config.apiEndpoint.ratePerUser.message)
     };
 }
-if ((argv.rateLimitGlobalWindowms && !argv.rateLimitGlobalMax) || (!argv.rateLimitGlobalWindowms && argv.rateLimitGlobalMax)) {
+if (
+    (argv.rateLimitGlobalWindowms && !argv.rateLimitGlobalMax) ||
+    (!argv.rateLimitGlobalWindowms && argv.rateLimitGlobalMax)
+) {
     console.error("Options 'rate-limit-global-windowms' and 'rate-limit-global-max' must be provided together.");
     process.exit(1);
 }
 if (argv.rateLimitGlobalWindowms || argv.rateLimitGlobalMax || argv.rateLimitGlobalMessage) {
     config.apiEndpoint = config.apiEndpoint || {};
     config.apiEndpoint.rateGlobal = {
-        windowMs: argv.rateLimitGlobalWindowms || (config.apiEndpoint.rateGlobal && config.apiEndpoint.rateGlobal.windowMs),
+        windowMs:
+            argv.rateLimitGlobalWindowms || (config.apiEndpoint.rateGlobal && config.apiEndpoint.rateGlobal.windowMs),
         max: argv.rateLimitGlobalMax || (config.apiEndpoint.rateGlobal && config.apiEndpoint.rateGlobal.max),
         message: argv.rateLimitGlobalMessage || (config.apiEndpoint.rateGlobal && config.apiEndpoint.rateGlobal.message)
     };
 }
 
+async function startUp() {
+    const provider = getJsonRPCProvider(config.jsonRpcUrl);
+    const delayedProvider = getJsonRPCProvider(config.jsonRpcUrl);
+    withDelay(delayedProvider, 2);
+    const watcherWallet = new ethers.Wallet(config.responderKey, provider);
 
-Promise.all([getJsonRPCProvider(config.jsonRpcUrl), getJsonRPCProvider(config.jsonRpcUrl)]).then(
-    providers => {
-        const provider = providers[0];
-        const delayedProvider = providers[1];
-        withDelay(delayedProvider, 2);
+    await validateProvider(provider)
+    await validateProvider(delayedProvider)
 
-        const watcherWallet = new ethers.Wallet(config.responderKey, provider);
+    // start the pisa service
+    const service = new PisaService(
+        config.host.name,
+        config.host.port,
+        provider,
+        watcherWallet,
+        delayedProvider,
+        config.apiEndpoint
+    );
 
-        // start the pisa service
-        const service = new PisaService(config.host.name, config.host.port, provider, watcherWallet, delayedProvider, config.apiEndpoint);
-
-        // wait for a stop signal
-        waitForStop(service);
-    },
-    err => {
-        console.error(err);
-        process.exit(1);
-    }
-);
+    // wait for a stop signal
+    waitForStop(service);
+}
 
 function waitForStop(service: PisaService) {
     const stdin = process.stdin;
@@ -116,3 +123,6 @@ function waitForStop(service: PisaService) {
         });
     }
 }
+
+
+startUp().catch(doh => logger.error(doh));

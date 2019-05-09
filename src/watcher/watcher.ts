@@ -34,9 +34,8 @@ export class Watcher extends StartStopService {
     private startReorg() {
         this.reorgInProgress = true;
     }
-    private endReorg(newHead: number) {
+    private endReorg() {
         this.reorgInProgress = false;
-        this.provider.resetEventsBlock(newHead);
     }
     protected startInternal() {
         this.reorgDetecteor.on(ReorgDetector.REORG_START_EVENT, this.startReorg);
