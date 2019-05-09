@@ -3,6 +3,9 @@ import { ethers } from "ethers";
 import config from "./dataEntities/config";
 import { getJsonRPCProvider } from "./provider";
 import { withDelay } from "./utils/ethers";
+import levelup, { LevelUp } from "levelup";
+import encodingDown from "encoding-down";
+import leveldown from "leveldown";
 
 const argv = require("yargs")
     .scriptName("pisa")
@@ -53,7 +56,8 @@ if ((argv.rateLimitUserWindowms && !argv.rateLimitUserMax) || (!argv.rateLimitUs
 if (argv.rateLimitUserWindowms || argv.rateLimitUserMax || argv.rateLimitUserMessage) {
     config.apiEndpoint = config.apiEndpoint || {};
     config.apiEndpoint.ratePerUser = {
-        windowMs: argv.rateLimitUserWindowms || (config.apiEndpoint.ratePerUser && config.apiEndpoint.ratePerUser.windowMs),
+        windowMs:
+            argv.rateLimitUserWindowms || (config.apiEndpoint.ratePerUser && config.apiEndpoint.ratePerUser.windowMs),
         max: argv.rateLimitUserMax || (config.apiEndpoint.ratePerUser && config.apiEndpoint.ratePerUser.max),
         message: argv.rateLimitUserMessage || (config.apiEndpoint.ratePerUser && config.apiEndpoint.ratePerUser.message)
     };
@@ -68,11 +72,14 @@ if (
 if (argv.rateLimitGlobalWindowms || argv.rateLimitGlobalMax || argv.rateLimitGlobalMessage) {
     config.apiEndpoint = config.apiEndpoint || {};
     config.apiEndpoint.rateGlobal = {
-        windowMs: argv.rateLimitGlobalWindowms || (config.apiEndpoint.rateGlobal && config.apiEndpoint.rateGlobal.windowMs),
+        windowMs:
+            argv.rateLimitGlobalWindowms || (config.apiEndpoint.rateGlobal && config.apiEndpoint.rateGlobal.windowMs),
         max: argv.rateLimitGlobalMax || (config.apiEndpoint.rateGlobal && config.apiEndpoint.rateGlobal.max),
         message: argv.rateLimitGlobalMessage || (config.apiEndpoint.rateGlobal && config.apiEndpoint.rateGlobal.message)
     };
 }
+
+let db: LevelUp<encodingDown<string, any>>;
 
 Promise.all([getJsonRPCProvider(config.jsonRpcUrl), getJsonRPCProvider(config.jsonRpcUrl)]).then(
     providers => {
@@ -82,6 +89,9 @@ Promise.all([getJsonRPCProvider(config.jsonRpcUrl), getJsonRPCProvider(config.js
 
         const watcherWallet = new ethers.Wallet(config.responderKey, provider);
 
+        // intialise the db
+        db = levelup(encodingDown(leveldown("test-location-10"), { valueEncoding: "json" }));
+
         // start the pisa service
         const service = new PisaService(
             config.host.name,
@@ -89,6 +99,7 @@ Promise.all([getJsonRPCProvider(config.jsonRpcUrl), getJsonRPCProvider(config.js
             provider,
             watcherWallet,
             delayedProvider,
+            db,
             config.apiEndpoint
         );
         service.start().then(a => {
@@ -98,7 +109,14 @@ Promise.all([getJsonRPCProvider(config.jsonRpcUrl), getJsonRPCProvider(config.js
     },
     err => {
         console.error(err);
-        process.exit(1);
+        if (db.isOpen)
+            db.close().then(
+                () => process.exit(1),
+                () => {
+                    console.error("db failed to close");
+                    process.exit(1);
+                }
+            );
     }
 );
 
@@ -117,6 +135,8 @@ function waitForStop(service: PisaService) {
             if (key === "\u0003") {
                 // stop the pisa service
                 await service.stop();
+                // shut the db
+                await db.close();
                 // exit the process
                 process.exit();
             }

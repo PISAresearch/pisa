@@ -5,7 +5,7 @@ import { Server } from "http";
 import { inspect } from "util";
 import { ethers } from "ethers";
 import logger from "./logger";
-import { PublicInspectionError, PublicDataValidationError, ApplicationError, StartStopService } from "./dataEntities";
+import { PublicInspectionError, PublicDataValidationError, ApplicationError, StartStopService, ChannelType, IEthereumAppointment } from "./dataEntities";
 import { Raiden, Kitsune } from "./integrations";
 import { Watcher, AppointmentStore } from "./watcher";
 import { PisaTower } from "./tower";
@@ -16,8 +16,7 @@ import { AppointmentSubscriber } from "./watcher/appointmentSubscriber";
 import { IApiEndpointConfig } from "./dataEntities/config";
 import { ReorgDetector } from "./blockMonitor/reorg";
 import { ReorgHeightListenerStore } from "./blockMonitor";
-import levelup, { LevelUp } from "levelup";
-import leveldown from "leveldown";
+import { LevelUp } from "levelup";
 import encodingDown from "encoding-down";
 
 /**
@@ -28,7 +27,7 @@ export class PisaService extends StartStopService {
     private readonly garbageCollector: AppointmentStoreGarbageCollector;
     private readonly reorgDetector: ReorgDetector;
     private readonly watcher: Watcher;
-    private readonly db: LevelUp<encodingDown<string, any>>;
+    private readonly appointmentStore: AppointmentStore;
 
     /**
      *
@@ -45,21 +44,26 @@ export class PisaService extends StartStopService {
         provider: ethers.providers.BaseProvider,
         wallet: ethers.Wallet,
         delayedProvider: ethers.providers.BaseProvider,
-        config?: IApiEndpointConfig
+        db: LevelUp<encodingDown<string, any>>,
+        config?: IApiEndpointConfig, 
     ) {
         super("PISA");
         const app = express();
 
         this.applyMiddlewares(app, config);
 
+        // choose configs
+        const configs = [Raiden, Kitsune]
+
         // start reorg detector
+        // TODO:6: use a different provider for the delayed provider
+        // TODO:6: pass in config here instead of actual providers, test the providers in startup
         this.reorgDetector = new ReorgDetector(delayedProvider, 200, new ReorgHeightListenerStore());
 
-        // intialise the db
-        this.db = levelup(encodingDown(leveldown("test-location"), { valueEncoding: "json" }));
-
         // dependencies
-        const store = new AppointmentStore(this.db);
+        const appointmentConstructors = new Map<ChannelType, (obj: any) => IEthereumAppointment>()
+        configs.map(c => appointmentConstructors.set(c.channelType, c.appointment));
+        this.appointmentStore = new AppointmentStore(db, appointmentConstructors);
         const ethereumResponderManager = new EthereumResponderManager(wallet);
         const appointmentSubscriber = new AppointmentSubscriber(delayedProvider);
         this.watcher = new Watcher(
@@ -67,11 +71,16 @@ export class PisaService extends StartStopService {
             ethereumResponderManager,
             this.reorgDetector,
             appointmentSubscriber,
-            store
+            this.appointmentStore
         );
 
         // gc
-        this.garbageCollector = new AppointmentStoreGarbageCollector(provider, 10, store, appointmentSubscriber);
+        this.garbageCollector = new AppointmentStoreGarbageCollector(
+            provider,
+            10,
+            this.appointmentStore,
+            appointmentSubscriber
+        );
 
         // tower
         const tower = new PisaTower(provider, this.watcher, [Raiden, Kitsune]);
@@ -87,13 +96,14 @@ export class PisaService extends StartStopService {
         await this.reorgDetector.start();
         await this.watcher.start();
         await this.garbageCollector.start();
+        await this.appointmentStore.start();
     }
 
     async stopInternal() {
         await this.garbageCollector.stop();
         await this.reorgDetector.stop();
         await this.watcher.stop();
-        await this.db.close();
+        await this.appointmentStore.stop();
         this.server.close(error => {
             if (error) logger.error(error.stack!);
             logger.info(`PISA shutdown.`);

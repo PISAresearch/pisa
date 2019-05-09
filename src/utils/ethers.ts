@@ -145,7 +145,7 @@ export function rejectIfAnyBlockTimesOut(provider: ethers.providers.Provider, st
             const msSinceLastBlock = Date.now() - timeLastBlockReceived;
             if (msSinceLastBlock > timeout) {
                 cleanup();
-                reject(new NoNewBlockError(`No new block was received for ${Math.round(msSinceLastBlock)} seconds; provider might be down.`));
+                reject(new NoNewBlockError(`No new block was received for ${Math.round(msSinceLastBlock/1000)} seconds; provider might be down.`));
             } else {
                 timeoutHandler = setTimeout(testCondition, pollInterval);
             }

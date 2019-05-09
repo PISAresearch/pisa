@@ -38,7 +38,7 @@ export class RaidenAppointment extends EthereumAppointment {
     constructor(obj: { stateUpdate: IRaidenStateUpdate; expiryPeriod: number; type: ChannelType.Raiden });
     constructor(obj: any) {
         if (RaidenAppointment.checkRaidenAppointment(obj)) {
-            super(obj.expiryPeriod, ChannelType.Raiden);
+            super(obj.expiryPeriod, ChannelType.Raiden, obj.startBlock, obj.endBlock);
             this.stateUpdate = obj.stateUpdate;
         }
     }

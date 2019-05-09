@@ -9,6 +9,9 @@ import Ganache from "ganache-core";
 import { ChannelType } from "../../src/dataEntities";
 import logger from "../../src/logger";
 import StateChannelFactory from "../../src/integrations/kitsune/StateChannelFactory.json";
+import levelup, { LevelUp } from "levelup";
+import MemDown from "memdown";
+import encodingDown from "encoding-down";
 logger.transports.forEach(l => (l.level = "max"));
 
 const ganache = Ganache.provider({
@@ -30,11 +33,19 @@ describe("Service end-to-end", () => {
         channelContract: ethers.Contract,
         hashState: string,
         disputePeriod: number,
-        service: PisaService;
+        service: PisaService,
+        db: LevelUp<encodingDown<string, any>>;
 
     beforeEach(async () => {
         const watcherWallet = new ethers.Wallet(config.responderKey, provider);
-        service = new PisaService(config.host.name, config.host.port, provider, watcherWallet, provider);
+
+        db = levelup(
+            encodingDown<string, any>(MemDown(), {
+                valueEncoding: "json"
+            })
+        );
+
+        service = new PisaService(config.host.name, config.host.port, provider, watcherWallet, provider, db);
         await service.start();
 
         // accounts
@@ -57,6 +68,7 @@ describe("Service end-to-end", () => {
 
     afterEach(async () => {
         await service.stop();
+        await db.close();
     });
 
     it("create channel, submit appointment, trigger dispute, wait for response", async () => {

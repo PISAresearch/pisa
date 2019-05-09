@@ -56,26 +56,26 @@ describe("GarbageCollector", () => {
     when(mockedStore.removeById(appointmentInstance1.id)).thenResolve(true);
     when(mockedStore.removeById(appointmentInstance2.id)).thenResolve(true);
     when(mockedStore.removeById(errorStoreRemoveByIdAppointment.id)).thenReject(new Error("Remove failed."));
-    when(mockedStore.getExpiredSince(appointment1Expired - confirmationCount)).thenResolve([appointmentInstance1]);
+    when(mockedStore.getExpiredSince(appointment1Expired - confirmationCount)).thenReturn([appointmentInstance1]);
 
-    when(mockedStore.getExpiredSince(appointment2Expired - confirmationCount)).thenResolve([appointmentInstance2]);
-    when(mockedStore.getExpiredSince(bothAppointmentsExpired - confirmationCount)).thenResolve([
+    when(mockedStore.getExpiredSince(appointment2Expired - confirmationCount)).thenReturn([appointmentInstance2]);
+    when(mockedStore.getExpiredSince(bothAppointmentsExpired - confirmationCount)).thenReturn([
         appointmentInstance1,
         appointmentInstance2
     ]);
-    when(mockedStore.getExpiredSince(nothingExpired - confirmationCount)).thenResolve([]);
+    when(mockedStore.getExpiredSince(nothingExpired - confirmationCount)).thenReturn([]);
     // wait some time, then call then return the appointment
-    when(mockedStore.getExpiredSince(slowExpired - confirmationCount)).thenCall(async () => {
+    when(mockedStore.removeById(appointmentInstance1.id)).thenCall(async () => {
         await wait(slowExpiredTime);
-        return [appointmentInstance1];
+        return true;
     });
-    when(mockedStore.getExpiredSince(errorStoreExpired - confirmationCount)).thenReject(
+    when(mockedStore.getExpiredSince(errorStoreExpired - confirmationCount)).thenThrow(
         new Error("Exceptional expired error.")
     );
-    when(mockedStore.getExpiredSince(errorSubscriberAppointmentExpired - confirmationCount)).thenResolve([
+    when(mockedStore.getExpiredSince(errorSubscriberAppointmentExpired - confirmationCount)).thenReturn([
         errorSubscriberAppointment
     ]);
-    when(mockedStore.getExpiredSince(errorRemoveByIdExpiredBlock - confirmationCount)).thenResolve([
+    when(mockedStore.getExpiredSince(errorRemoveByIdExpiredBlock - confirmationCount)).thenReturn([
         errorStoreRemoveByIdAppointment
     ]);
 
@@ -253,7 +253,7 @@ describe("GarbageCollector", () => {
             appointmentSubscriberInstance
         );
 
-        gc.removeExpiredSince(slowExpired);
+        gc.removeExpiredSince(appointment1Expired);
         // wait for less than the slow expired timeout
         await wait(slowExpiredTime - 10);
         await gc.removeExpiredSince(appointment2Expired);

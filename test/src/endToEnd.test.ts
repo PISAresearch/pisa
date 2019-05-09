@@ -74,8 +74,11 @@ describe("End to end", () => {
         // 2. pass this appointment to the watcher
         const responderManager = new EthereumResponderManager(provider.getSigner(pisaAccount));
 
-        let db = levelup(MemDown())
-        const store = new AppointmentStore(db);
+        let db = levelup(MemDown());
+        const map = new Map();
+        map.set(ChannelType.Kitsune, (obj: any) => new KitsuneAppointment(obj));
+        const store = new AppointmentStore(db, map);
+        await store.start();
         const watcher = new Watcher(provider, responderManager, detector, new AppointmentSubscriber(provider), store);
         await watcher.start();
         const player0Contract = channelContract.connect(provider.getSigner(player0));
@@ -86,7 +89,8 @@ describe("End to end", () => {
         const tx = await player0Contract.triggerDispute();
         await tx.wait();
         await detector.stop();
-        await db.close()
+        await store.stop();
+        await db.close();
         await wait(2000);
     }).timeout(3000);
 });
