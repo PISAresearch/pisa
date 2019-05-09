@@ -56,8 +56,6 @@ export class PisaService extends StartStopService {
         const configs = [Raiden, Kitsune]
 
         // start reorg detector
-        // TODO:6: use a different provider for the delayed provider
-        // TODO:6: pass in config here instead of actual providers, test the providers in startup
         this.reorgDetector = new ReorgDetector(delayedProvider, 200, new ReorgHeightListenerStore());
 
         // dependencies

@@ -17,6 +17,10 @@ const argv = require("yargs")
         description: "Overrides responderKey from config.json",
         string: true
     })
+    .option("db-dir", {
+        description: "Directory to hold the database",
+        string: true
+    })
     .option("rate-limit-user-windowms", {
         description: "Overrides apiEndPoint.ratePerUser.windowMs from config.json",
         number: true
@@ -48,6 +52,7 @@ if (argv.jsonRpcUrl) config.jsonRpcUrl = argv.jsonRpcUrl;
 if (argv.hostName) config.host.name = argv.hostName;
 if (argv.hostPort) config.host.port = argv.hostPort;
 if (argv.responderKey) config.responderKey = argv.responderKey;
+if (argv.dbDir) config.dbDir = argv.dbDir;
 
 if ((argv.rateLimitUserWindowms && !argv.rateLimitUserMax) || (!argv.rateLimitUserWindowms && argv.rateLimitUserMax)) {
     console.error("Options 'rate-limit-user-windowms' and 'rate-limit-user-max' must be provided together.");
@@ -90,7 +95,7 @@ Promise.all([getJsonRPCProvider(config.jsonRpcUrl), getJsonRPCProvider(config.js
         const watcherWallet = new ethers.Wallet(config.responderKey, provider);
 
         // intialise the db
-        db = levelup(encodingDown(leveldown("test-location-10"), { valueEncoding: "json" }));
+        db = levelup(encodingDown(leveldown(config.dbDir), { valueEncoding: "json" }));
 
         // start the pisa service
         const service = new PisaService(

@@ -15,5 +15,6 @@
             "max": 5,
             "message": "Too many requests. Please try again later and limit requests to 5 per minute."
         }
-    }
+    }, 
+    "dbDir": "pisa-db"
 }
