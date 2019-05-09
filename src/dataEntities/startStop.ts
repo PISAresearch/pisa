@@ -4,8 +4,8 @@ import { EventEmitter } from "events";
 
 /**
  * A service that requires starting and stopping.
- * Always start this service before using it.
- * Always stop this service when finished with it.
+ * Whoever constructs this service must start it before using it.
+ * Whoever constructs this service must stop it after using it.
  */
 export abstract class StartStopService extends EventEmitter {
     /**
@@ -18,19 +18,29 @@ export abstract class StartStopService extends EventEmitter {
      */
     public static readonly STOPPED_EVENT = "stopped";
 
+    /**
+     * A service that requires starting and stopping.
+     * Whoever constructs this service must start it before using it.
+     * Whoever constructs this service must stop it after using it.
+     */
     protected constructor(protected readonly name: string) {
         super();
     }
     private mStarted: boolean = false;
+    private mStarting: boolean = false;
 
     /**
      * Start this service
      */
     public async start() {
         if (this.mStarted) throw new ConfigurationError(`${this.name}: Already started.`);
+        if (this,this.mStarting) throw new ConfigurationError(`${this.name}: Currently starting.`);
+        // set started straight away to block the code below
+        this.mStarting = true;
         await this.startInternal();
-        this.mStarted = true;
         logger.info(`${this.name}: Started.`);
+        this.mStarted = true;
+        this.mStarting = false;
         this.emit(StartStopService.STARTED_EVENT);
     }
     protected abstract startInternal(): void;

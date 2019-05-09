@@ -6,6 +6,7 @@ import levelup, { LevelUp } from "levelup";
 import MemDown from "memdown";
 import encodingDown from "encoding-down";
 import { KitsuneAppointment } from "../../../src/integrations/kitsune";
+import { ChannelType } from "../../../src/dataEntities";
 
 const getAppointment = (id: string, stateLocator: string, endBlock: number, nonce: number) => {
     const appointmentMock = mock(KitsuneAppointment);
@@ -40,8 +41,12 @@ describe("Store", () => {
             })
         );
 
-        const map = new Map();
-        map.set("test", (obj: any) => getAppointment(obj.id, obj.stateLocator, obj.endBlock, obj.nonce).object);
+        const map = new Map([
+            [
+                "test" as ChannelType,
+                (obj: any) => getAppointment(obj.id, obj.stateLocator, obj.endBlock, obj.nonce).object
+            ]
+        ]);
         store = new AppointmentStore(db, map);
         await store.start();
     });

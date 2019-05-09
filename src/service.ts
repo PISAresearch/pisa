@@ -5,7 +5,14 @@ import { Server } from "http";
 import { inspect } from "util";
 import { ethers } from "ethers";
 import logger from "./logger";
-import { PublicInspectionError, PublicDataValidationError, ApplicationError, StartStopService, ChannelType, IEthereumAppointment } from "./dataEntities";
+import {
+    PublicInspectionError,
+    PublicDataValidationError,
+    ApplicationError,
+    StartStopService,
+    ChannelType,
+    IEthereumAppointment
+} from "./dataEntities";
 import { Raiden, Kitsune } from "./integrations";
 import { Watcher, AppointmentStore } from "./watcher";
 import { PisaTower } from "./tower";
@@ -45,7 +52,7 @@ export class PisaService extends StartStopService {
         wallet: ethers.Wallet,
         delayedProvider: ethers.providers.BaseProvider,
         db: LevelUp<encodingDown<string, any>>,
-        config?: IApiEndpointConfig, 
+        config?: IApiEndpointConfig
     ) {
         super("PISA");
         const app = express();
@@ -53,15 +60,13 @@ export class PisaService extends StartStopService {
         this.applyMiddlewares(app, config);
 
         // choose configs
-        const configs = [Raiden, Kitsune]
+        const configs = [Raiden, Kitsune];
 
         // start reorg detector
         this.reorgDetector = new ReorgDetector(delayedProvider, 200, new ReorgHeightListenerStore());
 
         // dependencies
-        const appointmentConstructors = new Map<ChannelType, (obj: any) => IEthereumAppointment>()
-        configs.map(c => appointmentConstructors.set(c.channelType, c.appointment));
-        this.appointmentStore = new AppointmentStore(db, appointmentConstructors);
+        this.appointmentStore = new AppointmentStore(db, new Map(configs.map(c => [c.channelType, c.appointment])));
         const ethereumResponderManager = new EthereumResponderManager(wallet);
         const appointmentSubscriber = new AppointmentSubscriber(delayedProvider);
         this.watcher = new Watcher(
@@ -81,7 +86,7 @@ export class PisaService extends StartStopService {
         );
 
         // tower
-        const tower = new PisaTower(provider, this.watcher, [Raiden, Kitsune]);
+        const tower = new PisaTower(provider, this.watcher, configs);
 
         app.post("/appointment", this.appointment(tower));
 
