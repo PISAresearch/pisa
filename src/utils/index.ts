@@ -1,3 +1,5 @@
+export { validateProvider, getJsonRPCProvider } from "./ethers";
+
 /**
  * Returns a Promise that resolves after waiting `milliseconds`.
  * @param milliseconds

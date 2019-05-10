@@ -2,8 +2,19 @@ import request from "request-promise";
 import { KitsuneTools } from "../../src/integrations/kitsune";
 import { ethers } from "ethers";
 import config from "../../src/dataEntities/config";
-import { getJsonRPCProvider } from "../../src/provider";
+import { getJsonRPCProvider } from "../../src/utils";
 let account0: string, account1: string, channelContract: ethers.Contract, hashState: string, disputePeriod: number;
+
+class Face {
+    
+}
+
+
+
+
+
+
+
 
 const mineBlock = async (wallet: ethers.Signer) => {
     const tx = await wallet.sendTransaction({ to: "0x0000000000000000000000000000000000000000", value: 1 });
@@ -18,7 +29,7 @@ const mineBlocks = async (wallet: ethers.Signer, blockCount: number) => {
 
 let setup = async () => {
     // accounts
-    const provider = await getJsonRPCProvider();
+    const provider = getJsonRPCProvider(config.jsonRpcUrl);
     const accounts = await provider.listAccounts();
     account0 = accounts[0];
     account1 = accounts[1];
@@ -37,7 +48,7 @@ let setup = async () => {
 };
 
 let execute = async () => {
-    const provider = await getJsonRPCProvider();
+    const provider = getJsonRPCProvider(config.jsonRpcUrl);
     const wallet = new ethers.Wallet(config.responderKey, provider);
     const round = 1,
         setStateHash = KitsuneTools.hashForSetState(hashState, round, channelContract.address),

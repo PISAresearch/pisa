@@ -78,14 +78,13 @@ export class ReorgDetector extends StartStopService {
                     if (commonAncestor === this.headBlock) {
                         // direct ancestor - extend the chain
                         this.headBlock = this.headBlock.extendMany(differenceBlocks.reverse());
-                    }
-                    else if (commonAncestor === null) {
+                    } else if (commonAncestor === null) {
                         // if we couldn't find a common ancestor the reorg must be too deep
                         this.emit(ReorgDetector.REORG_BEYOND_DEPTH_EVENT, this.headBlock.asBlockStub(), fullBlock);
                         // conduct a reorg with a new genesis
                         const oldestBlock = differenceBlocks[differenceBlocks.length - 1];
                         await this.conductReorg(BlockStubChain.newRoot(oldestBlock.number, oldestBlock.hash));
-                    }  else {
+                    } else {
                         // indirect ancestor found - conduct reorg
                         await this.conductReorg(commonAncestor);
                     }
@@ -107,14 +106,15 @@ export class ReorgDetector extends StartStopService {
 
     /**
      * Updates local state according to a new head, and informs subscribers
-     * @param newHead 
+     * @param newHead
      */
     private async conductReorg(newHead: BlockStubChain) {
         // we found a commong ancestor that was not the head - therfore we need
         // to conduct a reorg. Inform other listeners so that they might pause their
         // processing in the meantime
-        this.emit(ReorgDetector.REORG_START_EVENT, newHead.height);
 
+        this.provider.polling = false;
+        this.emit(ReorgDetector.REORG_START_EVENT, newHead.height);
         // set the new head
         this.headBlock = newHead;
 
@@ -127,8 +127,9 @@ export class ReorgDetector extends StartStopService {
         // reset this provider so that we can continue moving forward from here
         this.provider.resetEventsBlock(newHead.height + 1);
 
-        // and emit the reorg event
+        // and emit the end reorg event
         this.emit(ReorgDetector.REORG_END_EVENT, newHead.height);
+        this.provider.polling = true;
     }
 
     /**
@@ -165,15 +166,15 @@ export class ReorgDetector extends StartStopService {
      * Finds the common ancestor between a local block stub chain and the block that corresponds
      * to a given hash. It does this by recursively requesting blocks for this hash from the provider and
      * checking whether the parent exists in the local chain. Will not look below a certain height.
-     * 
+     *
      * This is an O(n) operation meaning that it can be expensive when called in a loop - there are other ways we could
      * arrange this logic to mitigate this. See: https://github.com/PISAresearch/pisa/issues/130
-     * 
+     *
      * @param remoteBlockHash The hash corresponding to the head of the remote block
      * @param localBlock The local chain with which to compare the new remote one
      * @param differenceBlocks If a common ancestor is found the blocks between it and the remote block are populated here
      * @param minHeight The minimum height to search to
-     * 
+     *
      */
     public async findCommonAncestorDeep(
         remoteBlockHash: string,
@@ -187,7 +188,6 @@ export class ReorgDetector extends StartStopService {
         const ancestor = localBlock.ancestorWithHash(blockRemote.parentHash);
         if (ancestor) return ancestor;
 
-        
         if (blockRemote.number <= minHeight) return null;
         return await this.findCommonAncestorDeep(blockRemote.parentHash, localBlock, differenceBlocks, minHeight);
     }

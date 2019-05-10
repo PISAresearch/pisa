@@ -1,8 +1,8 @@
 import { PisaService } from "./service";
 import { ethers } from "ethers";
 import config from "./dataEntities/config";
-import { getJsonRPCProvider } from "./provider";
-import { withDelay } from "./utils/ethers";
+import { withDelay, validateProvider, getJsonRPCProvider } from "./utils/ethers";
+import logger from "./logger";
 import levelup, { LevelUp } from "levelup";
 import encodingDown from "encoding-down";
 import leveldown from "leveldown";
@@ -15,10 +15,6 @@ const argv = require("yargs")
     .describe("host-port", "Overrides host.porg from config.json")
     .option("responder-key", {
         description: "Overrides responderKey from config.json",
-        string: true
-    })
-    .option("db-dir", {
-        description: "Directory to hold the database",
         string: true
     })
     .option("rate-limit-user-windowms", {
@@ -86,44 +82,31 @@ if (argv.rateLimitGlobalWindowms || argv.rateLimitGlobalMax || argv.rateLimitGlo
 
 let db: LevelUp<encodingDown<string, any>>;
 
-Promise.all([getJsonRPCProvider(config.jsonRpcUrl), getJsonRPCProvider(config.jsonRpcUrl)]).then(
-    providers => {
-        const provider = providers[0];
-        const delayedProvider = providers[1];
-        withDelay(delayedProvider, 2);
+async function startUp() {
+    const provider = getJsonRPCProvider(config.jsonRpcUrl);
+    const delayedProvider = getJsonRPCProvider(config.jsonRpcUrl);
+    withDelay(delayedProvider, 2);
+    const watcherWallet = new ethers.Wallet(config.responderKey, provider);
 
-        const watcherWallet = new ethers.Wallet(config.responderKey, provider);
+    db = levelup(encodingDown(leveldown(config.dbDir), { valueEncoding: "json" }));
 
-        // intialise the db
-        db = levelup(encodingDown(leveldown(config.dbDir), { valueEncoding: "json" }));
+    await validateProvider(provider)
+    await validateProvider(delayedProvider)
 
-        // start the pisa service
-        const service = new PisaService(
-            config.host.name,
-            config.host.port,
-            provider,
-            watcherWallet,
-            delayedProvider,
-            db,
-            config.apiEndpoint
-        );
-        service.start().then(a => {
-            // wait for a stop signal
-            waitForStop(service);
-        });
-    },
-    err => {
-        console.error(err);
-        if (db.isOpen)
-            db.close().then(
-                () => process.exit(1),
-                () => {
-                    console.error("db failed to close");
-                    process.exit(1);
-                }
-            );
-    }
-);
+    // start the pisa service
+    const service = new PisaService(
+        config.host.name,
+        config.host.port,
+        provider,
+        watcherWallet,
+        delayedProvider,
+        db,
+        config.apiEndpoint
+    );
+
+    // wait for a stop signal
+    waitForStop(service);
+}
 
 function waitForStop(service: PisaService) {
     const stdin = process.stdin;
@@ -153,3 +136,6 @@ function waitForStop(service: PisaService) {
         });
     }
 }
+
+
+startUp().catch((doh: Error) => logger.error(doh.stack!));

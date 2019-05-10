@@ -1,8 +1,7 @@
 // Utility functions for ethers.js
-
-import ethers from 'ethers';
 import { Provider, BaseProvider } from "ethers/providers";
 import { CancellablePromise } from '.';
+import { ethers } from "ethers";
 
 /**
  * A simple custom Error class to provide more details in case of a re-org.
@@ -181,3 +180,34 @@ export const withDelay = (provider: BaseProvider, delay: number): void => {
         return performResult;
     };
 };
+
+/**
+ * 
+ * @param url Get a json rpc provider
+ * @param pollingInterval 
+ */
+export const getJsonRPCProvider = (url: string, pollingInterval: number = 100) => {
+    const provider = new ethers.providers.JsonRpcProvider(url);
+    provider.pollingInterval = pollingInterval;
+    return provider;
+};
+
+
+/**
+ * Check that the provider has a good connection
+ * @param provider
+ */
+export async function validateProvider(provider: ethers.providers.Provider) {
+    try {
+        /* if the provider is working then a valid response of a number will be returned
+            otherwise, an error will be thrown such as invalid JSON response "" which indicates 
+            the connection failed, the error will be caught here and a separate error will be thrown.
+            The address is a random valid address taken from ethersjs documentation
+        */
+        await provider.getTransactionCount("0xD115BFFAbbdd893A6f7ceA402e7338643Ced44a6");
+    } catch (err) {
+        if ((provider as any).connection && (provider as any).connection.url) {
+            throw new Error(`Provider failed to connect to ${(provider as any).connection.url}.\n ${err}`);
+        } else throw new Error(`Provider ${JSON.stringify(provider)} failed to connect.\n ${err}`);
+    }
+}

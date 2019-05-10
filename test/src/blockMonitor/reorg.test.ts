@@ -145,6 +145,7 @@ class TestCase {
                 // reduce the stack size again as we've now adjusted the index
                 traversalLength--;
             }
+
             await provider.asyncEmit("block", this.blocks[index].number);
             if (currentReorg && currentReorg.resetIndex) {
                 // temporarily increase the index size to allow for a reorg that
@@ -186,8 +187,8 @@ class ReorgMocks {
             when(mockedProvider.getBlock(key.hash)).thenResolve(key as ethers.providers.Block);
         }
 
-        const provider: asyncEmitTestProvider = instance(mockedProvider) as any;
-        ReorgMocks.addProviderFuncs(provider);
+        let provider: asyncEmitTestProvider = instance(mockedProvider) as any;
+        provider = ReorgMocks.addProviderFuncs(provider);
         const store = new ReorgHeightListenerStore();
         const reorgDetector: ReorgDetector = new ReorgDetector(provider, maxDepth, store);
         await reorgDetector.start();
@@ -206,12 +207,29 @@ class ReorgMocks {
             await cachedBlockListener(args[0]);
             return true;
         };
-        asyncProvider.currentBlock = 0;
-        asyncProvider.currentBlockSet = false;
-        asyncProvider.resetEventsBlock = (blockNumber: number) => {
-            asyncProvider.currentBlockSet = true;
-            asyncProvider.currentBlock = blockNumber;
+
+        const newAsyncProvider = Object.keys(asyncProvider).reduce((object: any, key: any) => {
+            if (key !== "polling") {
+                object[key] = (asyncProvider as any)[key];
+            }
+            return object;
+        }, {});
+
+        Object.defineProperty(newAsyncProvider, "polling", {
+            get: function() {},
+            set: function(value) {},
+            enumerable: true,
+            configurable: true
+        });
+
+        newAsyncProvider.currentBlock = 0;
+        newAsyncProvider.currentBlockSet = false;
+        newAsyncProvider.resetEventsBlock = (blockNumber: number) => {
+            newAsyncProvider.currentBlockSet = true;
+            newAsyncProvider.currentBlock = blockNumber;
         };
+
+        return newAsyncProvider as asyncEmitTestProvider;
     }
 }
 
