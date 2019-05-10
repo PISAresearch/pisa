@@ -80,20 +80,18 @@ if (argv.rateLimitGlobalWindowms || argv.rateLimitGlobalMax || argv.rateLimitGlo
     };
 }
 
-let db: LevelUp<encodingDown<string, any>>;
-
 async function startUp() {
     const provider = getJsonRPCProvider(config.jsonRpcUrl);
     const delayedProvider = getJsonRPCProvider(config.jsonRpcUrl);
     withDelay(delayedProvider, 2);
     const watcherWallet = new ethers.Wallet(config.responderKey, provider);
 
-    db = levelup(encodingDown(leveldown(config.dbDir), { valueEncoding: "json" }));
+    const db = levelup(encodingDown(leveldown(config.dbDir), { valueEncoding: "json" }));
 
-    await validateProvider(provider)
-    await validateProvider(delayedProvider)
+    await validateProvider(provider);
+    await validateProvider(delayedProvider);
 
-    const receiptSigner = new ethers.Wallet(config.receiptKey); 
+    const receiptSigner = new ethers.Wallet(config.receiptKey);
 
     // start the pisa service
     const service = new PisaService(
@@ -109,11 +107,11 @@ async function startUp() {
 
     service.start().then(a => {
         // wait for a stop signal
-        waitForStop(service);
+        waitForStop(service, db);
     });
 }
 
-function waitForStop(service: PisaService) {
+function waitForStop(service: PisaService, db: LevelUp<encodingDown<string, any>>) {
     const stdin = process.stdin;
     if (stdin.setRawMode) {
         // without this, we would only get streams once enter is pressed
@@ -126,21 +124,27 @@ function waitForStop(service: PisaService) {
         stdin.on("data", async key => {
             // ctrl-c ( end of text )
             if (key === "\u0003") {
-                await Promise.all([
-                    // stop the pisa service
-                    service.stop(),
-                    // shut the db
-                    db.close()
-                ]);
-
-                // exit the process
-                process.exit();
+                await stop(service, db);
             }
             // otherwise write the key to stdout all normal like
             process.stdout.write(key);
         });
     }
+
+    // also close on the terminate signal
+    process.on("SIGTERM", async () => await stop(service, db));
 }
 
+async function stop(service: PisaService, db: LevelUp<encodingDown<string, any>>) {
+    await Promise.all([
+        // stop the pisa service
+        service.stop(),
+        // shut the db
+        db.close()
+    ]);
+
+    // exit the process
+    process.exit();
+}
 
 startUp().catch((doh: Error) => logger.error(doh.stack!));
