@@ -1,14 +1,11 @@
 import { ApplicationError } from "../dataEntities";
 
 export class Lock {
-    private waiters: Array<() => void>;
+    private waiters: Array<() => void> = [];
     private mLocked = false;
+
     public get locked() {
         return this.mLocked;
-    }
-
-    constructor() {
-        this.waiters = [];
     }
 
     public async acquire(): Promise<void> {
@@ -23,9 +20,8 @@ export class Lock {
     }
 
     public release() {
-        if (!this.locked) {
-            throw new ApplicationError("Tried to release a Lock that was not locked.");
-        }
+        if (!this.mLocked) throw new ApplicationError("Tried to release a Lock that was not locked.");
+
         if (this.waiters.length > 0) {
             // resolve the first waiter in the queue
             const resolve = this.waiters.shift()!;
@@ -38,27 +34,33 @@ export class Lock {
 
 export class LockManager {
     private locks: {
-        [id: string]: Lock;
+        [key: string]: Lock;
     } = {};
 
-    public withLock<T>(id: string, f: () => T): Promise<T> {
-        return new Promise(async (resolve, reject) => {
-            if (!this.locks[id]) {
-                this.locks[id] = new Lock();
-            }
+    public async acquire(key: string) {
+        if (!this.locks[key]) {
+            this.locks[key] = new Lock();
+        }
 
-            try {
-                await this.locks[id].acquire;
-                const res = await f();
-                resolve(res);
-            } catch (err) {
-                reject(err);
-            } finally {
-                this.locks[id].release();
-                if (!this.locks[id].locked) {
-                    delete this.locks[id];
-                }
-            }
-        });
+        await this.locks[key].acquire();
+    }
+    public release(key: string) {
+        this.locks[key].release();
+        if (!this.locks[key].locked) {
+            delete this.locks[key];
+        }
+    }
+}
+
+export class LockUtil {
+    private manager = new LockManager();
+
+    public async withLock<T>(key: string, func: () => T): Promise<T> {
+        try {
+            await this.manager.acquire(key);
+            return func();
+        } finally {
+            await this.manager.release(key);
+        }
     }
 }
