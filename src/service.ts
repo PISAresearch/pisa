@@ -181,7 +181,7 @@ export class PisaService extends StartStopService {
                 // with signature
                 res.send({
                     appointment,
-                    signatures: [signature]
+                    signature
                 });
             } catch (doh) {
                 if (doh instanceof PublicInspectionError) this.logAndSend(400, doh.message, doh, res);
