@@ -74,7 +74,6 @@ export class HotEthereumAppointmentSigner extends EthereumAppointmentSigner {
      * @param appointment
      */
     public signAppointment(appointment: EthereumAppointment): Promise<string> {
-        // TODO: this signature format does not match Pisa's contract
         const packedData = ethers.utils.solidityPack([
             'address',
             'string',
