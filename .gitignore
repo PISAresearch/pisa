@@ -11,3 +11,4 @@ logs/
 dbcopy.db
 pisa-db
 raiden_demo/.raiden
+coverage

@@ -14,12 +14,30 @@
     "lint": "eslint --ext ts .",
     "test": "NODE_ENV=test && mocha -r ts-node/register 'test/src/**/*.test.ts' --exit && npm run test-mocked",
     "test-load": "ts-node test/load/loadTest.ts 10 20000",
-    "test-coverage": "npm run build && nyc npm run test",
+    "test-coverage": "nyc npm run test",
     "test-smoke": "ts-node test/smoke/smokeTests.ts",
     "test-integration": "mocha -r ts-node/register 'test/integration/**/*.test.ts' --exit",
-    "test-mocked": "NODE_ENV=test mocha -r ts-node/register 'test/mocked/**/*.test.ts' --exit",
-    "nyc": "nyc report --reporter-options mochaFile=configs/face.xml"
+    "test-mocked": "NODE_ENV=test mocha -r ts-node/register 'test/mocked/**/*.test.ts' --exit"
   },
+  "nyc": {
+    "include": [
+      "src/**/*.ts",
+      "src/**/*.tsx"
+    ],
+    "extension": [
+      ".ts",
+      ".tsx"
+    ],
+    "require": [
+      "ts-node/register"
+    ],
+    "reporter": [
+      "json-summary"
+    ],
+    "sourceMap": true,
+    "instrument": true
+  },
+
   "repository": {
     "type": "git",
     "url": "git+https://github.com/PISAresearch/pisa.git"
