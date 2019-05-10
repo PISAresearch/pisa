@@ -2,7 +2,7 @@ import request from "request-promise";
 import { KitsuneTools } from "../../src/integrations/kitsune";
 import { ethers } from "ethers";
 import config from "../../src/dataEntities/config";
-import { getJsonRPCProvider } from "../../src/provider";
+import { getJsonRPCProvider } from "../../src/utils";
 
 let account0: string,
     account1: string,
@@ -12,7 +12,7 @@ let account0: string,
 
 // concurrently watch for x events
 let setup = async (creationCount: number) => {
-    const provider = await getJsonRPCProvider("http://localhost:8545");
+    const provider = getJsonRPCProvider("http://localhost:8545");
     if (creationCount <= 0) {
         console.error("Specify more than 0 requests.");
         process.exit(1);
@@ -40,7 +40,7 @@ let setup = async (creationCount: number) => {
 };
 
 let execute = async (timeToWait: number) => {
-    const provider = await getJsonRPCProvider();
+    const provider = getJsonRPCProvider(config.jsonRpcUrl);
     const eventReceived: boolean[] = [];
 
     for (let index = 0; index < channelContracts.length; index++) {
