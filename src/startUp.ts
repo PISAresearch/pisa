@@ -105,34 +105,12 @@ async function startUp() {
         config.apiEndpoint
     );
 
-    service.start().then(a => {
-        // wait for a stop signal
-        waitForStop(service, db);
-    });
-}
+    service.start();
 
-function waitForStop(service: PisaService, db: LevelUp<encodingDown<string, any>>) {
-    const stdin = process.stdin;
-    if (stdin.setRawMode) {
-        // without this, we would only get streams once enter is pressed
-        stdin.setRawMode(true);
-
-        // resume stdin in the parent process (node app won't quit all by itself
-        // unless an error or process.exit() happens)
-        stdin.resume();
-        stdin.setEncoding("utf8");
-        stdin.on("data", async key => {
-            // ctrl-c ( end of text )
-            if (key === "\u0003") {
-                await stop(service, db);
-            }
-            // otherwise write the key to stdout all normal like
-            process.stdout.write(key);
-        });
-    }
-
-    // also close on the terminate signal
+    // listen for stop events
     process.on("SIGTERM", async () => await stop(service, db));
+    // CTRL-C
+    process.on("SIGINT", async () => await stop(service, db));
 }
 
 async function stop(service: PisaService, db: LevelUp<encodingDown<string, any>>) {
@@ -144,7 +122,7 @@ async function stop(service: PisaService, db: LevelUp<encodingDown<string, any>>
     ]);
 
     // exit the process
-    process.exit();
+    process.exit(0);
 }
 
 startUp().catch((doh: Error) => logger.error(doh.stack!));
