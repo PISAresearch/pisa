@@ -35,7 +35,7 @@ jobs:
           path: ./logs/
       - store_artifacts:
           path: coverage/coverage-summary.json
-      - codecov/upload:
+      - codecov/upload: 
           file: coverage/coverage-summary.json
 workflows:
   version: 2
