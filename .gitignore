@@ -9,3 +9,5 @@ node_modules/
 logs/
 .raiden
 dbcopy.db
+pisa-db
+raiden_demo/.raiden

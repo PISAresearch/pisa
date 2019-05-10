@@ -20,8 +20,8 @@ function timeout(ms: number): Promise<any> {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-const pisaRoot = path.normalize(`${__dirname}/../../..`);
-const demoDir = `${pisaRoot}/build/raiden_demo`;
+const pisaRoot = path.normalize(`${__dirname}/../..`);
+const demoDir = `${pisaRoot}/raiden_demo`;
 
 const blockTime = 500; //block time in ms
 const reveal_timeout = 10;
@@ -111,6 +111,8 @@ describe("Raiden end-to-end tests for scenario 2 (with Pisa)", function() {
 
     beforeEach(async () => {
         if (!fse.existsSync(`${pisaRoot}/logs`)) await fse.mkdirp(`${pisaRoot}/logs`);
+        if(fse.existsSync(`${demoDir}/build/docker`)) await fse.remove(`${demoDir}/build/docker`)
+        await fse.copy(`${demoDir}/docker`, `${demoDir}/build/docker`)
 
         // Test if all the ports we will need are available, abort otherwise
         console.log("Testing availability of ports for the test");
@@ -135,7 +137,7 @@ describe("Raiden end-to-end tests for scenario 2 (with Pisa)", function() {
 
         //Start parity node
         parity = exec(
-            `parity --config dev --base-path ${demoDir}/docker/chainData --chain ${demoDir}/docker/test-chain.json --jsonrpc-interface 0.0.0.0 --jsonrpc-port 8545 --jsonrpc-apis=eth,net,web3,parity --network-id 3`
+            `parity --config dev --base-path ${demoDir}/build/docker/chainData --chain ${demoDir}/docker/test-chain.json --jsonrpc-interface 0.0.0.0 --jsonrpc-port 8545 --jsonrpc-apis=eth,net,web3,parity --network-id 3`
         );
 
         subprocesses.push(parity);
@@ -151,7 +153,7 @@ describe("Raiden end-to-end tests for scenario 2 (with Pisa)", function() {
 
         //Start parity node
         autominer = exec(
-            `node ${demoDir}/autominer/build/autominer.js --period ${blockTime} --jsonrpcurl http://localhost:8545`
+            `ts-node ${demoDir}/autominer/autominer.ts --period ${blockTime} --jsonrpcurl http://localhost:8545`
         );
 
         subprocesses.push(autominer);
@@ -174,7 +176,7 @@ describe("Raiden end-to-end tests for scenario 2 (with Pisa)", function() {
         // Start Pisa
         console.log("Starting Pisa");
         pisa = exec(
-            `node ${pisaRoot}/build/src/startUp.js --json-rpc-url=http://localhost:8545 --host-name=0.0.0.0 --host-port:3000 --responder-key=0xc364a5ea32a4c267263e99ddda36e05bcb0e5724601c57d6504cccb68e1fe6ae`
+            `ts-node ${pisaRoot}/src/startUp.ts --json-rpc-url=http://localhost:8545 --host-name=0.0.0.0 --host-port:3000 --responder-key=0xc364a5ea32a4c267263e99ddda36e05bcb0e5724601c57d6504cccb68e1fe6ae`
         );
         subprocesses.push(pisa);
         const pisaLogStream = await fse.createWriteStream(`${pisaRoot}/logs/pisa.test.log`, { flags: "a" });
@@ -187,7 +189,7 @@ describe("Raiden end-to-end tests for scenario 2 (with Pisa)", function() {
         console.log("Starting the daemon");
         // Start raiden-pisa-daemon for Alice
         daemon = exec(
-            `npm run start -- --pisa=0.0.0.0:3000 --keyfile=${demoDir}/docker/test-accounts/UTC--2019-03-22T10-39-56.702Z--0x${aliceAddrLow} --password-file=${demoDir}/docker/test-accounts/password--${aliceAddrLow}.txt --db=${demoDir}/${dbFileName}`,
+            `npm run start-dev -- --pisa=0.0.0.0:3000 --keyfile=${demoDir}/docker/test-accounts/UTC--2019-03-22T10-39-56.702Z--0x${aliceAddrLow} --password-file=${demoDir}/docker/test-accounts/password--${aliceAddrLow}.txt --db=${demoDir}/${dbFileName}`,
             {
                 cwd: `${demoDir}/raiden-pisa-daemon`
             }

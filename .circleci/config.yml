@@ -24,8 +24,13 @@ jobs:
       - run:
           name: test-integration
           command: npm run test-integration
+      - run:
+          name: test-coverage
+          command: npm run test-coverage
       - store_artifacts:
           path: ./logs/
+      - store_artifacts:
+          path: /.nyc_output
 workflows:
   version: 2
   build:
