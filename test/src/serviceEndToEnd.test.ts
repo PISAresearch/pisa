@@ -116,7 +116,7 @@ describe("Service end-to-end", () => {
         }
     }).timeout(3000);
 
-    it("contains 'appointment' and 'signatures' in the response; signature is correct", async () => {
+    it("contains 'appointment' and 'signature' in the response; signature is correct", async () => {
         const round = 1,
             setStateHash = KitsuneTools.hashForSetState(hashState, round, channelContract.address),
             sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash)),
@@ -150,8 +150,8 @@ describe("Service end-to-end", () => {
         const signer = new Wallet(config.receiptKey!);
         const sig = await signer.signMessage(digest);
 
-        expect(res).to.include.all.keys("appointment", "signatures");
-        expect(res.signatures[0]).to.equal(sig);
+        expect(res).to.include.all.keys("appointment", "signature");
+        expect(res.signature).to.equal(sig);
     });
 
     it("create channel, submit round = 0 too low returns 400", async () => {
