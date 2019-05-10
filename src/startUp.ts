@@ -1,9 +1,11 @@
 import { PisaService } from "./service";
 import { ethers } from "ethers";
 import config from "./dataEntities/config";
-import { getJsonRPCProvider } from "./utils";
-import { withDelay, validateProvider } from "./utils/ethers";
+import { withDelay, validateProvider, getJsonRPCProvider } from "./utils/ethers";
 import logger from "./logger";
+import levelup, { LevelUp } from "levelup";
+import encodingDown from "encoding-down";
+import leveldown from "leveldown";
 
 const argv = require("yargs")
     .scriptName("pisa")
@@ -46,6 +48,7 @@ if (argv.jsonRpcUrl) config.jsonRpcUrl = argv.jsonRpcUrl;
 if (argv.hostName) config.host.name = argv.hostName;
 if (argv.hostPort) config.host.port = argv.hostPort;
 if (argv.responderKey) config.responderKey = argv.responderKey;
+if (argv.dbDir) config.dbDir = argv.dbDir;
 
 if ((argv.rateLimitUserWindowms && !argv.rateLimitUserMax) || (!argv.rateLimitUserWindowms && argv.rateLimitUserMax)) {
     console.error("Options 'rate-limit-user-windowms' and 'rate-limit-user-max' must be provided together.");
@@ -77,11 +80,15 @@ if (argv.rateLimitGlobalWindowms || argv.rateLimitGlobalMax || argv.rateLimitGlo
     };
 }
 
+let db: LevelUp<encodingDown<string, any>>;
+
 async function startUp() {
     const provider = getJsonRPCProvider(config.jsonRpcUrl);
     const delayedProvider = getJsonRPCProvider(config.jsonRpcUrl);
     withDelay(delayedProvider, 2);
     const watcherWallet = new ethers.Wallet(config.responderKey, provider);
+
+    db = levelup(encodingDown(leveldown(config.dbDir), { valueEncoding: "json" }));
 
     await validateProvider(provider)
     await validateProvider(delayedProvider)
@@ -93,6 +100,7 @@ async function startUp() {
         provider,
         watcherWallet,
         delayedProvider,
+        db,
         config.apiEndpoint
     );
 
@@ -110,11 +118,16 @@ function waitForStop(service: PisaService) {
         // unless an error or process.exit() happens)
         stdin.resume();
         stdin.setEncoding("utf8");
-        stdin.on("data", key => {
+        stdin.on("data", async key => {
             // ctrl-c ( end of text )
             if (key === "\u0003") {
-                // stop the pisa service
-                service.stop();
+                await Promise.all([
+                    // stop the pisa service
+                    service.stop(),
+                    // shut the db
+                    db.close()
+                ]);
+
                 // exit the process
                 process.exit();
             }

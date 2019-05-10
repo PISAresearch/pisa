@@ -32,7 +32,7 @@ export class KitsuneAppointment extends EthereumAppointment {
     constructor(obj: { stateUpdate: IKitsuneStateUpdate; expiryPeriod: number; type: ChannelType.Kitsune });
     constructor(obj: any) {
         if (KitsuneAppointment.checkKitsuneAppointment(obj)) {
-            super(obj.expiryPeriod, ChannelType.Kitsune);
+            super(obj.expiryPeriod, ChannelType.Kitsune, obj.startBlock, obj.endBlock);
             this.stateUpdate = obj.stateUpdate;
         } else throw new ConfigurationError("User defined type guard failed to throw for KitsuneAppointment");
     }

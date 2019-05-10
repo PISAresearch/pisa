@@ -2,7 +2,7 @@ import "mocha";
 import { assert } from "chai";
 import mockito, { mock, instance, when, verify, anything, resetCalls, capture, anyNumber } from "ts-mockito";
 import uuid from "uuid/v4";
-import { MemoryAppointmentStore, Watcher } from "../../../src/watcher";
+import { AppointmentStore, Watcher } from "../../../src/watcher";
 import { KitsuneAppointment } from "../../../src/integrations/kitsune";
 import { ethers } from "ethers";
 import { AppointmentSubscriber } from "../../../src/watcher/appointmentSubscriber";
@@ -59,7 +59,7 @@ describe("Watcher", () => {
     const appointmentSubscriber = instance(mockedAppointmentSubscriber);
 
     // store mock
-    const mockedStore = mock(MemoryAppointmentStore);
+    const mockedStore = mock(AppointmentStore);
     when(mockedStore.addOrUpdateByStateLocator(appointmentCanBeUpdated)).thenResolve(true);
     when(mockedStore.addOrUpdateByStateLocator(appointmentNotUpdated)).thenResolve(false);
     when(mockedStore.addOrUpdateByStateLocator(appointmentErrorSubscribeOnce)).thenResolve(true);
@@ -75,7 +75,7 @@ describe("Watcher", () => {
     when(mockedResponderThatThrows.respond(appointmentCanBeUpdated)).thenThrow(new Error("Responder error."));
     const responderInstanceThrow = instance(mockedResponderThatThrows);
 
-    const mockedStoreThatThrows = mock(MemoryAppointmentStore);
+    const mockedStoreThatThrows = mock(AppointmentStore);
     when(mockedStoreThatThrows.removeById(appointmentCanBeUpdated.id)).thenReject(new Error("Store error."));
     const storeInstanceThrow = instance(mockedStoreThatThrows);
 

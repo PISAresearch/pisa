@@ -19,6 +19,7 @@ export interface IConfig {
     },
     responderKey: string;
     apiEndpoint?: IApiEndpointConfig;
+    dbDir: string
 }
 
 export default config as IConfig;

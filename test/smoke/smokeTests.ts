@@ -5,6 +5,17 @@ import config from "../../src/dataEntities/config";
 import { getJsonRPCProvider } from "../../src/utils";
 let account0: string, account1: string, channelContract: ethers.Contract, hashState: string, disputePeriod: number;
 
+class Face {
+    
+}
+
+
+
+
+
+
+
+
 const mineBlock = async (wallet: ethers.Signer) => {
     const tx = await wallet.sendTransaction({ to: "0x0000000000000000000000000000000000000000", value: 1 });
     await tx.wait();
