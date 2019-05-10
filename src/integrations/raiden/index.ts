@@ -100,15 +100,15 @@ export class RaidenAppointment extends EthereumAppointment {
         }
     }
 
-    getStateNonce() {
+    public getStateNonce() {
         return this.stateUpdate.nonce;
     }
 
-    getContractAddress() {
+    public getContractAddress() {
         return this.stateUpdate.token_network_identifier;
     }
 
-    getStateLocator() {
+    public getStateLocator() {
         // the raiden network has one contract per token - the token network
         // within this contract each pair of participants can have at most one channel between them - the channel identifier
         // within this channel each participant keeps a record of the state of how much they are owed by their counterparty
@@ -119,7 +119,7 @@ export class RaidenAppointment extends EthereumAppointment {
         }`;
     }
 
-    getEventFilter(): ethers.EventFilter {
+    public getEventFilter(): ethers.EventFilter {
         let event = new ethers.utils.Interface(this.getContractAbi());
         let topics = event.events["ChannelClosed"].encodeTopics([this.stateUpdate.channel_identifier, this.stateUpdate.closing_participant, null]);
 
@@ -129,19 +129,19 @@ export class RaidenAppointment extends EthereumAppointment {
         }
     }
 
-    getEventName() {
+    public getEventName() {
         return `ChannelClosed(${this.stateUpdate.channel_identifier},${this.stateUpdate.closing_participant},uint256)`;
     }
 
-    getContractAbi() {
+    public getContractAbi() {
         return RaidenTools.ContractAbi;
     }
 
-    getResponseFunctionName(): string {
+    public getResponseFunctionName(): string {
         return "updateNonClosingBalanceProof";
     }
 
-    getResponseFunctionArgs(): any[] {
+    public getResponseFunctionArgs(): any[] {
         return [
             this.stateUpdate.channel_identifier,
             this.stateUpdate.closing_participant,

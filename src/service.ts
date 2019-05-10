@@ -98,14 +98,14 @@ export class PisaService extends StartStopService {
         this.server = service;
     }
 
-    async startInternal() {
+    protected async startInternal() {
         await this.reorgDetector.start();
         await this.watcher.start();
         await this.garbageCollector.start();
         await this.appointmentStore.start();
     }
 
-    async stopInternal() {
+    protected async stopInternal() {
         await this.garbageCollector.stop();
         await this.reorgDetector.stop();
         await this.watcher.stop();

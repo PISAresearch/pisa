@@ -14,8 +14,8 @@ import { ApplicationError, ArgumentError } from "./dataEntities";
 export abstract class ResponseFlow {
     private static nextId: number = 0;
 
-    readonly id: number;
-    readonly creationTimestamp: number;
+    public readonly id: number;
+    public readonly creationTimestamp: number;
 
     public state = ResponseState.Started;
 
@@ -143,11 +143,11 @@ export interface IGasPolicy {
 export class DoublingGasPolicy implements IGasPolicy {
     constructor(private readonly provider: ethers.providers.Provider) { }
 
-    getInitialPrice(): Promise<ethers.utils.BigNumber> {
+    public getInitialPrice(): Promise<ethers.utils.BigNumber> {
         return this.provider.getGasPrice();
     }
 
-    getIncreasedGasPrice(previousPrice: ethers.utils.BigNumber): ethers.utils.BigNumber {
+    public getIncreasedGasPrice(previousPrice: ethers.utils.BigNumber): ethers.utils.BigNumber {
         return previousPrice.mul(2);
     }
 }

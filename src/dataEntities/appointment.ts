@@ -51,23 +51,23 @@ export abstract class EthereumAppointment implements IEthereumAppointment {
     }
 
     private mStartBlock: number;
-    get startBlock() {
+    public get startBlock() {
         return this.mStartBlock;
     }
     private mEndBlock: number;
-    get endBlock() {
+    public get endBlock() {
         return this.mEndBlock;
     }
     private mPassedInspection: boolean;
-    get passedInspection() {
+    public get passedInspection() {
         return this.mPassedInspection;
     }
-    passInspection(startBlock: number) {
+    public passInspection(startBlock: number) {
         this.mPassedInspection = true;
         this.mStartBlock = startBlock;
         this.mEndBlock = startBlock + this.expiryPeriod;
     }
-    formatLog(message: string): string {
+    public formatLog(message: string): string {
         return `|${this.getStateIdentifier()}| ${message}`;
     }
 
@@ -81,18 +81,18 @@ export abstract class EthereumAppointment implements IEthereumAppointment {
     /**
      * The minimum unique information required to identify the on-chain location of this state update
      */
-    abstract getStateLocator(): string;
-    abstract getContractAbi(): any;
-    abstract getContractAddress(): string;
-    abstract getEventFilter(): ethers.EventFilter;
-    abstract getEventName(): string;
-    abstract getStateNonce(): number;
+    public abstract getStateLocator(): string;
+    public abstract getContractAbi(): any;
+    public abstract getContractAddress(): string;
+    public abstract getEventFilter(): ethers.EventFilter;
+    public abstract getEventName(): string;
+    public abstract getStateNonce(): number;
 
     /**
      * The minimum unique information required form a response
      */
-    abstract getResponseFunctionName(): string;
-    abstract getResponseFunctionArgs(): any[];
+    public abstract getResponseFunctionName(): string;
+    public abstract getResponseFunctionArgs(): any[];
 
     /**
      * Returns the IEthereumResponseData object for this appointment

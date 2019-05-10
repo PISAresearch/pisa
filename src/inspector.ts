@@ -12,7 +12,7 @@ export abstract class Inspector<TAppointment extends EthereumAppointment> {
      * Sets an the result of the inspection on the appointment
      * @param appointment
      */
-    async inspectAndPass(appointment: TAppointment): Promise<void> {
+    public async inspectAndPass(appointment: TAppointment): Promise<void> {
         logger.info(appointment.formatLog("Begin inspection."));
         logger.debug(appointment.formatLog(JSON.stringify(appointment)));
         await this.checkInspection(appointment);
