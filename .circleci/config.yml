@@ -37,6 +37,7 @@ jobs:
           path: coverage/coverage-summary.json
       - codecov/upload: 
           file: coverage/coverage-summary.json
+          token: 8840cab9-3613-45d2-9505-8ce7fa6c2cf7
 workflows:
   version: 2
   build:
