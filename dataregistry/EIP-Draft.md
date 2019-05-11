@@ -33,7 +33,7 @@ Every *TOTAL_DAYS*, the DataShard is reset by self-destructing and re-creating i
 #### setData
 
 ``` js
-function setData(bytes memory data) public;
+function setData(bytes memory _data) public;
 ```
 
 Store the encoded data and emit the event:
@@ -52,17 +52,23 @@ function fetchRecords(address _sc, uint _datashard) public returns (bytes[] memo
 
 Fetches the list of data records for a given smart contract. The *_datashard* informs the DataRegistry which DataShard to use when fetching the records.
 
+``` js
+function fetchRecords(address _sc, uint _datashard, uint _i) public returns (bytes[] memory)
+```
+
+Fetches a single data record at index *_i* for a given smart contract. The *_datashard* informs the DataRegistry which DataShard to use when fetching the single record 
+
 #### getDataShardIndex
 
 ``` js
-function getDataShardIndex(uint findShard) public returns (uint8)
+function getDataShardIndex(uint _findShard) public returns (uint8)
 ```
 Given appropriate information, this will return the index for the DataShard. In the [PISA Implementation], the findShard is a UNIX timestamp and it returns within the range 0 to TOTAL_DAYS.
 
 #### getDataShardAddress
 
 ``` js
-function getDataShardAddress(uint findShard) public returns (address)
+function getDataShardAddress(uint _findShard) public returns (address)
 ```
 
 Given appropriate information, this will return the address for a DataShard. In the [PISA Implementation], the findShard is a UNIX timestamp as each DataShard corresponds to a given day.
@@ -75,7 +81,7 @@ All functions can only be called by the owner of this contract which is the Data
 #### setData
 
 ``` js
-function setData(address sc, bytes memory data) onlyOwner public {
+function setData(address sc, bytes memory _data) onlyOwner public {
 ```
 DataShard has a mapping to link a contract address to a list of data items. This appends a new data item to the list.
 
@@ -83,9 +89,13 @@ DataShard has a mapping to link a contract address to a list of data items. This
 #### fetchData
 
 ``` js
+function fetchData(address _sc, uint _i) onlyOwner public view returns(bytes[] memory) {
+```
+Given a smart contract address, return the data item at indexed *_i*. 
+
+ js
 function fetchData(address _sc) onlyOwner public view returns(bytes[] memory) {
 ```
-Given a smart contract address, return the list of data items.
 
 #### kill
 ``` js
