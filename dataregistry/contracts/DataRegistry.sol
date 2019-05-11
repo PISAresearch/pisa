@@ -49,11 +49,11 @@ contract DataShard {
    }
 
    // Store a dispute
-   function setData(address _sc, bytes memory data) onlyOwner public {
+   function setData(address _sc, bytes memory _data) onlyOwner public {
 
        // Nice thing: Constant look-up to find the caller's records (based on the day).
        bytes[] storage sc_records = records[_sc];
-       sc_records.push(data);
+       sc_records.push(_data);
    }
 }
 
@@ -138,7 +138,7 @@ contract DataRegistry {
    }
 
    // Record data from the sender and store it in the DataShard
-   function setData(bytes memory data) public {
+   function setData(bytes memory _data) public {
 
       // Fetch Index
       uint datashard = (getDataShardIndex(now));
@@ -147,10 +147,10 @@ contract DataRegistry {
       DataShard rc = resetRecord(datashard);
 
       // Update record!
-      rc.setData(msg.sender, data);
+      rc.setData(msg.sender, _data);
 
       // If it worked... tell the world we added the record!
-      emit NewRecord(msg.sender, data, datashard);
+      emit NewRecord(msg.sender, _data, datashard);
    }
 
 }
