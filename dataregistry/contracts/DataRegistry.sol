@@ -39,6 +39,14 @@ contract DataShard {
    function fetchData(address _sc) public view returns (bytes[] memory) {
        return records[_sc];
    }
+   
+   // Fetch one single data piece at index _i 
+   // Potential to throw if record is not available 
+   function fetchData(address _sc, uint _i) public view returns (bytes memory) {
+       require(records[_sc].length > _i); 
+       
+       return records[_sc][_i];
+   }
 
    // Store a dispute
    function setData(address _sc, bytes memory data) onlyOwner public {
@@ -73,29 +81,35 @@ contract DataRegistry {
      return TOTAL_DAYS;
    }
 
+   // Compute the "day" for a data shard given a timestamp 
    function getDataShardIndex(uint _timestamp) public pure returns (uint8) {
 
         // Timestamp/days in seconds. +4 is used to push it to sunday as starting day.
         // "14" lets us keep records around for 14 days!
        return uint8(((_timestamp / DAY_IN_SECONDS) + 4) % TOTAL_DAYS);
    }
-
+ 
+   // Fetch contract address for data shard at a given timestamp 
+   // Caution: We don't check the freshness of timestamps. Old / future timestamps will resolve to a day. 
    function getDataShardAddress(uint _timestamp) public view returns (address) {
-
      return datashards[getDataShardIndex(_timestamp)];
    }
 
-   // Fetch a list of data records for a smart contract from a given datashard.
+   // Fetch a list of data records for a smart contract at a given datashard.
    function fetchRecords(address _sc, uint _datashard) public returns (bytes[] memory) {
        DataShard rc = resetRecord(_datashard);
-
        return rc.fetchData(_sc);
+   }
+   
+   // Fetch a single data for a smart contract at a given data shard. 
+   function fetchRecords(address _sc, uint _datashard, uint _i) public returns (bytes memory) {
+       DataShard rc = resetRecord(_datashard);
+       return rc.fetchData(_sc, _i);
    }
 
    // Checks whether the contract that keeps track of records is "fresh" for today.
    // We track every by day of week (so if it was created this day last week; we delete and re-create it)
    function resetRecord(uint _datashard) internal returns (DataShard) {
-
         DataShard rc;
 
        // Does it exist?
