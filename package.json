@@ -30,8 +30,7 @@
       "ts-node/register"
     ],
     "reporter": [
-      "json-summary",
-      "text-lcov"
+      "json-summary"
     ],
     "sourceMap": true,
     "instrument": true
