@@ -1,4 +1,6 @@
+[![CircleCI](https://circleci.com/gh/PISAresearch/pisa/tree/124-nyc.svg?style=svg)](https://circleci.com/gh/PISAresearch/pisa/tree/124-nyc)
 [![codecov](https://codecov.io/gh/PISAresearch/pisa/branch/124-nyc/graph/badge.svg)](https://codecov.io/gh/PISAresearch/pisa)
+
 
 # Pisa - The Accountable Third Party
 
