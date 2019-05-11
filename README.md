@@ -1,4 +1,4 @@
-[![CircleCI](https://circleci.com/gh/PISAresearch/pisa/tree/124-nyc.svg?style=svg)](https://circleci.com/gh/PISAresearch/pisa/tree/124-nyc)
+[![CircleCI](https://circleci.com/gh/PISAresearch/pisa.svg?style=shield)](https://circleci.com/gh/PISAresearch/pisa)
 [![codecov](https://codecov.io/gh/PISAresearch/pisa/branch/124-nyc/graph/badge.svg)](https://codecov.io/gh/PISAresearch/pisa)
 
 
