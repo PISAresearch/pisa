@@ -72,7 +72,8 @@ export class ReorgDetector extends StartStopService {
                     // if we couldn't extend this is a re-org, reset to the common ancestor
                     const { commonAncestor, differenceBlocks } = await this.findCommonAncestor(
                         fullBlock,
-                        this.headBlock
+                        this.headBlock,
+                        this.maxDepth
                     );
 
                     if (commonAncestor === this.headBlock) {
@@ -183,12 +184,13 @@ export class ReorgDetector extends StartStopService {
         minHeight: number
     ): Promise<BlockStubChain | null> {
         const blockRemote = await this.provider.getBlock(remoteBlockHash);
+        if (!blockRemote) return null;
         differenceBlocks.push(blockRemote);
+        if (blockRemote.number <= minHeight) return null;
 
         const ancestor = localBlock.ancestorWithHash(blockRemote.parentHash);
         if (ancestor) return ancestor;
 
-        if (blockRemote.number <= minHeight) return null;
         return await this.findCommonAncestorDeep(blockRemote.parentHash, localBlock, differenceBlocks, minHeight);
     }
 
@@ -200,7 +202,8 @@ export class ReorgDetector extends StartStopService {
      */
     public async findCommonAncestor(
         newBlock: IBlockStub,
-        currentHead: BlockStubChain
+        currentHead: BlockStubChain,
+        maxDepth: number
     ): Promise<{ commonAncestor: BlockStubChain | null; differenceBlocks: IBlockStub[] }> {
         if (newBlock.parentHash === null) {
             throw new ArgumentError("newBlock should have a parentHash");
@@ -208,7 +211,7 @@ export class ReorgDetector extends StartStopService {
 
         let commonAncestor: BlockStubChain | null;
         let differenceBlocks: IBlockStub[] = [];
-        const minHeight = this.headBlock.height - this.maxDepth;
+        const minHeight = currentHead.height - maxDepth;
         // the chain has reduced linearly
         if ((commonAncestor = currentHead.ancestorWithHash(newBlock.hash))) {
         }
