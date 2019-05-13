@@ -35,8 +35,6 @@ export interface IAppointmentStore {
  * determining expired appointments so this function should not be used in a loop.
  */
 export class AppointmentStore extends StartStopService implements IAppointmentStore {
-    private stateLocatorLockManager = new LockManager();
-
     constructor(
         private readonly db: LevelUp<encodingDown<string, any>>,
         private readonly appointmentConstructors: Map<ChannelType, (obj: any) => IEthereumAppointment>
@@ -69,6 +67,11 @@ export class AppointmentStore extends StartStopService implements IAppointmentSt
     private readonly appointmentsByStateLocator: {
         [appointmentStateLocator: string]: IEthereumAppointment;
     } = {};
+
+    // Every time we access the state locator, we need to make sure that this happens atomically.
+    // This is not necessary for appointmentId, as they are unique for each appointment and generated internally.
+    // Instead, multiple appointments can share the same state locator.
+    private stateLocatorLockManager = new LockManager();
 
     /**
      * Checks to see if an appointment with the current state update exists. If it does
