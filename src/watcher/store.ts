@@ -35,7 +35,7 @@ export interface IAppointmentStore {
  * determining expired appointments so this function should not be used in a loop.
  */
 export class AppointmentStore extends StartStopService implements IAppointmentStore {
-    private lockManager = new LockManager();
+    private stateLocatorLockManager = new LockManager();
 
     constructor(
         private readonly db: LevelUp<encodingDown<string, any>>,
@@ -78,7 +78,8 @@ export class AppointmentStore extends StartStopService implements IAppointmentSt
      * @param appointment
      */
     public addOrUpdateByStateLocator(appointment: IEthereumAppointment): Promise<boolean> {
-        return this.lockManager.withLock(appointment.getStateLocator(), async () => {
+        // As we are accessing data structures by state locator, we make sure to acquire a lock on it
+        return this.stateLocatorLockManager.withLock(appointment.getStateLocator(), async () => {
             const currentAppointment = this.appointmentsByStateLocator[appointment.getStateLocator()];
             // is there a current appointment
             if (currentAppointment) {
@@ -116,22 +117,25 @@ export class AppointmentStore extends StartStopService implements IAppointmentSt
      * @param appointmentId
      */
     public async removeById(appointmentId: string): Promise<boolean> {
-        const appointmentById = this.appointmentsById[appointmentId];
-        if (appointmentById) {
+        const appointment = this.appointmentsById[appointmentId];
+        if (appointment) {
+            const stateLocator = appointment.getStateLocator();
             // remove the appointment from the id index
             delete this.appointmentsById[appointmentId];
 
-            await this.lockManager.withLock(appointmentById.getStateLocator(), async () => {
+            // All updates related to resources related to stateLocator should happen atomically.
+            // While the current code is blocking, we acquire a lock until we are done for clarity.
+            await this.stateLocatorLockManager.withLock(stateLocator, async () => {
                 // remove the appointment from the state locator index
-                const currentAppointment = this.appointmentsByStateLocator[appointmentById.getStateLocator()];
+                const currentAppointment = this.appointmentsByStateLocator[stateLocator];
                 // if it has the same id
                 if (currentAppointment.id === appointmentId) {
-                    delete this.appointmentsByStateLocator[appointmentById.getStateLocator()];
+                    delete this.appointmentsByStateLocator[stateLocator];
                 }
-
-                // and remove from remote storage
-                await this.db.del(appointmentId);
             });
+
+            // and remove from remote storage
+            await this.db.del(appointmentId);
             return true;
         }
         return false;
