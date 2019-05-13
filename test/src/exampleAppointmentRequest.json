@@ -1,5 +1,6 @@
 {
     "expiryPeriod": 11,
+    "type": "kitsune",
     "stateUpdate": {
         "contractAddress": "0xe78A0F7E598Cc8b0Bb87894B0F60dD2a88d6a8Ab",
         "hashState": "0xa2092ea24441ee16935c133fe2d1ed0e32943170e152dc2bedb5d2a77329ff97",

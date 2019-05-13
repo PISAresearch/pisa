@@ -80,20 +80,18 @@ if (argv.rateLimitGlobalWindowms || argv.rateLimitGlobalMax || argv.rateLimitGlo
     };
 }
 
-let db: LevelUp<encodingDown<string, any>>;
-
 async function startUp() {
     const provider = getJsonRPCProvider(config.jsonRpcUrl);
     const delayedProvider = getJsonRPCProvider(config.jsonRpcUrl);
     withDelay(delayedProvider, 2);
     const watcherWallet = new ethers.Wallet(config.responderKey, provider);
 
-    db = levelup(encodingDown(leveldown(config.dbDir), { valueEncoding: "json" }));
+    const db = levelup(encodingDown(leveldown(config.dbDir), { valueEncoding: "json" }));
 
-    await validateProvider(provider)
-    await validateProvider(delayedProvider)
+    await validateProvider(provider);
+    await validateProvider(delayedProvider);
 
-    const receiptSigner = new ethers.Wallet(config.receiptKey); 
+    const receiptSigner = new ethers.Wallet(config.receiptKey);
 
     // start the pisa service
     const service = new PisaService(
@@ -107,40 +105,24 @@ async function startUp() {
         config.apiEndpoint
     );
 
-    service.start().then(a => {
-        // wait for a stop signal
-        waitForStop(service);
-    });
+    service.start();
+
+    // listen for stop events
+    process.on("SIGTERM", async () => await stop(service, db));
+    // CTRL-C
+    process.on("SIGINT", async () => await stop(service, db));
 }
 
-function waitForStop(service: PisaService) {
-    const stdin = process.stdin;
-    if (stdin.setRawMode) {
-        // without this, we would only get streams once enter is pressed
-        stdin.setRawMode(true);
+async function stop(service: PisaService, db: LevelUp<encodingDown<string, any>>) {
+    await Promise.all([
+        // stop the pisa service
+        service.stop(),
+        // shut the db
+        db.close()
+    ]);
 
-        // resume stdin in the parent process (node app won't quit all by itself
-        // unless an error or process.exit() happens)
-        stdin.resume();
-        stdin.setEncoding("utf8");
-        stdin.on("data", async key => {
-            // ctrl-c ( end of text )
-            if (key === "\u0003") {
-                await Promise.all([
-                    // stop the pisa service
-                    service.stop(),
-                    // shut the db
-                    db.close()
-                ]);
-
-                // exit the process
-                process.exit();
-            }
-            // otherwise write the key to stdout all normal like
-            process.stdout.write(key);
-        });
-    }
+    // exit the process
+    process.exit(0);
 }
-
 
 startUp().catch((doh: Error) => logger.error(doh.stack!));

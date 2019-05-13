@@ -50,7 +50,9 @@ COPY --from=productionPackges ./usr/pisa/node_modules ./node_modules
 # expose the startup port
 EXPOSE 3000
 # start the application
-CMD ["npm", "run", "start"]
+# we cant use npm run start since it causes problems with graceful exit within docker
+# see https://medium.com/@becintec/building-graceful-node-applications-in-docker-4d2cd4d5d392 for more details
+CMD ["node", "./build/src/startUp.js"]
 
 ######################
 ####### test #######
