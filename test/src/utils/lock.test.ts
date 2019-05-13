@@ -79,17 +79,6 @@ describe("LockManager", () => {
         expect(secondLockAcquired).to.be.false;
     });
 
-    it("acquire cannot acquire a key again before release", async () => {
-        const lockManager = new LockManager();
-        await lockManager.acquire("key");
-        let secondLockAcquired = false;
-        lockManager.acquire("different-key").then(() => {
-            secondLockAcquired = true;
-        });
-        await wait(30);
-        expect(secondLockAcquired).to.be.true;
-    });
-
     it("release throws an ApplicationError if key was not acquired", () => {
         const lockManager = new LockManager();
         expect(() => lockManager.release("key")).to.throw(ApplicationError);

@@ -15,6 +15,8 @@ export class Lock {
 
     /**
      * Acquires the lock; returns a promise that resolves when the lock is acquired.
+     * If the lock is already acquired, the Promise is put into a FIFO waiting list, and resolved when all the
+     * previously acquired locks are released.
      */
     public async acquire(): Promise<void> {
         if (!this.mLocked) {
@@ -94,7 +96,7 @@ export class LockManager {
             await this.acquire(key);
             return await func();
         } finally {
-            await this.release(key);
+            this.release(key);
         }
     }
 }
