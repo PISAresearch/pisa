@@ -74,7 +74,7 @@ export class AppointmentStore extends StartStopService implements IAppointmentSt
      * Checks to see if an appointment with the current state update exists. If it does
      * exist the current appointment is updated iff it has a lower nonce than the supplied
      * appointment. If it does not exist a new appointment is added in the store.
-     * Returns true if the supplied item was adde or updated in the store.
+     * Returns true if the supplied item was added or updated in the store.
      * @param appointment
      */
     public addOrUpdateByStateLocator(appointment: IEthereumAppointment): Promise<boolean> {

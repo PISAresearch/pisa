@@ -73,8 +73,9 @@ export class Watcher extends StartStopService {
     //      should be unlikely)
 
     /**
-     * Start watch for an event specified by the appointment, and respond if it the event is raised.
-     * @param appointment Contains information about where to watch for events, and what information to suppli as part of a response
+     * Starts watching for an event specified by the appointment, and respond if the event is raised.
+     * Returns `true` if the supplied appointment was added or updated by the store, `false` otherwise.
+     * @param appointment Contains information about where to watch for events, and what information to supply as part of a response
      */
     public async addAppointment(appointment: IEthereumAppointment): Promise<boolean> {
         return await this.addAppointmentLog(appointment, async () => {
