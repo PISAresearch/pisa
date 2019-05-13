@@ -2,7 +2,7 @@ import { IEthereumAppointment, StartStopService, IAppointment, ChannelType, Conf
 import logger from "../logger";
 import { LevelUp } from "levelup";
 import encodingDown from "encoding-down";
-import { LockUtil } from "../utils/lock";
+import { LockManager } from "../utils/lock";
 
 /**
  * The functionality required in an appointment store
@@ -35,7 +35,7 @@ export interface IAppointmentStore {
  * determining expired appointments so this function should not be used in a loop.
  */
 export class AppointmentStore extends StartStopService implements IAppointmentStore {
-    private lockUtil = new LockUtil();
+    private lockManager = new LockManager();
 
     constructor(
         private readonly db: LevelUp<encodingDown<string, any>>,
@@ -78,7 +78,7 @@ export class AppointmentStore extends StartStopService implements IAppointmentSt
      * @param appointment
      */
     public addOrUpdateByStateLocator(appointment: IEthereumAppointment): Promise<boolean> {
-        return this.lockUtil.withLock(appointment.getStateLocator(), async () => {
+        return this.lockManager.withLock(appointment.getStateLocator(), async () => {
             const currentAppointment = this.appointmentsByStateLocator[appointment.getStateLocator()];
             // is there a current appointment
             if (currentAppointment) {
@@ -121,7 +121,7 @@ export class AppointmentStore extends StartStopService implements IAppointmentSt
             // remove the appointment from the id index
             delete this.appointmentsById[appointmentId];
 
-            await this.lockUtil.withLock(appointmentById.getStateLocator(), async () => {
+            await this.lockManager.withLock(appointmentById.getStateLocator(), async () => {
                 // remove the appointment from the state locator index
                 const currentAppointment = this.appointmentsByStateLocator[appointmentById.getStateLocator()];
                 // if it has the same id

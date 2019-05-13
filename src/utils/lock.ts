@@ -33,7 +33,7 @@ export class Lock {
      * @throws ApplicationError if the called when the lock was
      */
     public release() {
-        if (!this.mLocked) throw new ApplicationError("Tried to release a Lock that was not locked.");
+        if (!this.mLocked) throw new ApplicationError("Tried to release a Lock that was not locked");
 
         if (this.waiters.length > 0) {
             // resolve the first waiter in the queue
@@ -74,18 +74,12 @@ export class LockManager {
      * @param key
      */
     public release(key: string) {
+        if (!this.locks[key]) throw new ApplicationError(`There is no lock for key ${key}`);
         this.locks[key].release();
         if (!this.locks[key].locked) {
             delete this.locks[key];
         }
     }
-}
-
-/**
- * Simple utility class to run code guarded by indexed locks.
- */
-export class LockUtil {
-    private manager = new LockManager();
 
     /**
      * Acquires the lock indexed by `key` and runs `func`.
@@ -97,10 +91,10 @@ export class LockUtil {
      */
     public async withLock<T>(key: string, func: () => Promise<T>): Promise<T> {
         try {
-            await this.manager.acquire(key);
-            return func();
+            await this.acquire(key);
+            return await func();
         } finally {
-            await this.manager.release(key);
+            await this.release(key);
         }
     }
 }
