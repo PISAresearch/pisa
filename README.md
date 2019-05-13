@@ -1,5 +1,5 @@
 [![CircleCI](https://circleci.com/gh/PISAresearch/pisa.svg?style=shield)](https://circleci.com/gh/PISAresearch/pisa)
-[![codecov](https://codecov.io/gh/PISAresearch/pisa/branch/124-nyc/graph/badge.svg)](https://codecov.io/gh/PISAresearch/pisa)
+[![codecov](https://codecov.io/gh/PISAresearch/pisa/branch/master/graph/badge.svg)](https://codecov.io/gh/PISAresearch/pisa)
 
 
 # Pisa - The Accountable Third Party
