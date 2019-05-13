@@ -429,7 +429,7 @@ describe("ReorgDetector", () => {
         await reorgDetector.stop();
     });
 
-    it("common ancestor deep does identify a common ancestor, and correctly populates the difference blocks", async () => {
+    it("findCommonAncestorDeep does identify a common ancestor, and correctly populates the difference blocks", async () => {
         const remoteBlocks = [a_block0, a_block1, b_block2, b_block3];
         const localBlocks = BlockStubChain.newRoot(a_block0.number, a_block0.hash).extendMany([
             a_block1,
@@ -449,7 +449,7 @@ describe("ReorgDetector", () => {
         expect(differenceBlocks).to.deep.equal([b_block3, b_block2]);
     });
 
-    it("common ancestor deep does not identify a common ancestor when one does not exist", async () => {
+    it("findCommonAncestorDeep does not identify a common ancestor when one does not exist", async () => {
         const remoteBlocks = [b_block4, b_block5, b_block6];
         const localBlocks = BlockStubChain.newRoot(a_block4.number, a_block4.hash).extendMany([a_block5, a_block6]);
         const { reorgDetector } = await ReorgMocks.getSetup(remoteBlocks, 2);
@@ -465,7 +465,7 @@ describe("ReorgDetector", () => {
         expect(differenceBlocks).to.deep.equal([b_block6, b_block5, b_block4]);
     });
 
-    it("common ancestor deep does not identify a common ancestor when one exists but is below the min height", async () => {
+    it("findCommonAncestorDeep does not identify a common ancestor when one exists but is below the min height", async () => {
         const remoteBlocks = [a_block0, a_block1, b_block2, b_block3];
         const localBlocks = BlockStubChain.newRoot(a_block0.number, a_block0.hash).extendMany([
             a_block1,
@@ -485,7 +485,7 @@ describe("ReorgDetector", () => {
         expect(differenceBlocks).to.deep.equal([b_block3, b_block2]);
     });
 
-    it("common ancestor deep does find an extension", async () => {
+    it("findCommonAncestorDeep does find an extension", async () => {
         const remoteBlocks = [a_block4, a_block5, a_block6];
         const localBlocks = BlockStubChain.newRoot(a_block0.number, a_block0.hash).extendMany([
             a_block1,
@@ -505,7 +505,7 @@ describe("ReorgDetector", () => {
         expect(differenceBlocks).to.deep.equal([a_block6, a_block5, a_block4]);
     });
 
-    it("find common ancestor finds immediate parents", async () => {
+    it("findCommonAncestor finds immediate parents", async () => {
         const remoteBlocks = [a_block1];
         const localBlocks = BlockStubChain.newRoot(a_block0.number, a_block0.hash).extendMany([a_block1]);
         const { reorgDetector } = await ReorgMocks.getSetup(remoteBlocks, 5);
@@ -519,7 +519,7 @@ describe("ReorgDetector", () => {
         expect(differenceBlocks).to.deep.equal([]);
     });
 
-    it("find common ancestor finds immediate sibilings", async () => {
+    it("findCommonAncestor finds immediate siblings", async () => {
         const remoteBlocks = [b_block2];
         const localBlocks = BlockStubChain.newRoot(a_block0.number, a_block0.hash).extendMany([a_block1, a_block2]);
         const { reorgDetector } = await ReorgMocks.getSetup(remoteBlocks, 5);
