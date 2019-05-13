@@ -51,7 +51,7 @@ describe("Lock", () => {
 describe("LockUtil", () => {
     it("returns the value returned by the passed function", async () => {
         const lockUtil = new LockUtil();
-        const func = () => 42;
+        const func = async () => 42;
         const res = await lockUtil.withLock("testId", func);
 
         expect(res).to.equal(42);

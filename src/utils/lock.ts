@@ -89,13 +89,13 @@ export class LockUtil {
 
     /**
      * Acquires the lock indexed by `key` and runs `func`.
-     * Resolves to the value returned by `func`, or rejects with the same error.
+     * Resolves to the value to which `func` resolves to, or rejects with the same error.
      * Releases the lock once `func` is resolved or rejected.
      *
      * @param key
      * @param func
      */
-    public async withLock<T>(key: string, func: () => T): Promise<T> {
+    public async withLock<T>(key: string, func: () => Promise<T>): Promise<T> {
         try {
             await this.manager.acquire(key);
             return func();
