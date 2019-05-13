@@ -2,6 +2,7 @@ import { IEthereumAppointment, StartStopService, IAppointment, ChannelType, Conf
 import logger from "../logger";
 import { LevelUp } from "levelup";
 import encodingDown from "encoding-down";
+import { LockUtil } from "../utils/lock";
 
 /**
  * The functionality required in an appointment store
@@ -34,6 +35,8 @@ export interface IAppointmentStore {
  * determining expired appointments so this function should not be used in a loop.
  */
 export class AppointmentStore extends StartStopService implements IAppointmentStore {
+    private lockUtil = new LockUtil();
+
     constructor(
         private readonly db: LevelUp<encodingDown<string, any>>,
         private readonly appointmentConstructors: Map<ChannelType, (obj: any) => IEthereumAppointment>
@@ -74,35 +77,37 @@ export class AppointmentStore extends StartStopService implements IAppointmentSt
      * Returns true if the supplied item was adde or updated in the store.
      * @param appointment
      */
-    public async addOrUpdateByStateLocator(appointment: IEthereumAppointment): Promise<boolean> {
-        const currentAppointment = this.appointmentsByStateLocator[appointment.getStateLocator()];
-        // is there a current appointment
-        if (currentAppointment) {
-            if (currentAppointment.getStateNonce() >= appointment.getStateNonce()) {
-                logger.info(
-                    appointment.formatLog(
-                        `Nonce ${appointment.getStateNonce()} is lower than current appointment ${
-                            currentAppointment.id
-                        } nonce ${currentAppointment.getStateNonce()}`
-                    )
-                );
+    public addOrUpdateByStateLocator(appointment: IEthereumAppointment): Promise<boolean> {
+        return this.lockUtil.withLock(appointment.getStateLocator(), async () => {
+            const currentAppointment = this.appointmentsByStateLocator[appointment.getStateLocator()];
+            // is there a current appointment
+            if (currentAppointment) {
+                if (currentAppointment.getStateNonce() >= appointment.getStateNonce()) {
+                    logger.info(
+                        appointment.formatLog(
+                            `Nonce ${appointment.getStateNonce()} is lower than current appointment ${
+                                currentAppointment.id
+                            } nonce ${currentAppointment.getStateNonce()}`
+                        )
+                    );
 
-                return false;
-            } else {
-                // remove the old appointment
-                delete this.appointmentsById[currentAppointment.id];
+                    return false;
+                } else {
+                    // remove the old appointment
+                    delete this.appointmentsById[currentAppointment.id];
+                }
             }
-        }
 
-        // update the db
-        const batch = this.db.batch().put(appointment.id, appointment.getDBRepresentation());
-        if (currentAppointment) await batch.del(currentAppointment.id).write();
-        else await batch.write();
+            // update the db
+            const batch = this.db.batch().put(appointment.id, appointment.getDBRepresentation());
+            if (currentAppointment) await batch.del(currentAppointment.id).write();
+            else await batch.write();
 
-        // add the new appointment
-        this.appointmentsByStateLocator[appointment.getStateLocator()] = appointment;
-        this.appointmentsById[appointment.id] = appointment;
-        return true;
+            // add the new appointment
+            this.appointmentsByStateLocator[appointment.getStateLocator()] = appointment;
+            this.appointmentsById[appointment.id] = appointment;
+            return true;
+        });
     }
 
     /**
@@ -116,16 +121,17 @@ export class AppointmentStore extends StartStopService implements IAppointmentSt
             // remove the appointment from the id index
             delete this.appointmentsById[appointmentId];
 
-            // remove the appointment from the state locator index
-            const currentAppointment = this.appointmentsByStateLocator[appointmentById.getStateLocator()];
-            // if it has the same id
-            if (currentAppointment.id === appointmentId) {
-                delete this.appointmentsByStateLocator[appointmentById.getStateLocator()];
-            }
+            await this.lockUtil.withLock(appointmentById.getStateLocator(), async () => {
+                // remove the appointment from the state locator index
+                const currentAppointment = this.appointmentsByStateLocator[appointmentById.getStateLocator()];
+                // if it has the same id
+                if (currentAppointment.id === appointmentId) {
+                    delete this.appointmentsByStateLocator[appointmentById.getStateLocator()];
+                }
 
-            // and remove from remote storage
-            await this.db.del(appointmentId);
-
+                // and remove from remote storage
+                await this.db.del(appointmentId);
+            });
             return true;
         }
         return false;
