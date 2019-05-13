@@ -1,6 +1,6 @@
 import "mocha";
 import { assert } from "chai";
-import mockito, { mock, instance, when, verify, anything, resetCalls, capture, anyNumber } from "ts-mockito";
+import mockito, { mock, instance, when, verify, anything, resetCalls, capture, anyNumber, spy } from "ts-mockito";
 import uuid from "uuid/v4";
 import { AppointmentStore, Watcher } from "../../../src/watcher";
 import { KitsuneAppointment } from "../../../src/integrations/kitsune";
@@ -8,7 +8,7 @@ import { ethers } from "ethers";
 import { AppointmentSubscriber } from "../../../src/watcher/appointmentSubscriber";
 import * as Ganache from "ganache-core";
 import { EthereumResponderManager } from "../../../src/responder";
-import { ReorgDetector } from "../../../src/blockMonitor";
+import { ReorgDetector, ReorgHeightListenerStore } from "../../../src/blockMonitor";
 
 describe("Watcher", () => {
     const ganache = Ganache.provider({});
@@ -201,10 +201,10 @@ describe("Watcher", () => {
         }
     });
 
-    it("observe succussfully responds and updates store", () => {
+    it("observe succussfully responds and updates store", async () => {
         const watcher = new Watcher(provider, responderInstance, reorgDetectorInstance, appointmentSubscriber, store);
 
-        watcher.observe(appointmentCanBeUpdated, event);
+        await watcher.observe(appointmentCanBeUpdated, event);
 
         // respond, reorg and remove were called in that order
         verify(mockedResponder.respond(appointmentCanBeUpdated)).once();
@@ -224,7 +224,7 @@ describe("Watcher", () => {
         assert.strictEqual(firstArg, event.blockNumber, "Event block height incorrect.");
     });
 
-    it("observe doesnt propogate errors from responder", () => {
+    it("observe doesnt propogate errors from responder", async () => {
         const watcher = new Watcher(
             provider,
             responderInstanceThrow,
@@ -232,7 +232,7 @@ describe("Watcher", () => {
             appointmentSubscriber,
             store
         );
-        watcher.observe(appointmentCanBeUpdated, event);
+        await watcher.observe(appointmentCanBeUpdated, event);
 
         verify(mockedResponderThatThrows.respond(appointmentCanBeUpdated)).once();
         verify(mockedStore.removeById(appointmentCanBeUpdated.id)).never();
@@ -240,7 +240,7 @@ describe("Watcher", () => {
         verify(mockedReorgDetector.addReorgHeightListener(anyNumber(), anything())).never();
     });
 
-    it("observe doesnt propogate errors from store", () => {
+    it("observe doesnt propogate errors from store", async () => {
         const watcher = new Watcher(
             provider,
             responderInstance,
@@ -248,7 +248,7 @@ describe("Watcher", () => {
             appointmentSubscriber,
             storeInstanceThrow
         );
-        watcher.observe(appointmentCanBeUpdated, event);
+        await watcher.observe(appointmentCanBeUpdated, event);
 
         verify(mockedResponder.respond(appointmentCanBeUpdated)).once();
         verify(mockedReorgDetector.addReorgHeightListener(anyNumber(), anything())).once();
@@ -256,5 +256,34 @@ describe("Watcher", () => {
         verify(mockedStoreThatThrows.removeById(anything())).once();
     });
 
-    it("observe does nothing during a reorg");
+    it("observe does nothing during a reorg", async () => {
+        const reorgDetect = new ReorgDetector(provider, 10, new ReorgHeightListenerStore())
+        const spiedReorgDetect = spy(reorgDetect)
+        const watcher = new Watcher(
+            provider,
+            responderInstance,
+            reorgDetect,
+            appointmentSubscriber,
+            storeInstanceThrow
+        );
+        await watcher.start()
+
+        reorgDetect.emit(ReorgDetector.REORG_START_EVENT)
+        await watcher.observe(appointmentCanBeUpdated, event);
+        reorgDetect.emit(ReorgDetector.REORG_END_EVENT)
+
+        verify(mockedResponder.respond(appointmentCanBeUpdated)).never();
+        verify(spiedReorgDetect.addReorgHeightListener(anyNumber(), anything())).never();
+        verify(mockedAppointmentSubscriber.unsubscribe(appointmentCanBeUpdated.id, anything())).never();
+        verify(mockedStoreThatThrows.removeById(anything())).never();
+
+        await watcher.observe(appointmentCanBeUpdated, event);
+
+        verify(mockedResponder.respond(appointmentCanBeUpdated)).once();
+        verify(spiedReorgDetect.addReorgHeightListener(anyNumber(), anything())).once();
+        verify(mockedAppointmentSubscriber.unsubscribe(appointmentCanBeUpdated.id, anything())).once();
+        verify(mockedStoreThatThrows.removeById(anything())).once();
+
+        await watcher.stop()
+    });
 });
