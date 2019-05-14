@@ -12,7 +12,7 @@
     "start-evm": "ganache-cli -d -l 15000000 --allowUnlimitedContractSize --defaultBalanceEther 1000000 --mnemonic 'myth like bonus scare over problem client lizard pioneer submit female collect'",
     "submodule": "git submodule init && git submodule update",
     "lint": "eslint --ext ts .",
-    "test": "NODE_ENV=test && mocha -r ts-node/register 'test/src/**/*.test.ts' --exit && npm run test-mocked",
+    "test": "NODE_ENV=test && mocha -r ts-node/register --reporter  'test/src/**/*.test.ts' --exit && npm run test-mocked",
     "test-load": "ts-node test/load/loadTest.ts 10 20000",
     "test-coverage": "nyc npm run test",
     "test-smoke": "ts-node test/smoke/smokeTests.ts",
@@ -31,7 +31,7 @@
     ],
     "reporter": [
       "json-summary",
-      "lcov"
+      "lcovonly"
     ],
     "sourceMap": true,
     "instrument": true
