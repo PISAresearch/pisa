@@ -36,7 +36,6 @@
     "sourceMap": true,
     "instrument": true
   },
-
   "repository": {
     "type": "git",
     "url": "git+https://github.com/PISAresearch/pisa.git"
@@ -99,7 +98,6 @@
     "prettier": "^1.17.0",
     "sinon": "^7.3.1",
     "sinon-chai": "^3.3.0",
-    "source-map-support": "^0.5.12",
     "tree-kill": "^1.2.1",
     "ts-mockito": "^2.3.1",
     "ts-node": "^7.0.1",
