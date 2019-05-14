@@ -4,5 +4,18 @@
         "name": "0.0.0.0",
         "port": 3000
     },
-    "responderKey": "0x549a24a594a51f0bea8655a80c01689206a811120e2b28683d6b202f096a2049"
+    "responderKey": "0x549a24a594a51f0bea8655a80c01689206a811120e2b28683d6b202f096a2049",
+    "receiptKey": "0x6370fd033278c143179d81c5526140625662b8daa446c22ee2d73db3707e620c",
+    "apiEndpoint": {
+        "rateGlobal": {
+            "windowMs": 60000,
+            "max": 100
+        },
+        "ratePerUser": {
+            "windowMs": 60000,
+            "max": 5,
+            "message": "Too many requests. Please try again later and limit requests to 5 per minute."
+        }
+    }, 
+    "dbDir": "pisa-db"
 }
