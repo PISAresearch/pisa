@@ -1,0 +1,329 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="Mocha Tests" time="7.981" tests="151" failures="0" skipped="7">
+  <testsuite name="Root Suite" timestamp="2019-05-14T10:31:24" tests="0" failures="0" time="0">
+  </testsuite>
+  <testsuite name="BlockStubChain" timestamp="2019-05-14T10:31:24" tests="21" file="/home/chris/dev/pisa/test/src/blockMonitor/blockStub.test.ts" failures="0" time="0.003">
+    <testcase name="BlockStubChain new root creates block" time="0.001" classname="new root creates block">
+    </testcase>
+    <testcase name="BlockStubChain extend creates block with parent" time="0" classname="extend creates block with parent">
+    </testcase>
+    <testcase name="BlockStubChain extend correctly chains parents" time="0.001" classname="extend correctly chains parents">
+    </testcase>
+    <testcase name="BlockStubChain extend twice creates block with two parents" time="0" classname="extend twice creates block with two parents">
+    </testcase>
+    <testcase name="BlockStubChain extend cannot from height !== parent.height + 1" time="0.001" classname="extend cannot from height !== parent.height + 1">
+    </testcase>
+    <testcase name="BlockStubChain extend many creates one extra block" time="0" classname="extend many creates one extra block">
+    </testcase>
+    <testcase name="BlockStubChain extend many creates many extra blocks" time="0" classname="extend many creates many extra blocks">
+    </testcase>
+    <testcase name="BlockStubChain extend many does not extend a gap" time="0" classname="extend many does not extend a gap">
+    </testcase>
+    <testcase name="BlockStubChain extend many does not extend a different chain" time="0" classname="extend many does not extend a different chain">
+    </testcase>
+    <testcase name="BlockStubChain blockInChainWithHash finds hash" time="0" classname="blockInChainWithHash finds hash">
+    </testcase>
+    <testcase name="BlockStubChain blockInChainWithHash doesn&apos;t find missing hash" time="0" classname="blockInChainWithHash doesn&apos;t find missing hash">
+    </testcase>
+    <testcase name="BlockStubChain blockInChainWithHeight finds height" time="0" classname="blockInChainWithHeight finds height">
+    </testcase>
+    <testcase name="BlockStubChain blockInChainWithHeight doesnt find missing height" time="0" classname="blockInChainWithHeight doesnt find missing height">
+    </testcase>
+    <testcase name="BlockStubChain prune only prunes below height, not above" time="0" classname="prune only prunes below height, not above">
+    </testcase>
+    <testcase name="BlockStubChain prune twice is the same as prune" time="0" classname="prune twice is the same as prune">
+    </testcase>
+    <testcase name="BlockStubChain prune does nothing when called for too low number" time="0" classname="prune does nothing when called for too low number">
+    </testcase>
+    <testcase name="BlockStubChain prune can prune to current height" time="0" classname="prune can prune to current height">
+    </testcase>
+    <testcase name="BlockStubChain prune cannot prune above current height" time="0" classname="prune cannot prune above current height">
+    </testcase>
+    <testcase name="BlockStubChain prune below min does nothing to current block" time="0" classname="prune below min does nothing to current block">
+    </testcase>
+    <testcase name="BlockStubChain asBlockStub returns core components" time="0" classname="asBlockStub returns core components">
+    </testcase>
+    <testcase name="BlockStubChain asBlockStub returns null parent for genesis" time="0" classname="asBlockStub returns null parent for genesis">
+    </testcase>
+  </testsuite>
+  <testsuite name="ReorgDetector" timestamp="2019-05-14T10:31:24" tests="18" file="/home/chris/dev/pisa/test/src/blockMonitor/reorg.test.ts" failures="0" time="0.039">
+    <testcase name="ReorgDetector new block correctly adds genesis" time="0.006" classname="new block correctly adds genesis">
+    </testcase>
+    <testcase name="ReorgDetector new block does extends chain" time="0.002" classname="new block does extends chain">
+    </testcase>
+    <testcase name="ReorgDetector new block does detects reorg of depth 1" time="0.003" classname="new block does detects reorg of depth 1">
+    </testcase>
+    <testcase name="ReorgDetector new block does detect reorg when max depth 1 for depth 1 reorg" time="0.003" classname="new block does detect reorg when max depth 1 for depth 1 reorg">
+    </testcase>
+    <testcase name="ReorgDetector new block does detect reorg of depth 2" time="0.003" classname="new block does detect reorg of depth 2">
+    </testcase>
+    <testcase name="ReorgDetector new block does flip flops" time="0.003" classname="new block does flip flops">
+    </testcase>
+    <testcase name="ReorgDetector new block does detect reorg of depth 5, then again at depth 2" time="0.004" classname="new block does detect reorg of depth 5, then again at depth 2">
+    </testcase>
+    <testcase name="ReorgDetector new block emits catastrophic reorg when too deep" time="0.003" classname="new block emits catastrophic reorg when too deep">
+    </testcase>
+    <testcase name="ReorgDetector new block does extend by many" time="0.005" classname="new block does extend by many">
+    </testcase>
+    <testcase name="ReorgDetector new block does fire reorg height events upon reorg" time="0.003" classname="new block does fire reorg height events upon reorg">
+    </testcase>
+    <testcase name="ReorgDetector new block emits start, then end, reset events provider upon reorg" time="0.002" classname="new block emits start, then end, reset events provider upon reorg">
+    </testcase>
+    <testcase name="ReorgDetector prune does remove blocks and listeners" time="0.002" classname="prune does remove blocks and listeners">
+    </testcase>
+  </testsuite>
+  <testsuite name="ReorgHeightListenerStore" timestamp="2019-05-14T10:31:24" tests="4" file="/home/chris/dev/pisa/test/src/blockMonitor/reorgHeightStore.test.ts" failures="0" time="0.002">
+    <testcase name="ReorgHeightListenerStore addListener/removeListener/getHeight does add/remove one listener" time="0.001" classname="addListener/removeListener/getHeight does add/remove one listener">
+    </testcase>
+    <testcase name="ReorgHeightListenerStore addListener/removeListener/getHeight adds multiple listeners" time="0.001" classname="addListener/removeListener/getHeight adds multiple listeners">
+    </testcase>
+    <testcase name="ReorgHeightListenerStore removeListener does nothing for non existant listener" time="0" classname="removeListener does nothing for non existant listener">
+    </testcase>
+    <testcase name="ReorgHeightListenerStore prune deletes all listeners below, but not above" time="0" classname="prune deletes all listeners below, but not above">
+    </testcase>
+  </testsuite>
+  <testsuite name="StartStop" timestamp="2019-05-14T10:31:24" tests="3" file="/home/chris/dev/pisa/test/src/dataEntities/startStop.test.ts" failures="0" time="0.005">
+    <testcase name="StartStop start can only be called once" time="0.002" classname="start can only be called once">
+    </testcase>
+    <testcase name="StartStop start cannot be started whilst being started" time="0.002" classname="start cannot be started whilst being started">
+    </testcase>
+    <testcase name="StartStop multiple calls to stop do nothing" time="0.001" classname="multiple calls to stop do nothing">
+    </testcase>
+  </testsuite>
+  <testsuite name="End to end" timestamp="2019-05-14T10:31:24" tests="1" file="/home/chris/dev/pisa/test/src/endToEnd.test.ts" failures="0" time="2.321">
+    <testcase name="End to end inspect and watch a contract" time="2.321" classname="inspect and watch a contract">
+    </testcase>
+  </testsuite>
+  <testsuite name="Inspector" timestamp="2019-05-14T10:31:27" tests="10" file="/home/chris/dev/pisa/test/src/kitsuneInspector.test.ts" failures="0" time="0.8310000000000001">
+    <testcase name="Inspector accepts appointment" time="0.124" classname="accepts appointment">
+    </testcase>
+    <testcase name="Inspector throws for round too low" time="0.004" classname="throws for round too low">
+    </testcase>
+    <testcase name="Inspector throws for expiry equal dispute time" time="0.008" classname="throws for expiry equal dispute time">
+    </testcase>
+    <testcase name="Inspector throws for expiry less than dispute time" time="0.021" classname="throws for expiry less than dispute time">
+    </testcase>
+    <testcase name="Inspector throws for non existant contract" time="0.044" classname="throws for non existant contract">
+    </testcase>
+    <testcase name="Inspector throws for wrong state hash" time="0.05" classname="throws for wrong state hash">
+    </testcase>
+    <testcase name="Inspector throws for sigs on wrong hash" time="0.08" classname="throws for sigs on wrong hash">
+    </testcase>
+    <testcase name="Inspector throws for sigs by only one player" time="0.078" classname="throws for sigs by only one player">
+    </testcase>
+    <testcase name="Inspector throws for missing sig" time="0.026" classname="throws for missing sig">
+    </testcase>
+    <testcase name="Inspector accepts sigs in wrong order" time="0.396" classname="accepts sigs in wrong order">
+    </testcase>
+  </testsuite>
+  <testsuite name="EthereumDedicatedResponder" timestamp="2019-05-14T10:31:27" tests="5" file="/home/chris/dev/pisa/test/src/responder.test.ts" failures="0" time="1.2839999999999998">
+    <testcase name="EthereumDedicatedResponder correctly submits an appointment to the blockchain" time="0.067" classname="correctly submits an appointment to the blockchain">
+    </testcase>
+    <testcase name="EthereumDedicatedResponder emits the AttemptFailed with a NoNewBlockError if there is no new block for too long" time="0.261" classname="emits the AttemptFailed with a NoNewBlockError if there is no new block for too long">
+    </testcase>
+    <testcase name="EthereumDedicatedResponder emits the AttemptFailed with a ReorgError if a re-org kicks out the transaction before enough confirmations" time="0.174" classname="emits the AttemptFailed with a ReorgError if a re-org kicks out the transaction before enough confirmations">
+    </testcase>
+    <testcase name="EthereumDedicatedResponder emits StuckTransactionError if WAIT_BLOCKS_BEFORE_RETRYING blocks are mined and the transaction is not included" time="0.527" classname="emits StuckTransactionError if WAIT_BLOCKS_BEFORE_RETRYING blocks are mined and the transaction is not included">
+    </testcase>
+    <testcase name="EthereumDedicatedResponder emits the ResponseSent event, followed by ResponseConfirmed after enough confirmations" time="0.255" classname="emits the ResponseSent event, followed by ResponseConfirmed after enough confirmations">
+    </testcase>
+  </testsuite>
+  <testsuite name="EthereumTransactionMiner" timestamp="2019-05-14T10:31:29" tests="8" file="/home/chris/dev/pisa/test/src/responder.test.ts" failures="0" time="0.5870000000000001">
+    <testcase name="EthereumTransactionMiner sendTransaction sends a transaction correctly" time="0.011" classname="sendTransaction sends a transaction correctly">
+    </testcase>
+    <testcase name="EthereumTransactionMiner sendTransaction re-throws the same error if the signer&apos;s sendTransaction throws" time="0.001" classname="sendTransaction re-throws the same error if the signer&apos;s sendTransaction throws">
+    </testcase>
+    <testcase name="EthereumTransactionMiner waitForFirstConfirmation resolves after the transaction is confirmed" time="0.133" classname="waitForFirstConfirmation resolves after the transaction is confirmed">
+    </testcase>
+    <testcase name="EthereumTransactionMiner waitForFirstConfirmation throws NoNewBlockError after timeout" time="0.115" classname="waitForFirstConfirmation throws NoNewBlockError after timeout">
+    </testcase>
+    <testcase name="EthereumTransactionMiner waitForFirstConfirmation throws BlockThresholdReachedError if the transaction is stuck" time="0.016" classname="waitForFirstConfirmation throws BlockThresholdReachedError if the transaction is stuck">
+    </testcase>
+    <testcase name="EthereumTransactionMiner waitForEnoughConfirmations resolves after enough confirmations" time="0.137" classname="waitForEnoughConfirmations resolves after enough confirmations">
+    </testcase>
+    <testcase name="EthereumTransactionMiner waitForEnoughConfirmations throws NoNewBlockError after timeout" time="0.141" classname="waitForEnoughConfirmations throws NoNewBlockError after timeout">
+    </testcase>
+    <testcase name="EthereumTransactionMiner waitForEnoughConfirmations throws ReorgError if the transaction is not found by the provider" time="0.033" classname="waitForEnoughConfirmations throws ReorgError if the transaction is not found by the provider">
+    </testcase>
+  </testsuite>
+  <testsuite name="Service end-to-end" timestamp="2019-05-14T10:31:30" tests="15" file="/home/chris/dev/pisa/test/src/serviceEndToEnd.test.ts" failures="0" time="1.4299999999999997">
+    <testcase name="Service end-to-end create channel, submit appointment, trigger dispute, wait for response" time="0.585" classname="create channel, submit appointment, trigger dispute, wait for response">
+    </testcase>
+    <testcase name="Service end-to-end contains &apos;appointment&apos; and &apos;signature&apos; in the response; signature is correct" time="0.111" classname="contains &apos;appointment&apos; and &apos;signature&apos; in the response; signature is correct">
+    </testcase>
+    <testcase name="Service end-to-end create channel, submit round = 0 too low returns 400" time="0.024" classname="create channel, submit round = 0 too low returns 400">
+    </testcase>
+    <testcase name="Service end-to-end create channel, submit round = -1 too low returns 400" time="0.023" classname="create channel, submit round = -1 too low returns 400">
+    </testcase>
+    <testcase name="Service end-to-end create channel, expiry = dispute period returns 400" time="0.145" classname="create channel, expiry = dispute period returns 400">
+    </testcase>
+    <testcase name="Service end-to-end create channel, expiry period = dispute period - 1 too low returns 400" time="0.081" classname="create channel, expiry period = dispute period - 1 too low returns 400">
+    </testcase>
+    <testcase name="Service end-to-end create channel, non existant contact returns 400" time="0.015" classname="create channel, non existant contact returns 400">
+    </testcase>
+    <testcase name="Service end-to-end create channel, wrong bytecode contact returns 400" time="0.033" classname="create channel, wrong bytecode contact returns 400">
+    </testcase>
+    <testcase name="Service end-to-end create channel, invalid contract address returns 400" time="0.007" classname="create channel, invalid contract address returns 400">
+    </testcase>
+    <testcase name="Service end-to-end create channel, invalid state hash returns 400" time="0.011" classname="create channel, invalid state hash returns 400">
+    </testcase>
+    <testcase name="Service end-to-end create channel, wrong state hash returns 400" time="0.059" classname="create channel, wrong state hash returns 400">
+    </testcase>
+    <testcase name="Service end-to-end create channel, wrong sig on hash returns 400" time="0.074" classname="create channel, wrong sig on hash returns 400">
+    </testcase>
+    <testcase name="Service end-to-end create channel, sigs by only one player returns 400" time="0.091" classname="create channel, sigs by only one player returns 400">
+    </testcase>
+    <testcase name="Service end-to-end create channel, missing sig returns 400" time="0.073" classname="create channel, missing sig returns 400">
+    </testcase>
+    <testcase name="Service end-to-end create channel, sigs in wrong order returns 200" time="0.098" classname="create channel, sigs in wrong order returns 200">
+    </testcase>
+  </testsuite>
+  <testsuite name="withDelay" timestamp="2019-05-14T10:31:32" tests="2" file="/home/chris/dev/pisa/test/src/utils/ethers.test.ts" failures="0" time="0.378">
+    <testcase name="withDelay correctly delays getblock" time="0.087" classname="correctly delays getblock">
+    </testcase>
+    <testcase name="withDelay only emits event after delay" time="0.291" classname="only emits event after delay">
+    </testcase>
+  </testsuite>
+  <testsuite name="rejectIfAnyBlockTimesOut" timestamp="2019-05-14T10:31:33" tests="5" file="/home/chris/dev/pisa/test/src/utils/ethers.test.ts" failures="0" time="0.481">
+    <testcase name="rejectIfAnyBlockTimesOut does not reject before the timeout" time="0.006" classname="does not reject before the timeout">
+    </testcase>
+    <testcase name="rejectIfAnyBlockTimesOut rejects after the timeout if no blocks are mined" time="0.009" classname="rejects after the timeout if no blocks are mined">
+    </testcase>
+    <testcase name="rejectIfAnyBlockTimesOut does not reject if multiple blocks are mined before the timeout" time="0.255" classname="does not reject if multiple blocks are mined before the timeout">
+    </testcase>
+    <testcase name="rejectIfAnyBlockTimesOut rejects after a timeout after a block is mined" time="0.004" classname="rejects after a timeout after a block is mined">
+    </testcase>
+    <testcase name="rejectIfAnyBlockTimesOut rejects after a timeout after a few blocks are mined" time="0.207" classname="rejects after a timeout after a few blocks are mined">
+    </testcase>
+  </testsuite>
+  <testsuite name="rejectAfterBlocks" timestamp="2019-05-14T10:31:33" tests="2" file="/home/chris/dev/pisa/test/src/utils/ethers.test.ts" failures="0" time="0.28400000000000003">
+    <testcase name="rejectAfterBlocks does not reject when less than nBlocks blocks are mined" time="0.098" classname="does not reject when less than nBlocks blocks are mined">
+    </testcase>
+    <testcase name="rejectAfterBlocks rejects if nBlocks blocks are mined" time="0.186" classname="rejects if nBlocks blocks are mined">
+    </testcase>
+  </testsuite>
+  <testsuite name="Lock" timestamp="2019-05-14T10:31:34" tests="4" file="/home/chris/dev/pisa/test/src/utils/lock.test.ts" failures="0" time="0.033">
+    <testcase name="Lock updates &apos;locked&apos; correctly" time="0" classname="updates &apos;locked&apos; correctly">
+    </testcase>
+    <testcase name="Lock gives the lock to the waiters in the right order" time="0.032" classname="gives the lock to the waiters in the right order">
+    </testcase>
+    <testcase name="Lock throws ApplicationError if released when not locked" time="0.001" classname="throws ApplicationError if released when not locked">
+    </testcase>
+    <testcase name="Lock throws ApplicationError if released two times but acquired only once" time="0" classname="throws ApplicationError if released two times but acquired only once">
+    </testcase>
+  </testsuite>
+  <testsuite name="LockManager" timestamp="2019-05-14T10:31:34" tests="11" file="/home/chris/dev/pisa/test/src/utils/lock.test.ts" failures="0" time="0.166">
+    <testcase name="LockManager acquire can acquire a key" time="0" classname="acquire can acquire a key">
+    </testcase>
+    <testcase name="LockManager acquire can acquire two different keys" time="0" classname="acquire can acquire two different keys">
+    </testcase>
+    <testcase name="LockManager acquire cannot acquire a key again before release" time="0.032" classname="acquire cannot acquire a key again before release">
+    </testcase>
+    <testcase name="LockManager release throws an ApplicationError if key was not acquired" time="0" classname="release throws an ApplicationError if key was not acquired">
+    </testcase>
+    <testcase name="LockManager release does release a key" time="0.032" classname="release does release a key">
+    </testcase>
+    <testcase name="LockManager release throws an ApplicationError if a key is released more times than it is acquired" time="0.002" classname="release throws an ApplicationError if a key is released more times than it is acquired">
+    </testcase>
+    <testcase name="LockManager withLock returns the value returned by the passed function" time="0.001" classname="withLock returns the value returned by the passed function">
+    </testcase>
+    <testcase name="LockManager withLock throws the same error if the passed function throws" time="0.001" classname="withLock throws the same error if the passed function throws">
+    </testcase>
+    <testcase name="LockManager withLock keeps the lock while the passed function&apos;s promise is pending" time="0.032" classname="withLock keeps the lock while the passed function&apos;s promise is pending">
+    </testcase>
+    <testcase name="LockManager withLock released the lock when done succesfully" time="0.032" classname="withLock released the lock when done succesfully">
+    </testcase>
+    <testcase name="LockManager withLock released the lock when the function throws" time="0.034" classname="withLock released the lock when the function throws">
+    </testcase>
+  </testsuite>
+  <testsuite name="AppointmentSubscriber" timestamp="2019-05-14T10:31:34" tests="9" file="/home/chris/dev/pisa/test/src/watcher/appointmentSubscriber.test.ts" failures="0" time="0.001">
+    <testcase name="AppointmentSubscriber subscribeOnce correctly subcribes 1 appointment" time="0" classname="subscribeOnce correctly subcribes 1 appointment">
+    </testcase>
+    <testcase name="AppointmentSubscriber subscribeOnce correctly subcribes 2 different appointments" time="0" classname="subscribeOnce correctly subcribes 2 different appointments">
+    </testcase>
+    <testcase name="AppointmentSubscriber subscribeOnce throws error if one subscribed to twice for the same event filter" time="0.001" classname="subscribeOnce throws error if one subscribed to twice for the same event filter">
+    </testcase>
+    <testcase name="AppointmentSubscriber unsubscribe does nothing when neither filter nor id match" time="0" classname="unsubscribe does nothing when neither filter nor id match">
+    </testcase>
+    <testcase name="AppointmentSubscriber unsubscribe does nothing when when filter does not match but id does" time="0" classname="unsubscribe does nothing when when filter does not match but id does">
+    </testcase>
+    <testcase name="AppointmentSubscriber unsubscribe does nothing when id matches but filter does not" time="0" classname="unsubscribe does nothing when id matches but filter does not">
+    </testcase>
+    <testcase name="AppointmentSubscriber unsubscribe only removes subscription when filter and id match" time="0" classname="unsubscribe only removes subscription when filter and id match">
+    </testcase>
+    <testcase name="AppointmentSubscriber unsubscribeAll does nothing when no filter matches" time="0" classname="unsubscribeAll does nothing when no filter matches">
+    </testcase>
+    <testcase name="AppointmentSubscriber unsubscribeAll removes all subscriptions that match an event" time="0" classname="unsubscribeAll removes all subscriptions that match an event">
+    </testcase>
+  </testsuite>
+  <testsuite name="GarbageCollector" timestamp="2019-05-14T10:31:34" tests="12" file="/home/chris/dev/pisa/test/src/watcher/garbageCollector.test.ts" failures="0" time="0.11400000000000002">
+    <testcase name="GarbageCollector remove by expired successfully updates store and subscriber" time="0.022" classname="remove by expired successfully updates store and subscriber">
+    </testcase>
+    <testcase name="GarbageCollector start correctly adds listener" time="0.001" classname="start correctly adds listener">
+    </testcase>
+    <testcase name="GarbageCollector start can only be called once" time="0.002" classname="start can only be called once">
+    </testcase>
+    <testcase name="GarbageCollector stop correctly removes listener" time="0.002" classname="stop correctly removes listener">
+    </testcase>
+    <testcase name="GarbageCollector stop does nothing if called twice" time="0.002" classname="stop does nothing if called twice">
+    </testcase>
+    <testcase name="GarbageCollector can collect two appointments on two events" time="0.028" classname="can collect two appointments on two events">
+    </testcase>
+    <testcase name="GarbageCollector can collect multiple appointments on one event" time="0.021" classname="can collect multiple appointments on one event">
+    </testcase>
+    <testcase name="GarbageCollector does nothing when no appointments to collect" time="0.001" classname="does nothing when no appointments to collect">
+    </testcase>
+    <testcase name="GarbageCollector only collects from one of two simultaneous blocks" time="0.033" classname="only collects from one of two simultaneous blocks">
+    </testcase>
+    <testcase name="GarbageCollector safely catches when subcriber throws error" time="0.001" classname="safely catches when subcriber throws error">
+    </testcase>
+    <testcase name="GarbageCollector safely catches when store throws error on expired since" time="0.001" classname="safely catches when store throws error on expired since">
+    </testcase>
+    <testcase name="GarbageCollector safely catches when store throws error on remove" time="0" classname="safely catches when store throws error on remove">
+    </testcase>
+  </testsuite>
+  <testsuite name="Store" timestamp="2019-05-14T10:31:34" tests="11" file="/home/chris/dev/pisa/test/src/watcher/store.test.ts" failures="0" time="0.019000000000000003">
+    <testcase name="Store addOrUpdate does add appointment" time="0.002" classname="addOrUpdate does add appointment">
+    </testcase>
+    <testcase name="Store addOrUpdate does add multiple appointments" time="0.001" classname="addOrUpdate does add multiple appointments">
+    </testcase>
+    <testcase name="Store addOrUpdate does update older appointment" time="0.002" classname="addOrUpdate does update older appointment">
+    </testcase>
+    <testcase name="Store addOrUpdate does not update newer appointment" time="0.002" classname="addOrUpdate does not update newer appointment">
+    </testcase>
+    <testcase name="Store removeById does remove appointment" time="0.001" classname="removeById does remove appointment">
+    </testcase>
+    <testcase name="Store removeById does not remove appointment already removed" time="0.001" classname="removeById does not remove appointment already removed">
+    </testcase>
+    <testcase name="Store removeById does not remove non-existant appointment" time="0.001" classname="removeById does not remove non-existant appointment">
+    </testcase>
+    <testcase name="Store removeById does allow add after remove" time="0.001" classname="removeById does allow add after remove">
+    </testcase>
+    <testcase name="Store removeById does not remove other appointments" time="0.001" classname="removeById does not remove other appointments">
+    </testcase>
+    <testcase name="Store expiredSince fetches items with end block less than supplied" time="0.002" classname="expiredSince fetches items with end block less than supplied">
+    </testcase>
+    <testcase name="Store startup does load all appointments" time="0.005" classname="startup does load all appointments">
+    </testcase>
+  </testsuite>
+  <testsuite name="Watcher" timestamp="2019-05-14T10:31:34" tests="10" file="/home/chris/dev/pisa/test/src/watcher/watcher.test.ts" failures="0" time="0.003">
+    <testcase name="Watcher add appointment updates store and subscriptions" time="0" classname="add appointment updates store and subscriptions">
+    </testcase>
+    <testcase name="Watcher add appointment without update does not update subscriptions and returns false" time="0" classname="add appointment without update does not update subscriptions and returns false">
+    </testcase>
+    <testcase name="Watcher add appointment not passed inspection throws error" time="0" classname="add appointment not passed inspection throws error">
+    </testcase>
+    <testcase name="Watcher add appointment throws error when update store throws error" time="0.001" classname="add appointment throws error when update store throws error">
+    </testcase>
+    <testcase name="Watcher add appointment throws error when subscribe unsubscribeall throws error" time="0" classname="add appointment throws error when subscribe unsubscribeall throws error">
+    </testcase>
+    <testcase name="Watcher add appointment throws error when subscriber once throw error" time="0" classname="add appointment throws error when subscriber once throw error">
+    </testcase>
+    <testcase name="Watcher observe succussfully responds and updates store" time="0.001" classname="observe succussfully responds and updates store">
+    </testcase>
+    <testcase name="Watcher observe doesnt propogate errors from responder" time="0.001" classname="observe doesnt propogate errors from responder">
+    </testcase>
+    <testcase name="Watcher observe doesnt propogate errors from store" time="0" classname="observe doesnt propogate errors from store">
+    </testcase>
+  </testsuite>
+</testsuites>
