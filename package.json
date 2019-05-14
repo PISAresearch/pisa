@@ -31,8 +31,7 @@
     ],
     "reporter": [
       "json-summary",
-      "lcovonly",
-      "clover"
+      "lcovonly"
     ],
     "sourceMap": true,
     "instrument": true
