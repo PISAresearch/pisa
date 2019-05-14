@@ -26,7 +26,7 @@ export class PisaTower {
      * Checks that the object is well formed, that it meets the conditions necessary for watching and assigns it to be watched.
      * @param obj
      */
-    async addAppointment(obj: any): Promise<SignedAppointmnt> {
+    public async addAppointment(obj: any): Promise<SignedAppointmnt> {
         if (!obj) throw new PublicDataValidationError("No content specified.");
 
         // look for a type argument

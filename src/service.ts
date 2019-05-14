@@ -21,10 +21,10 @@ import { EthereumResponderManager } from "./responder";
 import { AppointmentStoreGarbageCollector } from "./watcher/garbageCollector";
 import { AppointmentSubscriber } from "./watcher/appointmentSubscriber";
 import { IArgConfig } from "./dataEntities/config";
-import { ReorgDetector } from "./blockMonitor/reorg";
-import { ReorgHeightListenerStore } from "./blockMonitor";
+import { BlockProcessor, ReorgHeightListenerStore, BlockCache } from "./blockMonitor";
 import { LevelUp } from "levelup";
 import encodingDown from "encoding-down";
+import { ReorgDetector } from "./blockMonitor/reorgDetector";
 
 /**
  * Hosts a PISA service at the endpoint.
@@ -33,6 +33,7 @@ export class PisaService extends StartStopService {
     private readonly server: Server;
     private readonly garbageCollector: AppointmentStoreGarbageCollector;
     private readonly reorgDetector: ReorgDetector;
+    private readonly blockProcessor: BlockProcessor;
     private readonly watcher: Watcher;
     private readonly appointmentStore: AppointmentStore;
 
@@ -61,8 +62,15 @@ export class PisaService extends StartStopService {
         // choose configs
         const configs = [Raiden, Kitsune];
 
-        // start reorg detector
-        this.reorgDetector = new ReorgDetector(delayedProvider, 200, new ReorgHeightListenerStore());
+        // start reorg detector and block monitor
+        const blockCache = new BlockCache(200);
+        this.blockProcessor = new BlockProcessor(delayedProvider, blockCache);
+        this.reorgDetector = new ReorgDetector(
+            delayedProvider,
+            this.blockProcessor,
+            blockCache,
+            new ReorgHeightListenerStore()
+        );
 
         // dependencies
         this.appointmentStore = new AppointmentStore(
@@ -72,7 +80,6 @@ export class PisaService extends StartStopService {
         const ethereumResponderManager = new EthereumResponderManager(wallet);
         const appointmentSubscriber = new AppointmentSubscriber(delayedProvider);
         this.watcher = new Watcher(
-            delayedProvider,
             ethereumResponderManager,
             this.reorgDetector,
             appointmentSubscriber,
@@ -101,6 +108,7 @@ export class PisaService extends StartStopService {
     }
 
     protected async startInternal() {
+        await this.blockProcessor.start();
         await this.reorgDetector.start();
         await this.garbageCollector.start();
         await this.appointmentStore.start();
@@ -112,7 +120,8 @@ export class PisaService extends StartStopService {
         await this.watcher.stop();
         await this.appointmentStore.stop();
         await this.garbageCollector.stop();
-        await this.reorgDetector.stop();        
+        await this.reorgDetector.stop();
+        await this.blockProcessor.stop();
         this.server.close(error => {
             if (error) logger.error(error.stack!);
             logger.info(`PISA shutdown.`);

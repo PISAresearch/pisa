@@ -1,12 +1,12 @@
+import { ethers } from "ethers";
+import { inspect } from "util";
 import { IEthereumAppointment, StartStopService } from "../dataEntities";
 import logger from "../logger";
 import { ConfigurationError } from "../dataEntities/errors";
+import { EthereumResponderManager } from "../responder";
+import { ReorgDetector } from "../blockMonitor/reorgDetector";
 import { AppointmentSubscriber } from "./appointmentSubscriber";
 import { AppointmentStore } from "./store";
-import { ethers } from "ethers";
-import { EthereumResponderManager } from "../responder";
-import { ReorgDetector } from "../blockMonitor";
-import { inspect } from "util";
 
 /**
  * Watches the chain for events related to the supplied appointments. When an event is noticed data is forwarded to the
@@ -20,9 +20,8 @@ export class Watcher extends StartStopService {
      * acted upon, that is the responsibility of the responder.
      */
     constructor(
-        private readonly provider: ethers.providers.BaseProvider,
         private readonly responder: EthereumResponderManager,
-        private readonly reorgDetecteor: ReorgDetector,
+        private readonly reorgDetector: ReorgDetector,
         private readonly appointmentSubscriber: AppointmentSubscriber,
         private readonly store: AppointmentStore
     ) {
@@ -38,8 +37,8 @@ export class Watcher extends StartStopService {
         this.reorgInProgress = false;
     }
     protected startInternal() {
-        this.reorgDetecteor.on(ReorgDetector.REORG_START_EVENT, this.startReorg);
-        this.reorgDetecteor.on(ReorgDetector.REORG_END_EVENT, this.endReorg);
+        this.reorgDetector.on(ReorgDetector.REORG_START_EVENT, this.startReorg);
+        this.reorgDetector.on(ReorgDetector.REORG_END_EVENT, this.endReorg);
 
         // add any existing appointments in the store to the subscriber
         for (const appointment of this.store.getAll()) {
@@ -49,8 +48,8 @@ export class Watcher extends StartStopService {
         }
     }
     protected stopInternal() {
-        this.reorgDetecteor.removeListener(ReorgDetector.REORG_START_EVENT, this.startReorg);
-        this.reorgDetecteor.removeListener(ReorgDetector.REORG_END_EVENT, this.endReorg);
+        this.reorgDetector.removeListener(ReorgDetector.REORG_START_EVENT, this.startReorg);
+        this.reorgDetector.removeListener(ReorgDetector.REORG_END_EVENT, this.endReorg);
     }
 
     // there are three separate processes that can run concurrently as part of the watcher
@@ -141,7 +140,7 @@ export class Watcher extends StartStopService {
             this.responder.respond(appointment);
 
             // register a reorg event
-            this.reorgDetecteor.addReorgHeightListener(event.blockNumber!, async () => {
+            this.reorgDetector.addReorgHeightListener(event.blockNumber!, async () => {
                 await this.addAppointment(appointment);
             });
 
@@ -172,7 +171,7 @@ export class Watcher extends StartStopService {
             if (!reorgInProgress) {
                 await observeEvent();
             } else {
-                logger.info(appointment.formatLog(`Reorg in prgress, doing nothing.`));
+                logger.info(appointment.formatLog(`Reorg in progress, doing nothing.`));
             }
         } catch (doh) {
             // an error occured whilst responding to the callback - this is serious and the problem needs to be correctly diagnosed
