@@ -35,6 +35,8 @@ jobs:
           path: ./logs/
       - store_artifacts:
           path: coverage/lcov.info
+      - store_artifacts:
+          path: coverage/mocha/test-results.xml
       - codecov/upload: 
           file: coverage/lcov.info
 workflows:
