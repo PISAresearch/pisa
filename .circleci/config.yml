@@ -29,6 +29,8 @@ jobs:
       - run:
           name: test-integration
           command: npm run test-integration
+      - store_test_results:
+          path: coverage
       - store_artifacts:
           path: ./logs/
       - store_artifacts:
