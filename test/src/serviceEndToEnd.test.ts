@@ -17,10 +17,8 @@ logger.transports.forEach(l => (l.level = "max"));
 const ganache = Ganache.provider({
     mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect"
 });
-config.host = {
-    name: "localhost",
-    port: 3000
-};
+config.hostName = "localhost";
+config.hostPort = 3000;
 config.jsonRpcUrl = "http://localhost:8545";
 config.responderKey = "0x6370fd033278c143179d81c5526140625662b8daa446c22ee2d73db3707e620c";
 config.receiptKey = "0x6370fd033278c143179d81c5526140625662b8daa446c22ee2d73db3707e620c";
@@ -50,7 +48,14 @@ describe("Service end-to-end", () => {
 
         const signerWallet = new ethers.Wallet(config.receiptKey!, provider);
 
-        service = new PisaService(config.host.name, config.host.port, provider, watcherWallet, signerWallet, provider, db);
+        service = new PisaService(
+            config,
+            provider,
+            watcherWallet,
+            signerWallet,
+            provider,
+            db
+        );
         await service.start();
 
         // accounts
@@ -93,7 +98,9 @@ describe("Service end-to-end", () => {
             }
         };
 
-        const res = await request.post(`http://${config.host.name}:${config.host.port}/appointment`, { json: appointment });
+        const res = await request.post(`http://${config.hostName}:${config.hostPort}/appointment`, {
+            json: appointment
+        });
 
         // now register a callback on the setstate event and trigger a response
         const setStateEvent = "EventEvidence(uint256, bytes32)";
@@ -133,19 +140,19 @@ describe("Service end-to-end", () => {
             }
         };
 
-        const res = await request.post(`http://${config.host.name}:${config.host.port}/appointment`, { json: appointment });
+        const res = await request.post(`http://${config.hostName}:${config.hostPort}/appointment`, {
+            json: appointment
+        });
 
-        const packedData = ethers.utils.solidityPack([
-            'address',
-            'string',
-            'uint',
-            'uint'
-        ], [
-            channelContract.address,
-            channelContract.address, // locator is the same in Kitsune
-            appointment.stateUpdate.round,
-            appointment.expiryPeriod,
-        ]);
+        const packedData = ethers.utils.solidityPack(
+            ["address", "string", "uint", "uint"],
+            [
+                channelContract.address,
+                channelContract.address, // locator is the same in Kitsune
+                appointment.stateUpdate.round,
+                appointment.expiryPeriod
+            ]
+        );
         const digest = ethers.utils.keccak256(packedData);
         const signer = new Wallet(config.receiptKey!);
         const sig = await signer.signMessage(digest);
@@ -442,7 +449,7 @@ describe("Service end-to-end", () => {
             }
         };
         try {
-            await request.post(`http://${config.host.name}:${config.host.port}/appointment`, {
+            await request.post(`http://${config.hostName}:${config.hostPort}/appointment`, {
                 json: appointment
             });
         } catch (doh) {
@@ -452,7 +459,7 @@ describe("Service end-to-end", () => {
 
     const failWithCode = async (errorMessage: string, appointment: any) => {
         try {
-            await request.post(`http://${config.host.name}:${config.host.port}/appointment`, {
+            await request.post(`http://${config.hostName}:${config.hostPort}/appointment`, {
                 json: appointment
             });
             chai.assert.fail(true, false, "Request was successful when it should have failed.");

@@ -71,7 +71,7 @@ let execute = async (timeToWait: number) => {
         });
 
         // now send the appointment
-        await request.post(`http://${config.host.name}:${config.host.port}/appointment`, {
+        await request.post(`http://${config.hostName}:${config.hostPort}/appointment`, {
             json: appointmentRequest
         });
         console.log(`Appointment request made for contract: ${channelContract.address}.`);
