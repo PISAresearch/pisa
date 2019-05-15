@@ -1,8 +1,8 @@
 {
+    "dbDir": "pisa-db",
+    "hostName": "0.0.0.0",
+    "hostPort": 3000,
     "jsonRpcUrl": "http://parity:8545",
-    "host": {
-        "name": "0.0.0.0",
-        "port": 3000
-    },
-    "responderKey": "0xc364a5ea32a4c267263e99ddda36e05bcb0e5724601c57d6504cccb68e1fe6ae"
+    "responderKey": "0xc364a5ea32a4c267263e99ddda36e05bcb0e5724601c57d6504cccb68e1fe6ae",
+    "receiptKey": "0xc364a5ea32a4c267263e99ddda36e05bcb0e5724601c57d6504cccb68e1fe6ae"
 }
