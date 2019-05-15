@@ -17,7 +17,8 @@
     "test-coverage": "NODE_ENV=test && nyc mocha -r ts-node/register --reporter mocha-junit-reporter --reporter-options mochaFile=coverage/mocha/test-results.xml 'test/src/**/*.test.ts' --exit && npm run test-mocked",
     "test-smoke": "ts-node test/smoke/smokeTests.ts",
     "test-integration": "mocha -r ts-node/register 'test/integration/**/*.test.ts' --exit",
-    "test-mocked": "NODE_ENV=test mocha -r ts-node/register 'test/mocked/**/*.test.ts' --exit"
+    "test-mocked": "NODE_ENV=test mocha -r ts-node/register 'test/mocked/**/*.test.ts' --exit",
+    "testy": "NODE_ENV=test mocha -r ts-node/register 'test/integration/endToEnd.test.ts' --exit"
   },
   "nyc": {
     "include": [
@@ -68,6 +69,7 @@
     "@types/chai": "^4.1.6",
     "@types/chai-as-promised": "^7.1.0",
     "@types/cls-hooked": "^4.3.0",
+    "@types/dockerode": "^2.5.16",
     "@types/encoding-down": "^5.0.0",
     "@types/express": "^4.16.0",
     "@types/express-rate-limit": "^3.3.0",
@@ -88,6 +90,7 @@
     "@typescript-eslint/parser": "^1.7.0",
     "chai": "^4.2.0",
     "chai-as-promised": "^7.1.1",
+    "dockerode": "^2.5.8",
     "eslint": "^5.16.0",
     "eslint-config-prettier": "^4.2.0",
     "eslint-plugin-prettier": "^3.0.1",
