@@ -25,7 +25,9 @@ class DockerManager {
         });
 
         const stream = await container.attach({
-            stream: true, stdout: true, stderr: true
+            stream: true,
+            stdout: true,
+            stderr: true
         });
         stream.pipe(process.stdout);
 
