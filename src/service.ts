@@ -20,7 +20,7 @@ import { setRequestId } from "./customExpressHttpContext";
 import { EthereumResponderManager } from "./responder";
 import { AppointmentStoreGarbageCollector } from "./watcher/garbageCollector";
 import { AppointmentSubscriber } from "./watcher/appointmentSubscriber";
-import { IApiEndpointConfig } from "./dataEntities/config";
+import { IArgConfig } from "./dataEntities/config";
 import { ReorgDetector } from "./blockMonitor/reorg";
 import { ReorgHeightListenerStore } from "./blockMonitor";
 import { LevelUp } from "levelup";
@@ -38,23 +38,20 @@ export class PisaService extends StartStopService {
 
     /**
      *
-     * @param hostname The location to host the pisa service. eg. 0.0.0.0
+     * @param config PISA service configuration info
      * @param port The port on which to host the pisa service
      * @param provider A connection to ethereum
      * @param wallet A signing authority for submitting transactions
      * @param receiptSigner A signing authority for receipts returned from Pisa
      * @param delayedProvider A connection to ethereum that is delayed by a number of confirmations
-     * @param config Optional configuration of the Pisa endpoint
      */
     constructor(
-        hostname: string,
-        port: number,
+        config: IArgConfig,
         provider: ethers.providers.BaseProvider,
         wallet: ethers.Wallet,
         receiptSigner: ethers.Signer,
         delayedProvider: ethers.providers.BaseProvider,
-        db: LevelUp<encodingDown<string, any>>,
-        config?: IApiEndpointConfig
+        db: LevelUp<encodingDown<string, any>>
     ) {
         super("PISA");
         const app = express();
@@ -98,8 +95,8 @@ export class PisaService extends StartStopService {
 
         app.post("/appointment", this.appointment(tower));
 
-        const service = app.listen(port, hostname);
-        logger.info(`PISA listening on: ${hostname}:${port}.`);
+        const service = app.listen(config.hostPort, config.hostName);
+        logger.info(`PISA listening on: ${config.hostName}:${config.hostPort}.`);
         this.server = service;
     }
 
@@ -121,7 +118,7 @@ export class PisaService extends StartStopService {
         });
     }
 
-    private applyMiddlewares(app: express.Express, config?: IApiEndpointConfig) {
+    private applyMiddlewares(app: express.Express, config: IArgConfig) {
         // accept json request bodies
         app.use(express.json());
         // use http context middleware to create a request id available on all requests
@@ -132,35 +129,39 @@ export class PisaService extends StartStopService {
         });
 
         // rate limits
-        if (config && config.rateGlobal) {
+        if (config.rateLimitGlobalMax && config.rateLimitGlobalWindowMs) {
             app.use(
                 new rateLimit({
                     keyGenerator: () => "global", // use the same key for all users
                     statusCode: 503, // = Too Many Requests (RFC 7231)
-                    message: "Server request limit reached. Please try again later.",
-                    ...config.rateGlobal
+                    message: config.rateLimitGlobalMessage || "Server request limit reached. Please try again later.",
+                    windowMs: config.rateLimitGlobalWindowMs,
+                    max: config.rateLimitGlobalMax
                 })
             );
             logger.info(
-                `PISA api global rate limit: ${config.rateGlobal.max} requests every: ${config.rateGlobal.windowMs /
-                    1000} seconds.`
+                `PISA api global rate limit: ${
+                    config.rateLimitGlobalMax
+                } requests every: ${config.rateLimitGlobalWindowMs / 1000} seconds.`
             );
         } else {
             logger.warn(`PISA api global rate limit: NOT SET.`);
         }
 
-        if (config && config.ratePerUser) {
+        if (config.rateLimitUserMax && config.rateLimitUserWindowMs) {
             app.use(
                 new rateLimit({
                     keyGenerator: req => req.ip, // limit per IP
                     statusCode: 429, // = Too Many Requests (RFC 6585)
-                    message: "Too many requests. Please try again later.",
-                    ...config.ratePerUser
+                    message: config.rateLimitUserMessage || "Too many requests. Please try again later.",
+                    windowMs: config.rateLimitUserWindowMs,
+                    max: config.rateLimitUserMax
                 })
             );
             logger.info(
-                `PISA api per-user rate limit: ${config.ratePerUser.max} requests every: ${config.ratePerUser.windowMs /
-                    1000} seconds.`
+                `PISA api per-user rate limit: ${
+                    config.rateLimitUserMax
+                } requests every: ${config.rateLimitUserWindowMs / 1000} seconds.`
             );
         } else {
             logger.warn(`PISA api per-user rate limit: NOT SET.`);

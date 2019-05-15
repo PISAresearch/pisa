@@ -1,8 +1,8 @@
 {
+    "dbDir": "pisa-db",
+    "hostName": "0.0.0.0",
+    "hostPort": 3000,
     "jsonRpcUrl": "http://ganache:8545",
-    "host": {
-        "name": "pisa",
-        "port": 3000
-    },
-    "responderKey": "0x6370fd033278c143179d81c5526140625662b8daa446c22ee2d73db3707e620c"
+    "responderKey": "0x6370fd033278c143179d81c5526140625662b8daa446c22ee2d73db3707e620c",
+    "receiptKey": "0x6370fd033278c143179d81c5526140625662b8daa446c22ee2d73db3707e620c"
 }

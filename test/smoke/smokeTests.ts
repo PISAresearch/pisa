@@ -5,17 +5,6 @@ import config from "../../src/dataEntities/config";
 import { getJsonRPCProvider } from "../../src/utils";
 let account0: string, account1: string, channelContract: ethers.Contract, hashState: string, disputePeriod: number;
 
-class Face {
-    
-}
-
-
-
-
-
-
-
-
 const mineBlock = async (wallet: ethers.Signer) => {
     const tx = await wallet.sendTransaction({ to: "0x0000000000000000000000000000000000000000", value: 1 });
     await tx.wait();
@@ -25,7 +14,6 @@ const mineBlocks = async (wallet: ethers.Signer, blockCount: number) => {
         await mineBlock(wallet);
     }
 };
-
 
 let setup = async () => {
     // accounts
@@ -65,7 +53,7 @@ let execute = async () => {
         }
     };
 
-    await request.post(`http://${config.host.name}:${config.host.port}/appointment`, {
+    await request.post(`http://${config.hostName}:${config.hostPort}/appointment`, {
         json: appointmentRequest
     });
 
