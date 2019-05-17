@@ -73,9 +73,6 @@ describe("Integration", function() {
 
         await parity.start(true);
         await pisa.start(true);
-
-        console.log(await dockerClient.listNetworks());
-        console.log(await dockerClient.listContainers());
     });
 
     after(async () => {

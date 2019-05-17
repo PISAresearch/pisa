@@ -150,6 +150,8 @@ export class ParityContainer extends DockerContainer {
         const chainDataFile = path.join(parityDir, "chain.json");
         fs.writeFileSync(chainDataFile, JSON.stringify(chainData.serialise()));
 
+        console.log(fs.readdirSync(parityDir));
+
         const jsonRpcPort = "8545";
         const parityCommand = [
             "--jsonrpc-interface",
