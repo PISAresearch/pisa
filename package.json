@@ -18,7 +18,7 @@
     "test-smoke": "ts-node test/smoke/smokeTests.ts",
     "test-integration": "mocha -r ts-node/register 'test/integration/**/*.test.ts' --exit",
     "test-mocked": "NODE_ENV=test mocha -r ts-node/register 'test/mocked/**/*.test.ts' --exit",
-    "testy": "NODE_ENV=test mocha -r ts-node/register 'test/integration/endToEnd.test.ts' --exit"
+    "testy": "mocha -r ts-node/register 'test/integration/endToEnd.test.ts' --exit"
   },
   "nyc": {
     "include": [
@@ -49,7 +49,7 @@
   "homepage": "https://github.com/PISAresearch/pisa#readme",
   "dependencies": {
     "encoding-down": "^6.0.2",
-    "ethers": "^4.0.7",
+    "ethers": "^4.0.27",
     "express": "^4.16.4",
     "express-http-context": "^1.2.0",
     "express-rate-limit": "^3.5.0",
