@@ -30,8 +30,6 @@ const prepareLogsDir = (dirPath: string) => {
 describe("Integration", function() {
     this.timeout(60000);
     let pisa: PisaContainer, parity: ParityContainer, network: DockerClient.Network, parityPort: number;
-    const userAccount = "0x004ec07d2329997267ec62b4166639513386f32e";
-    const nodeAccount = "0x00bd138abd70e2f00903268f3db08f2d25677c9e";
 
     before(async () => {
         const currentDirectory = __dirname;
@@ -75,6 +73,9 @@ describe("Integration", function() {
 
         await parity.start(true);
         await pisa.start(true);
+
+        console.log(await dockerClient.listNetworks());
+        console.log(await dockerClient.listContainers());
     });
 
     after(async () => {
@@ -101,7 +102,7 @@ describe("Integration", function() {
         const channelContract = await channelContractFactory.deploy([key0.account, key1.account], disputePeriod);
         // pisa needs some time to initialise -and for some reason the contract needs time to set
         await wait(2000)
-        
+
         const hashState = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("face-off"));
         const round = 1;
         const setStateHash = KitsuneTools.hashForSetState(hashState, round, channelContract.address);
