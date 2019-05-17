@@ -150,13 +150,13 @@ export class ParityContainer extends DockerContainer {
         const chainDataFile = path.join(parityDir, "chain.json");
         fs.writeFileSync(chainDataFile, JSON.stringify(chainData.serialise()));
 
-        const files= fs.readdirSync(parityDir);
+        const files = fs.readdirSync(parityDir);
+    
         files.forEach(f => {
-            const stats = fs.statSync(f)
-            console.log(f,  stats.isDirectory());
-            
-            
+            const stats = fs.statSync(path.join(parityDir, f));
+            console.log(f, stats.isDirectory());
         });
+    
 
         const jsonRpcPort = "8545";
         const parityCommand = [
