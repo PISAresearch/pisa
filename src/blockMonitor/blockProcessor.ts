@@ -5,8 +5,10 @@ import { BlockCache } from "./blockCache";
 import { IBlockStub } from "./blockStub";
 
 /**
- * Listens to the provider for new blocks, and updates `blockCache` with all blocks, making sure that each block
+ * Listens to the provider for new blocks, and updates `blockCache` with all the blocks, making sure that each block
  * is added only after the parent is added, except for blocks at depth `blockCache.maxDepth`.
+ * It generates a `NEW_HEAD_EVENT` every time a new block is received by the provider, but only after populating
+ * the `blockCache` with the new block and its ancestors.
  */
 export class BlockProcessor extends StartStopService {
     // Blocks that are ready to be added to the BlockCache as soon as possible

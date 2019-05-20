@@ -7,10 +7,10 @@ import { ReorgHeightListenerStore } from "./reorgHeightListener";
 import { BlockProcessor } from "./blockProcessor";
 
 /**
- * Keeps track of the current head of the blockchain, and all the blocks observed up to some depth.
- * Emits appropriate events when reorgs are observed.
- *
- * TODO-123: update docs
+ * Keeps track of the current head of the blockchain, and handles reorgs up to the same depth maxDepth as the
+ * BlockCache that is passed in the constructor.
+ * Emits appropriate events when reorgs are observed, and resets the provider to the common ancestor (whenever possible)
+ * so that appropriate block events are emitted.
  */
 export class ReorgDetector extends StartStopService {
     private headBlock: BlockStubChain;
@@ -39,6 +39,8 @@ export class ReorgDetector extends StartStopService {
     /**
      * Keeps track of the current head of the blockchain, and emits events when reorgs are observed
      * @param provider Will have resetEvents called upon reorg
+     * @param blockProcessor The BlockProcessor service
+     * @param blockCache The BlockCache utility
      * @param store A store for reorg listeners
      */
     constructor(
@@ -65,13 +67,6 @@ export class ReorgDetector extends StartStopService {
      * @param blockNumber
      */
     private handleNewBlock(blockNumber: number, blockHash: string) {
-        // Restart the timer for no new blocks, if necessary
-
-        // TODO-123: separate events related to receiving and storing a new block from the reorg handling, as they are independent
-
-        // TODO: remove old comment
-        // we should lock here so that we dont fire reorg events concurrently
-        // it doesnt matter if a reorg is missed immediately, it will be picked up on the next block emission
         try {
             // get the full block information for the incoming block
             const fullBlock = this.blockCache.getBlockStub(blockHash)!;
@@ -122,7 +117,6 @@ export class ReorgDetector extends StartStopService {
      */
     private async conductReorg(newHead: BlockStubChain) {
         // We ignore further reorgs until this one is complete
-        // It does not
         if (this.conductingReorg) return;
 
         this.conductingReorg = true;

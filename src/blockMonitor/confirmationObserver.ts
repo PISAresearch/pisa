@@ -14,9 +14,6 @@ interface ITransactionListenerResolver {
 export class ConfirmationObserver extends StartStopService {
     private txListenerResolvers = new Set<ITransactionListenerResolver>();
 
-    /**
-     * TODO-123: update docs
-     */
     constructor(private readonly blockCache: BlockCache, private readonly blockProcessor: BlockProcessor) {
         super("Confirmation Observer");
         this.handleNewHead = this.handleNewHead.bind(this);

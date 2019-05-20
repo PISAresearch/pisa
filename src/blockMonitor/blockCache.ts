@@ -23,7 +23,11 @@ function removeItemFromKeyedSet<T, U>(map: Map<T, Set<U>>, key: T, item: U) {
     }
 }
 
-/** Utility class to store and query info on full blocks up to a given maximum depth. */
+/**
+ * Utility class to store and query info on full blocks up to a given maximum depth `maxDepth`.
+ * It prunes all the blocks at depth bigger than `maxDepth`, or with height smaller than the first block that was added.
+ * It does not allow to add blocks without adding their parent first, except if they are at depth `maxDepth`.
+ **/
 export class BlockCache {
     public blockStubsByHash: Map<string, BlockStubChain> = new Map();
 
