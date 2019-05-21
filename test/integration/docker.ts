@@ -30,7 +30,9 @@ class FakeDockerVolume {
         await tar.create(
             {
                 file: tarLocation,
-                cwd: cwd
+                cwd: cwd,
+                
+
             },
             [fileName]
         );
@@ -72,7 +74,7 @@ abstract class DockerContainer {
         this.portBindings.forEach(p => (ports[p.Container] = [{ HostPort: p.Host }]));
 
         const container = await this.dockerClient.createContainer({
-            Entrypoint: [ "ls", "-al" ],
+            Entrypoint: ["echo", "$UID"],
             //Cmd: this.commands,
             Image: this.imageName,
             Tty: true,
