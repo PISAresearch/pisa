@@ -74,15 +74,16 @@ abstract class DockerContainer {
         this.portBindings.forEach(p => (ports[p.Container] = [{ HostPort: p.Host }]));
 
         const container = await this.dockerClient.createContainer({
-            Entrypoint: ["id"],
-            //Cmd: this.commands,
+            //Entrypoint: ["id"],
+            Cmd: this.commands,
             Image: this.imageName,
             Tty: true,
             name: this.name,
             HostConfig: {
                 PortBindings: ports,
                 NetworkMode: this.network
-            }
+            },
+            User: "root"
         });
 
         await Promise.all(
