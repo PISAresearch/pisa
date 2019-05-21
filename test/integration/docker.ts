@@ -7,6 +7,7 @@ import fs from "fs";
 import { ConfigurationError } from "../../src/dataEntities";
 import { Key } from "./keyStore";
 import { ChainData } from "./chainData";
+import tar from "tar";
 
 interface IPortBinding {
     Host: string;
@@ -18,13 +19,36 @@ class DockerImageLib {
     public static PISA_IMAGE = "pisaresearch/pisa:0.1.2";
 }
 
+class FakeDockerVolume {
+    public constructor(public readonly hostLocation: string, public readonly containerUnzipLocation: string) {}
+    private archiveLocation: string;
+    async createArchive() {
+        // zip up the location
+        const tarLocation = `${this.hostLocation}.tar`;
+        const cwd = path.dirname(this.hostLocation);
+        const fileName = path.basename(this.hostLocation);
+        await tar.create(
+            {
+                file: tarLocation,
+                cwd: cwd
+            },
+            [fileName]
+        );
+        this.archiveLocation = tarLocation;
+        return tarLocation;
+    }
+    deleteArchive() {
+        fs.unlinkSync(this.archiveLocation);
+    }
+}
+
 abstract class DockerContainer {
     constructor(
         protected readonly dockerClient: DockerClient,
         public readonly name: string,
         public readonly imageName: string,
         public readonly commands: string[],
-        public readonly volumes: string[],
+        public readonly volumes: FakeDockerVolume[],
         public readonly portBindings: IPortBinding[],
         public readonly network?: string
     ) {}
@@ -44,7 +68,7 @@ abstract class DockerContainer {
         // ensure we have an up to date image
         await this.pullImage(this.imageName);
 
-        const ports: any = {};
+        const ports: { [containerId: string]: [{ HostPort: string }] } = {};
         this.portBindings.forEach(p => (ports[p.Container] = [{ HostPort: p.Host }]));
 
         const container = await this.dockerClient.createContainer({
@@ -54,10 +78,18 @@ abstract class DockerContainer {
             name: this.name,
             HostConfig: {
                 PortBindings: ports,
-                Binds: this.volumes,
                 NetworkMode: this.network
             }
         });
+
+        await Promise.all(
+            this.volumes.map(async v => {
+                const path = await v.createArchive();
+                const put = await container.putArchive(path, { path: v.containerUnzipLocation });
+                v.deleteArchive();
+                return put;
+            })
+        );
 
         if (attach) {
             const stream = await container.attach({
@@ -94,7 +126,8 @@ export class PisaContainer extends DockerContainer {
         const configManager = new ConfigManager(ConfigManager.PisaConfigProperties);
         const commandLineArgs = configManager.toCommandLineArgs(config);
 
-        const volumes: string[] = [`${hostLogsDir}:/usr/pisa/logs`];
+        //        const volumes: FakeDockerVolume[] = [new FakeDockerVolume(hostLogsDir, "/usr/pisa/logs")];
+        const volumes: FakeDockerVolume[] = [new FakeDockerVolume(hostLogsDir, "/usr/pisa")];
 
         super(
             dockerClient,
@@ -131,6 +164,7 @@ export class ParityContainer extends DockerContainer {
 
         // we need to create the parity log file as it is mapped as a file volume
         const parityLogFile = path.join(parityDir, "parity.log");
+        //const parityLogFile = "./logs/" + name + "/parity.log";
         FileUtils.touchFileSync(parityLogFile);
 
         // create a keys folder
@@ -151,12 +185,10 @@ export class ParityContainer extends DockerContainer {
         fs.writeFileSync(chainDataFile, JSON.stringify(chainData.serialise()));
 
         const files = fs.readdirSync(parityDir);
-    
+
         files.forEach(f => {
             const stats = fs.statSync(path.join(parityDir, f));
-            console.log(f, stats.isDirectory());
         });
-    
 
         const jsonRpcPort = "8545";
         const parityCommand = [
@@ -174,7 +206,7 @@ export class ParityContainer extends DockerContainer {
             "--keys-path",
             "/home/parity/keys",
             "--password",
-            "/home/parity/passwords",
+            "/home/parity/pwd",
             "--engine-signer",
             validator.account,
             "--reseal-on-txs",
@@ -183,11 +215,15 @@ export class ParityContainer extends DockerContainer {
             "0"
         ];
 
-        const volumes: string[] = [
-            `${parityLogFile}:/home/parity/parity.log`,
-            `${chainDataFile}:/home/parity/chain.json`,
-            `${keysDir}:/home/parity/keys`,
-            `${passwordFile}:/home/parity/passwords`
+        const volumes: FakeDockerVolume[] = [
+            new FakeDockerVolume(parityLogFile, "/home/parity"),
+            new FakeDockerVolume(chainDataFile, "/home/parity"),
+            new FakeDockerVolume(keysDir, "/home/parity"),
+            new FakeDockerVolume(passwordFile, "/home/parity")
+            // new FakeDockerVolume(parityLogFile, "/home/parity/parity.log"),
+            // new FakeDockerVolume(chainDataFile, "/home/parity/chain.json"),
+            // new FakeDockerVolume(keysDir, "/home/parity/keys"),
+            // new FakeDockerVolume(passwordFile, "/home/parity/passwords")
         ];
 
         super(

@@ -86,8 +86,8 @@ describe("Integration", function() {
         provider.pollingInterval = 100;
         const key0 = KeyStore.theKeyStore.account0;
         const key1 = KeyStore.theKeyStore.account1;
-        const wallet0 = key0.wallet.connect(provider)
-        const wallet1 = key0.wallet.connect(provider)
+        const wallet0 = key0.wallet.connect(provider);
+        const wallet1 = key0.wallet.connect(provider);
 
         // // contract
         const channelContractFactory = new ethers.ContractFactory(
@@ -98,7 +98,7 @@ describe("Integration", function() {
         const disputePeriod = 11;
         const channelContract = await channelContractFactory.deploy([key0.account, key1.account], disputePeriod);
         // pisa needs some time to initialise -and for some reason the contract needs time to set
-        await wait(2000)
+        await wait(2000);
 
         const hashState = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("face-off"));
         const round = 1;
