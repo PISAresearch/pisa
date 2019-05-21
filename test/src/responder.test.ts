@@ -1,5 +1,6 @@
 import * as chai from "chai";
-import mockito, { verify, when } from "ts-mockito";
+import chaiAsPromised from "chai-as-promised";
+import mockito, { verify, when, mock, instance, anything } from "ts-mockito";
 import sinon from "sinon";
 import "mocha";
 import { ethers, Contract } from "ethers";
@@ -12,58 +13,20 @@ import {
     DoublingGasPolicy,
     EthereumTransactionMiner
 } from "../../src/responder";
-import { ReorgError, NoNewBlockError, BlockThresholdReachedError } from "../../src/utils/ethers";
-import { wait } from "../../src/utils";
+import { NoNewBlockError } from "../../src/utils/ethers";
+import { CancellablePromise } from "../../src/utils";
 import { ChannelType } from "../../src/dataEntities";
-import chaiAsPromised from "chai-as-promised";
+import { BlockCache, BlockProcessor, BlockTimeoutDetector } from "../../src/blockMonitor";
+import {
+    ConfirmationObserver,
+    BlockThresholdReachedError,
+    ReorgError
+} from "../../src/blockMonitor/confirmationObserver";
 
 chai.use(chaiAsPromised);
 chai.use(require("sinon-chai"));
 
 const expect = chai.expect;
-
-async function initTest(ganacheProviderOptions: any = {}) {
-    const ganache = Ganache.provider(ganacheProviderOptions);
-    const provider = new ethers.providers.Web3Provider(ganache);
-    provider.pollingInterval = 100;
-
-    // Set up the accounts
-    const accounts = await provider.listAccounts();
-    const account0 = accounts[0];
-    const account1 = accounts[1];
-    const responderAccount = accounts[2];
-
-    // set the dispute period
-    const disputePeriod = 11;
-
-    // deploy the contract
-    const channelContractFactory = new ethers.ContractFactory(
-        KitsuneTools.ContractAbi,
-        KitsuneTools.ContractBytecode,
-        provider.getSigner()
-    );
-    const channelContract = await channelContractFactory.deploy([account0, account1], disputePeriod);
-    if (!!ganacheProviderOptions.blockTime) {
-        // If a blockTime is specified, we force mining a block now, as ganache doesn't do it automatically.
-        ganache.sendAsync({ id: 1, jsonrpc: "2.0", method: "evm_mine", params: [] }, () => {});
-    }
-
-    // store an off-chain hashState
-    const hashState = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("to the moon"));
-
-    // trigger a dispute
-    const account0Contract = channelContract.connect(provider.getSigner(account0));
-    const tx = await account0Contract.triggerDispute();
-
-    if (!!ganacheProviderOptions.blockTime) {
-        // If a blockTime is specified, we force mining a block now, as ganache doesn't do it automatically.
-        ganache.sendAsync({ id: 1, jsonrpc: "2.0", method: "evm_mine", params: [] }, () => {});
-    }
-
-    await tx.wait();
-
-    return { ganache, provider, account0, account1, responderAccount, disputePeriod, channelContract, hashState };
-}
 
 // Repeated code for multiple tests
 async function getTestData(
@@ -193,22 +156,73 @@ function waitForSpy(spy: any, interval = 20) {
 describe("EthereumDedicatedResponder", () => {
     let ganache: any;
     let provider: ethers.providers.Web3Provider;
+    let blockCache: BlockCache;
+    let blockProcessor: BlockProcessor;
+    let transactionMiner: EthereumTransactionMiner;
 
     let account0: string, account1: string, responderAccount: string;
     let disputePeriod: number, channelContract: ethers.Contract, hashState: string;
 
     let testData: any;
 
-    const setup = async (ganacheOptions = {}) => {
-        const d = await initTest(ganacheOptions);
-        ganache = d.ganache;
-        provider = d.provider;
-        account0 = d.account0;
-        account1 = d.account1;
-        responderAccount = d.responderAccount;
-        disputePeriod = d.disputePeriod;
-        channelContract = d.channelContract;
-        hashState = d.hashState;
+    const setup = async (ganacheOptions: any = {}) => {
+        ganache = Ganache.provider(ganacheOptions);
+        provider = new ethers.providers.Web3Provider(ganache);
+        provider.pollingInterval = 100;
+
+        blockCache = new BlockCache(100);
+        blockProcessor = new BlockProcessor(provider, blockCache);
+        await blockProcessor.start();
+
+        const blockTimeoutDetector = new BlockTimeoutDetector(blockProcessor, 120 * 1000);
+        await blockTimeoutDetector.start();
+        const confirmationObserver = new ConfirmationObserver(blockCache, blockProcessor);
+        await confirmationObserver.start();
+
+        // Set up the accounts
+        const accounts = await provider.listAccounts();
+        account0 = accounts[0];
+        account1 = accounts[1];
+        responderAccount = accounts[2];
+
+        transactionMiner = new EthereumTransactionMiner(
+            provider.getSigner(responderAccount),
+            blockTimeoutDetector,
+            confirmationObserver,
+            40,
+            10,
+            120 * 1000
+        );
+
+        // set the dispute period
+        disputePeriod = 11;
+
+        // deploy the contract
+        const channelContractFactory = new ethers.ContractFactory(
+            KitsuneTools.ContractAbi,
+            KitsuneTools.ContractBytecode,
+            provider.getSigner()
+        );
+        channelContract = await channelContractFactory.deploy([account0, account1], disputePeriod);
+
+        if (!!ganacheOptions.blockTime) {
+            // If a blockTime is specified, we force mining a block now, as ganache doesn't do it automatically.
+            ganache.sendAsync({ id: 1, jsonrpc: "2.0", method: "evm_mine", params: [] }, () => {});
+        }
+
+        // store an off-chain hashState
+        hashState = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("to the moon"));
+
+        // trigger a dispute
+        const account0Contract = channelContract.connect(provider.getSigner(account0));
+        const tx = await account0Contract.triggerDispute();
+
+        if (!!ganacheOptions.blockTime) {
+            // If a blockTime is specified, we force mining a block now, as ganache doesn't do it automatically.
+            ganache.sendAsync({ id: 1, jsonrpc: "2.0", method: "evm_mine", params: [] }, () => {});
+        }
+
+        await tx.wait();
 
         testData = await getTestData(
             provider,
@@ -232,7 +246,13 @@ describe("EthereumDedicatedResponder", () => {
     it("correctly submits an appointment to the blockchain", async () => {
         const { signer, appointment, responseData } = testData;
 
-        const responder = new EthereumDedicatedResponder(signer, new DoublingGasPolicy(provider), 40, 10);
+        const responder = new EthereumDedicatedResponder(
+            signer,
+            new DoublingGasPolicy(provider),
+            40,
+            10,
+            transactionMiner
+        );
         const promise = new Promise((resolve, reject) => {
             responder.on(ResponderEvent.ResponseSent, resolve);
             responder.on(ResponderEvent.AttemptFailed, reject);
@@ -257,7 +277,7 @@ describe("EthereumDedicatedResponder", () => {
     //     const { signer, appointment, responseData } = testData;
 
     //     const nAttempts = 5;
-    //     const responder = new EthereumDedicatedResponder(signer, new DoublingGasPolicy(provider), 40, nAttempts);
+    //     const responder = new EthereumDedicatedResponder(signer, new DoublingGasPolicy(provider), 40, nAttempts, transactionMiner);
 
     //     const attemptFailedSpy = sinon.spy();
     //     const responseFailedSpy = sinon.spy();
@@ -304,7 +324,13 @@ describe("EthereumDedicatedResponder", () => {
         const { signer, appointment, responseData } = testData;
 
         const nAttempts = 1;
-        const responder = new EthereumDedicatedResponder(signer, new DoublingGasPolicy(provider), 40, nAttempts);
+        const responder = new EthereumDedicatedResponder(
+            signer,
+            new DoublingGasPolicy(provider),
+            40,
+            nAttempts,
+            transactionMiner
+        );
 
         const attemptFailedSpy = sinon.spy();
         const responseFailedSpy = sinon.spy();
@@ -340,44 +366,32 @@ describe("EthereumDedicatedResponder", () => {
     it("emits the AttemptFailed with a ReorgError if a re-org kicks out the transaction before enough confirmations", async () => {
         const { signer, appointment, responseData } = testData;
 
+        const mockedTransactionMiner = mock(EthereumTransactionMiner);
+        when(mockedTransactionMiner.sendTransaction(anything())).thenResolve("0x1234");
+        when(mockedTransactionMiner.waitForFirstConfirmation("0x1234")).thenResolve();
+        when(mockedTransactionMiner.waitForEnoughConfirmations("0x1234")).thenReject(
+            new ReorgError("There was a re-org.")
+        );
+
         const nAttempts = 1;
-        const responder = new EthereumDedicatedResponder(signer, new DoublingGasPolicy(provider), 40, nAttempts);
+        const responder = new EthereumDedicatedResponder(
+            signer,
+            new DoublingGasPolicy(provider),
+            40,
+            nAttempts,
+            instance(mockedTransactionMiner)
+        );
 
         const attemptFailedSpy = sinon.spy();
-        const responseFailedSpy = sinon.spy();
-        const responseSentSpy = sinon.spy();
-        const responseConfirmedSpy = sinon.spy();
-
-        sinon.spy(signer, "sendTransaction");
-
         responder.on(ResponderEvent.AttemptFailed, attemptFailedSpy);
-        responder.on(ResponderEvent.ResponseFailed, responseFailedSpy);
-        responder.on(ResponderEvent.ResponseSent, responseSentSpy);
-        responder.on(ResponderEvent.ResponseConfirmed, responseConfirmedSpy);
-
-        const snapshotId = await takeGanacheSnapshot(ganache);
 
         // Start the response flow
         responder.startResponse(appointment.id, responseData);
 
-        // Wait for the response to be sent
-        // We assume it will be done using the sendTransaction method on the signer
-        await waitForSpy(signer.sendTransaction);
-
-        await mineBlock(ganache, provider);
-
-        // Simulate a reorg to a state prior to the transaction being mined
-        await restoreGanacheSnapshot(ganache, snapshotId);
-
-        await mineBlock(ganache, provider);
-
         await waitForSpy(attemptFailedSpy);
 
-        // Check if the parameter of the attemptFailed event is an error of type NoNewBlockError
         const args = attemptFailedSpy.args[0]; //arguments of the first call
-        expect(args[1] instanceof ReorgError, "AttemptFailed emitted with ReorgError").to.be.true;
-
-        sinon.restore();
+        expect(args[1] instanceof ReorgError).to.be.true;
     });
 
     it("emits StuckTransactionError if WAIT_BLOCKS_BEFORE_RETRYING blocks are mined and the transaction is not included", async () => {
@@ -386,50 +400,42 @@ describe("EthereumDedicatedResponder", () => {
 
         const { signer, appointment, responseData } = testData;
 
+        // mock miner that always thinks transaction got stuck
+        const mockedTransactionMiner = mock(EthereumTransactionMiner);
+        when(mockedTransactionMiner.sendTransaction(anything())).thenResolve("0x1234");
+        when(mockedTransactionMiner.waitForFirstConfirmation("0x1234")).thenReject(
+            new BlockThresholdReachedError("Block threshold reached")
+        );
+
         const nAttempts = 1;
-        const responder = new EthereumDedicatedResponder(signer, new DoublingGasPolicy(provider), 40, nAttempts);
+        const responder = new EthereumDedicatedResponder(
+            signer,
+            new DoublingGasPolicy(provider),
+            40,
+            nAttempts,
+            instance(mockedTransactionMiner)
+        );
 
         const attemptFailedSpy = sinon.spy();
-        const responseFailedSpy = sinon.spy();
-        const responseSentSpy = sinon.spy();
-        const responseConfirmedSpy = sinon.spy();
-
-        sinon.spy(signer, "sendTransaction");
-
         responder.on(ResponderEvent.AttemptFailed, attemptFailedSpy);
-        responder.on(ResponderEvent.ResponseFailed, responseFailedSpy);
-        responder.on(ResponderEvent.ResponseSent, responseSentSpy);
-        responder.on(ResponderEvent.ResponseConfirmed, responseConfirmedSpy);
 
         // Start the response flow
-        responder.startResponse(appointment.id, responseData);
-
-        // Wait for the response to be sent and save the transaction
-        const tx = await waitForSpy(signer.sendTransaction);
-
-        const fakeTx = sinon.fake.returns(tx);
-
-        // From now on, make attempts to sendTransaction and getTransactionReceipt return tx, so it looks like the transaction is not confirmed
-        // TODO: it would be cleaner to prevent Ganache from mining the transaction.
-        sinon.replace(signer, "sendTransaction", fakeTx);
-        sinon.replace(provider, "getTransactionReceipt", sinon.fake.returns(tx));
-
-        // Mine more than WAIT_BLOCKS_BEFORE_RETRYING blocks
-        for (let i = 0; i < 1 + EthereumDedicatedResponder.WAIT_BLOCKS_BEFORE_RETRYING; i++) {
-            await mineBlock(ganache, provider);
-        }
-
+        const res = responder.startResponse(appointment.id, responseData);
         await waitForSpy(attemptFailedSpy);
 
         const args = attemptFailedSpy.args[0]; //arguments of the first call
-        expect(args[1] instanceof StuckTransactionError, "AttemptFailed emitted with StuckTransactionError").to.be.true;
-
-        sinon.restore();
+        expect(args[1] instanceof StuckTransactionError).to.be.true;
     });
 
     // TODO: this test occasionally fails with timeout
     it("emits the ResponseSent event, followed by ResponseConfirmed after enough confirmations", async () => {
         const { signer, appointment, responseData } = testData;
+
+        // mock miner that always thinks transaction got stuck
+        const mockedTransactionMiner = mock(EthereumTransactionMiner);
+        when(mockedTransactionMiner.sendTransaction(anything())).thenResolve("0x1234");
+        when(mockedTransactionMiner.waitForFirstConfirmation("0x1234")).thenResolve();
+        when(mockedTransactionMiner.waitForEnoughConfirmations("0x1234")).thenResolve();
 
         const nAttempts = 5;
         const nConfirmations = 5;
@@ -437,7 +443,8 @@ describe("EthereumDedicatedResponder", () => {
             signer,
             new DoublingGasPolicy(provider),
             nConfirmations,
-            nAttempts
+            nAttempts,
+            instance(mockedTransactionMiner)
         );
 
         const attemptFailedSpy = sinon.spy();
@@ -450,40 +457,32 @@ describe("EthereumDedicatedResponder", () => {
         responder.on(ResponderEvent.ResponseSent, responseSentSpy);
         responder.on(ResponderEvent.ResponseConfirmed, responseConfirmedSpy);
 
-        sinon.spy(signer, "sendTransaction");
-
         // Start the response flow
         responder.startResponse(appointment.id, responseData);
 
         // Wait for the response to be sent
         await waitForSpy(responseSentSpy);
-
-        expect(responseSentSpy.called, "emitted ResponseSent").to.be.true;
-        expect(responseConfirmedSpy.called, "did not emit ResponseConfirmed prematurely").to.be.false;
-
-        // Now wait for enough confirmations
-        for (let i = 0; i < nConfirmations; i++) {
-            await mineBlock(ganache, provider);
-            await wait(20);
-        }
-
-        // There might still be a short interval before the response is sent; we wait for the spy before continuing.
         await waitForSpy(responseConfirmedSpy);
 
         // Now the response is confirmed
+        expect(responseSentSpy.called, "emitted ResponseSent").to.be.true;
         expect(responseConfirmedSpy.called, "emitted ResponseConfirmed").to.be.true;
+        expect(responseSentSpy.calledBefore(responseConfirmedSpy), "emitted ResponseSent before ResponseConfirmed").to
+            .be.true;
 
         // No failed event should have been generated
         expect(attemptFailedSpy.called, "did not emit AttemptFailed").to.be.false;
         expect(responseFailedSpy.called, "did not emit ResponseFailed").to.be.false;
-
-        sinon.restore();
-    }).timeout(5000);
+    });
 });
 
 describe("EthereumTransactionMiner", async () => {
     let ganache: any;
     let provider: ethers.providers.Web3Provider;
+    let blockCache: BlockCache;
+    let blockProcessor: BlockProcessor;
+    let blockTimeoutDetector: BlockTimeoutDetector;
+    let confirmationObserver: ConfirmationObserver;
     let accounts: string[];
     let account0Signer: ethers.Signer;
     let transactionRequest: ethers.providers.TransactionRequest;
@@ -493,7 +492,14 @@ describe("EthereumTransactionMiner", async () => {
             blockTime: 100000 // disable automatic blocks
         } as any); // TODO: remove generic types when @types/ganache-core is updated
         provider = new ethers.providers.Web3Provider(ganache);
-        provider.pollingInterval = 100;
+        provider.pollingInterval = 20;
+        blockCache = new BlockCache(200);
+        blockProcessor = new BlockProcessor(provider, blockCache);
+        await blockProcessor.start();
+        blockTimeoutDetector = new BlockTimeoutDetector(blockProcessor, 120 * 1000);
+        await blockTimeoutDetector.start();
+        confirmationObserver = new ConfirmationObserver(blockCache, blockProcessor);
+        await confirmationObserver.start();
         accounts = await provider.listAccounts();
         account0Signer = provider.getSigner(accounts[0]);
         transactionRequest = {
@@ -504,7 +510,14 @@ describe("EthereumTransactionMiner", async () => {
 
     it("sendTransaction sends a transaction correctly", async () => {
         const spiedSigner = mockito.spy(account0Signer);
-        const miner = new EthereumTransactionMiner(account0Signer, 5, 10, 120000, 1000);
+        const miner = new EthereumTransactionMiner(
+            account0Signer,
+            blockTimeoutDetector,
+            confirmationObserver,
+            5,
+            10,
+            120000
+        );
 
         await miner.sendTransaction(transactionRequest);
 
@@ -513,7 +526,14 @@ describe("EthereumTransactionMiner", async () => {
 
     it("sendTransaction re-throws the same error if the signer's sendTransaction throws", async () => {
         const spiedSigner = mockito.spy(account0Signer);
-        const miner = new EthereumTransactionMiner(account0Signer, 5, 10, 120000, 1000);
+        const miner = new EthereumTransactionMiner(
+            account0Signer,
+            blockTimeoutDetector,
+            confirmationObserver,
+            5,
+            10,
+            120000
+        );
         const error = new Error("Some error");
         when(spiedSigner.sendTransaction(transactionRequest)).thenThrow(error);
 
@@ -523,10 +543,18 @@ describe("EthereumTransactionMiner", async () => {
     });
 
     it("waitForFirstConfirmation resolves after the transaction is confirmed", async () => {
-        const miner = new EthereumTransactionMiner(account0Signer, 5, 10, 120000, 1000);
+        const miner = new EthereumTransactionMiner(
+            account0Signer,
+            blockTimeoutDetector,
+            confirmationObserver,
+            5,
+            10,
+            120000
+        );
+
         const txHash = await miner.sendTransaction(transactionRequest);
 
-        const res = miner.waitForFirstConfirmation(txHash, Date.now());
+        const res = miner.waitForFirstConfirmation(txHash);
 
         await mineBlock(ganache, provider);
 
@@ -535,25 +563,41 @@ describe("EthereumTransactionMiner", async () => {
 
     it("waitForFirstConfirmation throws NoNewBlockError after timeout", async () => {
         const noNewBlockTimeout = 20; // very short timeout for the test
-        const miner = new EthereumTransactionMiner(account0Signer, 5, 10, noNewBlockTimeout, 100);
+        const miner = new EthereumTransactionMiner(
+            account0Signer,
+            blockTimeoutDetector,
+            confirmationObserver,
+            5,
+            10,
+            noNewBlockTimeout
+        );
+
         const txHash = await miner.sendTransaction(transactionRequest);
 
-        const res = miner.waitForFirstConfirmation(txHash, Date.now());
+        const res = miner.waitForFirstConfirmation(txHash);
 
         return expect(res).to.be.rejectedWith(NoNewBlockError);
     });
 
     it("waitForFirstConfirmation throws BlockThresholdReachedError if the transaction is stuck", async () => {
         const blockThresholdForStuckTransaction = 10;
-        const miner = new EthereumTransactionMiner(account0Signer, 5, blockThresholdForStuckTransaction, 120000, 10000);
+
+        const miner = new EthereumTransactionMiner(
+            account0Signer,
+            blockTimeoutDetector,
+            confirmationObserver,
+            5,
+            blockThresholdForStuckTransaction,
+            1200000
+        );
         const txHash = await miner.sendTransaction(transactionRequest);
 
-        const res = miner.waitForFirstConfirmation(txHash, Date.now());
+        const res = miner.waitForFirstConfirmation(txHash);
 
         // Simulate blockThresholdForStuckTransaction new blocks without mining the transaction
         const blockNumber = await provider.getBlockNumber();
-        for (let i = 1; i <= blockThresholdForStuckTransaction; i++) {
-            provider.emit("block", blockNumber + 1 + i);
+        for (let i = 1; i <= blockThresholdForStuckTransaction + 1; i++) {
+            blockProcessor.emit(BlockProcessor.NEW_HEAD_EVENT, blockNumber + 1 + i, `hash${blockNumber + 1 + i}`);
         }
 
         return expect(res).to.be.rejectedWith(BlockThresholdReachedError);
@@ -561,14 +605,21 @@ describe("EthereumTransactionMiner", async () => {
 
     it("waitForEnoughConfirmations resolves after enough confirmations", async () => {
         const confirmationsRequired = 5;
-        const miner = new EthereumTransactionMiner(account0Signer, confirmationsRequired, 10, 120000, 1000);
+        const miner = new EthereumTransactionMiner(
+            account0Signer,
+            blockTimeoutDetector,
+            confirmationObserver,
+            confirmationsRequired,
+            10,
+            120000
+        );
         const txHash = await miner.sendTransaction(transactionRequest);
 
         // Mine the first confirmation
         await mineBlock(ganache, provider);
-        await miner.waitForFirstConfirmation(txHash, Date.now());
+        await miner.waitForFirstConfirmation(txHash);
 
-        const res = miner.waitForEnoughConfirmations(txHash, Date.now());
+        const res = miner.waitForEnoughConfirmations(txHash);
 
         // Mine confirmationsRequired - 1 additional blocks
         for (let i = 0; i < confirmationsRequired - 1; i++) {
@@ -580,32 +631,47 @@ describe("EthereumTransactionMiner", async () => {
 
     it("waitForEnoughConfirmations throws NoNewBlockError after timeout", async () => {
         const noNewBlockTimeout = 20; // very short timeout for the test
-        const miner = new EthereumTransactionMiner(account0Signer, 5, 10, noNewBlockTimeout, 100);
+        const miner = new EthereumTransactionMiner(
+            account0Signer,
+            blockTimeoutDetector,
+            confirmationObserver,
+            5,
+            10,
+            noNewBlockTimeout
+        );
         const txHash = await miner.sendTransaction(transactionRequest);
 
         await mineBlock(ganache, provider);
-        await miner.waitForFirstConfirmation(txHash, Date.now());
+        await miner.waitForFirstConfirmation(txHash);
 
-        return expect(miner.waitForEnoughConfirmations(txHash, Date.now())).to.be.rejectedWith(NoNewBlockError);
+        return expect(miner.waitForEnoughConfirmations(txHash)).to.be.rejectedWith(NoNewBlockError);
     });
 
     it("waitForEnoughConfirmations throws ReorgError if the transaction is not found by the provider", async () => {
-        const miner = new EthereumTransactionMiner(account0Signer, 5, 10, 120000, 1000);
+        const mockConfirmationObserver = mock(ConfirmationObserver);
+
+        const miner = new EthereumTransactionMiner(
+            account0Signer,
+            blockTimeoutDetector,
+            instance(mockConfirmationObserver),
+            5,
+            10,
+            120000
+        );
+
         const txHash = await miner.sendTransaction(transactionRequest);
 
-        const snapshotId = await takeGanacheSnapshot(ganache);
+        when(mockConfirmationObserver.waitForConfirmations(txHash, anything(), anything(), anything())).thenReturn(
+            new CancellablePromise(resolve => resolve(), () => {})
+        );
 
-        // Mine the first confirmation
-        await mineBlock(ganache, provider);
-        await miner.waitForFirstConfirmation(txHash, Date.now());
+        await miner.waitForFirstConfirmation(txHash);
 
-        const res = miner.waitForEnoughConfirmations(txHash, Date.now());
+        when(mockConfirmationObserver.waitForConfirmations(txHash, anything(), anything(), anything())).thenReturn(
+            new CancellablePromise((_, reject) => reject(new ReorgError("There was a reorg")), () => {})
+        );
 
-        // Rollback blockchain to simulate a reorg
-        await restoreGanacheSnapshot(ganache, snapshotId);
-
-        // Mine another block
-        mineBlock(ganache, provider);
+        const res = miner.waitForEnoughConfirmations(txHash);
 
         return expect(res).to.be.rejectedWith(ReorgError);
     });

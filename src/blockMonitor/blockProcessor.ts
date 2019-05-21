@@ -29,11 +29,11 @@ export class BlockProcessor extends StartStopService {
         this.handleBlockEvent = this.handleBlockEvent.bind(this);
     }
 
-    protected startInternal(): void {
+    protected async startInternal(): Promise<void> {
         this.provider.on("block", this.handleBlockEvent);
     }
 
-    protected stopInternal(): void {
+    protected async stopInternal(): Promise<void> {
         this.provider.removeListener("block", this.handleBlockEvent);
     }
 
@@ -50,6 +50,7 @@ export class BlockProcessor extends StartStopService {
 
     private async handleBlockEvent(blockNumber: number) {
         const observedBlock = await this.provider.getBlock(blockNumber);
+
         this.lastBlockHashReceived = observedBlock.hash;
 
         // populate block and parents in cache

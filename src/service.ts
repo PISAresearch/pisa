@@ -34,6 +34,7 @@ export class PisaService extends StartStopService {
     private readonly garbageCollector: AppointmentStoreGarbageCollector;
     private readonly reorgDetector: ReorgDetector;
     private readonly blockProcessor: BlockProcessor;
+    private readonly ethereumResponderManager: EthereumResponderManager;
     private readonly watcher: Watcher;
     private readonly appointmentStore: AppointmentStore;
 
@@ -77,10 +78,10 @@ export class PisaService extends StartStopService {
             db,
             new Map(configs.map<[ChannelType, (obj: any) => IEthereumAppointment]>(c => [c.channelType, c.appointment]))
         );
-        const ethereumResponderManager = new EthereumResponderManager(wallet);
+        this.ethereumResponderManager = new EthereumResponderManager(wallet, blockCache, this.blockProcessor);
         const appointmentSubscriber = new AppointmentSubscriber(delayedProvider);
         this.watcher = new Watcher(
-            ethereumResponderManager,
+            this.ethereumResponderManager,
             this.reorgDetector,
             appointmentSubscriber,
             this.appointmentStore
@@ -110,6 +111,7 @@ export class PisaService extends StartStopService {
     protected async startInternal() {
         await this.blockProcessor.start();
         await this.reorgDetector.start();
+        await this.ethereumResponderManager.start();
         await this.garbageCollector.start();
         await this.appointmentStore.start();
         await this.watcher.start();
@@ -120,6 +122,7 @@ export class PisaService extends StartStopService {
         await this.watcher.stop();
         await this.appointmentStore.stop();
         await this.garbageCollector.stop();
+        await this.ethereumResponderManager.stop();
         await this.reorgDetector.stop();
         await this.blockProcessor.stop();
         this.server.close(error => {

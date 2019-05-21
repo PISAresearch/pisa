@@ -46,7 +46,7 @@ export abstract class StartStopService extends EventEmitter {
         this.mStarting = false;
         this.emit(StartStopService.STARTED_EVENT);
     }
-    protected abstract startInternal(): void;
+    protected abstract startInternal(): Promise<void>;
 
     /**
      * Stop this service
@@ -61,5 +61,5 @@ export abstract class StartStopService extends EventEmitter {
             logger.error(`${this.name}: Already stopped.`);
         }
     }
-    protected abstract stopInternal(): void;
+    protected abstract stopInternal(): Promise<void>;
 }

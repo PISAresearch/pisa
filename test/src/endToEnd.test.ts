@@ -75,7 +75,12 @@ describe("End to end", () => {
         await reorgDetector.start();
 
         // 2. pass this appointment to the watcher
-        const responderManager = new EthereumResponderManager(provider.getSigner(pisaAccount));
+        const responderManager = new EthereumResponderManager(
+            provider.getSigner(pisaAccount),
+            blockCache,
+            blockProcessor
+        );
+        await responderManager.start();
 
         let db = levelup(MemDown());
         const store = new AppointmentStore(

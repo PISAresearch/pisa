@@ -86,7 +86,6 @@ describe("Watcher", () => {
     const reorgDetectorInstance = instance(mockedReorgDetector);
 
     const mockedBlockProcessor = mock(BlockProcessor);
-    const blockProcessorInstance = instance(mockedBlockProcessor);
 
     const event = {
         blockNumber: 10

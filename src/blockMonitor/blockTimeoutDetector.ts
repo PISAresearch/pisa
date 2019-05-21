@@ -18,14 +18,15 @@ export class BlockTimeoutDetector extends StartStopService {
     constructor(private blockProcessor: BlockProcessor, public readonly timeout: number) {
         super("Block timeout detector");
         this.handleNewBlock = this.handleNewBlock.bind(this);
+        this.handleNoNewBlockTimeout = this.handleNoNewBlockTimeout.bind(this);
     }
 
-    protected startInternal(): void {
+    protected async startInternal(): Promise<void> {
         this.blockProcessor.on(BlockProcessor.NEW_HEAD_EVENT, this.handleNewBlock);
         this.initNoNewBlockTimeout();
     }
 
-    public stopInternal(): void {
+    public async stopInternal(): Promise<void> {
         this.clearNoNewBlockTimeout();
         this.blockProcessor.off(BlockProcessor.NEW_HEAD_EVENT, this.handleNewBlock);
     }
