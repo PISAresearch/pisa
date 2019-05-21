@@ -82,6 +82,7 @@ describe("Integration", function() {
     });
 
     it("End to end", async () => {
+        console.log("a")
         const provider = new ethers.providers.JsonRpcProvider(`http://localhost:${parityPort}`);
         provider.pollingInterval = 100;
         const key0 = KeyStore.theKeyStore.account0;
@@ -96,9 +97,11 @@ describe("Integration", function() {
             wallet0
         );
         const disputePeriod = 11;
+        console.log("a")
         const channelContract = await channelContractFactory.deploy([key0.account, key1.account], disputePeriod);
         // pisa needs some time to initialise -and for some reason the contract needs time to set
         await wait(2000);
+        console.log("b")
 
         const hashState = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("face-off"));
         const round = 1;
@@ -116,6 +119,7 @@ describe("Integration", function() {
                 signatures: [sig0, sig1]
             }
         };
+        console.log("c")
 
         // we need some time for pisa to load - and apparently for the contract to be mined???
 
@@ -130,12 +134,14 @@ describe("Integration", function() {
             channelContract.removeAllListeners(setStateEvent);
             successResult.success = true;
         });
+        console.log("d")
 
         // trigger a dispute
         const tx = await channelContract.triggerDispute();
         await tx.wait();
 
         await mineBlocks(3, wallet1);
+        console.log("e")
 
         try {
             // wait for the success result
