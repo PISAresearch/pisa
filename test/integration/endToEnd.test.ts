@@ -44,7 +44,7 @@ describe("Integration", function() {
             KeyStore.theKeyStore.account1
         );
         const dockerClient = new DockerClient();
-        const networkName = `test-network-${newId()}`;
+        const networkName = "host";// `test-network-${newId()}`;
         parityPort = 8545;
         parity = new ParityContainer(
             dockerClient,
@@ -61,15 +61,15 @@ describe("Integration", function() {
             dbDir: "db",
             hostName: "0.0.0.0",
             hostPort: 3000,
-            jsonRpcUrl: `http://${parity.name}:${parityPort}`,
+            jsonRpcUrl: `http://localhost:${parityPort}`,
             responderKey: "0x549a24a594a51f0bea8655a80c01689206a811120e2b28683d6b202f096a2049",
             receiptKey: "0x549a24a594a51f0bea8655a80c01689206a811120e2b28683d6b202f096a2049"
         };
         pisa = new PisaContainer(dockerClient, `pisa-${newId()}`, config, 3000, logsDirectory, networkName);
 
-        network = await dockerClient.createNetwork({
-            Name: networkName
-        });
+        // network = await dockerClient.createNetwork({
+        //     Name: networkName
+        // });
 
         await parity.start(true);
         await pisa.start(true);
@@ -78,19 +78,19 @@ describe("Integration", function() {
     after(async () => {
         await pisa.stop();
         await parity.stop();
-        await network.remove();
+        // await network.remove();
     });
 
     it("End to end", async () => {
         console.log("a")
-        const provider = new ethers.providers.JsonRpcProvider(`http://${parity.name}:${parityPort}`);
+        const provider = new ethers.providers.JsonRpcProvider(`http://localhost:${parityPort}`);
         provider.pollingInterval = 100;
         const key0 = KeyStore.theKeyStore.account0;
         const key1 = KeyStore.theKeyStore.account1;
         const wallet0 = key0.wallet.connect(provider);
         const wallet1 = key0.wallet.connect(provider);
 
-        // // contract
+        // contract
         const channelContractFactory = new ethers.ContractFactory(
             KitsuneTools.ContractAbi,
             KitsuneTools.ContractBytecode,
