@@ -158,6 +158,8 @@ describe("EthereumDedicatedResponder", () => {
     let provider: ethers.providers.Web3Provider;
     let blockCache: BlockCache;
     let blockProcessor: BlockProcessor;
+    let blockTimeoutDetector: BlockTimeoutDetector;
+    let confirmationObserver: ConfirmationObserver;
     let transactionMiner: EthereumTransactionMiner;
 
     let account0: string, account1: string, responderAccount: string;
@@ -174,9 +176,9 @@ describe("EthereumDedicatedResponder", () => {
         blockProcessor = new BlockProcessor(provider, blockCache);
         await blockProcessor.start();
 
-        const blockTimeoutDetector = new BlockTimeoutDetector(blockProcessor, 120 * 1000);
+        blockTimeoutDetector = new BlockTimeoutDetector(blockProcessor, 120 * 1000);
         await blockTimeoutDetector.start();
-        const confirmationObserver = new ConfirmationObserver(blockCache, blockProcessor);
+        confirmationObserver = new ConfirmationObserver(blockCache, blockProcessor);
         await confirmationObserver.start();
 
         // Set up the accounts
@@ -190,8 +192,7 @@ describe("EthereumDedicatedResponder", () => {
             blockTimeoutDetector,
             confirmationObserver,
             40,
-            10,
-            120 * 1000
+            10
         );
 
         // set the dispute period
@@ -319,8 +320,6 @@ describe("EthereumDedicatedResponder", () => {
     // });
 
     it("emits the AttemptFailed with a NoNewBlockError if there is no new block for too long", async () => {
-        const clock = sinon.useFakeTimers({ shouldAdvanceTime: true });
-
         const { signer, appointment, responseData } = testData;
 
         const nAttempts = 1;
@@ -348,18 +347,14 @@ describe("EthereumDedicatedResponder", () => {
         // Wait for the response to be sent
         await waitForSpy(responseSentSpy);
 
-        // Wait for 1 second more than the deadline for throwing if no new blocks are seen
-        clock.tick(1000 + EthereumDedicatedResponder.WAIT_TIME_FOR_NEW_BLOCK);
-        await Promise.resolve();
+        // Simulate provider timeout through the blockTimeoutDetector
+        blockTimeoutDetector.emit(BlockTimeoutDetector.BLOCK_TIMEOUT_EVENT);
 
         await waitForSpy(attemptFailedSpy);
 
         // Check if the parameter of the attemptFailed event is an error of type NoNewBlockError
         const args = attemptFailedSpy.args[0]; //arguments of the first call
         expect(args[1] instanceof NoNewBlockError, "AttemptFailed emitted with NoNewBlockError").to.be.true;
-
-        clock.restore();
-        sinon.restore();
     });
 
     // TODO: this test currently passes but node complains with UnhandledPromiseRejectionWarning for Reorg (but exception is caught in the responder!)
@@ -510,14 +505,7 @@ describe("EthereumTransactionMiner", async () => {
 
     it("sendTransaction sends a transaction correctly", async () => {
         const spiedSigner = mockito.spy(account0Signer);
-        const miner = new EthereumTransactionMiner(
-            account0Signer,
-            blockTimeoutDetector,
-            confirmationObserver,
-            5,
-            10,
-            120000
-        );
+        const miner = new EthereumTransactionMiner(account0Signer, blockTimeoutDetector, confirmationObserver, 5, 10);
 
         await miner.sendTransaction(transactionRequest);
 
@@ -526,14 +514,7 @@ describe("EthereumTransactionMiner", async () => {
 
     it("sendTransaction re-throws the same error if the signer's sendTransaction throws", async () => {
         const spiedSigner = mockito.spy(account0Signer);
-        const miner = new EthereumTransactionMiner(
-            account0Signer,
-            blockTimeoutDetector,
-            confirmationObserver,
-            5,
-            10,
-            120000
-        );
+        const miner = new EthereumTransactionMiner(account0Signer, blockTimeoutDetector, confirmationObserver, 5, 10);
         const error = new Error("Some error");
         when(spiedSigner.sendTransaction(transactionRequest)).thenThrow(error);
 
@@ -543,14 +524,7 @@ describe("EthereumTransactionMiner", async () => {
     });
 
     it("waitForFirstConfirmation resolves after the transaction is confirmed", async () => {
-        const miner = new EthereumTransactionMiner(
-            account0Signer,
-            blockTimeoutDetector,
-            confirmationObserver,
-            5,
-            10,
-            120000
-        );
+        const miner = new EthereumTransactionMiner(account0Signer, blockTimeoutDetector, confirmationObserver, 5, 10);
 
         const txHash = await miner.sendTransaction(transactionRequest);
 
@@ -562,19 +536,14 @@ describe("EthereumTransactionMiner", async () => {
     });
 
     it("waitForFirstConfirmation throws NoNewBlockError after timeout", async () => {
-        const noNewBlockTimeout = 20; // very short timeout for the test
-        const miner = new EthereumTransactionMiner(
-            account0Signer,
-            blockTimeoutDetector,
-            confirmationObserver,
-            5,
-            10,
-            noNewBlockTimeout
-        );
+        const miner = new EthereumTransactionMiner(account0Signer, blockTimeoutDetector, confirmationObserver, 5, 10);
 
         const txHash = await miner.sendTransaction(transactionRequest);
 
         const res = miner.waitForFirstConfirmation(txHash);
+
+        // Simulates BLOCK_TIMEOUT_EVENT
+        blockTimeoutDetector.emit(BlockTimeoutDetector.BLOCK_TIMEOUT_EVENT);
 
         return expect(res).to.be.rejectedWith(NoNewBlockError);
     });
@@ -587,8 +556,7 @@ describe("EthereumTransactionMiner", async () => {
             blockTimeoutDetector,
             confirmationObserver,
             5,
-            blockThresholdForStuckTransaction,
-            1200000
+            blockThresholdForStuckTransaction
         );
         const txHash = await miner.sendTransaction(transactionRequest);
 
@@ -610,8 +578,7 @@ describe("EthereumTransactionMiner", async () => {
             blockTimeoutDetector,
             confirmationObserver,
             confirmationsRequired,
-            10,
-            120000
+            10
         );
         const txHash = await miner.sendTransaction(transactionRequest);
 
@@ -630,21 +597,18 @@ describe("EthereumTransactionMiner", async () => {
     });
 
     it("waitForEnoughConfirmations throws NoNewBlockError after timeout", async () => {
-        const noNewBlockTimeout = 20; // very short timeout for the test
-        const miner = new EthereumTransactionMiner(
-            account0Signer,
-            blockTimeoutDetector,
-            confirmationObserver,
-            5,
-            10,
-            noNewBlockTimeout
-        );
+        const miner = new EthereumTransactionMiner(account0Signer, blockTimeoutDetector, confirmationObserver, 5, 10);
         const txHash = await miner.sendTransaction(transactionRequest);
 
         await mineBlock(ganache, provider);
         await miner.waitForFirstConfirmation(txHash);
 
-        return expect(miner.waitForEnoughConfirmations(txHash)).to.be.rejectedWith(NoNewBlockError);
+        const res = miner.waitForEnoughConfirmations(txHash);
+
+        // Simulates BLOCK_TIMEOUT_EVENT
+        blockTimeoutDetector.emit(BlockTimeoutDetector.BLOCK_TIMEOUT_EVENT);
+
+        return expect(res).to.be.rejectedWith(NoNewBlockError);
     });
 
     it("waitForEnoughConfirmations throws ReorgError if the transaction is not found by the provider", async () => {
@@ -655,8 +619,7 @@ describe("EthereumTransactionMiner", async () => {
             blockTimeoutDetector,
             instance(mockConfirmationObserver),
             5,
-            10,
-            120000
+            10
         );
 
         const txHash = await miner.sendTransaction(transactionRequest);

@@ -171,10 +171,11 @@ export class StuckTransactionError extends Error {
 export class EthereumTransactionMiner {
     /**
      * @param signer The Signer to use to send the transaction.
+     * @param blockTimeoutDetector The BlockTimeoutDetector to watch out for provider timeouts
+     * @param confirmationObserver The ConfirmationObserver to wait for transaction confirmations
      * @param confirmationsRequired The number of confirmations required.
      * @param blocksThresholdForStuckTransaction The number of new blocks without the transaction is mined before considering
      *                                           the transaction "stuck".
-     * @param newBlockTimeout The number of milliseconds after which the provider is considered non-responsive.
      * @param pollInterval The number of milliseconds between checks for timeouts on receiving blocks.
      */
     constructor(
@@ -182,8 +183,7 @@ export class EthereumTransactionMiner {
         private readonly blockTimeoutDetector: BlockTimeoutDetector,
         private readonly confirmationObserver: ConfirmationObserver,
         public readonly confirmationsRequired: number,
-        public readonly blocksThresholdForStuckTransaction: number,
-        public readonly newBlockTimeout: number
+        public readonly blocksThresholdForStuckTransaction: number
     ) {
         if (!signer.provider) throw new ArgumentError("The given signer is not connected to a provider");
     }
@@ -200,7 +200,7 @@ export class EthereumTransactionMiner {
 
     /**
      * Resolves after the transaction receives the first confirmation.
-     * Rejects with `NoNewBlockError` the provider does not receive a new block for `newBlockTimeout` milliseconds.
+     * Rejects with `NoNewBlockError` if the `this.blockTimeoutDetector` emits a `BLOCK_TIMEOUT_EVENT`.
      * Rejects with `BlockThresholdReachedError` if the transaction is still unconfirmed
      * after `blocksThresholdForStuckTransaction` blocks are mined.
      *
@@ -218,8 +218,10 @@ export class EthereumTransactionMiner {
         );
 
         // ...but stop with error if no new blocks come for too long
-        const noNewBlockPromise = wait(this.newBlockTimeout).then(() => {
-            throw new NoNewBlockError(`No new block received for ${this.newBlockTimeout} ms`);
+        const noNewBlockPromise = new Promise((_, reject) => {
+            this.blockTimeoutDetector.once(BlockTimeoutDetector.BLOCK_TIMEOUT_EVENT, () => {
+                reject(new NoNewBlockError(`No new block received too long; provider unresponsive.`));
+            });
         });
 
         try {
@@ -234,7 +236,7 @@ export class EthereumTransactionMiner {
 
     /**
      * Resolves after the transaction `txHash` receives `confirmationsRequired`.
-     * Rejects with `NoNewBlockError` the provider does not receive a new block for `newBlockTimeout` milliseconds.
+     * Rejects with `NoNewBlockError` if the `this.blockTimeoutDetector` emits a `BLOCK_TIMEOUT_EVENT`.
      * Rejects with `ReorgError` if the transaction is not found by the provider.
      */
     public async waitForEnoughConfirmations(txHash: string) {
@@ -247,8 +249,10 @@ export class EthereumTransactionMiner {
         );
 
         // ...but stop with error if no new blocks come for too long
-        const noNewBlockPromise = wait(this.newBlockTimeout).then(() => {
-            throw new NoNewBlockError(`No new block received for ${this.newBlockTimeout} ms`);
+        const noNewBlockPromise = new Promise((_, reject) => {
+            this.blockTimeoutDetector.once(BlockTimeoutDetector.BLOCK_TIMEOUT_EVENT, () => {
+                reject(new NoNewBlockError(`No new block received too long; provider unresponsive.`));
+            });
         });
 
         try {
@@ -419,8 +423,7 @@ export class EthereumResponderManager extends StartStopService {
             this.blockTimeoutDetector,
             this.confirmationObserver,
             40,
-            10,
-            EthereumResponderManager.WAIT_TIME_FOR_NEW_BLOCK
+            10
         );
         const responder = new EthereumDedicatedResponder(this.signer, this.gasPolicy, 40, 10, transactionMiner);
         this.responders.add(responder);

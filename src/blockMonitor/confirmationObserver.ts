@@ -8,7 +8,7 @@ interface ITransactionListenerData {
     resolver: () => void;
     rejecter: (error: Error) => void;
     confirmationsRequired: number;
-    throwReorgIfNotFound: boolean;
+    throwReorgErrorIfNotFound: boolean;
     initialHeight: number | null;
     blockThresholdForStuckTransactions: number | null;
 }
@@ -67,7 +67,7 @@ export class ConfirmationObserver extends StartStopService {
                 txHash,
                 confirmationsRequired,
                 initialHeight,
-                throwReorgIfNotFound,
+                throwReorgErrorIfNotFound,
                 blockThresholdForStuckTransactions,
                 resolver,
                 rejecter
@@ -80,7 +80,7 @@ export class ConfirmationObserver extends StartStopService {
             if (txConfirmations >= confirmationsRequired) {
                 this.txListenerResolvers.delete(listenerData);
                 resolver();
-            } else if (throwReorgIfNotFound && txConfirmations === 0) {
+            } else if (throwReorgErrorIfNotFound && txConfirmations === 0) {
                 rejecter(
                     new ReorgError("There could have been a re-org, the transaction was sent but was later not found")
                 );
@@ -94,16 +94,29 @@ export class ConfirmationObserver extends StartStopService {
         }
     }
 
+    /**
+     * Generates a CancellablePromise that observes NEW_HEAD_EVENTs of the blockProcessor and resolves when the transaction
+     * with hash `txHash` obtained `confirmationsRequired` confirmations.
+     * If `blockThresholdForStuckTransactions !== null`, the promise will reject with `BlockThresholdReachedError` if the
+     * transaction is still unconfirmed after `blockThresholdForStuckTransactions` new blocks.
+     * If `throwReorgErrorIfNotFound === true`, the promise will reject with `ReorgError` if the transaction is not found
+     * (it is responsibility of the caller to make sure that the transaction had at least 1 confirmation at the time of the call).
+     *
+     * @param txHash
+     * @param confirmationsRequired
+     * @param blockThresholdForStuckTransactions
+     * @param throwReorgErrorIfNotFound
+     */
     public waitForConfirmations(
         txHash: string,
         confirmationsRequired: number,
         blockThresholdForStuckTransactions: number | null,
-        throwReorgIfNotFound: boolean
+        throwReorgErrorIfNotFound: boolean
     ): CancellablePromise<void> {
         const listenerData: ITransactionListenerData = {
             txHash,
             confirmationsRequired,
-            throwReorgIfNotFound,
+            throwReorgErrorIfNotFound,
             initialHeight: this.blockProcessor.head !== null ? this.blockProcessor.head.number : null,
             blockThresholdForStuckTransactions,
             resolver: () => {}, // temporary, will be overwritten

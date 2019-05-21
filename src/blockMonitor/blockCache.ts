@@ -24,7 +24,8 @@ function removeItemFromKeyedSet<T, U>(map: Map<T, Set<U>>, key: T, item: U) {
 }
 
 /**
- * Utility class to store and query info on full blocks up to a given maximum depth `maxDepth`.
+ * Utility class to store and query info on full blocks up to a given maximum depth `maxDepth`, compared to the current
+ * maximum height ever seen.
  * It prunes all the blocks at depth bigger than `maxDepth`, or with height smaller than the first block that was added.
  * It does not allow to add blocks without adding their parent first, except if they are at depth `maxDepth`.
  **/
@@ -108,12 +109,25 @@ export class BlockCache {
         return newBlockStubChain;
     }
 
+    /**
+     * Returns true it `block` can be added to the cache, that is if either:
+     *   - it is the first block ever seen, or
+     *   - its parent is already in the cache, or
+     *   - it is at depth least `this.maxDepth`.
+     * @param block
+     */
     public canAddBlock(block: ethers.providers.Block): boolean {
         return (
             this.initialHeight === -1 || this.hasBlock(block.parentHash) || block.number <= this.getMinVisibleHeight()
         );
     }
 
+    /**
+     * Adds `block`to the cache.
+     * @param block
+     * @returns `true` if the block was added, `false` if the block was not added because too deep or already there.
+     * @throws `ApplicationError` if the block cannot be added because its parent is not in cache.
+     */
     public addBlock(block: ethers.providers.Block): boolean {
         if (this.initialHeight === -1) {
             // First block added, blocks before this point will not be stored.#
@@ -130,7 +144,7 @@ export class BlockCache {
             }
 
             // If the block's parent is above the minimum visible height, it needs to be added first
-            if (block.number > this.getMinVisibleHeight() && !this.hasBlock(block.parentHash)) {
+            if (!this.canAddBlock(block)) {
                 throw new ApplicationError("Tried to add a block before its parent block.");
             }
         }
@@ -162,6 +176,10 @@ export class BlockCache {
         return true;
     }
 
+    /**
+     * Returns the `BlockStubChain` for the block with hash `blockHash`, or `null` if the block is not in cache.
+     * @param blockHash
+     */
     public getBlockStubChain(blockHash: string): BlockStubChain | null {
         const blockStubChain = this.blockStubsByHash.get(blockHash);
         if (blockStubChain === undefined) {
@@ -170,6 +188,10 @@ export class BlockCache {
         return blockStubChain;
     }
 
+    /**
+     * Returns the `IBlockStub` for the block with hash `blockHash`, or `null` if the block is not in cache.
+     * @param blockHash
+     */
     public getBlockStub(blockHash: string): IBlockStub | null {
         const blockStubChain = this.getBlockStubChain(blockHash);
         if (blockStubChain === null) {
@@ -178,6 +200,9 @@ export class BlockCache {
         return blockStubChain.asBlockStub();
     }
 
+    /**
+     * Returns true if the block with hash `blockHash` is currently in cache.
+     **/
     public hasBlock(blockHash: string) {
         return this.blockStubsByHash.has(blockHash);
     }
