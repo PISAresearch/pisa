@@ -72,7 +72,7 @@ abstract class DockerContainer {
         this.portBindings.forEach(p => (ports[p.Container] = [{ HostPort: p.Host }]));
 
         const container = await this.dockerClient.createContainer({
-            Entrypoint: "ls -al",
+            Entrypoint: [ "ls", "-al" ],
             //Cmd: this.commands,
             Image: this.imageName,
             Tty: true,
