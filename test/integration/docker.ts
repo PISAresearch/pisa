@@ -84,7 +84,7 @@ abstract class DockerContainer {
                 PortBindings: ports,
                 NetworkMode: this.network
             },
-            //User: "root"
+            User: "root"
         });
 
         await Promise.all(
