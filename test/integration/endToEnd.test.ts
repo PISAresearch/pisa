@@ -32,6 +32,7 @@ describe("Integration", function() {
     let pisa: PisaContainer, parity: ParityContainer, network: DockerClient.Network, parityPort: number;
 
     before(async () => {
+        console.log("hihih")
         const currentDirectory = __dirname;
         const logDir = "logs";
         const logsDirectory = path.join(currentDirectory, logDir);
