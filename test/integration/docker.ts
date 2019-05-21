@@ -86,9 +86,7 @@ abstract class DockerContainer {
         await Promise.all(
             this.volumes.map(async v => {
                 const path = await v.createArchive();
-                console.log("Putting archive", path)
                 const put = await container.putArchive(path, { path: v.containerUnzipLocation });
-                console.log("archive put", path)
                 v.deleteArchive();
                 return put;
             })
