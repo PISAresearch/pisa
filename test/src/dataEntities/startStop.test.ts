@@ -7,8 +7,8 @@ class TestStartStop extends StartStopService {
     constructor() {
         super("TEST SERVICE");
     }
-    public startInternal() {}
-    public stopInternal() {}
+    public async startInternal() {}
+    public async stopInternal() {}
 }
 
 class ManualStartStop extends StartStopService {

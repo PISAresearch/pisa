@@ -55,10 +55,10 @@ export class ReorgDetector extends StartStopService {
         this.conductReorg = this.conductReorg.bind(this);
     }
 
-    public startInternal(): void {
+    protected async startInternal(): Promise<void> {
         this.blockProcessor.on(BlockProcessor.NEW_HEAD_EVENT, this.handleNewBlock);
     }
-    public stopInternal(): void {
+    protected async stopInternal(): Promise<void> {
         this.blockProcessor.off(BlockProcessor.NEW_HEAD_EVENT, this.handleNewBlock);
     }
 

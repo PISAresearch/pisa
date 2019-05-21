@@ -42,7 +42,7 @@ export class AppointmentStore extends StartStopService implements IAppointmentSt
         super("Appointment store");
     }
 
-    public async startInternal() {
+    protected async startInternal() {
         // access the db and load all state
         for await (const record of this.db.createValueStream()) {
             // the typing here insist this is a string
@@ -57,7 +57,7 @@ export class AppointmentStore extends StartStopService implements IAppointmentSt
         }
     }
 
-    public async stopInternal() {
+    protected async stopInternal() {
         // do nothing
     }
 

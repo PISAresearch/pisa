@@ -36,7 +36,7 @@ export class Watcher extends StartStopService {
     private endReorg() {
         this.reorgInProgress = false;
     }
-    protected startInternal() {
+    protected async startInternal() {
         this.reorgDetector.on(ReorgDetector.REORG_START_EVENT, this.startReorg);
         this.reorgDetector.on(ReorgDetector.REORG_END_EVENT, this.endReorg);
 
@@ -47,7 +47,7 @@ export class Watcher extends StartStopService {
             this.appointmentSubscriber.subscribe(appointment.id, filter, listener);
         }
     }
-    protected stopInternal() {
+    protected async stopInternal() {
         this.reorgDetector.removeListener(ReorgDetector.REORG_START_EVENT, this.startReorg);
         this.reorgDetector.removeListener(ReorgDetector.REORG_END_EVENT, this.endReorg);
     }
