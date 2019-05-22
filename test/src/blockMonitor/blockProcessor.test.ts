@@ -19,8 +19,8 @@ const blocksByHash: { [key: string]: IBlockStub } = {
     a7: { number: 7, hash: "a7", parentHash: "a6" },
     a8: { number: 8, hash: "a8", parentHash: "a7" },
     a9: { number: 9, hash: "a9", parentHash: "a8" },
-    // A fork
     a10: { number: 10, hash: "a10", parentHash: "a9" },
+    // A fork
     b3: { number: 3, hash: "b3", parentHash: "a2" },
     b4: { number: 4, hash: "b4", parentHash: "b3" },
     b5: { number: 5, hash: "b5", parentHash: "b4" },
@@ -29,7 +29,7 @@ const blocksByHash: { [key: string]: IBlockStub } = {
     b8: { number: 8, hash: "b8", parentHash: "b7" },
     b9: { number: 9, hash: "b9", parentHash: "b8" },
     b10: { number: 10, hash: "b10", parentHash: "b9" },
-    // A fork that goes beyond maxmimum depth
+    // A fork that goes beyond the maximum depth
     c1: { number: 1, hash: "c1", parentHash: "c0" },
     c2: { number: 2, hash: "c2", parentHash: "c1" },
     c3: { number: 3, hash: "c3", parentHash: "c2" },

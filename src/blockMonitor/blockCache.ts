@@ -208,8 +208,8 @@ export class BlockCache {
     }
 
     /**
-     * Returns the distance between the block with hash `headBlockHash` and the ancestor containing transaction `txHash`, if any;
-     * return 0 if no such ancestor is found.
+     * Returns number of confirmations using `headBlockHash` as tip of the blockchain, looking for `txHash` among the ancestor blocks;
+     * return 0 if no ancestor containing the transaction is found.
      * Note: This will return 0 for transactions already at depth bigger than `this.maxDepth` when this function is called.
      */
     public getConfirmations(headBlockHash: string, txHash: string): number {

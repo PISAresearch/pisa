@@ -61,10 +61,11 @@ export class ConfirmationObserver extends StartStopService {
                 this.txListenerResolvers.delete(listenerData);
                 resolver();
             } else if (throwReorgErrorIfNotFound && txConfirmations === 0) {
+                this.txListenerResolvers.delete(listenerData);
                 rejecter(
                     new ReorgError("There could have been a re-org, the transaction was sent but was later not found")
                 );
-            } else if (txConfirmations === 0 && blockThresholdForStuckTransactions != null) {
+            } else if (txConfirmations === 0 && blockThresholdForStuckTransactions !== null) {
                 if (blockNumber >= adjInitialHeight + blockThresholdForStuckTransactions) {
                     // transaction still unconfirmed after the threshold; reject
                     this.txListenerResolvers.delete(listenerData);
