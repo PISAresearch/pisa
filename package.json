@@ -16,10 +16,10 @@
     "test-load": "ts-node test/load/loadTest.ts 10 20000",
     "test-coverage": "NODE_ENV=test && nyc mocha -r ts-node/register --reporter mocha-junit-reporter --reporter-options mochaFile=coverage/mocha/test-results.xml 'test/src/**/*.test.ts' --exit && npm run test-mocked",
     "test-smoke": "ts-node test/smoke/smokeTests.ts",
-    "test-integration": "mocha -r ts-node/register 'test/integration/**/*.test.ts' --exit",
+    "test-integration": "mocha -r ts-node/register 'test/integration/remote/**/*.test.ts' --exit",
     "test-mocked": "NODE_ENV=test mocha -r ts-node/register 'test/mocked/**/*.test.ts' --exit",
     "testy": "mocha -r ts-node/register 'test/integration/endToEnd.test.ts' --exit",
-    "testy-raiden": "mocha -r ts-node/register 'test/integration/raiden.test.ts' --exit"
+    "test-raiden": "mocha -r ts-node/register 'test/integration/raiden.test.ts' --exit"
   },
   "nyc": {
     "include": [

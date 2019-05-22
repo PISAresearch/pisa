@@ -134,7 +134,6 @@ export class ParityContainer extends DockerContainer {
 
         // we need to create the parity log file as it is mapped as a file volume
         const parityLogFile = path.join(parityDir, "parity.log");
-        //const parityLogFile = "./logs/" + name + "/parity.log";
         FileUtils.touchFileSync(parityLogFile);
 
         // create a keys folder

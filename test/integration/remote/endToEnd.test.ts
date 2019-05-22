@@ -1,19 +1,19 @@
 import "mocha";
-import chai, { expect } from "chai";
+import chai from "chai";
 import DockerClient from "dockerode";
-import { IArgConfig } from "../../src/dataEntities/config";
+import { IArgConfig } from "../../../src/dataEntities/config";
 import uuid from "uuid/v4";
 import fs from "fs";
-import path, { dirname } from "path";
+import path from "path";
 import { ethers } from "ethers";
-import { KitsuneTools } from "../../src/integrations/kitsune";
+import { KitsuneTools } from "../../../src/integrations/kitsune";
 import request from "request-promise";
-import { ChannelType } from "../../src/dataEntities";
-import { wait } from "../../src/utils";
-import { PisaContainer, ParityContainer } from "./docker";
-import { FileUtils } from "./fileUtil";
-import { ChainData } from "./chainData";
-import { KeyStore } from "./keyStore";
+import { ChannelType } from "../../../src/dataEntities";
+import { wait } from "../../../src/utils";
+import { PisaContainer, ParityContainer } from "../docker";
+import { FileUtils } from "../fileUtil";
+import { ChainData } from "../chainData";
+import { KeyStore } from "../keyStore";
 
 const newId = () => {
     return uuid().substr(0, 8);
@@ -116,8 +116,6 @@ describe("Integration", function() {
                 signatures: [sig0, sig1]
             }
         };
-
-        // we need some time for pisa to load - and apparently for the contract to be mined???
 
         const res = await request.post(`http://localhost:${pisa.config.hostPort}/appointment`, {
             json: appointment
