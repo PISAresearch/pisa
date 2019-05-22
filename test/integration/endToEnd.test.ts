@@ -32,7 +32,6 @@ describe("Integration", function() {
     let pisa: PisaContainer, parity: ParityContainer, network: DockerClient.Network, parityPort: number;
 
     before(async () => {
-        console.log("hihih")
         const currentDirectory = __dirname;
         const logDir = "logs";
         const logsDirectory = path.join(currentDirectory, logDir);
@@ -45,7 +44,7 @@ describe("Integration", function() {
             KeyStore.theKeyStore.account1
         );
         const dockerClient = new DockerClient();
-        const networkName = "host";// `test-network-${newId()}`;
+        const networkName = `test-network-${newId()}`;
         parityPort = 8545;
         parity = new ParityContainer(
             dockerClient,
@@ -62,15 +61,15 @@ describe("Integration", function() {
             dbDir: "db",
             hostName: "0.0.0.0",
             hostPort: 3000,
-            jsonRpcUrl: `http://localhost:${parityPort}`,
+            jsonRpcUrl: `http://${parity.name}:${parityPort}`,
             responderKey: "0x549a24a594a51f0bea8655a80c01689206a811120e2b28683d6b202f096a2049",
             receiptKey: "0x549a24a594a51f0bea8655a80c01689206a811120e2b28683d6b202f096a2049"
         };
         pisa = new PisaContainer(dockerClient, `pisa-${newId()}`, config, 3000, logsDirectory, networkName);
 
-        // network = await dockerClient.createNetwork({
-        //     Name: networkName
-        // });
+        network = await dockerClient.createNetwork({
+            Name: networkName
+        });
 
         await parity.start(true);
         await pisa.start(true);
@@ -79,11 +78,10 @@ describe("Integration", function() {
     after(async () => {
         await pisa.stop();
         await parity.stop();
-        // await network.remove();
+        await network.remove();
     });
 
     it("End to end", async () => {
-        console.log("a")
         const provider = new ethers.providers.JsonRpcProvider(`http://localhost:${parityPort}`);
         provider.pollingInterval = 100;
         const key0 = KeyStore.theKeyStore.account0;
@@ -98,11 +96,9 @@ describe("Integration", function() {
             wallet0
         );
         const disputePeriod = 11;
-        console.log("a")
         const channelContract = await channelContractFactory.deploy([key0.account, key1.account], disputePeriod);
         // pisa needs some time to initialise -and for some reason the contract needs time to set
-        await wait(2000);
-        console.log("b")
+        await wait(3000);
 
         const hashState = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("face-off"));
         const round = 1;
@@ -120,7 +116,6 @@ describe("Integration", function() {
                 signatures: [sig0, sig1]
             }
         };
-        console.log("c")
 
         // we need some time for pisa to load - and apparently for the contract to be mined???
 
@@ -135,14 +130,12 @@ describe("Integration", function() {
             channelContract.removeAllListeners(setStateEvent);
             successResult.success = true;
         });
-        console.log("d")
 
         // trigger a dispute
         const tx = await channelContract.triggerDispute();
         await tx.wait();
 
         await mineBlocks(3, wallet1);
-        console.log("e")
 
         try {
             // wait for the success result
