@@ -41,7 +41,7 @@ jobs:
     working_directory: ~/test
     machine:
       image: circleci/classic:201808-01
-      steps:
+    steps:
       - checkout
       - run:
           name: Install node@11.14.0
