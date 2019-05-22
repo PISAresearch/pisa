@@ -98,7 +98,7 @@ describe("Integration", function() {
         const disputePeriod = 11;
         const channelContract = await channelContractFactory.deploy([key0.account, key1.account], disputePeriod);
         // pisa needs some time to initialise -and for some reason the contract needs time to set
-        await wait(3000);
+        await wait(4000);
 
         const hashState = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("face-off"));
         const round = 1;
