@@ -9,7 +9,7 @@ jobs:
     steps:
       - checkout
       - run:
-          name: import GPG for new https://askubuntu.com/questions/943146/apt-update-error-an-error-occurred-during-the-signature-verification-chrome
+          name: import new google GPG https://askubuntu.com/questions/943146/apt-update-error-an-error-occurred-during-the-signature-verification-chrome
           command: wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
       - run:
           name: update apt
@@ -17,6 +17,9 @@ jobs:
       - run:
           name: install node
           command: curl -sL https://deb.nodesource.com/setup_11.x | sudo -E bash - && sudo apt-get install -y nodejs
+      - run:
+          name: update apt again
+          command: sudo apt-get update
       - run:
           name: update-npm
           command: 'sudo npm install -g npm@latest'
