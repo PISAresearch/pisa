@@ -19,7 +19,7 @@
     "test-integration": "mocha -r ts-node/register 'test/integration/**/*.test.ts' --exit",
     "test-mocked": "NODE_ENV=test mocha -r ts-node/register 'test/mocked/**/*.test.ts' --exit",
     "testy": "mocha -r ts-node/register 'test/integration/endToEnd.test.ts' --exit",
-    "testy-raiden": "mocha -r ts-node/register 'test/integration/endToEnd.test.ts' --exit"
+    "testy-raiden": "mocha -r ts-node/register 'test/integration/raiden.test.ts' --exit"
   },
   "nyc": {
     "include": [
