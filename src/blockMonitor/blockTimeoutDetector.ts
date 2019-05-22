@@ -3,12 +3,13 @@ import { StartStopService } from "../dataEntities";
 
 /**
  * Generates events when no new block is observed for too long, possibly signaling a malfunctioning of the provider.
+ * The timer starts when the service is started, and is reset every time a new block is received.
  */
 export class BlockTimeoutDetector extends StartStopService {
     private timeoutHandler: NodeJS.Timeout | null = null;
 
     /**
-     * Emitted when a no new block is received for a time longer than the `noNewBlockTimeout` milliseconds.
+     * Emitted when a no new block is received for a time longer than the `timeout` milliseconds.
      */
     public static readonly BLOCK_TIMEOUT_EVENT = "no_new_block";
 
@@ -31,12 +32,14 @@ export class BlockTimeoutDetector extends StartStopService {
         this.blockProcessor.off(BlockProcessor.NEW_HEAD_EVENT, this.handleNewBlock);
     }
 
+    // Start the timer, after clearing any previous timer
     private initNoNewBlockTimeout() {
         // If a timer is pending, cancel it
         this.clearNoNewBlockTimeout();
         this.timeoutHandler = setTimeout(this.handleNoNewBlockTimeout, this.timeout);
     }
 
+    // If a timer was active, clear it
     private clearNoNewBlockTimeout() {
         if (this.timeoutHandler !== null) {
             clearTimeout(this.timeoutHandler);
@@ -49,6 +52,7 @@ export class BlockTimeoutDetector extends StartStopService {
     }
 
     private handleNewBlock() {
+        // Restart the timer
         this.initNoNewBlockTimeout();
     }
 }
