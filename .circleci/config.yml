@@ -29,6 +29,9 @@ jobs:
           node -v
       - run:
           name: update-npm
+          command: npm version
+      - run:
+          name: update-npm
           command: 'sudo npm install -g npm@latest'
       - run:
           name: install
