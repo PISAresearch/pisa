@@ -84,7 +84,7 @@ describe("Integration", function() {
 
     it("End to end", async () => {
         console.log("a")
-        const provider = new ethers.providers.JsonRpcProvider(`http://localhost:${parityPort}`);
+        const provider = new ethers.providers.JsonRpcProvider(`http://${parity.name}:${parityPort}`);
         provider.pollingInterval = 100;
         const key0 = KeyStore.theKeyStore.account0;
         const key1 = KeyStore.theKeyStore.account1;

@@ -10,9 +10,6 @@ jobs:
       - checkout
       - setup_remote_docker
       - run:
-          name: test-int
-          command: 'docker run pisaresearch/integration:latest'
-      - run:
           name: update-npm
           command: 'sudo npm install -g npm@latest'
       - run:
