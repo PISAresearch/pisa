@@ -1,4 +1,4 @@
-import DockerClient from "dockerode";
+import DockerClient, { Volume } from "dockerode";
 import logger from "../../src/logger";
 import { IArgConfig, ConfigManager } from "../../src/dataEntities/config";
 import { FileUtils } from "./fileUtil";
@@ -19,39 +19,13 @@ class DockerImageLib {
     public static PISA_IMAGE = "pisaresearch/pisa:0.1.2";
 }
 
-class FakeDockerVolume {
-    public constructor(public readonly hostLocation: string, public readonly containerUnzipLocation: string) {}
-    private archiveLocation: string;
-    async createArchive() {
-        // zip up the location
-        const tarLocation = `${this.hostLocation}.tar`;
-        const cwd = path.dirname(this.hostLocation);
-        const fileName = path.basename(this.hostLocation);
-        await tar.create(
-            ({
-                file: tarLocation,
-                cwd: cwd,
-                // uid: 1234,
-                // gid: 0
-
-            }) as any,
-            [fileName]
-        );
-        this.archiveLocation = tarLocation;
-        return tarLocation;
-    }
-    deleteArchive() {
-        fs.unlinkSync(this.archiveLocation);
-    }
-}
-
 abstract class DockerContainer {
     constructor(
         protected readonly dockerClient: DockerClient,
         public readonly name: string,
         public readonly imageName: string,
         public readonly commands: string[],
-        public readonly volumes: FakeDockerVolume[],
+        public readonly volumes: string[],
         public readonly portBindings: IPortBinding[],
         public readonly network?: string
     ) {}
@@ -75,26 +49,19 @@ abstract class DockerContainer {
         this.portBindings.forEach(p => (ports[p.Container] = [{ HostPort: p.Host }]));
 
         const container = await this.dockerClient.createContainer({
-            //Entrypoint: ["ls", "-al"],
+            
             Cmd: this.commands,
             Image: this.imageName,
             Tty: true,
             name: this.name,
             HostConfig: {
                 PortBindings: ports,
-                NetworkMode: this.network
+                NetworkMode: this.network,
+                Binds: this.volumes
+                
             },
             User: "root"
         });
-
-        await Promise.all(
-            this.volumes.map(async v => {
-                const path = await v.createArchive();
-                const put = await container.putArchive(path, { path: v.containerUnzipLocation });
-                v.deleteArchive();
-                return put;
-            })
-        );
 
         if (attach) {
             const stream = await container.attach({
@@ -130,9 +97,7 @@ export class PisaContainer extends DockerContainer {
     ) {
         const configManager = new ConfigManager(ConfigManager.PisaConfigProperties);
         const commandLineArgs = configManager.toCommandLineArgs(config);
-
-        //        const volumes: FakeDockerVolume[] = [new FakeDockerVolume(hostLogsDir, "/usr/pisa/logs")];
-        const volumes: FakeDockerVolume[] = [new FakeDockerVolume(hostLogsDir, "/usr/pisa")];
+        const volumes: string[] = [`${hostLogsDir}:/usr/pisa/logs`];
 
         super(
             dockerClient,
@@ -214,15 +179,11 @@ export class ParityContainer extends DockerContainer {
             "0"
         ];
 
-        const volumes: FakeDockerVolume[] = [
-            new FakeDockerVolume(parityLogFile, "/home/parity"),
-            new FakeDockerVolume(chainDataFile, "/home/parity"),
-            new FakeDockerVolume(keysDir, "/home/parity"),
-            new FakeDockerVolume(passwordFile, "/home/parity")
-            // new FakeDockerVolume(parityLogFile, "/home/parity/parity.log"),
-            // new FakeDockerVolume(chainDataFile, "/home/parity/chain.json"),
-            // new FakeDockerVolume(keysDir, "/home/parity/keys"),
-            // new FakeDockerVolume(passwordFile, "/home/parity/passwords")
+        const volumes: string[] = [
+            `${parityLogFile}:/home/parity/parity.log`,
+            `${chainDataFile}:/home/parity/chain.json`,
+            `${keysDir}:/home/parity/keys`,
+            `${passwordFile}:/home/parity/pwd`
         ];
 
         super(
