@@ -12,6 +12,16 @@ jobs:
           name: import new google GPG https://askubuntu.com/questions/943146/apt-update-error-an-error-occurred-during-the-signature-verification-chrome
           command: wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
       - run:
+          name: Install node@v8.11.3
+          command: |
+            ./load-nvm.sh
+            nvm install v8.11.3
+            nvm alias default v8.11.3
+      - run: |
+          ./load-nvm.sh
+          npm version
+          node -v
+      - run:
           name: update apt again
           command: node --version
       - run:
