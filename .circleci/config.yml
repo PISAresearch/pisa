@@ -14,11 +14,11 @@ jobs:
       - run:
           name: Install node@v8.11.3
           command: |
-            ./load-nvm.sh
+            ./docker/load-nvm.sh
             nvm install v8.11.3
             nvm alias default v8.11.3
       - run: |
-          ./load-nvm.sh
+          ./docker/load-nvm.sh
           npm version
           node -v
       - run:
