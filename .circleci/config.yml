@@ -32,7 +32,7 @@ jobs:
           command: npm version
       - run:
           name: update-npm
-          command: 'sudo npm install -g npm@latest'
+          command: npm install -g npm@latest
       - run:
           name: install
           command: npm install
