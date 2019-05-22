@@ -86,15 +86,18 @@ describe("BlockProcessor", () => {
         provider = instance(mockProvider);
     });
 
-    it("emits a block that was received by the provider", async () => {
+    it("adds the first block received to the cache and emits a new head event", async () => {
         const bp = new BlockProcessor(provider, blockCache);
         const res = new Promise(resolve => {
             bp.on(BlockProcessor.NEW_HEAD_EVENT, (blockNumber, blockHash) => {
+                expect(blockCache.hasBlock("a5")).to.be.true;
+
                 resolve({ number: blockNumber, hash: blockHash });
             });
         });
 
         emitBlockHash("a5");
+
         expect(res).to.eventually.equal({ number: 5, hash: "a5" });
     });
 

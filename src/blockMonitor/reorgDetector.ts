@@ -93,6 +93,7 @@ export class ReorgDetector extends StartStopService {
                     this.emit(ReorgDetector.REORG_BEYOND_DEPTH_EVENT, this.headBlock.asBlockStub(), fullBlock);
                     // conduct a reorg with a new genesis
                     const oldestBlock = differenceBlocks[differenceBlocks.length - 1];
+                    console.log(oldestBlock);
                     this.conductReorg(BlockStubChain.newRoot(oldestBlock));
                 } else {
                     // indirect ancestor found - conduct reorg
