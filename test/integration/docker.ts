@@ -1,4 +1,4 @@
-import DockerClient, { Volume } from "dockerode";
+import DockerClient from "dockerode";
 import logger from "../../src/logger";
 import { IArgConfig, ConfigManager } from "../../src/dataEntities/config";
 import { FileUtils } from "./fileUtil";
@@ -7,7 +7,6 @@ import fs from "fs";
 import { ConfigurationError } from "../../src/dataEntities";
 import { Key } from "./keyStore";
 import { ChainData } from "./chainData";
-import tar from "tar";
 
 interface IPortBinding {
     Host: string;
