@@ -25,7 +25,7 @@ jobs:
           command: npm run test-coverage
       - run:
           name: test-integration
-          command: npm run test-raiden
+          command: npm run testy-raiden
       - store_test_results:
           path: coverage
       - store_artifacts:
