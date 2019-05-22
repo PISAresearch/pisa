@@ -16,7 +16,7 @@ jobs:
           command: sudo apt-get update
       - run:
           name: install node
-          command: curl -sL https://deb.nodesource.com/setup_10.x | sudo -E bash - && sudo apt-get install -y nodejs
+          command: curl -sL https://deb.nodesource.com/setup_10.x | sudo -E bash - && sudo apt-get install -y nodejs gcc g++ make
       - run:
           name: update apt again
           command: sudo apt-get update
