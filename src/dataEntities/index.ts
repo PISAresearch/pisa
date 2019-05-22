@@ -1,5 +1,14 @@
 export { IAppointment, IEthereumAppointment, EthereumAppointment, IEthereumResponseData } from "./appointment";
-export { ArgumentError, PublicDataValidationError, PublicInspectionError, ConfigurationError, ApplicationError } from "./errors";
+export {
+    ArgumentError,
+    PublicDataValidationError,
+    PublicInspectionError,
+    ConfigurationError,
+    ApplicationError,
+    BlockThresholdReachedError,
+    BlockTimeoutError,
+    ReorgError
+} from "./errors";
 export { ChannelType } from "./channelType";
 export {
     checkAppointment,

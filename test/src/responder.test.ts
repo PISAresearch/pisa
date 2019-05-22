@@ -13,15 +13,10 @@ import {
     DoublingGasPolicy,
     EthereumTransactionMiner
 } from "../../src/responder";
-import { NoNewBlockError } from "../../src/utils/ethers";
 import { CancellablePromise } from "../../src/utils";
-import { ChannelType } from "../../src/dataEntities";
+import { ChannelType, BlockThresholdReachedError, ReorgError, BlockTimeoutError } from "../../src/dataEntities";
 import { BlockCache, BlockProcessor, BlockTimeoutDetector } from "../../src/blockMonitor";
-import {
-    ConfirmationObserver,
-    BlockThresholdReachedError,
-    ReorgError
-} from "../../src/blockMonitor/confirmationObserver";
+import { ConfirmationObserver } from "../../src/blockMonitor/confirmationObserver";
 
 chai.use(chaiAsPromised);
 chai.use(require("sinon-chai"));
@@ -319,7 +314,7 @@ describe("EthereumDedicatedResponder", () => {
     //     sinon.restore();
     // });
 
-    it("emits the AttemptFailed with a NoNewBlockError if there is no new block for too long", async () => {
+    it("emits the AttemptFailed with a BlockTimeoutError if there is no new block for too long", async () => {
         const { signer, appointment, responseData } = testData;
 
         const nAttempts = 1;
@@ -352,9 +347,9 @@ describe("EthereumDedicatedResponder", () => {
 
         await waitForSpy(attemptFailedSpy);
 
-        // Check if the parameter of the attemptFailed event is an error of type NoNewBlockError
+        // Check if the parameter of the attemptFailed event is an error of type BlockTimeoutError
         const args = attemptFailedSpy.args[0]; //arguments of the first call
-        expect(args[1] instanceof NoNewBlockError, "AttemptFailed emitted with NoNewBlockError").to.be.true;
+        expect(args[1] instanceof BlockTimeoutError, "AttemptFailed emitted with BlockTimeoutError").to.be.true;
     });
 
     // TODO: this test currently passes but node complains with UnhandledPromiseRejectionWarning for Reorg (but exception is caught in the responder!)
@@ -535,7 +530,7 @@ describe("EthereumTransactionMiner", async () => {
         return expect(res).to.be.fulfilled;
     });
 
-    it("waitForFirstConfirmation throws NoNewBlockError after timeout", async () => {
+    it("waitForFirstConfirmation throws BlockTimeoutError after timeout", async () => {
         const miner = new EthereumTransactionMiner(account0Signer, blockTimeoutDetector, confirmationObserver, 5, 10);
 
         const txHash = await miner.sendTransaction(transactionRequest);
@@ -545,7 +540,7 @@ describe("EthereumTransactionMiner", async () => {
         // Simulates BLOCK_TIMEOUT_EVENT
         blockTimeoutDetector.emit(BlockTimeoutDetector.BLOCK_TIMEOUT_EVENT);
 
-        return expect(res).to.be.rejectedWith(NoNewBlockError);
+        return expect(res).to.be.rejectedWith(BlockTimeoutError);
     });
 
     it("waitForFirstConfirmation throws BlockThresholdReachedError if the transaction is stuck", async () => {
@@ -596,7 +591,7 @@ describe("EthereumTransactionMiner", async () => {
         return expect(res).to.be.fulfilled;
     });
 
-    it("waitForEnoughConfirmations throws NoNewBlockError after timeout", async () => {
+    it("waitForEnoughConfirmations throws BlockTimeoutError after timeout", async () => {
         const miner = new EthereumTransactionMiner(account0Signer, blockTimeoutDetector, confirmationObserver, 5, 10);
         const txHash = await miner.sendTransaction(transactionRequest);
 
@@ -608,7 +603,7 @@ describe("EthereumTransactionMiner", async () => {
         // Simulates BLOCK_TIMEOUT_EVENT
         blockTimeoutDetector.emit(BlockTimeoutDetector.BLOCK_TIMEOUT_EVENT);
 
-        return expect(res).to.be.rejectedWith(NoNewBlockError);
+        return expect(res).to.be.rejectedWith(BlockTimeoutError);
     });
 
     it("waitForEnoughConfirmations throws ReorgError if the transaction is not found by the provider", async () => {

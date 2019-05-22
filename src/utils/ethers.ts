@@ -1,19 +1,6 @@
 // Utility functions for ethers.js
-import { Provider, BaseProvider } from "ethers/providers";
-import { CancellablePromise } from ".";
+import { BaseProvider } from "ethers/providers";
 import { ethers } from "ethers";
-
-/**
- * A simple custom Error class to signal that no new block was received while we
- * were waiting for a transaction to be mined. This might likely signal a failure of
- * the provider.
- */
-export class NoNewBlockError extends Error {
-    constructor(message: string) {
-        super(message);
-        this.name = "NoNewBlockError";
-    }
-}
 
 /**
  * Adds a delay to the provider. When polling, or getting block number, or waiting for confirmations,

@@ -1,12 +1,16 @@
 import { EventEmitter } from "events";
 import { ethers } from "ethers";
 import { wait, plural } from "./utils";
-import { NoNewBlockError } from "./utils/ethers";
 import { IEthereumAppointment, IEthereumResponseData } from "./dataEntities/appointment";
 import logger from "./logger";
-import { ApplicationError, ArgumentError, StartStopService } from "./dataEntities";
+import {
+    ApplicationError,
+    ArgumentError,
+    StartStopService,
+    BlockThresholdReachedError,
+    BlockTimeoutError
+} from "./dataEntities";
 import { BlockCache, BlockProcessor, BlockTimeoutDetector, ConfirmationObserver } from "./blockMonitor";
-import { BlockThresholdReachedError } from "./blockMonitor/confirmationObserver";
 
 /**
  * Responsible for storing the state and managing the flow of a single response.
@@ -200,7 +204,7 @@ export class EthereumTransactionMiner {
 
     /**
      * Resolves after the transaction receives the first confirmation.
-     * Rejects with `NoNewBlockError` if the `this.blockTimeoutDetector` emits a `BLOCK_TIMEOUT_EVENT`.
+     * Rejects with `BlockTimeoutError` if the `this.blockTimeoutDetector` emits a `BLOCK_TIMEOUT_EVENT`.
      * Rejects with `BlockThresholdReachedError` if the transaction is still unconfirmed
      * after `blocksThresholdForStuckTransaction` blocks are mined.
      *
@@ -220,7 +224,7 @@ export class EthereumTransactionMiner {
         // ...but stop with error if no new blocks come for too long
         const noNewBlockPromise = new Promise((_, reject) => {
             this.blockTimeoutDetector.once(BlockTimeoutDetector.BLOCK_TIMEOUT_EVENT, () => {
-                reject(new NoNewBlockError(`No new block received too long; provider unresponsive.`));
+                reject(new BlockTimeoutError(`No new block received too long; provider unresponsive.`));
             });
         });
 
@@ -236,7 +240,7 @@ export class EthereumTransactionMiner {
 
     /**
      * Resolves after the transaction `txHash` receives `confirmationsRequired`.
-     * Rejects with `NoNewBlockError` if the `this.blockTimeoutDetector` emits a `BLOCK_TIMEOUT_EVENT`.
+     * Rejects with `BlockTimeoutError` if the `this.blockTimeoutDetector` emits a `BLOCK_TIMEOUT_EVENT`.
      * Rejects with `ReorgError` if the transaction is not found by the provider.
      */
     public async waitForEnoughConfirmations(txHash: string) {
@@ -251,7 +255,7 @@ export class EthereumTransactionMiner {
         // ...but stop with error if no new blocks come for too long
         const noNewBlockPromise = new Promise((_, reject) => {
             this.blockTimeoutDetector.once(BlockTimeoutDetector.BLOCK_TIMEOUT_EVENT, () => {
-                reject(new NoNewBlockError(`No new block received too long; provider unresponsive.`));
+                reject(new BlockTimeoutError(`No new block received too long; provider unresponsive.`));
             });
         });
 

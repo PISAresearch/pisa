@@ -1,4 +1,4 @@
-import { StartStopService, ArgumentError } from "../dataEntities";
+import { StartStopService, ArgumentError, BlockThresholdReachedError, ReorgError } from "../dataEntities";
 import { BlockProcessor } from "./blockProcessor";
 import { BlockCache } from "./blockCache";
 import { CancellablePromise } from "../utils";
@@ -11,26 +11,6 @@ interface ITransactionListenerData {
     throwReorgErrorIfNotFound: boolean;
     initialHeight: number | null;
     blockThresholdForStuckTransactions: number | null;
-}
-
-/**
- * A simple custom Error class to signal that the speified number of blocks has been mined.
- */
-export class BlockThresholdReachedError extends Error {
-    constructor(message: string) {
-        super(message);
-        this.name = "BlockThresholdReachedError";
-    }
-}
-
-/**
- * A simple custom Error class to provide more details in case of a re-org.
- */
-export class ReorgError extends Error {
-    constructor(message: string) {
-        super(message);
-        this.name = "ReorgError";
-    }
 }
 
 /**
