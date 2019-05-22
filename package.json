@@ -18,7 +18,6 @@
     "test-smoke": "ts-node test/smoke/smokeTests.ts",
     "test-integration": "mocha -r ts-node/register 'test/integration/remote/**/*.test.ts' --exit",
     "test-mocked": "NODE_ENV=test mocha -r ts-node/register 'test/mocked/**/*.test.ts' --exit",
-    "testy": "mocha -r ts-node/register 'test/integration/endToEnd.test.ts' --exit",
     "test-raiden": "mocha -r ts-node/register 'test/integration/raiden.test.ts' --exit"
   },
   "nyc": {
