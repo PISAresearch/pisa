@@ -12,14 +12,14 @@ jobs:
           name: import new google GPG https://askubuntu.com/questions/943146/apt-update-error-an-error-occurred-during-the-signature-verification-chrome
           command: wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
       - run:
-          name: Install node@6.2.2 (need right version for `yarn`)
+          name: Install node@11.14.0
           command: |
             set +e             
             curl -o- https://raw.githubusercontent.com/creationix/nvm/v0.33.5/install.sh | bash
             export NVM_DIR="/opt/circleci/.nvm"
             [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-            nvm install v6.2.2
-            nvm alias default v6.2.2
+            nvm install v11.14.0
+            nvm alias default v11.14.0
             
             # Each step uses the same `$BASH_ENV`, so need to modify it
             echo 'export NVM_DIR="/opt/circleci/.nvm"' >> $BASH_ENV
@@ -27,24 +27,6 @@ jobs:
       - run: |
           npm version
           node -v
-      - run:
-          name: update apt again
-          command: node --version
-      - run:
-          name: update apt
-          command: sudo apt-get update
-      - run:
-          name: update apt again
-          command: node --version
-      - run:
-          name: install node
-          command: curl -sL https://deb.nodesource.com/setup_10.x | sudo -E bash - && sudo apt-get install -y nodejs gcc g++ make
-      - run:
-          name: update apt again
-          command: node --version
-      - run:
-          name: update apt again
-          command: nvm ls
       - run:
           name: update-npm
           command: 'sudo npm install -g npm@latest'
