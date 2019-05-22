@@ -4,33 +4,10 @@ orbs:
 jobs:
   build:
     working_directory: ~/test
-    machine:
-      image: circleci/classic:201808-01
+    docker:
+      - image: circleci/node:11.9.0
     steps:
       - checkout
-      - run:
-          name: import new google GPG https://askubuntu.com/questions/943146/apt-update-error-an-error-occurred-during-the-signature-verification-chrome
-          command: wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
-      - run:
-          name: Install node@11.14.0
-          command: |
-            # https://discuss.circleci.com/t/how-to-change-node-version-in-circleci-2-0/17455/3
-            set +e
-            curl -o- https://raw.githubusercontent.com/creationix/nvm/v0.33.5/install.sh | bash
-            export NVM_DIR="/opt/circleci/.nvm"
-            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-            nvm install v11.14.0
-            nvm alias default v11.14.0
-            
-            # Each step uses the same `$BASH_ENV`, so need to modify it
-            echo 'export NVM_DIR="/opt/circleci/.nvm"' >> $BASH_ENV
-            echo "[ -s \"$NVM_DIR/nvm.sh\" ] && . \"$NVM_DIR/nvm.sh\"" >> $BASH_ENV
-      - run: |
-          npm version
-          node -v
-      - run:
-          name: update-npm
-          command: npm version
       - run:
           name: install
           command: npm install
@@ -48,7 +25,7 @@ jobs:
           command: npm run test-coverage
       - run:
           name: test-integration
-          command: npm run test-integration
+          command: npm run test-raiden
       - store_test_results:
           path: coverage
       - store_artifacts:
@@ -60,8 +37,35 @@ jobs:
       - codecov/upload: 
           file: coverage/lcov.info
           token: 8840cab9-3613-45d2-9505-8ce7fa6c2cf7
+  integration-test:
+    working_directory: ~/test
+    machine:
+      image: circleci/classic:201808-01
+      steps:
+      - checkout
+      - run:
+          name: Install node@11.14.0
+          command: |
+            # https://discuss.circleci.com/t/how-to-change-node-version-in-circleci-2-0/17455/3
+            set +e
+            curl -o- https://raw.githubusercontent.com/creationix/nvm/v0.33.5/install.sh | bash
+            export NVM_DIR="/opt/circleci/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+            nvm install v11.14.0
+            nvm alias default v11.14.0
+            
+            # Each step uses the same `$BASH_ENV`, so need to modify it
+            echo 'export NVM_DIR="/opt/circleci/.nvm"' >> $BASH_ENV
+            echo "[ -s \"$NVM_DIR/nvm.sh\" ] && . \"$NVM_DIR/nvm.sh\"" >> $BASH_ENV
+      - run:
+          name: install
+          command: npm install
+      - run:
+          name: test
+          command: npm run testy
 workflows:
   version: 2
   build:
     jobs:
       - build
+      - integration-test
