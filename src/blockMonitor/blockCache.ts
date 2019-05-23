@@ -176,8 +176,8 @@ export class BlockCache {
         let depth = 0;
         let curBlock = this.getBlockStub(headBlockHash);
         while (curBlock !== null) {
-            const txsInCurBlock = this.txHashesByBlockHash.get(curBlock.hash) || new Set();
-            if (txsInCurBlock.has(txHash)) {
+            const txsInCurBlock = this.txHashesByBlockHash.get(curBlock.hash);
+            if (txsInCurBlock && txsInCurBlock.has(txHash)) {
                 return depth + 1;
             }
             curBlock = this.getBlockStub(curBlock.parentHash);
