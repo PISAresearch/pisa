@@ -154,5 +154,17 @@ describe("BlockCache", () => {
         }
         const headBlock = blocks[blocks.length - 1];
         expect(bc.getConfirmations(headBlock.hash, blocks[0].transactions[0])).to.equal(blocks.length);
+        expect(bc.getConfirmations(headBlock.hash, blocks[1].transactions[0])).to.equal(blocks.length - 1);
+    });
+
+    it("getConfirmations correctly returns 0 confirmations if transaction is not known", () => {
+        const bc = new BlockCache(maxDepth);
+        const blocks = generateBlocks(128, 0, "main"); // must be less blocks than maxDepth
+
+        for (const block of blocks) {
+            bc.addBlock(block);
+        }
+        const headBlock = blocks[blocks.length - 1];
+        expect(bc.getConfirmations(headBlock.hash, "nonExistingTxHash")).to.equal(0);
     });
 });
