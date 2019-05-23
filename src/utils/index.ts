@@ -5,9 +5,8 @@ export { validateProvider, getJsonRPCProvider } from "./ethers";
  * @param milliseconds
  */
 export const wait = (milliseconds: number) => {
-    return new Promise((resolve) => setTimeout(resolve, milliseconds));
+    return new Promise(resolve => setTimeout(resolve, milliseconds));
 };
-
 
 /** A custom error to signal a timeout. */
 export class TimeoutError extends Error {
@@ -16,7 +15,6 @@ export class TimeoutError extends Error {
         this.name = "TimeoutError";
     }
 }
-
 
 /**
  * A promise that can be canceled to release any resource.
@@ -42,7 +40,6 @@ export class CancellablePromise<T> extends Promise<T> {
     }
 }
 
-
 /**
  * Wraps `promise` in a new promise that rejects with a `TimeoutError` after waiting `milliseconds` if `promise` is still pending.
  *
@@ -54,8 +51,8 @@ export function promiseTimeout<T>(promise: Promise<T>, milliseconds: number): Pr
         promise,
         new Promise<T>((_, reject) => {
             setTimeout(() => {
-                reject(new TimeoutError('Timed out in '+ milliseconds + 'ms.'));
-            }, milliseconds)
+                reject(new TimeoutError("Timed out in " + milliseconds + "ms."));
+            }, milliseconds);
         })
     ]);
 }
@@ -67,6 +64,6 @@ export function promiseTimeout<T>(promise: Promise<T>, milliseconds: number): Pr
  * @param word the string to be used as singular
  * @param [plural] the string to be used as plural; defaults to `word + 's'`.
  */
-export function plural(val: number, word: string, plural: string = word + 's') {
+export function plural(val: number, word: string, plural: string = word + "s") {
     return val == 1 ? word : plural;
 }

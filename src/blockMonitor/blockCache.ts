@@ -2,27 +2,6 @@ import { ethers } from "ethers";
 import { ApplicationError } from "../dataEntities";
 import { IBlockStub, BlockStubChain } from "./blockStub";
 
-// adds item to map.get(key), but make sure it exists first
-function addItemToKeyedSet<T, U>(map: Map<T, Set<U>>, key: T, item: U) {
-    const set = map.get(key);
-    if (set === undefined) {
-        map.set(key, new Set([item]));
-    } else {
-        set.add(item);
-    }
-}
-
-// removes item from map.get(key), and also delete the resulting set if empty
-function removeItemFromKeyedSet<T, U>(map: Map<T, Set<U>>, key: T, item: U) {
-    const set = map.get(key);
-    if (set === undefined || set.delete(item) === false) {
-        throw new ApplicationError("Tried to remove item from a set that does not contain it.");
-    }
-    if (set.size === 0) {
-        map.delete(key);
-    }
-}
-
 /**
  * Utility class to store and query info on full blocks up to a given maximum depth `maxDepth`, compared to the current
  * maximum height ever seen.
@@ -32,11 +11,11 @@ function removeItemFromKeyedSet<T, U>(map: Map<T, Set<U>>, key: T, item: U) {
 export class BlockCache {
     public blockStubsByHash: Map<string, BlockStubChain> = new Map();
 
-    // store block hashes at a specific height (there could be more than one at some height because of forks)
-    public blockHashesByHeight: Map<number, Set<string>> = new Map();
-
     // set of tx hashes per block hash, for fast lookup
     private txHashesByBlockHash: Map<string, Set<string>> = new Map();
+
+    // store block hashes at a specific height (there could be more than one at some height because of forks)
+    public blockHashesByHeight: Map<number, Set<string>> = new Map();
 
     // Blocks at height smaller than which all blocks have already been pruned
     private minStoredHeight = 0;
@@ -61,15 +40,12 @@ export class BlockCache {
      */
     constructor(public readonly maxDepth: number) {}
 
-    // Removes all info related to a block in blocksByHash
+    // Removes all info related to a block in blockStubsByHash and txHashesByBlockHash
     private removeBlock(blockHash: string) {
-        const transactionHashes = this.txHashesByBlockHash.get(blockHash);
-        if (transactionHashes === undefined) {
+        if (this.blockStubsByHash.delete(blockHash) === false) {
             // This would be a bug
             throw new ApplicationError(`Block with hash ${blockHash} not found, but it was expected.`);
         }
-
-        this.blockStubsByHash.delete(blockHash);
 
         // Remove stored set of transactions for this block
         this.txHashesByBlockHash.delete(blockHash);
@@ -78,13 +54,10 @@ export class BlockCache {
     // Remove all the blocks that are deeper than maxDepth, and all connected information.
     private prune() {
         for (let height = this.minStoredHeight; height < this.getMinVisibleHeight(); height++) {
-            const hashesByHeight = this.blockHashesByHeight.get(height);
-            if (hashesByHeight !== undefined) {
-                for (let hash of hashesByHeight) {
-                    this.removeBlock(hash);
-                }
-                this.blockHashesByHeight.delete(height);
+            for (const hash of this.blockHashesByHeight.get(height) || []) {
+                this.removeBlock(hash);
             }
+            this.blockHashesByHeight.delete(height);
         }
         this.minStoredHeight = this.mMaxHeight - this.maxDepth;
     }
@@ -151,7 +124,12 @@ export class BlockCache {
         this.txHashesByBlockHash.set(block.hash, new Set(block.transactions));
 
         // Index block by its height
-        addItemToKeyedSet(this.blockHashesByHeight, block.number, block.hash);
+        const hashesByHeight = this.blockHashesByHeight.get(block.number);
+        if (hashesByHeight === undefined) {
+            this.blockHashesByHeight.set(block.number, new Set([block.hash]));
+        } else {
+            hashesByHeight.add(block.hash);
+        }
 
         // If the maximum block height increased, we might have to prune some old info
         if (this.mMaxHeight < block.number) {
