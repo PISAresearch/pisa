@@ -133,7 +133,7 @@ export class BlockCache {
 
         // If the maximum block height increased, we might have to prune some old info
         if (this.mMaxHeight < block.number) {
-            this.mMaxHeight = Math.max(this.mMaxHeight, block.number);
+            this.mMaxHeight = block.number;
             this.prune();
         }
 
