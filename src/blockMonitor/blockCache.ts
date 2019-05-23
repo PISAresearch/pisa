@@ -35,11 +35,8 @@ export class BlockCache {
     // store block hashes at a specific height (there could be more than one at some height because of forks)
     public blockHashesByHeight: Map<number, Set<string>> = new Map();
 
-    // maps transaction hashes to blocks containing them
-    public blockHashesByTxHash: Map<string, Set<string>> = new Map();
-
     // set of tx hashes per block hash, for fast lookup
-    public txHashesByBlockHash: Map<string, Set<string>> = new Map();
+    private txHashesByBlockHash: Map<string, Set<string>> = new Map();
 
     // Blocks at height smaller than which all blocks have already been pruned
     private minStoredHeight = 0;
@@ -64,7 +61,7 @@ export class BlockCache {
      */
     constructor(public readonly maxDepth: number) {}
 
-    // Removes all info related to a block in blocksByHash and blockHashesByTxHash
+    // Removes all info related to a block in blocksByHash
     private pruneBlock(blockHash: string) {
         const transactionHashes = this.txHashesByBlockHash.get(blockHash);
         if (transactionHashes === undefined) {
@@ -73,11 +70,6 @@ export class BlockCache {
         }
 
         this.blockStubsByHash.delete(blockHash);
-
-        // For each txHash in the block, remove the block hash from blockHashesByTxHash
-        for (let txHash of transactionHashes) {
-            removeItemFromKeyedSet(this.blockHashesByTxHash, txHash, blockHash);
-        }
 
         // Remove stored set of transactions for this block
         this.txHashesByBlockHash.delete(blockHash);
@@ -160,12 +152,6 @@ export class BlockCache {
 
         // Index block by its height
         addItemToKeyedSet(this.blockHashesByHeight, block.number, block.hash);
-
-        // Link all the tx hashes of this block to the block hash
-        for (let txHash of block.transactions || []) {
-            // Add this block among the block containing transaction txHash
-            addItemToKeyedSet(this.blockHashesByTxHash, txHash, block.hash);
-        }
 
         // If the maximum block height increased, we might have to prune some old info
         if (this.mMaxHeight < block.number) {
