@@ -135,7 +135,7 @@ describe("BlockProcessor", () => {
         for (let i = 5; i <= 10; i++) {
             expect(blockCache.hasBlock(`a${i}`));
             expect(blockCache.hasBlock(`b${i}`));
-            expect(blockCache.hasBlock(`a${i}`));
+            expect(blockCache.hasBlock(`c${i}`));
         }
     });
 });
