@@ -7,6 +7,17 @@ import { IBlockStub, BlockStubChain } from "./blockStub";
  * maximum height ever seen.
  * It prunes all the blocks at depth bigger than `maxDepth`, or with height smaller than the first block that was added.
  * It does not allow to add blocks without adding their parent first, except if they are at depth `maxDepth`.
+ *
+ * The following invariants are guaranteed:
+ * 1) Adding a block after the parent was added will never throw an exception.
+ * 2) No block at depth more than `maxDepth` is still found in the structure.
+ * 3) No block is retained if its height is smaller than the first block ever added.
+ * 4) All blocks added are never pruned if their depth is less then `maxDepth`.
+ * 5) No block can be added before their parent, unless their height is equal to the height of the first added block, or
+ *    their depth is `maxDepth`.
+ *
+ * Note that in order to guarantee the invariant (1), `addBlock` can be safely called even for blocks that will not
+ * actually be added (for example because they are already too deep); in that case, it will return `false`.
  **/
 export class BlockCache {
     public blockStubsByHash: Map<string, BlockStubChain> = new Map();
@@ -29,13 +40,19 @@ export class BlockCache {
         return this.mMaxHeight;
     }
 
-    // Returns the minimum height of blocks that can currently be stored
+    /**
+     * Returns the minimum height of blocks that can currently be stored.
+     *
+     * Once at least a block has been added, the minimum height is always guaranteed to be the maximum of:
+     * - the height h of the first block ever added, and
+     * - the height of a block at depth `maxDepth` from the highest added block.
+     **/
     public get minHeight() {
         return Math.max(this.pruneHeight, this.maxHeight - this.maxDepth);
     }
 
     /**
-     * Constructs a block forest that stores blocks up to a maximum depth `maxDepth`.
+     * Constructs a block cache that stores blocks up to a maximum depth `maxDepth`.
      * @param maxDepth
      */
     constructor(public readonly maxDepth: number) {}
@@ -87,9 +104,27 @@ export class BlockCache {
     }
 
     /**
+     * `canAddBlock` might return true for blocks that should actually not be added.
+     * Here we check that the block is not actually already added, and it is not below a height
+     * that would be pruned immediately.
+     */
+    private shouldAddBlock(block: ethers.providers.Block) {
+        if (this.blockStubsByHash.has(block.hash)) {
+            // block already in memory
+            return false;
+        }
+
+        if (block.number < this.minHeight) {
+            // block too deep
+            return false;
+        }
+        return true;
+    }
+
+    /**
      * Adds `block`to the cache.
      * @param block
-     * @returns `true` if the block was added, `false` if the block was not added because too deep or already there.
+     * @returns `true` if the block was added, `false` if the block was not added (because too deep or already in cache).
      * @throws `ApplicationError` if the block cannot be added because its parent is not in cache.
      */
     public addBlock(block: ethers.providers.Block): boolean {
@@ -102,16 +137,9 @@ export class BlockCache {
             // First block added, store its height, so blocks before this point will not be stored.
             this.pruneHeight = block.number;
             this.isEmpty = false;
-        } else {
-            if (this.blockStubsByHash.has(block.hash)) {
-                // block already in memory
-                return false;
-            }
-
-            if (block.number < this.minHeight) {
-                // block too deep
-                return false;
-            }
+        } else if (!this.shouldAddBlock(block)) {
+            // We do not actually need to add the block
+            return false;
         }
 
         // Update data structures
