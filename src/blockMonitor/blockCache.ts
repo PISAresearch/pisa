@@ -17,11 +17,11 @@ export class BlockCache {
     // store block hashes at a specific height (there could be more than one at some height because of forks)
     public blockHashesByHeight: Map<number, Set<string>> = new Map();
 
-    // Blocks at height smaller than which all blocks have already been pruned
-    private minStoredHeight = 0;
+    // Next height to be pruned; the cache will not store a block with height strictly smaller than pruneHeight
+    private pruneHeight: number;
 
-    // After the first block is added, its height. Will not store blocks with smaller height
-    private initialHeight: number = -1;
+    // True before the first block ever is added
+    private isEmpty = true;
 
     // Height of the highest known block
     private mMaxHeight = 0;
@@ -30,8 +30,8 @@ export class BlockCache {
     }
 
     // Returns the minimum height of blocks that can currently be stored
-    public getMinVisibleHeight() {
-        return Math.max(this.initialHeight, this.maxHeight - this.maxDepth);
+    public get minHeight() {
+        return Math.max(this.pruneHeight, this.maxHeight - this.maxDepth);
     }
 
     /**
@@ -43,7 +43,7 @@ export class BlockCache {
     // Removes all info related to a block in blockStubsByHash and txHashesByBlockHash
     private removeBlock(blockHash: string) {
         if (this.blockStubsByHash.delete(blockHash) === false) {
-            // This would be a bug
+            // This would signal a bug
             throw new ApplicationError(`Block with hash ${blockHash} not found, but it was expected.`);
         }
 
@@ -53,13 +53,14 @@ export class BlockCache {
 
     // Remove all the blocks that are deeper than maxDepth, and all connected information.
     private prune() {
-        for (let height = this.minStoredHeight; height < this.getMinVisibleHeight(); height++) {
-            for (const hash of this.blockHashesByHeight.get(height) || []) {
+        while (this.pruneHeight < this.minHeight) {
+            for (const hash of this.blockHashesByHeight.get(this.pruneHeight) || []) {
                 this.removeBlock(hash);
             }
-            this.blockHashesByHeight.delete(height);
+            this.blockHashesByHeight.delete(this.pruneHeight);
+
+            this.pruneHeight++;
         }
-        this.minStoredHeight = this.mMaxHeight - this.maxDepth;
     }
 
     // Makes a new block stub, linking the parent if available
@@ -82,9 +83,7 @@ export class BlockCache {
      * @param block
      */
     public canAddBlock(block: ethers.providers.Block): boolean {
-        return (
-            this.initialHeight === -1 || this.hasBlock(block.parentHash) || block.number <= this.getMinVisibleHeight()
-        );
+        return this.isEmpty || this.hasBlock(block.parentHash) || block.number <= this.minHeight;
     }
 
     /**
@@ -94,23 +93,24 @@ export class BlockCache {
      * @throws `ApplicationError` if the block cannot be added because its parent is not in cache.
      */
     public addBlock(block: ethers.providers.Block): boolean {
-        if (this.initialHeight === -1) {
-            // First block added, blocks before this point will not be stored.#
-            this.initialHeight = block.number;
+        // If the block's parent is above the minimum visible height, it needs to be added first
+        if (!this.canAddBlock(block)) {
+            throw new ApplicationError("Tried to add a block before its parent block.");
+        }
+
+        if (this.isEmpty) {
+            // First block added, store its height, so blocks before this point will not be stored.
+            this.pruneHeight = block.number;
+            this.isEmpty = false;
         } else {
             if (this.blockStubsByHash.has(block.hash)) {
                 // block already in memory
                 return false;
             }
 
-            if (block.number < this.getMinVisibleHeight()) {
+            if (block.number < this.minHeight) {
                 // block too deep
                 return false;
-            }
-
-            // If the block's parent is above the minimum visible height, it needs to be added first
-            if (!this.canAddBlock(block)) {
-                throw new ApplicationError("Tried to add a block before its parent block.");
             }
         }
 
