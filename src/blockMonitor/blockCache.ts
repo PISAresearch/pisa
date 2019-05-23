@@ -62,7 +62,7 @@ export class BlockCache {
     constructor(public readonly maxDepth: number) {}
 
     // Removes all info related to a block in blocksByHash
-    private pruneBlock(blockHash: string) {
+    private removeBlock(blockHash: string) {
         const transactionHashes = this.txHashesByBlockHash.get(blockHash);
         if (transactionHashes === undefined) {
             // This would be a bug
@@ -81,7 +81,7 @@ export class BlockCache {
             const hashesByHeight = this.blockHashesByHeight.get(height);
             if (hashesByHeight !== undefined) {
                 for (let hash of hashesByHeight) {
-                    this.pruneBlock(hash);
+                    this.removeBlock(hash);
                 }
                 this.blockHashesByHeight.delete(height);
             }
@@ -167,11 +167,7 @@ export class BlockCache {
      * @param blockHash
      */
     public getBlockStubChain(blockHash: string): BlockStubChain | null {
-        const blockStubChain = this.blockStubsByHash.get(blockHash);
-        if (blockStubChain === undefined) {
-            return null;
-        }
-        return blockStubChain;
+        return this.blockStubsByHash.get(blockHash) || null;
     }
 
     /**
