@@ -19,6 +19,17 @@ export class ConfigurationError extends ApplicationError {
 }
 
 /**
+ * Thrown when an event times out.
+ **/
+export class TimeoutError extends Error {
+    constructor(message: string) {
+        super(message);
+        this.name = "TimeoutError";
+    }
+}
+
+
+/**
  * Thrown when data does not match a specified format
  * Error messages must be safe to expose publicly
  */

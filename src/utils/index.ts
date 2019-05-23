@@ -1,3 +1,5 @@
+import { TimeoutError } from "../dataEntities";
+
 export { validateProvider, getJsonRPCProvider } from "./ethers";
 
 /**
@@ -7,14 +9,6 @@ export { validateProvider, getJsonRPCProvider } from "./ethers";
 export const wait = (milliseconds: number) => {
     return new Promise(resolve => setTimeout(resolve, milliseconds));
 };
-
-/** A custom error to signal a timeout. */
-export class TimeoutError extends Error {
-    constructor(message: string) {
-        super(message);
-        this.name = "TimeoutError";
-    }
-}
 
 /**
  * A promise that can be canceled to release any resource.

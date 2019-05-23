@@ -1,6 +1,7 @@
 export { IAppointment, IEthereumAppointment, EthereumAppointment, IEthereumResponseData } from "./appointment";
 export {
     ArgumentError,
+    TimeoutError,
     PublicDataValidationError,
     PublicInspectionError,
     ConfigurationError,
