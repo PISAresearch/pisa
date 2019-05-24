@@ -119,6 +119,24 @@ export abstract class EthereumAppointment implements IEthereumAppointment {
 }
 
 /**
+ * An appointment signed by PISA
+ */
+export class SignedAppointmnt {
+    constructor(public readonly appointment: IEthereumAppointment, public readonly signature: string) {}
+    public serialise() {
+        const signedAppointment = {
+            startBlock: this.appointment.startBlock,
+            endBlock: this.appointment.endBlock,
+            locator: this.appointment.getStateLocator(),
+            nonce: this.appointment.getStateNonce(),
+            signature: this.appointment
+        };
+
+        return JSON.stringify(signedAppointment);
+    }
+}
+
+/**
  * Represents the necessary data for an on-chain response from Pisa on the Ethereum blockchain.
  */
 export interface IEthereumResponseData {
