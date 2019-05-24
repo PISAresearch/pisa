@@ -174,16 +174,13 @@ export class PisaService extends StartStopService {
     private appointment(tower: PisaTower) {
         return async (req: express.Request, res: express.Response, next: express.NextFunction) => {
             try {
-                const { appointment, signature } = await tower.addAppointment(req.body);
+                const signedAppointment = await tower.addAppointment(req.body);
 
                 // return the appointment
                 res.status(200);
 
                 // with signature
-                res.send({
-                    appointment,
-                    signature
-                });
+                res.send(signedAppointment.serialise());
             } catch (doh) {
                 if (doh instanceof PublicInspectionError) this.logAndSend(400, doh.message, doh, res);
                 else if (doh instanceof PublicDataValidationError) this.logAndSend(400, doh.message, doh, res);

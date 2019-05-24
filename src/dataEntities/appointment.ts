@@ -129,7 +129,7 @@ export class SignedAppointmnt {
             endBlock: this.appointment.endBlock,
             locator: this.appointment.getStateLocator(),
             nonce: this.appointment.getStateNonce(),
-            signature: this.appointment
+            signature: this.signature
         };
 
         return JSON.stringify(signedAppointment);
