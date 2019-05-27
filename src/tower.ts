@@ -3,6 +3,7 @@ import { Inspector } from "./inspector";
 import { IChannelConfig } from "./integrations";
 import { Watcher } from "./watcher";
 import { ethers } from "ethers";
+import { SignedAppointmnt } from "./dataEntities/appointment";
 
 /**
  * A PISA tower, configured to watch for specified appointment types
@@ -25,7 +26,7 @@ export class PisaTower {
      * Checks that the object is well formed, that it meets the conditions necessary for watching and assigns it to be watched.
      * @param obj
      */
-    async addAppointment(obj: any): Promise<{ appointment: EthereumAppointment, signature: string }> {
+    async addAppointment(obj: any): Promise<SignedAppointmnt> {
         if (!obj) throw new PublicDataValidationError("No content specified.");
 
         // look for a type argument
@@ -44,7 +45,7 @@ export class PisaTower {
         await this.watcher.addAppointment(appointment);
 
         const signature = await this.appointmentSigner.signAppointment(appointment);
-        return { appointment, signature };
+        return new SignedAppointmnt(appointment, signature);
     }
 }
 
@@ -74,17 +75,10 @@ export class HotEthereumAppointmentSigner extends EthereumAppointmentSigner {
      * @param appointment
      */
     public signAppointment(appointment: EthereumAppointment): Promise<string> {
-        const packedData = ethers.utils.solidityPack([
-            'address',
-            'string',
-            'uint',
-            'uint'
-        ], [
-            appointment.getContractAddress(),
-            appointment.getStateLocator(),
-            appointment.getStateNonce(),
-            appointment.expiryPeriod,
-        ])
+        const packedData = ethers.utils.solidityPack(
+            ["string", "uint", "uint", "uint"],
+            [appointment.getStateLocator(), appointment.getStateNonce(), appointment.startBlock, appointment.endBlock]
+        );
 
         const digest = ethers.utils.keccak256(packedData);
 

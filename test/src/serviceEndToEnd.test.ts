@@ -38,7 +38,7 @@ describe("Service end-to-end", () => {
         db: LevelUp<encodingDown<string, any>>;
 
     beforeEach(async () => {
-        const watcherWallet = new ethers.Wallet(config.responderKey, provider);
+        const responderWallet = new ethers.Wallet(config.responderKey, provider);
 
         db = levelup(
             encodingDown<string, any>(MemDown(), {
@@ -51,7 +51,7 @@ describe("Service end-to-end", () => {
         service = new PisaService(
             config,
             provider,
-            watcherWallet,
+            responderWallet,
             signerWallet,
             provider,
             db
@@ -140,25 +140,33 @@ describe("Service end-to-end", () => {
             }
         };
 
+        const startBlock = await provider.getBlockNumber();
+        const endBlock = startBlock + appointment.expiryPeriod
+
         const res = await request.post(`http://${config.hostName}:${config.hostPort}/appointment`, {
             json: appointment
         });
 
         const packedData = ethers.utils.solidityPack(
-            ["address", "string", "uint", "uint"],
+            ["string", "uint", "uint", "uint"],
             [
-                channelContract.address,
-                channelContract.address, // locator is the same in Kitsune
+                channelContract.address, // locator===address in Kitsune
                 appointment.stateUpdate.round,
-                appointment.expiryPeriod
+                startBlock,
+                endBlock
             ]
         );
         const digest = ethers.utils.keccak256(packedData);
         const signer = new Wallet(config.receiptKey!);
         const sig = await signer.signMessage(digest);
-
-        expect(res).to.include.all.keys("appointment", "signature");
-        expect(res.signature).to.equal(sig);
+        
+        expect(res).to.deep.equal({
+            startBlock: startBlock,
+            endBlock: endBlock,
+            locator: channelContract.address,
+            nonce: appointment.stateUpdate.round,
+            signature: sig
+        });
     });
 
     it("create channel, submit round = 0 too low returns 400", async () => {
