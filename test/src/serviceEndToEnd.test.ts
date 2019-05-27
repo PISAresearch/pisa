@@ -12,6 +12,7 @@ import StateChannelFactory from "../../src/integrations/kitsune/StateChannelFact
 import levelup, { LevelUp } from "levelup";
 import MemDown from "memdown";
 import encodingDown from "encoding-down";
+import { StatusCodeError } from "request-promise/errors";
 logger.transports.forEach(l => (l.level = "max"));
 
 const ganache = Ganache.provider({
@@ -48,14 +49,7 @@ describe("Service end-to-end", () => {
 
         const signerWallet = new ethers.Wallet(config.receiptKey!, provider);
 
-        service = new PisaService(
-            config,
-            provider,
-            responderWallet,
-            signerWallet,
-            provider,
-            db
-        );
+        service = new PisaService(config, provider, responderWallet, signerWallet, provider, db);
         await service.start();
 
         // accounts
@@ -79,6 +73,45 @@ describe("Service end-to-end", () => {
     afterEach(async () => {
         await service.stop();
         await db.close();
+    });
+
+    it("service cannot be accessed during startup", async () => {
+        const watcherWallet = new ethers.Wallet(config.responderKey, provider);
+        const signerWallet = new ethers.Wallet(config.receiptKey!, provider);
+
+        const exService = new PisaService({...config, hostPort: config.hostPort + 1}, provider, watcherWallet, signerWallet, provider, db);
+
+        const round = 1,
+            setStateHash = KitsuneTools.hashForSetState(hashState, round, channelContract.address),
+            sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash)),
+            sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash)),
+            expiryPeriod = disputePeriod + 1;
+        const appointment = {
+            expiryPeriod,
+            type: ChannelType.Kitsune,
+            stateUpdate: {
+                contractAddress: channelContract.address,
+                hashState,
+                round,
+                signatures: [sig0, sig1]
+            }
+        };
+
+        let res;
+        try {
+            res = await request.post(`http://${config.hostName}:${config.hostPort + 1}/appointment`, {
+                json: appointment
+            });
+
+            chai.assert.fail();
+        } catch (doh) {
+            const statusCodeError= doh as StatusCodeError;
+            expect(statusCodeError.statusCode).to.equal(503);
+            expect(statusCodeError.error).to.equal("Service initialising, please try again later.")
+        }
+
+        await exService.start()
+        await exService.stop()
     });
 
     it("create channel, submit appointment, trigger dispute, wait for response", async () => {

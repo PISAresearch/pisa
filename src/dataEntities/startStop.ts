@@ -27,6 +27,9 @@ export abstract class StartStopService extends EventEmitter {
         super();
     }
     private mStarted: boolean = false;
+    public get started() {
+        return this.mStarted;
+    }
     private mStarting: boolean = false;
 
     /**

@@ -173,6 +173,13 @@ export class PisaService extends StartStopService {
 
     private appointment(tower: PisaTower) {
         return async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+            if (!this.started) {
+                logger.error("Service initialising. Could not serve request: \n" + inspect(req.body));
+                res.status(503);
+                res.send("Service initialising, please try again later.");
+                return;
+            }
+
             try {
                 const signedAppointment = await tower.addAppointment(req.body);
 
