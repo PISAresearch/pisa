@@ -116,7 +116,6 @@ export class PisaService extends StartStopService {
             if (error) logger.error(error.stack!);
             logger.info(`PISA shutdown.`);
         });
-        
     }
 
     private applyMiddlewares(app: express.Express, config: IArgConfig) {
@@ -175,7 +174,7 @@ export class PisaService extends StartStopService {
     private appointment(tower: PisaTower) {
         return async (req: express.Request, res: express.Response, next: express.NextFunction) => {
             if (!this.started) {
-                logger.error("Service initialising. \n" + inspect(req.body));
+                logger.error("Service initialising. Could not serve request: \n" + inspect(req.body));
                 res.status(503);
                 res.send("Service initialising, please try again later.");
                 return;
