@@ -2,6 +2,7 @@ import { ethers } from "ethers";
 import { StartStopService } from "../dataEntities";
 import { BlockCache } from "./blockCache";
 import { IBlockStub } from "./blockStub";
+import logger from "../logger";
 
 /**
  * Listens to the provider for new blocks, and updates `blockCache` with all the blocks, making sure that each block
@@ -38,27 +39,32 @@ export class BlockProcessor extends StartStopService {
     }
 
     private async handleBlockEvent(blockNumber: number) {
-        const observedBlock = await this.provider.getBlock(blockNumber);
+        try {
+            const observedBlock = await this.provider.getBlock(blockNumber);
 
-        this.lastBlockHashReceived = observedBlock.hash;
+            this.lastBlockHashReceived = observedBlock.hash;
 
-        const blocksToAdd = [observedBlock]; // blocks to add, in reverse order
+            const blocksToAdd = [observedBlock]; // blocks to add, in reverse order
 
-        // fetch ancestors until one is found that can be added
-        let curBlock = observedBlock;
-        while (!this.blockCache.canAddBlock(curBlock)) {
-            curBlock = await this.provider.getBlock(curBlock.parentHash);
-            blocksToAdd.push(curBlock);
-        }
+            // fetch ancestors until one is found that can be added
+            let curBlock = observedBlock;
+            while (!this.blockCache.canAddBlock(curBlock)) {
+                curBlock = await this.provider.getBlock(curBlock.parentHash);
+                blocksToAdd.push(curBlock);
+            }
 
-        // populate fetched blocks into cache, starting from the deepest
-        for (const block of blocksToAdd.reverse()) {
-            this.blockCache.addBlock(block);
-        }
+            // populate fetched blocks into cache, starting from the deepest
+            for (const block of blocksToAdd.reverse()) {
+                this.blockCache.addBlock(block);
+            }
 
-        // is the observed block still the last block received?
-        if (this.lastBlockHashReceived === observedBlock.hash) {
-            this.emit(BlockProcessor.NEW_HEAD_EVENT, observedBlock.number, observedBlock.hash);
+            // is the observed block still the last block received?
+            if (this.lastBlockHashReceived === observedBlock.hash) {
+                this.emit(BlockProcessor.NEW_HEAD_EVENT, observedBlock.number, observedBlock.hash);
+            }
+        } catch (doh) {
+            const error = doh as Error;
+            logger.error(`There was an error fetching blocks in ${this.name}: ${error.message}`);
         }
     }
 }
