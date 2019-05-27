@@ -77,6 +77,7 @@ describe("Watcher", () => {
 
     const mockedStoreThatThrows = mock(AppointmentStore);
     when(mockedStoreThatThrows.removeById(appointmentCanBeUpdated.id)).thenReject(new Error("Store error."));
+    when(mockedStoreThatThrows.getAll()).thenReturn([appointmentCanBeUpdated, appointmentNotUpdated]);
     const storeInstanceThrow = instance(mockedStoreThatThrows);
 
     const mockedReorgDetector = mock(ReorgDetector);
@@ -257,8 +258,8 @@ describe("Watcher", () => {
     });
 
     it("observe does nothing during a reorg", async () => {
-        const reorgDetect = new ReorgDetector(provider, 10, new ReorgHeightListenerStore())
-        const spiedReorgDetect = spy(reorgDetect)
+        const reorgDetect = new ReorgDetector(provider, 10, new ReorgHeightListenerStore());
+        const spiedReorgDetect = spy(reorgDetect);
         const watcher = new Watcher(
             provider,
             responderInstance,
@@ -266,11 +267,11 @@ describe("Watcher", () => {
             appointmentSubscriber,
             storeInstanceThrow
         );
-        await watcher.start()
+        await watcher.start();
 
-        reorgDetect.emit(ReorgDetector.REORG_START_EVENT)
+        reorgDetect.emit(ReorgDetector.REORG_START_EVENT);
         await watcher.observe(appointmentCanBeUpdated, event);
-        reorgDetect.emit(ReorgDetector.REORG_END_EVENT)
+        reorgDetect.emit(ReorgDetector.REORG_END_EVENT);
 
         verify(mockedResponder.respond(appointmentCanBeUpdated)).never();
         verify(spiedReorgDetect.addReorgHeightListener(anyNumber(), anything())).never();
@@ -284,6 +285,32 @@ describe("Watcher", () => {
         verify(mockedAppointmentSubscriber.unsubscribe(appointmentCanBeUpdated.id, anything())).once();
         verify(mockedStoreThatThrows.removeById(anything())).once();
 
-        await watcher.stop()
+        await watcher.stop();
+    });
+
+    it("start correctly adds existing appointments to subscriber", () => {
+        const watcher = new Watcher(
+            provider,
+            responderInstance,
+            reorgDetectorInstance,
+            appointmentSubscriber,
+            storeInstanceThrow
+        );
+        watcher.start();
+
+        verify(
+            mockedAppointmentSubscriber.subscribe(
+                appointmentCanBeUpdated.id,
+                appointmentCanBeUpdated.getEventFilter(),
+                anything()
+            )
+        ).once();
+        verify(
+            mockedAppointmentSubscriber.subscribe(
+                appointmentNotUpdated.id,
+                appointmentCanBeUpdated.getEventFilter(),
+                anything()
+            )
+        ).once();
     });
 });
