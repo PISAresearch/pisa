@@ -63,25 +63,16 @@ contract('DataRegistry', (accounts) => {
     var registryInstance = await DataRegistry.deployed();
     var accounts =  await web3.eth.getAccounts();
 
-    assert.equal(await registryInstance.getDataShardIndex.call(1555236000),0, "1st Sunday");
-    assert.equal(await registryInstance.getDataShardIndex.call(1555322400),1, "1st Monday");
-    assert.equal(await registryInstance.getDataShardIndex.call(1555408800),2, "1st Tuesday");
-    assert.equal(await registryInstance.getDataShardIndex.call(1555495200),3, "1st Wednesday");
-    assert.equal(await registryInstance.getDataShardIndex.call(1555581600),4, "1st Thursday");
-    assert.equal(await registryInstance.getDataShardIndex.call(1555668000),5, "1st Friday");
-    assert.equal(await registryInstance.getDataShardIndex.call(1555754400),6, "1st Saturday");
-    assert.equal(await registryInstance.getDataShardIndex.call(1555840800),7, "2nd Sunday");
-    assert.equal(await registryInstance.getDataShardIndex.call(1555927200),8, "2nd Monday");
-    assert.equal(await registryInstance.getDataShardIndex.call(1556013600),9, "2nd Tuesday");
-    assert.equal(await registryInstance.getDataShardIndex.call(1556100000),10, "2nd Wednesday");
-    assert.equal(await registryInstance.getDataShardIndex.call(1556186400),11, "2nd Thursday");
-    assert.equal(await registryInstance.getDataShardIndex.call(1556272800),12, "2nd Friday");
-    assert.equal(await registryInstance.getDataShardIndex.call(1556359200),13, "2nd Saturday");
-    assert.equal(await registryInstance.getDataShardIndex.call(1556445600),0, "Full loop");
+    assert.equal(await registryInstance.getDataShardIndex.call(1555236000),0, "Shard 0");
+    assert.equal(await registryInstance.getDataShardIndex.call(1559556000),1, "Shard 1");
+    assert.equal(await registryInstance.getDataShardIndex.call(1563876000),0, "Shard 0");
+    assert.equal(await registryInstance.getDataShardIndex.call(1568196000),1, "Shard 1");
+    assert.equal(await registryInstance.getDataShardIndex.call(1572516000),0, "Shard 0");
+    assert.equal(await registryInstance.getDataShardIndex.call(1576836000),1, "Shard 1");
 
   });
 
-  it('Set data', async () => {
+  it('Set item', async () => {
     var registryInstance = await DataRegistry.deployed();
     var accounts =  await web3.eth.getAccounts();
 
@@ -91,22 +82,52 @@ contract('DataRegistry', (accounts) => {
     // Store a dispute
     let encoded = web3.eth.abi.encodeParameters(['uint','uint','uint'], [1,2,3]);
 
-    let result = await registryInstance.setData(encoded, {from: accounts[7]});
+    // Store the data
+    await registryInstance.setData(123, encoded, {from: accounts[7]});
     let shard = await registryInstance.getDataShardIndex.call(timenow);
+    let data = await registryInstance.fetchRecord.call(shard, accounts[7], 123, 0);
+    assert.equal(encoded,data, "Encoded data should be stored in the data registry");
 
-    let data = await registryInstance.fetchRecords.call(accounts[7], shard);
-
-    assert.equal(encoded,data);
+    // Confirm there is no "out of bound" exception thrown
+    data = await registryInstance.fetchRecord.call(shard, accounts[7], 123, 2);
+    assert.notEqual(encoded,data, "No data should be stored!");
   });
 
-  it('Test killing and re-creating a daily record', async () => {
+  it('Set records', async () => {
     var registryInstance = await DataRegistry.deployed();
     var accounts =  await web3.eth.getAccounts();
 
-    var TOTAL_DAYS = await registryInstance.getTotalDays.call();
+    // Current time (latest block)
+    let timenow = await getCurrentTime();
+
+    // Store a dispute
+    let encoded0 = web3.eth.abi.encodeParameters(['uint','uint','uint'], [9123,123,1328]);
+    let encoded1 = web3.eth.abi.encodeParameters(['uint','uint'], [6787891,1231232]);
+
+    // Store the data
+    await registryInstance.setData(123, encoded0, {from: accounts[6]});
+    await registryInstance.setData(123, encoded1, {from: accounts[6]});
+    let shard = await registryInstance.getDataShardIndex.call(timenow);
+    let data = await registryInstance.fetchRecords.call(shard, accounts[6], 123);
+
+    // Check the fetch was successful and then check what we fetched
+    assert.equal(encoded0,data[0]);
+    assert.equal(encoded1,data[1]);
+    assert.notEqual(encoded1, data[0]);
+
+    // No records should exist. So return should be false.
+    data = await registryInstance.fetchRecords.call(shard, accounts[5], 123);
+    assert.equal(data.length, 0);
+  });
+
+  it('Test killing and re-creating shards', async () => {
+    var registryInstance = await DataRegistry.deployed();
+    var accounts =  await web3.eth.getAccounts();
+
+    var TOTAL_SHARDS = await registryInstance.getTotalShards.call();
     var previousweek = new Array();
 
-    for(let j=0; j<TOTAL_DAYS; j++) {
+    for(let j=0; j<TOTAL_SHARDS; j++) {
       previousweek[j] = '123123912391';
     }
 
@@ -115,34 +136,35 @@ contract('DataRegistry', (accounts) => {
 
       // Go through each day and create a new daily record!
       // We'll compare it with the address we fgot the previous week.
-      for(let k=0; k<TOTAL_DAYS; k++) {
+      for(let k=0; k<TOTAL_SHARDS; k++) {
 
         var oldtimestamp = await getCurrentTime();
+        var interval = await registryInstance.getInterval.call();
         let encoded = web3.eth.abi.encodeParameters(['uint','uint','uint'], [oldtimestamp,oldtimestamp+20,3]);
         let encoded2 = web3.eth.abi.encodeParameters(['uint','uint','uint'], [oldtimestamp-10,oldtimestamp+10,5]);
 
         // Store encoded data from an account
-        let result = await registryInstance.setData(encoded, {from: accounts[9]});
+        let result = await registryInstance.setData(123, encoded, {from: accounts[9]});
         let datashard =  await registryInstance.getDataShardIndex.call(oldtimestamp);
         let addr = await registryInstance.getDataShardAddress.call(oldtimestamp);
 
         // Store different encoded data from another account
-        result = await registryInstance.setData(encoded2, {from: accounts[6]});
+        result = await registryInstance.setData(123, encoded2, {from: accounts[6]});
         let samedatashard =  await registryInstance.getDataShardIndex.call(oldtimestamp);
         let sameaddr = await registryInstance.getDataShardAddress.call(oldtimestamp);
 
         assert.equal(datashard.toNumber(),samedatashard.toNumber(), "Both days should be the same!");
         assert.equal(addr,sameaddr, "DataShard address should not change. Disputes on same day. ");
-        assert.notEqual(previousweek[k],addr, "Daily record contract should have a new address compared to previous week");
+        assert.notEqual(previousweek[k],addr, "Daily record contract should have a new address");
 
         // Move to next day!
         oldtimestamp = await getCurrentTime();
-        newBlock = await advanceTimeAndBlock(86400);
+        newBlock = await advanceTimeAndBlock(interval.toNumber());
         newtimestamp = newBlock['timestamp'];
         timeDiff = newtimestamp - oldtimestamp;
 
         // Did it work ok?
-        assert.isTrue(timeDiff >= 86400);
+        assert.isTrue(timeDiff >= interval.toNumber());
         previousweek[k] = addr; // keep for next round
       }
     }
