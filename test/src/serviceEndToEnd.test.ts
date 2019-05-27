@@ -79,7 +79,7 @@ describe("Service end-to-end", () => {
         const watcherWallet = new ethers.Wallet(config.responderKey, provider);
         const signerWallet = new ethers.Wallet(config.receiptKey!, provider);
 
-        service = new PisaService({...config, hostPort: config.hostPort + 1}, provider, watcherWallet, signerWallet, provider, db);
+        const exService = new PisaService({...config, hostPort: config.hostPort + 1}, provider, watcherWallet, signerWallet, provider, db);
 
         const round = 1,
             setStateHash = KitsuneTools.hashForSetState(hashState, round, channelContract.address),
@@ -110,8 +110,8 @@ describe("Service end-to-end", () => {
             expect(statusCodeError.error).to.equal("Service initialising, please try again later.")
         }
 
-        await service.start()
-        await service.stop()
+        await exService.start()
+        await exService.stop()
     });
 
     it("create channel, submit appointment, trigger dispute, wait for response", async () => {
