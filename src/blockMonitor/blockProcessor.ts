@@ -37,28 +37,23 @@ export class BlockProcessor extends StartStopService {
         this.provider.removeListener("block", this.handleBlockEvent);
     }
 
-    private async getParentsNotInCache(block: ethers.providers.Block): Promise<ethers.providers.Block[]> {
-        if (this.blockCache.canAddBlock(block)) {
-            // this parent is in the cache - do nothing
-            return [];
-        } else {
-            // this parent is not in the cache, find further parents also in this situation
-            const parentBlock = await this.provider.getBlock(block.parentHash);
-            return (await this.getParentsNotInCache(parentBlock)).concat(parentBlock);
-        }
-    }
-
     private async handleBlockEvent(blockNumber: number) {
         const observedBlock = await this.provider.getBlock(blockNumber);
 
         this.lastBlockHashReceived = observedBlock.hash;
 
-        // populate block and parents in cache
-        if (!this.blockCache.hasBlock(observedBlock.hash)) {
-            (await this.getParentsNotInCache(observedBlock))
-                .concat(observedBlock)
-                .filter(b => !this.blockCache.hasBlock(b.hash))
-                .forEach(b => this.blockCache.addBlock(b));
+        const blocksToAdd = [observedBlock]; // blocks to add, in reverse order
+
+        // fetch ancestors until one is found that can be added
+        let curBlock = observedBlock;
+        while (!this.blockCache.canAddBlock(curBlock)) {
+            curBlock = await this.provider.getBlock(curBlock.parentHash);
+            blocksToAdd.push(curBlock);
+        }
+
+        // populate fetched blocks into cache, starting from the deepest
+        for (const block of blocksToAdd.reverse()) {
+            this.blockCache.addBlock(block);
         }
 
         // is the observed block still the last block received?
