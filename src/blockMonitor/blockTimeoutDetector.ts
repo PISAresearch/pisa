@@ -18,22 +18,22 @@ export class BlockTimeoutDetector extends StartStopService {
      */
     constructor(private blockProcessor: BlockProcessor, public readonly timeout: number) {
         super("Block timeout detector");
-        this.handleNewBlock = this.handleNewBlock.bind(this);
+        this.resetNoNewBlockTimeout = this.resetNoNewBlockTimeout.bind(this);
         this.handleNoNewBlockTimeout = this.handleNoNewBlockTimeout.bind(this);
     }
 
     protected async startInternal(): Promise<void> {
-        this.blockProcessor.on(BlockProcessor.NEW_HEAD_EVENT, this.handleNewBlock);
-        this.initNoNewBlockTimeout();
+        this.blockProcessor.on(BlockProcessor.NEW_HEAD_EVENT, this.resetNoNewBlockTimeout);
+        this.resetNoNewBlockTimeout();
     }
 
     public async stopInternal(): Promise<void> {
         this.clearNoNewBlockTimeout();
-        this.blockProcessor.off(BlockProcessor.NEW_HEAD_EVENT, this.handleNewBlock);
+        this.blockProcessor.off(BlockProcessor.NEW_HEAD_EVENT, this.resetNoNewBlockTimeout);
     }
 
     // Start the timer, after clearing any previous timer
-    private initNoNewBlockTimeout() {
+    private resetNoNewBlockTimeout() {
         // If a timer is pending, cancel it
         this.clearNoNewBlockTimeout();
         this.timeoutHandler = setTimeout(this.handleNoNewBlockTimeout, this.timeout);
@@ -49,10 +49,5 @@ export class BlockTimeoutDetector extends StartStopService {
 
     private handleNoNewBlockTimeout() {
         this.emit(BlockTimeoutDetector.BLOCK_TIMEOUT_EVENT);
-    }
-
-    private handleNewBlock() {
-        // Restart the timer
-        this.initNoNewBlockTimeout();
     }
 }
