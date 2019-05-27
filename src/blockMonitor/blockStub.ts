@@ -15,6 +15,10 @@ export class BlockStubChain {
     protected constructor(block: IBlockStub, parentChain: BlockStubChain | null) {
         if (parentChain === undefined) throw new ArgumentError("Undefined parent chain");
 
+        if (parentChain && block.parentHash !== parentChain.hash) {
+            throw new ArgumentError("Parent hashes are not equal.", block.parentHash, parentChain.hash);
+        }
+
         this.height = block.number;
         this.hash = block.hash;
         this.parentHash = block.parentHash;
@@ -48,10 +52,6 @@ export class BlockStubChain {
     public extendMany(extensionBlocks: IBlockStub[]) {
         let block: BlockStubChain = this;
         extensionBlocks.forEach(extensionBlock => {
-            if (extensionBlock.parentHash !== block.hash) {
-                throw new ArgumentError("Parent hashes are not equal.", extensionBlock.parentHash, block.hash);
-            }
-
             block = block.extend(extensionBlock);
         });
         return block;
