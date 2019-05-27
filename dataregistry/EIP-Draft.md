@@ -10,11 +10,11 @@ created: 2019-04-11
 
 ## Abstract
 
-We propose a registry to record arbitrary data for a limited period of time.
-The motivation for this EIP is to deploy a central registry to record disputes for off-chain channels.
-This on-chain evidence can be used to hold a watching service accountable (alongside a signed receipt) as there is evidence a watching service was hired, burt failed to respond on a customer's behalf.
-However a data registry is useful for countless other applications in the Ethereum eco-system.
+We propose a data registry that supports the storage and retrieval of short-lived data. This EIP provides an overview of the data registry and outlines its API to support other contracts interacting with it. 
 
+## Motivation 
+
+In the short-term, the data registry is useful for storing records of on-chain challenges for off-chain protocols. The challenge records can be used as evidence (alongside a signed receipt) to hold a watching service accountable. In the future, we envision this registry will be useful for any accountable central service or where there is a need for smart contracts to share data amongst each other. 
 
 ## Specification
 
@@ -27,75 +27,107 @@ This standard does not require any signatures. It is only concerned with storing
 
 ## DataRegistry
 
-The DataRegistry is responsible for maintaining a list of DataShards. Each DataShard is associated with a given day and stores a list of encoded data for a smart contract. A magic number, *TOTAL_DAYS*, will decide the total DataShards maintained by the DataRegistry.
-Every *TOTAL_DAYS*, the DataShard is reset by self-destructing and re-creating it. This is a workaround to delete the contents of a mapping.
+The DataRegistry is responsible for maintaining a list of DataShards. Each DataShard is responsible for storing a list of encoded bytes for a given smart contract. All DataShards have the same life-span (i.e. 1 day, 2 weeks, etc). It is eventually reset by self-destructing and re-creating the data shard's smart contract after its life-span. 
+
+#### Total Data Shards 
+
+``` js
+uint constant INTERVAL;
+uint constant TOTAL_SHARDS;
+```
+
+Every DataShard has a life-span of *INTERVAL* and there is a total of *TOTAL_SHARDS* in the smart contract. After each interval, the next data shard can be created by the data registry. When we re-visit an existing shard, the data registry will destory and re-create it. This is mostly a workaround to delete the contents of a mapping.
+
+#### Uniquely identifying stored data 
+
+All data is stored according to the format: 
+
+``` js
+uint _datashard, address _sc, uint _id, uint _index; 
+```
+
+A brief overview: `
+
+* **_datashard** - Which DataShard is the data stored in.
+
+* **_sc** - The smart contract address for the contract that stored data in the registry. 
+
+* **_id** - A unique identifier picked by the smart contract to store data in the registry. 
+
+* **_index** - *[optional]* All data is stored as a *bytes[]*. Thus the *_index* lets us look up one element in the list. If *_index* is not used, then the entire array is returned. 
+
+#### Computing the unique identifier for a data record 
+
+How the smart contract computes *_id*  is policy-specific, but we recommend it is a deterministic process enforced by the smart contract to guarantee uniqueness. A future EIP (or SCIP) will be proposed to standardise the process. 
 
 #### setData
 
 ``` js
-function setData(bytes memory _data) public;
+function setData(uint _id, bytes memory _data) public;
 ```
 
-Store the encoded data and emit the event:
+Store the encoded data and emits the event:
 
 ``` js
-emit NewRecord(address sc, bytes[] data, uint datashard)
+emit NewRecord(uint datashard, address sc, uint id, uint index, bytes data)
 ```
-
-The *datashard* is an identifier for the DataShard. By default it will always be 0 unless the DataRegistry has implemented the DataShard approach to handle data storage.
+As mentioned previously, the data recorded is listed according to *msg_sender* and the data is appended to corresponding list. 
 
 #### fetchRecords
 
 ``` js
-function fetchRecords(address _sc, uint _datashard) public returns (bytes[] memory)
+function fetchRecords(uint _datashard, address _sc, uint _id) public returns (bytes[] memory)
 ```
 
 Fetches the list of data records for a given smart contract. The *_datashard* informs the DataRegistry which DataShard to use when fetching the records.
 
 ``` js
-function fetchRecords(address _sc, uint _datashard, uint _i) public returns (bytes[] memory)
+function fetchRecord(uint _datashard, address _sc, uint _id, uint _index) public returns (bytes memory)
 ```
 
-Fetches a single data record at index *_i* for a given smart contract. The *_datashard* informs the DataRegistry which DataShard to use when fetching the single record 
+Returns a single data record according to the index. Note the smart contract will return an empty record if the *_index* is out of bounds. It will NOT throw an exception and revert the transaction. 
 
 #### getDataShardIndex
 
 ``` js
-function getDataShardIndex(uint _findShard) public returns (uint8)
+function getDataShardIndex(uint _timestamp) public returns (uint8)
 ```
-Given appropriate information, this will return the index for the DataShard. In the [PISA Implementation], the findShard is a UNIX timestamp and it returns within the range 0 to TOTAL_DAYS.
+Given a timestamp, it will return the index for a data shard. This ranges from 0 to TOTAL_DAYS. 
 
 #### getDataShardAddress
 
 ``` js
-function getDataShardAddress(uint _findShard) public returns (address)
+function getDataShardAddress(uint _timestamp) public returns (address)
 ```
 
-Given appropriate information, this will return the address for a DataShard. In the [PISA Implementation], the findShard is a UNIX timestamp as each DataShard corresponds to a given day.
+Given a timestamp information, this will return the address for a DataShard. 
 
 ## DataShard
 
-Each DataShards corresponds to a list of data records for a given 24 hour period (according to the time of submission).
-All functions can only be called by the owner of this contract which is the DataRegistry.
+Each DataShard has a minimum life-span and it stores a list of data records. All functions can ONLY be executed by the owner of this contract - which should be the DataRegistry. 
 
-#### setData
+
+#### Storing data 
 
 ``` js
-function setData(address sc, bytes memory _data) onlyOwner public {
+function setData(address sc, uint _id, bytes memory _data) onlyOwner public {
 ```
+
+
 DataShard has a mapping to link a contract address to a list of data items. This appends a new data item to the list.
 
 
-#### fetchData
+#### Fetch Data 
 
 ``` js
-function fetchData(address _sc, uint _i) onlyOwner public view returns(bytes[] memory) {
+function fetchItem(address _sc, uint _id, uint _index) onlyOwner public view returns(bytes memory) {
 ```
-Given a smart contract address, return the data item at indexed *_i*. 
+Given a smart contract address, returns a single data item at index *_index*. If the request is out-of-bounds, it just returns an empty bytes. 
 
- js
-function fetchData(address _sc) onlyOwner public view returns(bytes[] memory) {
+``` js
+function fetchList(address _sc, uint _id) onlyOwner public view returns(bytes[] memory) {
 ```
+Returns the entire list *bytes[]* for the smart contract and the respective ID. 
 
 #### kill
 ``` js
