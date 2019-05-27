@@ -312,6 +312,6 @@ describe("Watcher", () => {
                 anything()
             )
         ).once();
-        await watcher.start();
+        await watcher.stop();
     });
 });
