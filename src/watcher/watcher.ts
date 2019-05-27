@@ -2,7 +2,7 @@ import { IEthereumAppointment, StartStopService } from "../dataEntities";
 import logger from "../logger";
 import { ConfigurationError } from "../dataEntities/errors";
 import { AppointmentSubscriber } from "./appointmentSubscriber";
-import { IAppointmentStore } from "./store";
+import { AppointmentStore } from "./store";
 import { ethers } from "ethers";
 import { EthereumResponderManager } from "../responder";
 import { ReorgDetector } from "../blockMonitor";
@@ -24,7 +24,7 @@ export class Watcher extends StartStopService {
         private readonly responder: EthereumResponderManager,
         private readonly reorgDetecteor: ReorgDetector,
         private readonly appointmentSubscriber: AppointmentSubscriber,
-        private readonly store: IAppointmentStore
+        private readonly store: AppointmentStore
     ) {
         super("Watcher");
         this.startReorg = this.startReorg.bind(this);
@@ -40,6 +40,13 @@ export class Watcher extends StartStopService {
     protected startInternal() {
         this.reorgDetecteor.on(ReorgDetector.REORG_START_EVENT, this.startReorg);
         this.reorgDetecteor.on(ReorgDetector.REORG_END_EVENT, this.endReorg);
+
+        // add any existing appointments in the store to the subscriber
+        for (const appointment of this.store.getAll()) {
+            const filter = appointment.getEventFilter();
+            const listener = async (event: ethers.Event) => await this.observe(appointment, event);
+            this.appointmentSubscriber.subscribe(appointment.id, filter, listener);
+        }
     }
     protected stopInternal() {
         this.reorgDetecteor.removeListener(ReorgDetector.REORG_START_EVENT, this.startReorg);

@@ -159,4 +159,12 @@ export class AppointmentStore extends StartStopService implements IAppointmentSt
     public getExpiredSince(expiryBlock: number): IEthereumAppointment[] {
         return Object.values(this.appointmentsById).filter(a => a.endBlock < expiryBlock);
     }
+
+    /**
+     * Get all the appointments in the store
+     */
+    public getAll(): IEthereumAppointment[] {
+        // all appointments must have expired by the time block number reaches max int
+        return this.getExpiredSince(Number.MAX_SAFE_INTEGER);
+    }
 }

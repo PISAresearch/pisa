@@ -102,16 +102,17 @@ export class PisaService extends StartStopService {
 
     protected async startInternal() {
         await this.reorgDetector.start();
-        await this.watcher.start();
         await this.garbageCollector.start();
         await this.appointmentStore.start();
+        await this.watcher.start();
     }
 
     protected async stopInternal() {
-        await this.garbageCollector.stop();
-        await this.reorgDetector.stop();
+        // stop in reverse order
         await this.watcher.stop();
         await this.appointmentStore.stop();
+        await this.garbageCollector.stop();
+        await this.reorgDetector.stop();        
         this.server.close(error => {
             if (error) logger.error(error.stack!);
             logger.info(`PISA shutdown.`);

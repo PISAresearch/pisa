@@ -6,7 +6,7 @@ import levelup, { LevelUp } from "levelup";
 import MemDown from "memdown";
 import encodingDown from "encoding-down";
 import { KitsuneAppointment } from "../../../src/integrations/kitsune";
-import { ChannelType } from "../../../src/dataEntities";
+import { ChannelType, IEthereumAppointment } from "../../../src/dataEntities";
 
 const getAppointment = (id: string, stateLocator: string, endBlock: number, nonce: number) => {
     const appointmentMock = mock(KitsuneAppointment);
@@ -212,6 +212,13 @@ describe("Store", () => {
         expect(await store.getExpiredSince(5)).to.deep.equal([appointment1.object]);
     });
 
+    const expectAppointmentEquals = (actual: IEthereumAppointment, expected: IEthereumAppointment) => {
+        expect(actual.id).to.equal(expected.id);
+        expect(actual.getStateNonce()).to.equal(expected.getStateNonce());
+        expect(actual.getStateLocator()).to.equal(expected.getStateLocator());
+        expect(actual.endBlock).to.equal(expected.endBlock);
+    }
+
     it("startup does load all appointments", async () => {
         const appointment1 = getAppointment("id1", "stateLocator1", 1, 1);
         const appointment2 = getAppointment("id2", "stateLocator2", 5, 1);
@@ -235,40 +242,35 @@ describe("Store", () => {
         await testStore.start();
 
         let expired = await testStore.getExpiredSince(appointment3.object.endBlock + 1);
-        expect(expired[0].id).to.equal(appointment1.object.id);
-        expect(expired[0].getStateNonce()).to.equal(appointment1.object.getStateNonce());
-        expect(expired[0].getStateLocator()).to.equal(appointment1.object.getStateLocator());
-        expect(expired[0].endBlock).to.equal(appointment1.object.endBlock);
-
-        expect(expired[1].id).to.equal(appointment2.object.id);
-        expect(expired[1].getStateNonce()).to.equal(appointment2.object.getStateNonce());
-        expect(expired[1].getStateLocator()).to.equal(appointment2.object.getStateLocator());
-        expect(expired[1].endBlock).to.equal(appointment2.object.endBlock);
-
-        expect(expired[2].id).to.equal(appointment3.object.id);
-        expect(expired[2].getStateNonce()).to.equal(appointment3.object.getStateNonce());
-        expect(expired[2].getStateLocator()).to.equal(appointment3.object.getStateLocator());
-        expect(expired[2].endBlock).to.equal(appointment3.object.endBlock);
-
+        expectAppointmentEquals(expired[0], appointment1.object);
+        expectAppointmentEquals(expired[1], appointment2.object);
+        expectAppointmentEquals(expired[2], appointment3.object);
         // now check an update
         await testStore.addOrUpdateByStateLocator(appointment4.object);
 
         expired = await testStore.getExpiredSince(appointment3.object.endBlock + 1);
-        expect(expired[0].id).to.equal(appointment1.object.id);
-        expect(expired[0].getStateNonce()).to.equal(appointment1.object.getStateNonce());
-        expect(expired[0].getStateLocator()).to.equal(appointment1.object.getStateLocator());
-        expect(expired[0].endBlock).to.equal(appointment1.object.endBlock);
-
-        expect(expired[1].id).to.equal(appointment2.object.id);
-        expect(expired[1].getStateNonce()).to.equal(appointment2.object.getStateNonce());
-        expect(expired[1].getStateLocator()).to.equal(appointment2.object.getStateLocator());
-        expect(expired[1].endBlock).to.equal(appointment2.object.endBlock);
-
-        expect(expired[2].id).to.equal(appointment4.object.id);
-        expect(expired[2].getStateNonce()).to.equal(appointment4.object.getStateNonce());
-        expect(expired[2].getStateLocator()).to.equal(appointment4.object.getStateLocator());
-        expect(expired[2].endBlock).to.equal(appointment4.object.endBlock);
+        expectAppointmentEquals(expired[0], appointment1.object);
+        expectAppointmentEquals(expired[1], appointment2.object);
+        expectAppointmentEquals(expired[2], appointment4.object);
 
         await testStore.stop();
     });
+
+    it("getAll returns all appointments", async () => {
+        const appointment1 = getAppointment("id1", "stateLocator1", 1, 1);
+        const appointment2 = getAppointment("id2", "stateLocator2", 500000000000, 1);
+        const appointment3 = getAppointment("id3", "stateLocator3", 10, 1);
+        const appointment3A = getAppointment("id4", "stateLocator3", 1000000000000000, 2);
+
+        await store.addOrUpdateByStateLocator(appointment1.object)
+        await store.addOrUpdateByStateLocator(appointment2.object)
+        await store.addOrUpdateByStateLocator(appointment3.object)
+        await store.addOrUpdateByStateLocator(appointment3A.object)
+
+        const appointments = store.getAll();
+
+        expectAppointmentEquals(appointments[0], appointment1.object)
+        expectAppointmentEquals(appointments[1], appointment2.object)
+        expectAppointmentEquals(appointments[2], appointment3A.object)
+    })
 });
