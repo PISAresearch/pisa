@@ -288,7 +288,7 @@ describe("Watcher", () => {
         await watcher.stop();
     });
 
-    it("start correctly adds existing appointments to subscriber", () => {
+    it("start correctly adds existing appointments to subscriber", async () => {
         const watcher = new Watcher(
             provider,
             responderInstance,
@@ -296,7 +296,7 @@ describe("Watcher", () => {
             appointmentSubscriber,
             storeInstanceThrow
         );
-        watcher.start();
+        await watcher.start();
 
         verify(
             mockedAppointmentSubscriber.subscribe(
@@ -312,5 +312,6 @@ describe("Watcher", () => {
                 anything()
             )
         ).once();
+        await watcher.start();
     });
 });
