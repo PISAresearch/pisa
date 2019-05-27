@@ -3,7 +3,7 @@ pragma experimental ABIEncoderV2;
 
 // There are two contracts:
 // - DataShard maintains data sent on a given day
-// - DataRegistry maintains a list of DataShards, and ensures delete/create each DataShard after TOTAL_DAYS
+// - DataRegistry maintains a list of DataShards, and ensures delete/create each DataShard after TOTAL_SHARDS
 contract DataShard {
 
    uint public creationTime; // What unix timestamp was this record created?
@@ -16,8 +16,8 @@ contract DataShard {
        _;
    }
 
-   // State Channel Address => List of Records for Today
-   mapping (address => bytes[]) records;
+   // Smart Contract Address => ID-based data storage
+   mapping (address => mapping (uint => bytes[])) records;
 
    // Creation time for this daily record.
    constructor(uint t) public {
@@ -35,110 +35,128 @@ contract DataShard {
        return creationTime;
    }
 
-   // starttime, endtime, ctr should be from the customer's receipt.
-   function fetchData(address _sc) public view returns (bytes[] memory) {
-       return records[_sc];
-   }
-   
-   // Fetch one single data piece at index _i 
-   // Potential to throw if record is not available 
-   function fetchData(address _sc, uint _i) public view returns (bytes memory) {
-       require(records[_sc].length > _i); 
-       
-       return records[_sc][_i];
+   // Given a smart contract address and the ID, fetch the recorded bytes.
+   // Return "bool" to avoid an out of bound exception
+   function fetchItem(address _sc, uint _id, uint _index) public view returns (bytes memory) {
+       if(_index < records[_sc][_id].length) {
+           return (records[_sc][_id][_index]);
+       }
    }
 
-   // Store a dispute
-   function setData(address _sc, bytes memory _data) onlyOwner public {
+   // Given a smart contract address and the ID, fetch the recorded bytes.
+   function fetchList(address _sc, uint _id) public view returns (bytes[] memory) {
+       return records[_sc][_id];
 
-       // Nice thing: Constant look-up to find the caller's records (based on the day).
-       bytes[] storage sc_records = records[_sc];
-       sc_records.push(_data);
+   }
+
+   // Given a smart contract address, the ID and the bytes, store the data.
+   function setData(address _sc, uint _id, bytes memory _data) onlyOwner public returns(uint) {
+       // Cannot re-write over an existing data field
+       records[_sc][_id].push(_data);
+
+       return records[_sc][_id].length-1;
    }
 }
 
 // The data registry is responsible maintaining a list of DataShards.
 // Two functions:
-// - setData stores the data (and associated address) in a DataShard.
-// - fetchRecords stores
-// - TestDispute is called by PISA, it'll look up all disputes on a given day for a state channel. And then confirm if PISA cheated.
+// - setData stores the data according to a unique ID and the sender's address.
+// - fetchRecords lets us retrieve stored data from a datashard based on a unique ID and the sender's address
 contract DataRegistry {
 
    // Used to signal to the world about a new dispute record
-   // "Day" is used to lookup the dispute record later on!
-   event NewRecord(address sc, bytes data, uint datashard);
-   event KillDataShard(address addr, uint createtime, uint datashard);
-   event CreateDataShard(address addr, uint createtime, uint datashard);
+   event NewRecord(uint datashard, address sc, uint id, uint index, bytes data);
+   event KillDataShard(address addr, uint time, uint datashard);
+   event CreateDataShard(address addr, uint time, uint datashard);
 
-   // Day of the week => Address for DataShard
+   // Shard ID => Address for DataShard
    mapping (uint => address) datashards;
 
    // Time helper function
-   uint constant DAY_IN_SECONDS = 86400;
-   uint constant TOTAL_DAYS = 14;
+   uint constant INTERVAL = 86400*50;
+   uint constant TOTAL_SHARDS = 2;
 
-   function getTotalDays() public pure returns (uint) {
-     return TOTAL_DAYS;
+   function getInterval() public pure returns (uint) {
+      return INTERVAL;
+   }
+   function getTotalShards() public pure returns (uint) {
+      return TOTAL_SHARDS;
    }
 
-   // Compute the "day" for a data shard given a timestamp 
+   constructor() public {
+     // Create data shards from today onwards.
+     uint timestamp = now;
+
+     // Create the data shards (and set timestamps in future)
+     for(uint i=0; i<TOTAL_SHARDS; i++) {
+        uint datashard = getDataShardIndex(timestamp);
+        createDataShard(timestamp, datashard);
+        timestamp = timestamp + INTERVAL;
+     }
+
+   }
+
+   // Create data shards for a given tmestamp
+   function createDataShard(uint _timestamp, uint _datashard) internal {
+      DataShard rc = new DataShard(_timestamp);
+      datashards[_datashard] = address(rc);
+
+      // Tell world that we create this record
+      emit CreateDataShard(datashards[_datashard], _timestamp, _datashard);
+   }
+
+   // Compute the "day" for a data shard given a timestamp
    function getDataShardIndex(uint _timestamp) public pure returns (uint8) {
 
-        // Timestamp/days in seconds. +4 is used to push it to sunday as starting day.
-        // "14" lets us keep records around for 14 days!
-       return uint8(((_timestamp / DAY_IN_SECONDS) + 4) % TOTAL_DAYS);
+      // Fetch data shard based on timestamp
+      return uint8((_timestamp/INTERVAL) % TOTAL_SHARDS);
    }
- 
-   // Fetch contract address for data shard at a given timestamp 
-   // Caution: We don't check the freshness of timestamps. Old / future timestamps will resolve to a day. 
+
+   // Fetch contract address for data shard at a given timestamp
+   // Caution: We don't check the freshness of timestamps.
+   // Old / future timestamps will resolve to a day.
    function getDataShardAddress(uint _timestamp) public view returns (address) {
-     return datashards[getDataShardIndex(_timestamp)];
+      return datashards[getDataShardIndex(_timestamp)];
    }
 
    // Fetch a list of data records for a smart contract at a given datashard.
-   function fetchRecords(address _sc, uint _datashard) public returns (bytes[] memory) {
-       DataShard rc = resetRecord(_datashard);
-       return rc.fetchData(_sc);
+   function fetchRecord(uint _datashard, address _sc, uint _id, uint _index) public returns (bytes memory) {
+
+       // Confirm the data shard exists so we can fetch data
+      if(datashards[_datashard] != address(0)) {
+          DataShard rc = resetRecord(_datashard);
+          return rc.fetchItem(_sc, _id, _index);
+      }
    }
-   
-   // Fetch a single data for a smart contract at a given data shard. 
-   function fetchRecords(address _sc, uint _datashard, uint _i) public returns (bytes memory) {
-       DataShard rc = resetRecord(_datashard);
-       return rc.fetchData(_sc, _i);
+
+   // Fetch a list of data records for a smart contract at a given datashard.
+   function fetchRecords(uint _datashard, address _sc, uint _id) public returns (bytes[] memory) {
+
+       // Confirm the data shard exists so we can fetch data
+      if(datashards[_datashard] != address(0)) {
+          DataShard rc = resetRecord(_datashard);
+          return rc.fetchList(_sc, _id);
+      }
    }
 
    // Checks whether the contract that keeps track of records is "fresh" for today.
    // We track every by day of week (so if it was created this day last week; we delete and re-create it)
    function resetRecord(uint _datashard) internal returns (DataShard) {
-        DataShard rc;
 
-       // Does it exist?
-       if(address(0) != datashards[_datashard]) {
-            rc = DataShard(datashards[_datashard]);
-
-            // Is it older than today?
-            if(now - rc.getCreationTime() > DAY_IN_SECONDS) {
-                emit KillDataShard(datashards[_datashard], now, _datashard);
-                rc.kill();
-            } else {
-                // Not older than today... just return... all good!
-                return rc;
-            }
-       }
-
-      // Looks like it didn't exist!
-      rc = new DataShard(now);
-      datashards[_datashard] = address(rc);
-      require(rc.getCreationTime() == now);
-
-      // Tell world that we create this record
-      emit CreateDataShard(datashards[_datashard], now, _datashard);
-
-      return rc;
+      // Is it older than today?
+      if(now - DataShard(datashards[_datashard]).getCreationTime() > INTERVAL) {
+          emit KillDataShard(datashards[_datashard], now, _datashard);
+          DataShard(datashards[_datashard]).kill();
+          createDataShard(now, _datashard);
+          return DataShard(datashards[_datashard]);
+      } else {
+          // Not older than today... just return... all good!
+          return DataShard(datashards[_datashard]);
+      }
    }
 
    // Record data from the sender and store it in the DataShard
-   function setData(bytes memory _data) public {
+   function setData(uint _id, bytes memory _data) public returns (uint, uint) {
 
       // Fetch Index
       uint datashard = (getDataShardIndex(now));
@@ -146,11 +164,14 @@ contract DataRegistry {
       // Fetch the DataShard for this day. (It may reset it under the hood)
       DataShard rc = resetRecord(datashard);
 
+      uint index;
+
       // Update record!
-      rc.setData(msg.sender, _data);
+      index = rc.setData(msg.sender, _id, _data);
 
-      // If it worked... tell the world we added the record!
-      emit NewRecord(msg.sender, _data, datashard);
+      // Tell the world we added the record!
+      emit NewRecord(datashard, msg.sender, _id, _index, _data);
+
+      return (datashard, index);
    }
-
 }
