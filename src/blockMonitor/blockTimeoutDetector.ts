@@ -6,7 +6,7 @@ import { StartStopService } from "../dataEntities";
  * The timer starts when the service is started, and is reset every time a new block is received.
  */
 export class BlockTimeoutDetector extends StartStopService {
-    private timeoutHandler: NodeJS.Timeout | null = null;
+    private timeoutHandle: NodeJS.Timeout | null = null;
 
     /**
      * Emitted when a no new block is received for a time longer than the `timeout` milliseconds.
@@ -19,7 +19,6 @@ export class BlockTimeoutDetector extends StartStopService {
     constructor(private blockProcessor: BlockProcessor, public readonly timeout: number) {
         super("Block timeout detector");
         this.resetNoNewBlockTimeout = this.resetNoNewBlockTimeout.bind(this);
-        this.handleNoNewBlockTimeout = this.handleNoNewBlockTimeout.bind(this);
     }
 
     protected async startInternal(): Promise<void> {
@@ -36,18 +35,15 @@ export class BlockTimeoutDetector extends StartStopService {
     private resetNoNewBlockTimeout() {
         // If a timer is pending, cancel it
         this.clearNoNewBlockTimeout();
-        this.timeoutHandler = setTimeout(this.handleNoNewBlockTimeout, this.timeout);
+        const blockEventHandler = () => this.emit(BlockTimeoutDetector.BLOCK_TIMEOUT_EVENT);
+        this.timeoutHandle = setTimeout(blockEventHandler, this.timeout);
     }
 
     // If a timer was active, clear it
     private clearNoNewBlockTimeout() {
-        if (this.timeoutHandler !== null) {
-            clearTimeout(this.timeoutHandler);
-            this.timeoutHandler = null;
+        if (this.timeoutHandle !== null) {
+            clearTimeout(this.timeoutHandle);
+            this.timeoutHandle = null;
         }
-    }
-
-    private handleNoNewBlockTimeout() {
-        this.emit(BlockTimeoutDetector.BLOCK_TIMEOUT_EVENT);
     }
 }
