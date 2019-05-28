@@ -8,7 +8,13 @@ import { EthereumResponderManager } from "../../src/responder";
 import { AppointmentStore } from "../../src/watcher/store";
 import { AppointmentSubscriber } from "../../src/watcher/appointmentSubscriber";
 import { wait } from "../../src/utils";
-import { BlockProcessor, ReorgHeightListenerStore, BlockCache } from "../../src/blockMonitor";
+import {
+    BlockProcessor,
+    ReorgHeightListenerStore,
+    BlockCache,
+    BlockTimeoutDetector,
+    ConfirmationObserver
+} from "../../src/blockMonitor";
 import levelup from "levelup";
 import MemDown from "memdown";
 import { ReorgDetector } from "../../src/blockMonitor/reorgDetector";
@@ -75,12 +81,15 @@ describe("End to end", () => {
         await reorgDetector.start();
 
         // 2. pass this appointment to the watcher
+        const blockTimeoutDetector = new BlockTimeoutDetector(blockProcessor, 120 * 1000);
+        await blockTimeoutDetector.start();
+        const confirmationObserver = new ConfirmationObserver(blockCache, blockProcessor);
+        await confirmationObserver.start();
         const responderManager = new EthereumResponderManager(
             provider.getSigner(pisaAccount),
-            blockCache,
-            blockProcessor
+            blockTimeoutDetector,
+            confirmationObserver
         );
-        await responderManager.start();
 
         let db = levelup(MemDown());
         const store = new AppointmentStore(
@@ -97,9 +106,13 @@ describe("End to end", () => {
         // 3. Trigger a dispute
         const tx = await player0Contract.triggerDispute();
         await tx.wait();
-        await blockProcessor.stop();
-        await reorgDetector.stop();
+
+        await watcher.stop();
         await store.stop();
+        await confirmationObserver.stop();
+        await blockTimeoutDetector.stop();
+        await reorgDetector.stop();
+        await blockProcessor.stop();
         await db.close();
         await wait(2000);
     }).timeout(3000);

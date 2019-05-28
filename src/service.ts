@@ -21,7 +21,13 @@ import { EthereumResponderManager } from "./responder";
 import { AppointmentStoreGarbageCollector } from "./watcher/garbageCollector";
 import { AppointmentSubscriber } from "./watcher/appointmentSubscriber";
 import { IArgConfig } from "./dataEntities/config";
-import { BlockProcessor, ReorgHeightListenerStore, BlockCache } from "./blockMonitor";
+import {
+    BlockProcessor,
+    ReorgHeightListenerStore,
+    BlockCache,
+    BlockTimeoutDetector,
+    ConfirmationObserver
+} from "./blockMonitor";
 import { LevelUp } from "levelup";
 import encodingDown from "encoding-down";
 import { ReorgDetector } from "./blockMonitor/reorgDetector";
@@ -34,6 +40,8 @@ export class PisaService extends StartStopService {
     private readonly garbageCollector: AppointmentStoreGarbageCollector;
     private readonly reorgDetector: ReorgDetector;
     private readonly blockProcessor: BlockProcessor;
+    private readonly blockTimeoutDetector: BlockTimeoutDetector;
+    private readonly confirmationObserver: ConfirmationObserver;
     private readonly ethereumResponderManager: EthereumResponderManager;
     private readonly watcher: Watcher;
     private readonly appointmentStore: AppointmentStore;
@@ -78,7 +86,13 @@ export class PisaService extends StartStopService {
             db,
             new Map(configs.map<[ChannelType, (obj: any) => IEthereumAppointment]>(c => [c.channelType, c.appointment]))
         );
-        this.ethereumResponderManager = new EthereumResponderManager(wallet, blockCache, this.blockProcessor);
+        this.blockTimeoutDetector = new BlockTimeoutDetector(this.blockProcessor, 120 * 1000);
+        this.confirmationObserver = new ConfirmationObserver(blockCache, this.blockProcessor);
+        this.ethereumResponderManager = new EthereumResponderManager(
+            wallet,
+            this.blockTimeoutDetector,
+            this.confirmationObserver
+        );
         const appointmentSubscriber = new AppointmentSubscriber(delayedProvider);
         this.watcher = new Watcher(
             this.ethereumResponderManager,
@@ -111,7 +125,8 @@ export class PisaService extends StartStopService {
     protected async startInternal() {
         await this.blockProcessor.start();
         await this.reorgDetector.start();
-        await this.ethereumResponderManager.start();
+        await this.blockTimeoutDetector.start();
+        await this.confirmationObserver.start();
         await this.garbageCollector.start();
         await this.appointmentStore.start();
         await this.watcher.start();
@@ -122,7 +137,8 @@ export class PisaService extends StartStopService {
         await this.watcher.stop();
         await this.appointmentStore.stop();
         await this.garbageCollector.stop();
-        await this.ethereumResponderManager.stop();
+        await this.confirmationObserver.stop();
+        await this.blockTimeoutDetector.stop();
         await this.reorgDetector.stop();
         await this.blockProcessor.stop();
         this.server.close(error => {

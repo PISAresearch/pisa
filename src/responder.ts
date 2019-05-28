@@ -390,35 +390,23 @@ export class EthereumDedicatedResponder extends EthereumResponder {
 // TODO: This is a mock class and only correctly handles one active response.
 //       Should add a pool of wallets to allow concurrent responses.
 
-export class EthereumResponderManager extends StartStopService {
+export class EthereumResponderManager {
     // Waiting time before throwing an error if no new blocks are received, in milliseconds
-    public static readonly WAIT_TIME_FOR_NEW_BLOCK = 120 * 1000;
 
     private provider: ethers.providers.Provider;
     private responders: Set<EthereumResponder> = new Set();
     private gasPolicy: IGasPolicy;
 
-    private blockTimeoutDetector: BlockTimeoutDetector;
-    private confirmationObserver: ConfirmationObserver;
-
-    constructor(private readonly signer: ethers.Signer, blockCache: BlockCache, blockProcessor: BlockProcessor) {
-        super("EthereumResponderManager");
-
+    constructor(
+        private readonly signer: ethers.Signer,
+        private readonly blockTimeoutDetector: BlockTimeoutDetector,
+        private readonly confirmationObserver: ConfirmationObserver
+    ) {
         if (!signer.provider) throw new ArgumentError("The given signer is not connected to a provider");
 
         this.provider = signer.provider;
 
         this.gasPolicy = new DoublingGasPolicy(this.provider);
-
-        this.blockTimeoutDetector = new BlockTimeoutDetector(blockProcessor, 120 * 1000);
-        this.confirmationObserver = new ConfirmationObserver(blockCache, blockProcessor);
-    }
-
-    protected async startInternal(): Promise<void> {
-        await Promise.all([this.blockTimeoutDetector.start(), this.confirmationObserver.start()]);
-    }
-    protected async stopInternal(): Promise<void> {
-        await Promise.all([this.blockTimeoutDetector.stop(), this.confirmationObserver.stop()]);
     }
 
     public async respond(appointment: IEthereumAppointment) {
