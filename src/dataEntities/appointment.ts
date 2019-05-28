@@ -121,7 +121,7 @@ export abstract class EthereumAppointment implements IEthereumAppointment {
 /**
  * An appointment signed by PISA
  */
-export class SignedAppointmnt {
+export class SignedAppointment {
     constructor(public readonly appointment: IEthereumAppointment, public readonly signature: string) {}
     public serialise() {
         const signedAppointment = {
