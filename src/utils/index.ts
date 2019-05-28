@@ -25,7 +25,7 @@ export const wait = (milliseconds: number) => {
 export class CancellablePromise<T> extends Promise<T> {
     constructor(
         executor: (resolve: (value?: T | PromiseLike<T>) => void, reject: (reason?: any) => void) => void,
-        private canceller: () => void
+        private canceller?: () => void
     ) {
         super(executor);
     }
@@ -34,7 +34,7 @@ export class CancellablePromise<T> extends Promise<T> {
      * If a canceller was provided in the constructor, it calls it. Then it sets `cancelled` to true.
      */
     public cancel() {
-        this.canceller();
+        this.canceller && this.canceller();
     }
 }
 
@@ -50,6 +50,27 @@ export function waitForEvent(emitter: EventEmitter, event: string | symbol): Can
         const handler = () => resolve();
         cancellerInfo.handler = handler;
         emitter.once(event, handler);
+    }, canceller);
+}
+
+/**
+ * Returns a `CancellablePromise` that resolves or rejects as soon as any of `promises` resolves or reject, and then cancels
+ * all the `cancellables`. Cancelling the returned promise also cancels all the `cancellables`.
+ * @param promises
+ * @param cancellables
+ */
+export function cancellablePromiseRace(
+    promises: Iterable<Promise<any>>,
+    cancellables: Iterable<CancellablePromise<any>>
+) {
+    const canceller = () => {
+        for (const p of cancellables) p.cancel();
+    };
+    return new CancellablePromise((resolve, reject) => {
+        Promise.race(promises)
+            .then(resolve)
+            .catch(reason => reject(reason))
+            .finally(canceller);
     }, canceller);
 }
 

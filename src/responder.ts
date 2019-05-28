@@ -3,14 +3,8 @@ import { ethers } from "ethers";
 import { wait, plural, waitForEvent } from "./utils";
 import { IEthereumAppointment, IEthereumResponseData } from "./dataEntities/appointment";
 import logger from "./logger";
-import {
-    ApplicationError,
-    ArgumentError,
-    StartStopService,
-    BlockThresholdReachedError,
-    BlockTimeoutError
-} from "./dataEntities";
-import { BlockCache, BlockProcessor, BlockTimeoutDetector, ConfirmationObserver } from "./blockMonitor";
+import { ApplicationError, ArgumentError, BlockThresholdReachedError, BlockTimeoutError } from "./dataEntities";
+import { BlockTimeoutDetector, ConfirmationObserver } from "./blockMonitor";
 
 /**
  * Responsible for storing the state and managing the flow of a single response.
@@ -214,11 +208,9 @@ export class EthereumTransactionMiner {
      */
     public async waitForFirstConfirmation(txHash: string) {
         // Promise that waits for the first confirmation, but rejects if still unconfirmed after the threshold
-        const firstConfirmationPromise = this.confirmationObserver.waitForConfirmations(
+        const firstConfirmationPromise = this.confirmationObserver.waitForFirstConfirmationOrBlockThreshold(
             txHash,
-            1,
-            this.blocksThresholdForStuckTransaction,
-            false
+            this.blocksThresholdForStuckTransaction
         );
 
         // ...but stop with error if no new blocks come for too long
@@ -246,11 +238,9 @@ export class EthereumTransactionMiner {
      */
     public async waitForEnoughConfirmations(txHash: string) {
         // Promise that waits for enough confirmations before declaring success
-        const enoughConfirmationsPromise = this.confirmationObserver.waitForConfirmations(
+        const enoughConfirmationsPromise = this.confirmationObserver.waitForConfirmationsOrReorg(
             txHash,
-            this.confirmationsRequired,
-            null,
-            true
+            this.confirmationsRequired
         );
 
         // ...but stop with error if no new blocks come for too long

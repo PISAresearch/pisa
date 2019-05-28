@@ -619,14 +619,14 @@ describe("EthereumTransactionMiner", async () => {
 
         const txHash = await miner.sendTransaction(transactionRequest);
 
-        when(mockConfirmationObserver.waitForConfirmations(txHash, anything(), anything(), anything())).thenReturn(
-            new CancellablePromise(resolve => resolve(), () => {})
+        when(mockConfirmationObserver.waitForFirstConfirmationOrBlockThreshold(txHash, anything())).thenReturn(
+            new CancellablePromise(resolve => resolve())
         );
 
         await miner.waitForFirstConfirmation(txHash);
 
-        when(mockConfirmationObserver.waitForConfirmations(txHash, anything(), anything(), anything())).thenReturn(
-            new CancellablePromise((_, reject) => reject(new ReorgError("There was a reorg")), () => {})
+        when(mockConfirmationObserver.waitForConfirmationsOrReorg(txHash, anything())).thenReturn(
+            new CancellablePromise((_, reject) => reject(new ReorgError("There was a reorg")))
         );
 
         const res = miner.waitForEnoughConfirmations(txHash);

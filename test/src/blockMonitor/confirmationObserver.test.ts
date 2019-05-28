@@ -18,9 +18,9 @@ const forkedTxHash = "0xffffffff";
 
 const blocksByHash: { [key: string]: IBlockStubWithTransactions } = {
     a1: { number: 1, hash: "a1", parentHash: "a0", transactions: [] },
-    a2: { number: 2, hash: "a2", parentHash: "a1", transactions: ["0x12345678"] },
+    a2: { number: 2, hash: "a2", parentHash: "a1", transactions: [txHash] },
     a3: { number: 3, hash: "a3", parentHash: "a2", transactions: [] },
-    a4: { number: 4, hash: "a4", parentHash: "a3", transactions: ["0xffffffff"] },
+    a4: { number: 4, hash: "a4", parentHash: "a3", transactions: [forkedTxHash] },
     a5: { number: 5, hash: "a5", parentHash: "a4", transactions: [] },
     a6: { number: 6, hash: "a6", parentHash: "a5", transactions: [] },
     a7: { number: 7, hash: "a7", parentHash: "a6", transactions: [] },
@@ -29,6 +29,40 @@ const blocksByHash: { [key: string]: IBlockStubWithTransactions } = {
     b4: { number: 4, hash: "b4", parentHash: "b3", transactions: [] },
     b5: { number: 5, hash: "b5", parentHash: "b4", transactions: [] }
 };
+
+class PromiseSpy<T> {
+    private mResolved = false;
+    private mResolvedWith: T;
+    private mRejected = false;
+    private mRejectedWith: any;
+    public get resolved() {
+        return this.mResolved;
+    }
+    public get resolvedWith() {
+        return this.mResolvedWith;
+    }
+    public get rejected() {
+        return this.mRejected;
+    }
+    public get rejectedWith() {
+        return this.mRejectedWith;
+    }
+    public get settled() {
+        return this.mResolved || this.mRejected;
+    }
+
+    constructor(promise: Promise<T>) {
+        promise
+            .then(value => {
+                this.mResolved = true;
+                this.mResolvedWith = value;
+            })
+            .catch(reason => {
+                this.mRejected = true;
+                this.mRejectedWith = reason;
+            });
+    }
+}
 
 describe("ConfirmationObserver", () => {
     let blockCache: BlockCache;
@@ -72,95 +106,95 @@ describe("ConfirmationObserver", () => {
         await confirmationObserver.stop();
     });
 
-    it("waitForConfirmations(1, ...) resolves after one confirmation, but not before", async () => {
-        let resolved = false;
-        let threw: Error | null = null;
-
-        confirmationObserver
-            .waitForConfirmations(txHash, 1, null, false)
-            .then(() => {
-                resolved = true;
-            })
-            .catch((error: Error) => {
-                threw = error;
-            });
-
-        await emitNewHead("a1");
-
-        expect(resolved, "Did not resolve too early").to.be.false;
-        expect(threw, "Did not throw early").to.be.null;
-
-        await emitNewHead("a2");
-
-        expect(resolved, "Resolved after the block").to.be.true;
-        expect(threw, "Did not throw after").to.be.null;
-    });
-
-    it("waitForConfirmations resolves immediately if already confirmed enough", async () => {
-        let resolved = false;
-        let threw: Error | null = null;
-
+    it("waitForConfirmations resolves immediately if already got enough confirmations", async () => {
         await emitNewHead("a1");
         await emitNewHead("a2");
+        await Promise.resolve(); // flush promises
 
-        confirmationObserver
-            .waitForConfirmations(txHash, 1, null, false)
-            .then(() => {
-                resolved = true;
-            })
-            .catch((error: Error) => {
-                threw = error;
-            });
+        const p = new PromiseSpy(confirmationObserver.waitForConfirmations(txHash, 1));
 
-        await Promise.resolve();
+        await Promise.resolve(); // flush promises
 
-        expect(resolved).to.be.true;
-        expect(threw, "Did not throw").to.be.null;
+        expect(p.resolved).to.be.true;
     });
 
     it("waitForConfirmations resolves after the right amount of confirmations, but not before", async () => {
-        let resolved = false;
-        let threw: Error | null = null;
-
-        confirmationObserver
-            .waitForConfirmations(txHash, 4, null, false)
-            .then(() => {
-                resolved = true;
-            })
-            .catch((error: Error) => {
-                threw = error;
-            });
+        const p = new PromiseSpy(confirmationObserver.waitForConfirmations(txHash, 4));
+        await Promise.resolve(); // flush promises
 
         await emitNewHead("a1");
         await emitNewHead("a2"); // first confirmation
         await emitNewHead("a3");
         await emitNewHead("a4");
+        await Promise.resolve(); // flush promises
 
-        expect(resolved, "Did not resolve too early").to.be.false;
-        expect(threw, "Did not throw early").to.be.null;
+        expect(p.settled, "Did not settle too early").to.be.false;
 
         await emitNewHead("a5"); // 4 confirmations
+        await Promise.resolve(); // flush promises
 
-        expect(resolved, "Resolved after enough confirmations").to.be.true;
-        expect(threw, "Did not throw after").to.be.null;
+        expect(p.resolved, "Resolved after enough confirmations").to.be.true;
     });
 
-    it("waitForConfirmations rejects with BlockThresholdReached if the transaction is not mined", async () => {
-        const unluckyTxHash = "0x13131313"; // transaction hash that will never be in a block
+    it("waitForBlocks resolves after the right amount of blocks, but not before", async () => {
+        await emitNewHead("a1");
+        await Promise.resolve(); // flush promises
 
-        let resolved = false;
-        let threw: Error | null = null;
+        const p = new PromiseSpy(confirmationObserver.waitForBlocks(4));
+
+        await emitNewHead("a2");
+        await emitNewHead("a3");
+        await emitNewHead("a4");
+        await Promise.resolve(); // flush promises
+
+        expect(p.settled, "Did not settle too early").to.be.false;
+
+        await emitNewHead("a5"); // 4 blocks mined
+        await Promise.resolve(); // flush promises
+
+        expect(p.resolved, "Resolved after enough confirmations").to.be.true;
+    });
+
+    it("waitForConfirmationsToGoToZero resolves when the transaction is forked away (but not before)", async () => {
+        await emitNewHead("a1");
+        await emitNewHead("a2");
+        await emitNewHead("a3");
+        await emitNewHead("a4"); // tx confirmed here
+        await emitNewHead("a5");
+        await Promise.resolve(); // flush promises
+
+        const p = new PromiseSpy(confirmationObserver.waitForConfirmationsToGoToZero(forkedTxHash));
+        await Promise.resolve(); //flush promises
+
+        expect(p.settled, "Did not settle too early").to.be.false;
+
+        await emitNewHead("b5"); // A re-org happens with common ancenstor "a3"; transaction is now unconfirmed
+        await Promise.resolve(); // flush promises
+
+        expect(p.resolved, "Resolved after").to.be.true;
+    });
+
+    it("waitForFirstConfirmationOrBlockThreshold resolves when the transaction is mined", async () => {
+        const p = new PromiseSpy(confirmationObserver.waitForFirstConfirmationOrBlockThreshold(txHash, 4));
 
         await emitNewHead("a1");
+        await Promise.resolve(); // flush promises
 
-        confirmationObserver
-            .waitForConfirmations(unluckyTxHash, 1, 6, false)
-            .then(() => {
-                resolved = true;
-            })
-            .catch((error: Error) => {
-                threw = error;
-            });
+        expect(p.settled, "Did not settle too early").to.be.false;
+
+        await emitNewHead("a2"); // first confirmation
+        await Promise.resolve(); // flush promises
+
+        expect(p.resolved, "Resolved after the first confirmation").to.be.true;
+    });
+
+    it("waitForFirstConfirmationOrBlockThreshold rejects with BlockThresholdReached if the transaction is not mined", async () => {
+        const unluckyTxHash = "0x13131313"; // transaction hash that will never be in a block
+
+        await emitNewHead("a1");
+        await Promise.resolve(); // flush promises
+
+        const p = new PromiseSpy(confirmationObserver.waitForFirstConfirmationOrBlockThreshold(unluckyTxHash, 5));
 
         await emitNewHead("a2");
         await emitNewHead("a3");
@@ -168,37 +202,48 @@ describe("ConfirmationObserver", () => {
         await emitNewHead("a5");
         await emitNewHead("a6");
 
-        expect(resolved, "Did not resolve early").to.be.false;
-        expect(threw, "Did not throw early").to.be.null;
+        expect(p.settled, "Did not settle early").to.be.false;
 
         await emitNewHead("a7");
 
-        expect(resolved, "Did not resolve").to.be.false;
-        expect(threw, "Threw BlockThresholdReachedError after").to.be.instanceOf(BlockThresholdReachedError);
+        expect(p.rejectedWith, "Rejected with BlockThresholdReachedError after").to.be.instanceOf(
+            BlockThresholdReachedError
+        );
     });
 
-    it("waitForConfirmations rejects with ReorgError if the transaction is not found later on", async () => {
-        let resolved = false;
-        let threw: Error | null = null;
+    it("waitForConfirmationsOrReorg resolves after the right amount of confirmations, but not before", async () => {
+        await emitNewHead("a1");
+        await emitNewHead("a2"); // first confirmation
+        await Promise.resolve(); // flush promises
 
+        const p = new PromiseSpy(confirmationObserver.waitForConfirmationsOrReorg(txHash, 4));
+
+        await emitNewHead("a3");
+        await emitNewHead("a4");
+        await Promise.resolve(); // flush promises
+
+        expect(p.settled, "Did not settle too early").to.be.false;
+
+        await emitNewHead("a5"); // 4 confirmations
+        await Promise.resolve(); // flush promises
+
+        expect(p.resolved, "Resolved after enough confirmations").to.be.true;
+    });
+
+    it("waitForConfirmationsOrReorg rejects with ReorgError if the transaction is not found later on", async () => {
         await emitNewHead("a1");
         await emitNewHead("a2");
         await emitNewHead("a3");
         await emitNewHead("a4"); // tx first confirmed here
         await emitNewHead("a5");
+        await Promise.resolve(); // flush promises
 
-        confirmationObserver
-            .waitForConfirmations(forkedTxHash, 5, null, true)
-            .then(() => {
-                resolved = true;
-            })
-            .catch((error: Error) => {
-                threw = error;
-            });
+        const p = new PromiseSpy(confirmationObserver.waitForConfirmationsOrReorg(forkedTxHash, 5));
 
         await emitNewHead("b5"); // A re-org happens with common ancenstor "a3"; transaction is now unconfirmed
 
-        expect(resolved, "Did not resolve").to.be.false;
-        expect(threw, "Threw ReorgError after").to.be.instanceOf(ReorgError);
+        await Promise.resolve(); // flush promises
+
+        expect(p.rejectedWith, "Rejected with ReorgError after").to.be.instanceOf(ReorgError);
     });
 });
