@@ -67,6 +67,10 @@ export class ReorgDetector extends StartStopService {
      * @param blockNumber
      */
     private handleNewBlock(blockNumber: number, blockHash: string) {
+        // If a reorg is in process, we ignore further blocks.
+        // We will get up-to-date as soon as a new block is received after the reorg is complete.
+        if (this.conductingReorg) return;
+
         try {
             // get the full block information for the incoming block
             const fullBlock = this.blockCache.getBlockStub(blockHash)!;
@@ -93,9 +97,12 @@ export class ReorgDetector extends StartStopService {
                     this.emit(ReorgDetector.REORG_BEYOND_DEPTH_EVENT, this.headBlock.asBlockStub(), fullBlock);
                     // conduct a reorg with a new genesis
                     const oldestBlock = differenceBlocks[differenceBlocks.length - 1];
+
+                    // Start a reorg (asynchronous process)
                     this.conductReorg(BlockStubChain.newRoot(oldestBlock));
                 } else {
                     // indirect ancestor found - conduct reorg
+                    // Start a reorg (asynchronous process)
                     this.conductReorg(commonAncestor);
                 }
             }
@@ -116,9 +123,7 @@ export class ReorgDetector extends StartStopService {
      * @param newHead
      */
     private async conductReorg(newHead: BlockStubChain) {
-        // We ignore further reorgs until this one is complete
-        if (this.conductingReorg) return;
-
+        // We need to ignore further events until we are done with the reorg
         this.conductingReorg = true;
 
         // we found a commong ancestor that was not the head - therfore we need
