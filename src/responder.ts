@@ -1,6 +1,6 @@
 import { EventEmitter } from "events";
 import { ethers } from "ethers";
-import { wait, plural } from "./utils";
+import { wait, plural, waitForEvent } from "./utils";
 import { IEthereumAppointment, IEthereumResponseData } from "./dataEntities/appointment";
 import logger from "./logger";
 import {
@@ -222,10 +222,10 @@ export class EthereumTransactionMiner {
         );
 
         // ...but stop with error if no new blocks come for too long
-        const noNewBlockPromise = new Promise((_, reject) => {
-            this.blockTimeoutDetector.once(BlockTimeoutDetector.BLOCK_TIMEOUT_EVENT, () => {
-                reject(new BlockTimeoutError(`No new block received too long; provider unresponsive.`));
-            });
+        const blockTimeoutPromise = waitForEvent(this.blockTimeoutDetector, BlockTimeoutDetector.BLOCK_TIMEOUT_EVENT);
+
+        const noNewBlockPromise = blockTimeoutPromise.then(() => {
+            throw new BlockTimeoutError(`No new block received for too long; provider unresponsive.`);
         });
 
         try {
@@ -235,6 +235,7 @@ export class EthereumTransactionMiner {
         } finally {
             // Make sure any pending CancellablePromise is released
             firstConfirmationPromise.cancel();
+            blockTimeoutPromise.cancel();
         }
     }
 
@@ -253,10 +254,10 @@ export class EthereumTransactionMiner {
         );
 
         // ...but stop with error if no new blocks come for too long
-        const noNewBlockPromise = new Promise((_, reject) => {
-            this.blockTimeoutDetector.once(BlockTimeoutDetector.BLOCK_TIMEOUT_EVENT, () => {
-                reject(new BlockTimeoutError(`No new block received too long; provider unresponsive.`));
-            });
+        const blockTimeoutPromise = waitForEvent(this.blockTimeoutDetector, BlockTimeoutDetector.BLOCK_TIMEOUT_EVENT);
+
+        const noNewBlockPromise = blockTimeoutPromise.then(() => {
+            throw new BlockTimeoutError(`No new block received for too long; provider unresponsive.`);
         });
 
         try {
@@ -265,6 +266,7 @@ export class EthereumTransactionMiner {
         } finally {
             // Make sure any pending CancellablePromise is released
             enoughConfirmationsPromise.cancel();
+            blockTimeoutPromise.cancel();
         }
     }
 }

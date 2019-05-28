@@ -245,7 +245,7 @@ export class ReorgDetector extends StartStopService {
 
     /**
      * Add a listener for reorg events that reorg the chain to a common ancestor below a certain height. These events are guaranteed
-     * to fire after ReorgDdetector.REORG_START_EVENT and before ReorgDetector.REORG_END_EVENT
+     * to fire after ReorgDetector.REORG_START_EVENT and before ReorgDetector.REORG_END_EVENT
      * @param listener This listener will not be present in the listeners() or listenerCount() properties as it
      * can be an async callback, but we must await for it's completion here before emitting synchronous callbacks. So
      * it must be emitted in a different way.
