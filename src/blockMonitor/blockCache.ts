@@ -20,13 +20,13 @@ import { IBlockStub, BlockStubChain } from "./blockStub";
  * actually be added (for example because they are already too deep); in that case, it will return `false`.
  **/
 export class BlockCache {
-    public blockStubsByHash: Map<string, BlockStubChain> = new Map();
+    private blockStubsByHash: Map<string, BlockStubChain> = new Map();
 
     // set of tx hashes per block hash, for fast lookup
     private txHashesByBlockHash: Map<string, Set<string>> = new Map();
 
     // store block hashes at a specific height (there could be more than one at some height because of forks)
-    public blockHashesByHeight: Map<number, Set<string>> = new Map();
+    private blockHashesByHeight: Map<number, Set<string>> = new Map();
 
     // Next height to be pruned; the cache will not store a block with height strictly smaller than pruneHeight
     private pruneHeight: number;
