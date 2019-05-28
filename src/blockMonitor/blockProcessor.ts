@@ -65,6 +65,7 @@ export class BlockProcessor extends StartStopService {
         } catch (doh) {
             const error = doh as Error;
             logger.error(`There was an error fetching blocks in ${this.name}: ${error.message}`);
+            logger.error(error.stack!);
         }
     }
 }
