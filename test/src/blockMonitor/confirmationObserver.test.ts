@@ -2,11 +2,9 @@ import "mocha";
 import * as chai from "chai";
 import chaiAsPromised from "chai-as-promised";
 import { ConfirmationObserver, BlockProcessor, BlockCache, IBlockStub } from "../../../src/blockMonitor";
-import { mock, when, instance, anything } from "ts-mockito";
 import { EventEmitter } from "events";
 import { ethers } from "ethers";
 import { ApplicationError, BlockThresholdReachedError, ReorgError } from "../../../src/dataEntities";
-import { wait } from "../../../src/utils";
 
 chai.use(chaiAsPromised);
 const expect = chai.expect;

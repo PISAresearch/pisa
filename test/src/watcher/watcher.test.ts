@@ -85,8 +85,6 @@ describe("Watcher", () => {
     when(mockedReorgDetector.addReorgHeightListener(anyNumber(), anything())).thenReturn();
     const reorgDetectorInstance = instance(mockedReorgDetector);
 
-    const mockedBlockProcessor = mock(BlockProcessor);
-
     const event = {
         blockNumber: 10
     } as ethers.Event;
@@ -99,7 +97,6 @@ describe("Watcher", () => {
         resetCalls(mockedResponderThatThrows);
         resetCalls(mockedStoreThatThrows);
         resetCalls(mockedReorgDetector);
-        resetCalls(mockedBlockProcessor);
     });
 
     it("add appointment updates store and subscriptions", async () => {
