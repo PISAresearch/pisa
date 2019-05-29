@@ -109,10 +109,8 @@ export class BlockStubChain {
         if (minHeight > this.height)
             throw new ArgumentError("Cannot prune above current height.", minHeight, this.height);
 
-        let ancestor: BlockStubChain;
-        if ((ancestor = this.ancestorWithHeight(minHeight)!)) {
-            ancestor.mParentChain = null;
-        }
+        const ancestor = this.ancestorWithHeight(minHeight);
+        if (ancestor) ancestor.mParentChain = null;
     }
 
     /**

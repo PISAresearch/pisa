@@ -59,10 +59,16 @@ export class BlockCache {
 
     // Removes all info related to a block in blockStubsByHash and txHashesByBlockHash
     private removeBlock(blockHash: string) {
-        if (this.blockStubsByHash.delete(blockHash) === false) {
+        const block = this.blockStubsByHash.get(blockHash);
+        if (!block) {
             // This would signal a bug
             throw new ApplicationError(`Block with hash ${blockHash} not found, but it was expected.`);
         }
+
+        // Make sure we prune old BlockStubChains when removing a block
+        block.prune(block.height);
+
+        this.blockStubsByHash.delete(blockHash);
 
         // Remove stored set of transactions for this block
         this.txHashesByBlockHash.delete(blockHash);

@@ -158,6 +158,8 @@ export class ReorgDetector extends StartStopService {
     private prune() {
         // prune current re-org height listeners
         const minHeight = this.headBlock.height - this.maxDepth;
+
+        this.headBlock.prune(minHeight);
         this.store.prune(minHeight);
     }
 
