@@ -1,5 +1,6 @@
+import { Logger } from "winston";
 import { ConfigurationError } from "./errors";
-import logger from "../logger";
+import { createNamedLogger } from "../logger";
 import { EventEmitter } from "events";
 
 /**
@@ -19,12 +20,19 @@ export abstract class StartStopService extends EventEmitter {
     public static readonly STOPPED_EVENT = "stopped";
 
     /**
+     * Each service has its own Logger instance
+     */
+    protected logger: Logger;
+
+    /**
      * A service that requires starting and stopping.
      * Whoever constructs this service must start it before using it.
      * Whoever constructs this service must stop it after using it.
      */
     protected constructor(protected readonly name: string) {
         super();
+
+        this.logger = createNamedLogger(name);
     }
     private mStarted: boolean = false;
     public get started() {
@@ -41,7 +49,7 @@ export abstract class StartStopService extends EventEmitter {
         // set started straight away to block the code below
         this.mStarting = true;
         await this.startInternal();
-        logger.info(`${this.name}: Started.`);
+        this.logger.info(`${this.name}: Started.`);
         this.mStarted = true;
         this.mStarting = false;
         this.emit(StartStopService.STARTED_EVENT);
@@ -55,10 +63,10 @@ export abstract class StartStopService extends EventEmitter {
         if (this.mStarted) {
             this.mStarted = false;
             await this.stopInternal();
-            logger.info(`${this.name}: Stopped.`);
+            this.logger.info(`${this.name}: Stopped.`);
             this.emit(StartStopService.STOPPED_EVENT);
         } else {
-            logger.error(`${this.name}: Already stopped.`);
+            this.logger.error(`${this.name}: Already stopped.`);
         }
     }
     protected abstract stopInternal(): Promise<void>;

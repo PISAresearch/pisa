@@ -1,6 +1,5 @@
 import { ethers } from "ethers";
 import { ArgumentError, StartStopService } from "../dataEntities";
-import logger from "../logger";
 import { BlockStubChain, IBlockStub } from "./blockStub";
 import { BlockCache } from "./blockCache";
 import { ReorgHeightListenerStore } from "./reorgHeightListener";
@@ -110,10 +109,10 @@ export class ReorgDetector extends StartStopService {
             // prune events past the max depth
             this.prune();
         } catch (doh) {
-            logger.error(`${this.name}: Unexpected error.`);
+            this.logger.error(`${this.name}: Unexpected error.`);
             const dohError = doh as Error;
             if (dohError) {
-                logger.error(dohError.stack!);
+                this.logger.error(dohError.stack!);
             }
         }
     }

@@ -1,7 +1,6 @@
 import { ethers } from "ethers";
 import { inspect } from "util";
 import { IEthereumAppointment, StartStopService } from "../dataEntities";
-import logger from "../logger";
 import { ConfigurationError } from "../dataEntities/errors";
 import { EthereumResponderManager } from "../responder";
 import { ReorgDetector } from "../blockMonitor/reorgDetector";
@@ -109,16 +108,16 @@ export class Watcher extends StartStopService {
         appointment: IEthereumAppointment,
         addAppointment: (appointment: IEthereumAppointment) => Promise<boolean>
     ) {
-        logger.info(appointment.formatLog(`Begin watching for event ${appointment.getEventName()}.`));
+        this.logger.info(appointment.formatLog(`Begin watching for event ${appointment.getEventName()}.`));
 
         // business logic
         const result = await addAppointment(appointment);
 
         if (result) {
             // the new appointment has a lower nonce than the one we're currently storing, so don't add it
-            logger.info(appointment.formatLog(`Appointment added to watcher.`));
+            this.logger.info(appointment.formatLog(`Appointment added to watcher.`));
         } else {
-            logger.info(
+            this.logger.info(
                 appointment.formatLog(
                     `An appointment with a higher nonce than ${appointment.getStateNonce()} already exists. Appointment not added to watcher.`
                 )
@@ -161,26 +160,26 @@ export class Watcher extends StartStopService {
     ) {
         // this callback should not throw exceptions as they cannot be handled elsewhere
         try {
-            logger.info(
+            this.logger.info(
                 appointment.formatLog(
                     `Observed event ${appointment.getEventName()} in contract ${appointment.getContractAddress()}.`
                 )
             );
-            logger.debug(appointment.formatLog(`Event info: ${inspect(event)}`));
+            this.logger.debug(appointment.formatLog(`Event info: ${inspect(event)}`));
 
             if (!reorgInProgress) {
                 await observeEvent();
             } else {
-                logger.info(appointment.formatLog(`Reorg in progress, doing nothing.`));
+                this.logger.info(appointment.formatLog(`Reorg in progress, doing nothing.`));
             }
         } catch (doh) {
             // an error occured whilst responding to the callback - this is serious and the problem needs to be correctly diagnosed
-            logger.error(
+            this.logger.error(
                 appointment.formatLog(
                     `An unexpected errror occured whilst responding to event ${appointment.getEventName()} in contract ${appointment.getContractAddress()}.`
                 )
             );
-            logger.error(appointment.formatLog(doh));
+            this.logger.error(appointment.formatLog(doh));
         }
     }
 }

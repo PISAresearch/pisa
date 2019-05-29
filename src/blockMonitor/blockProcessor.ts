@@ -2,7 +2,6 @@ import { ethers } from "ethers";
 import { StartStopService } from "../dataEntities";
 import { BlockCache } from "./blockCache";
 import { IBlockStub } from "./blockStub";
-import logger from "../logger";
 
 /**
  * Listens to the provider for new blocks, and updates `blockCache` with all the blocks, making sure that each block
@@ -64,8 +63,8 @@ export class BlockProcessor extends StartStopService {
             }
         } catch (doh) {
             const error = doh as Error;
-            logger.error(`There was an error fetching blocks in ${this.name}: ${error.message}`);
-            logger.error(error.stack!);
+            this.logger.error(`There was an error fetching blocks in ${this.name}: ${error.message}`);
+            this.logger.error(error.stack!);
         }
     }
 }
