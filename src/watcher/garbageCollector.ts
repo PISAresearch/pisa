@@ -36,14 +36,14 @@ export class AppointmentStoreGarbageCollector extends StartStopService {
     /**
      * Start the monitoring for expired appointments
      */
-    protected startInternal() {
+    protected async startInternal() {
         this.provider.on("block", this.boundExpired);
     }
 
     /**
      * Stop monitoring for expired events
      */
-    protected stopInternal() {
+    protected async stopInternal() {
         this.provider.removeListener("block", this.boundExpired);
     }
 

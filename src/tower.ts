@@ -3,7 +3,7 @@ import { Inspector } from "./inspector";
 import { IChannelConfig } from "./integrations";
 import { Watcher } from "./watcher";
 import { ethers } from "ethers";
-import { SignedAppointmnt } from "./dataEntities/appointment";
+import { SignedAppointment } from "./dataEntities/appointment";
 
 /**
  * A PISA tower, configured to watch for specified appointment types
@@ -26,7 +26,7 @@ export class PisaTower {
      * Checks that the object is well formed, that it meets the conditions necessary for watching and assigns it to be watched.
      * @param obj
      */
-    async addAppointment(obj: any): Promise<SignedAppointmnt> {
+    public async addAppointment(obj: any): Promise<SignedAppointment> {
         if (!obj) throw new PublicDataValidationError("No content specified.");
 
         // look for a type argument
@@ -45,7 +45,7 @@ export class PisaTower {
         await this.watcher.addAppointment(appointment);
 
         const signature = await this.appointmentSigner.signAppointment(appointment);
-        return new SignedAppointmnt(appointment, signature);
+        return new SignedAppointment(appointment, signature);
     }
 }
 

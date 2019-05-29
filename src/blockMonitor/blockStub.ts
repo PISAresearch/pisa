@@ -4,36 +4,45 @@ import { ArgumentError } from "../dataEntities";
  * A chain of linked block stubs.
  */
 export class BlockStubChain {
-    private mParent: BlockStubChain | null;
-    public get parent() {
-        return this.mParent;
+    public readonly height: number;
+    public readonly hash: string;
+    public readonly parentHash: string;
+    private mParentChain: BlockStubChain | null;
+    public get parentChain() {
+        return this.mParentChain;
     }
 
-    protected constructor(public readonly height: number, public readonly hash: string, parent: BlockStubChain | null) {
-        if (parent === undefined) throw new ArgumentError("Undefined parent");
-        this.mParent = parent;
+    protected constructor(block: IBlockStub, parentChain: BlockStubChain | null) {
+        if (parentChain === undefined) throw new ArgumentError("Undefined parent chain");
+
+        if (parentChain && block.parentHash !== parentChain.hash) {
+            throw new ArgumentError("Parent hashes are not equal.", block.parentHash, parentChain.hash);
+        }
+
+        this.height = block.number;
+        this.hash = block.hash;
+        this.parentHash = block.parentHash;
+        this.mParentChain = parentChain;
     }
 
     /**
      * Creates a block stub chain with no parent
-     * @param height The current height
-     * @param hash The current hash
+     * @param block The current IBlockStub
      */
-    public static newRoot(height: number, hash: string) {
-        return new BlockStubChain(height, hash, null);
+    public static newRoot(block: IBlockStub) {
+        return new BlockStubChain(block, null);
     }
 
     /**
      * Extend this block stub chain with another block stub
-     * @param height The current height
-     * @param hash The current hash
+     * @param newBlock The new current block
      */
-    public extend(height: number, hash: string): BlockStubChain {
+    public extend(newBlock: IBlockStub): BlockStubChain {
         // extend by exactly one
-        if (this.height + 1 !== height)
-            throw new ArgumentError("Height not equal parent plus one.", this.height, height);
+        if (this.height + 1 !== newBlock.number)
+            throw new ArgumentError("Height not equal parent plus one.", this.height, newBlock.number);
 
-        return new BlockStubChain(height, hash, this);
+        return new BlockStubChain(newBlock, this);
     }
 
     /**
@@ -43,11 +52,7 @@ export class BlockStubChain {
     public extendMany(extensionBlocks: IBlockStub[]) {
         let block: BlockStubChain = this;
         extensionBlocks.forEach(extensionBlock => {
-            if (extensionBlock.parentHash !== block.hash) {
-                throw new ArgumentError("Parent hashes are not equal.", extensionBlock.parentHash, block.hash);
-            }
-
-            block = block.extend(extensionBlock.number, extensionBlock.hash);
+            block = block.extend(extensionBlock);
         });
         return block;
     }
@@ -58,11 +63,11 @@ export class BlockStubChain {
      * @returns null if no matching block found
      */
     private findInChainDeep(predicate: (block: BlockStubChain) => boolean): BlockStubChain | null {
-        if (!this.parent) {
+        if (!this.parentChain) {
             return null;
-        } else if (predicate(this.parent)) {
-            return this.parent;
-        } else return this.parent.findInChainDeep(predicate);
+        } else if (predicate(this.parentChain)) {
+            return this.parentChain;
+        } else return this.parentChain.findInChainDeep(predicate);
     }
 
     /**
@@ -71,7 +76,7 @@ export class BlockStubChain {
      * @returns null if no matching block found
      */
     private findInChain(predicate: (block: BlockStubChain) => boolean): BlockStubChain | null {
-        if(predicate(this)) return this;
+        if (predicate(this)) return this;
         else return this.findInChainDeep(predicate);
     }
 
@@ -91,7 +96,7 @@ export class BlockStubChain {
      */
     public ancestorWithHeight(height: number): BlockStubChain | null {
         // if the head has height less than this block, no other ancestors can have a greater height.
-        if(height > this.height) return null;
+        if (height > this.height) return null;
 
         return this.findInChain(block => block.height === height);
     }
@@ -104,10 +109,8 @@ export class BlockStubChain {
         if (minHeight > this.height)
             throw new ArgumentError("Cannot prune above current height.", minHeight, this.height);
 
-        let ancestor: BlockStubChain;
-        if ((ancestor = this.ancestorWithHeight(minHeight)!)) {
-            ancestor.mParent = null;
-        }
+        const ancestor = this.ancestorWithHeight(minHeight);
+        if (ancestor) ancestor.mParentChain = null;
     }
 
     /**
@@ -117,7 +120,7 @@ export class BlockStubChain {
         return {
             hash: this.hash,
             number: this.height,
-            parentHash: this.parent ? this.parent.hash : null
+            parentHash: this.parentHash
         };
     }
 }
@@ -125,5 +128,5 @@ export class BlockStubChain {
 export interface IBlockStub {
     hash: string;
     number: number;
-    parentHash: string | null;
+    parentHash: string;
 }

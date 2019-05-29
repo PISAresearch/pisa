@@ -79,7 +79,14 @@ describe("Service end-to-end", () => {
         const watcherWallet = new ethers.Wallet(config.responderKey, provider);
         const signerWallet = new ethers.Wallet(config.receiptKey!, provider);
 
-        const exService = new PisaService({...config, hostPort: config.hostPort + 1}, provider, watcherWallet, signerWallet, provider, db);
+        const exService = new PisaService(
+            { ...config, hostPort: config.hostPort + 1 },
+            provider,
+            watcherWallet,
+            signerWallet,
+            provider,
+            db
+        );
 
         const round = 1,
             setStateHash = KitsuneTools.hashForSetState(hashState, round, channelContract.address),
@@ -105,13 +112,13 @@ describe("Service end-to-end", () => {
 
             chai.assert.fail();
         } catch (doh) {
-            const statusCodeError= doh as StatusCodeError;
+            const statusCodeError = doh as StatusCodeError;
             expect(statusCodeError.statusCode).to.equal(503);
-            expect(statusCodeError.error).to.equal("Service initialising, please try again later.")
+            expect(statusCodeError.error).to.equal("Service initialising, please try again later.");
         }
 
-        await exService.start()
-        await exService.stop()
+        await exService.start();
+        await exService.stop();
     });
 
     it("create channel, submit appointment, trigger dispute, wait for response", async () => {
@@ -174,7 +181,7 @@ describe("Service end-to-end", () => {
         };
 
         const startBlock = await provider.getBlockNumber();
-        const endBlock = startBlock + appointment.expiryPeriod
+        const endBlock = startBlock + appointment.expiryPeriod;
 
         const res = await request.post(`http://${config.hostName}:${config.hostPort}/appointment`, {
             json: appointment
@@ -192,7 +199,7 @@ describe("Service end-to-end", () => {
         const digest = ethers.utils.keccak256(packedData);
         const signer = new Wallet(config.receiptKey!);
         const sig = await signer.signMessage(digest);
-        
+
         expect(res).to.deep.equal({
             startBlock: startBlock,
             endBlock: endBlock,

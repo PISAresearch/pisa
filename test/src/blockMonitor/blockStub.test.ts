@@ -3,61 +3,86 @@ import { BlockStubChain } from "../../../src/blockMonitor";
 import { expect } from "chai";
 
 describe("BlockStubChain", () => {
-    const heights = [1, 2, 3, 4];
-    const hashes = ["hash1", "hash2", "hash3", "hash4"];
+    const blockStubs = [
+        {
+            number: 1,
+            hash: "hash1",
+            parentHash: "hash0"
+        },
+        {
+            number: 2,
+            hash: "hash2",
+            parentHash: "hash1"
+        },
+        {
+            number: 3,
+            hash: "hash3",
+            parentHash: "hash2"
+        },
+        {
+            number: 4,
+            hash: "hash4",
+            parentHash: "hash3"
+        }
+    ];
+
     let genesis: BlockStubChain;
     let secondBlock: BlockStubChain;
     let thirdBlock: BlockStubChain;
     let fourthBlock: BlockStubChain;
 
     beforeEach(() => {
-        genesis = BlockStubChain.newRoot(heights[0], hashes[0]);
-        secondBlock = genesis.extend(heights[1], hashes[1]);
-        thirdBlock = secondBlock.extend(heights[2], hashes[2]);
-        fourthBlock = thirdBlock.extend(heights[3], hashes[3]);
+        genesis = BlockStubChain.newRoot(blockStubs[0]);
+        secondBlock = genesis.extend(blockStubs[1]);
+        thirdBlock = secondBlock.extend(blockStubs[2]);
+        fourthBlock = thirdBlock.extend(blockStubs[3]);
     });
 
     it("new root creates block", () => {
-        const block = BlockStubChain.newRoot(heights[0], hashes[0]);
-        expect(block.height).to.equal(heights[0]);
-        expect(block.hash).to.equal(hashes[0]);
-        expect(block.parent).to.equal(null);
+        const block = BlockStubChain.newRoot(blockStubs[0]);
+        expect(block.height).to.equal(blockStubs[0].number);
+        expect(block.hash).to.equal(blockStubs[0].hash);
+        expect(block.parentHash).to.equal(blockStubs[0].parentHash);
+        expect(block.parentChain).to.equal(null);
     });
 
     it("extend creates block with parent", () => {
-        const secondBlock = genesis.extend(heights[1], hashes[1]);
-        expect(secondBlock.height).to.equal(heights[1]);
-        expect(secondBlock.hash).to.equal(hashes[1]);
-        expect(secondBlock.parent).to.equal(genesis);
+        const secondBlock = genesis.extend(blockStubs[1]);
+        expect(secondBlock.height).to.equal(blockStubs[1].number);
+        expect(secondBlock.hash).to.equal(blockStubs[1].hash);
+        expect(secondBlock.parentHash).to.equal(blockStubs[1].parentHash);
+        expect(secondBlock.parentChain).to.equal(genesis);
     });
 
     it("extend correctly chains parents", () => {
-        expect(fourthBlock.parent!.parent!.parent).to.equal(genesis);
+        expect(fourthBlock.parentChain!.parentChain!.parentChain).to.equal(genesis);
     });
 
     it("extend twice creates block with two parents", () => {
-        const thirdBlock = secondBlock.extend(heights[2], hashes[2]);
-        expect(thirdBlock.height).to.equal(heights[2]);
-        expect(thirdBlock.hash).to.equal(hashes[2]);
-        expect(thirdBlock.parent).to.equal(secondBlock);
+        const thirdBlock = secondBlock.extend(blockStubs[2]);
+        expect(thirdBlock.height).to.equal(blockStubs[2].number);
+        expect(thirdBlock.hash).to.equal(blockStubs[2].hash);
+        expect(thirdBlock.parentHash).to.equal(blockStubs[2].parentHash);
+        expect(thirdBlock.parentChain).to.equal(secondBlock);
     });
 
     it("extend cannot from height !== parent.height + 1", () => {
-        expect(() => genesis.extend(heights[2], hashes[2])).to.throw();
+        expect(() => genesis.extend(blockStubs[2])).to.throw();
     });
 
     it("extend many creates one extra block", () => {
         const extendedChain = genesis.extendMany([secondBlock.asBlockStub()]);
-        expect(extendedChain.height).to.equal(heights[1]);
-        expect(extendedChain.hash).to.equal(hashes[1]);
-        expect(extendedChain.parent).to.equal(genesis);
+        expect(extendedChain.height).to.equal(blockStubs[1].number);
+        expect(extendedChain.hash).to.equal(blockStubs[1].hash);
+        expect(extendedChain.parentChain).to.equal(genesis);
     });
 
     it("extend many creates many extra blocks", () => {
         const extendedChain = genesis.extendMany([secondBlock.asBlockStub(), thirdBlock.asBlockStub()]);
-        expect(extendedChain.height).to.equal(heights[2]);
-        expect(extendedChain.hash).to.equal(hashes[2]);
-        expect(extendedChain.parent!.hash).to.equal(hashes[1]);
+        expect(extendedChain.height).to.equal(blockStubs[2].number);
+        expect(extendedChain.hash).to.equal(blockStubs[2].hash);
+        expect(extendedChain.parentHash).to.equal(blockStubs[2].parentHash);
+        expect(extendedChain.parentChain!.hash).to.equal(blockStubs[1].hash);
     });
 
     it("extend many does not extend a gap", () => {
@@ -98,29 +123,29 @@ describe("BlockStubChain", () => {
 
     it("prune only prunes below height, not above", () => {
         fourthBlock.prune(secondBlock.height);
-        expect(secondBlock.parent).to.equal(null);
-        expect(thirdBlock.parent).to.equal(secondBlock);
-        expect(fourthBlock.parent).to.equal(thirdBlock);
+        expect(secondBlock.parentChain).to.equal(null);
+        expect(thirdBlock.parentChain).to.equal(secondBlock);
+        expect(fourthBlock.parentChain).to.equal(thirdBlock);
     });
 
     it("prune twice is the same as prune", () => {
         fourthBlock.prune(secondBlock.height);
         fourthBlock.prune(secondBlock.height);
-        expect(secondBlock.parent).to.equal(null);
-        expect(thirdBlock.parent).to.equal(secondBlock);
-        expect(fourthBlock.parent).to.equal(thirdBlock);
+        expect(secondBlock.parentChain).to.equal(null);
+        expect(thirdBlock.parentChain).to.equal(secondBlock);
+        expect(fourthBlock.parentChain).to.equal(thirdBlock);
     });
 
     it("prune does nothing when called for too low number", () => {
         fourthBlock.prune(0);
-        expect(secondBlock.parent).to.equal(genesis);
-        expect(thirdBlock.parent).to.equal(secondBlock);
-        expect(fourthBlock.parent).to.equal(thirdBlock);
+        expect(secondBlock.parentChain).to.equal(genesis);
+        expect(thirdBlock.parentChain).to.equal(secondBlock);
+        expect(fourthBlock.parentChain).to.equal(thirdBlock);
     });
 
     it("prune can prune to current height", () => {
         fourthBlock.prune(fourthBlock.height);
-        expect(fourthBlock.parent).to.equal(null);
+        expect(fourthBlock.parentChain).to.equal(null);
     });
 
     it("prune cannot prune above current height", () => {
@@ -129,23 +154,16 @@ describe("BlockStubChain", () => {
 
     it("prune below min does nothing to current block", () => {
         fourthBlock.prune(fourthBlock.height);
-        expect(fourthBlock.parent).to.equal(null);
+        expect(fourthBlock.parentChain).to.equal(null);
 
         fourthBlock.prune(thirdBlock.height);
-        expect(fourthBlock.parent).to.equal(null);
+        expect(fourthBlock.parentChain).to.equal(null);
     });
 
     it("asBlockStub returns core components", () => {
         const blockData = fourthBlock.asBlockStub();
         expect(blockData.hash).to.equal(fourthBlock.hash);
         expect(blockData.number).to.equal(fourthBlock.height);
-        expect(blockData.parentHash).to.equal(fourthBlock.parent!.hash);
-    });
-
-    it("asBlockStub returns null parent for genesis", () => {
-        const blockData = genesis.asBlockStub();
-        expect(blockData.hash).to.equal(genesis.hash);
-        expect(blockData.number).to.equal(genesis.height);
-        expect(blockData.parentHash).to.equal(null);
+        expect(blockData.parentHash).to.equal(fourthBlock.parentChain!.hash);
     });
 });

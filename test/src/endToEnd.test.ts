@@ -8,10 +8,16 @@ import { EthereumResponderManager } from "../../src/responder";
 import { AppointmentStore } from "../../src/watcher/store";
 import { AppointmentSubscriber } from "../../src/watcher/appointmentSubscriber";
 import { wait } from "../../src/utils";
-import { ReorgDetector } from "../../src/blockMonitor/reorg";
-import { ReorgHeightListenerStore } from "../../src/blockMonitor";
+import {
+    BlockProcessor,
+    ReorgHeightListenerStore,
+    BlockCache,
+    BlockTimeoutDetector,
+    ConfirmationObserver
+} from "../../src/blockMonitor";
 import levelup from "levelup";
 import MemDown from "memdown";
+import { ReorgDetector } from "../../src/blockMonitor/reorgDetector";
 const ganache = Ganache.provider({
     mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect"
 });
@@ -68,11 +74,22 @@ describe("End to end", () => {
         });
         await inspector.inspectAndPass(appointment);
 
-        const detector = new ReorgDetector(provider, 200, new ReorgHeightListenerStore());
-        await detector.start();
+        const blockCache = new BlockCache(200);
+        const blockProcessor = new BlockProcessor(provider, blockCache);
+        const reorgDetector = new ReorgDetector(provider, blockProcessor, blockCache, new ReorgHeightListenerStore());
+        await blockProcessor.start();
+        await reorgDetector.start();
 
         // 2. pass this appointment to the watcher
-        const responderManager = new EthereumResponderManager(provider.getSigner(pisaAccount));
+        const blockTimeoutDetector = new BlockTimeoutDetector(blockProcessor, 120 * 1000);
+        await blockTimeoutDetector.start();
+        const confirmationObserver = new ConfirmationObserver(blockCache, blockProcessor);
+        await confirmationObserver.start();
+        const responderManager = new EthereumResponderManager(
+            provider.getSigner(pisaAccount),
+            blockTimeoutDetector,
+            confirmationObserver
+        );
 
         let db = levelup(MemDown());
         const store = new AppointmentStore(
@@ -80,7 +97,7 @@ describe("End to end", () => {
             new Map([[ChannelType.Kitsune, (obj: any) => new KitsuneAppointment(obj)]])
         );
         await store.start();
-        const watcher = new Watcher(provider, responderManager, detector, new AppointmentSubscriber(provider), store);
+        const watcher = new Watcher(responderManager, reorgDetector, new AppointmentSubscriber(provider), store);
         await watcher.start();
         const player0Contract = channelContract.connect(provider.getSigner(player0));
 
@@ -89,8 +106,13 @@ describe("End to end", () => {
         // 3. Trigger a dispute
         const tx = await player0Contract.triggerDispute();
         await tx.wait();
-        await detector.stop();
+
+        await watcher.stop();
         await store.stop();
+        await confirmationObserver.stop();
+        await blockTimeoutDetector.stop();
+        await reorgDetector.stop();
+        await blockProcessor.stop();
         await db.close();
         await wait(2000);
     }).timeout(3000);
