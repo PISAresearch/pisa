@@ -14,7 +14,7 @@ export class ChainData {
             engine: {
                 authorityRound: {
                     params: {
-                        stepDuration: this.stepDuration,
+                        stepDuration: this.stepDuration.toString(10),
                         validators: {
                             list: this.validators.map(v => v.account)
                         }

@@ -7,6 +7,7 @@ import fs from "fs";
 import { ConfigurationError } from "../../src/dataEntities";
 import { Key } from "./keyStore";
 import { ChainData } from "./chainData";
+import uuid from "uuid/v4";
 
 interface IPortBinding {
     Host: string;
@@ -17,6 +18,10 @@ class DockerImageLib {
     public static PARITY_IMAGE = "parity/parity:v2.5.0";
     public static PISA_IMAGE = "pisaresearch/pisa:0.1.2";
 }
+
+export const uniqueName = (prefix: string) => {
+    return `${prefix}-${uuid().substr(0, 8)}`;
+};
 
 abstract class DockerContainer {
     constructor(
@@ -48,7 +53,6 @@ abstract class DockerContainer {
         this.portBindings.forEach(p => (ports[p.Container] = [{ HostPort: p.Host }]));
 
         const container = await this.dockerClient.createContainer({
-            
             Cmd: this.commands,
             Image: this.imageName,
             Tty: true,
@@ -57,7 +61,6 @@ abstract class DockerContainer {
                 PortBindings: ports,
                 NetworkMode: this.network,
                 Binds: this.volumes
-                
             },
             User: "root"
         });
@@ -88,12 +91,12 @@ abstract class DockerContainer {
 export class PisaContainer extends DockerContainer {
     constructor(
         dockerClient: DockerClient,
-        name: string,
         config: IArgConfig,
         hostPort: number,
         hostLogsDir: string,
         network: string
     ) {
+        const name = uniqueName("pisa");
         const configManager = new ConfigManager(ConfigManager.PisaConfigProperties);
         const commandLineArgs = configManager.toCommandLineArgs(config);
         const volumes: string[] = [`${hostLogsDir}:/usr/pisa/logs`];
@@ -117,7 +120,6 @@ export class PisaContainer extends DockerContainer {
 export class ParityContainer extends DockerContainer {
     constructor(
         dockerClient: DockerClient,
-        name: string,
         hostPort: number,
         logDir: string,
         network: string,
@@ -127,6 +129,7 @@ export class ParityContainer extends DockerContainer {
         accounts: Key[]
     ) {
         // create our own dir inside this one
+        const name = uniqueName("parity");
         const parityDir = path.join(logDir, name);
         if (fs.existsSync(parityDir)) throw new ConfigurationError(`${parityDir} already exists.`);
         fs.mkdirSync(parityDir);

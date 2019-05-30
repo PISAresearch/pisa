@@ -2,7 +2,6 @@ import "mocha";
 import chai from "chai";
 import DockerClient from "dockerode";
 import { IArgConfig } from "../../../src/dataEntities/config";
-import uuid from "uuid/v4";
 import fs from "fs";
 import path from "path";
 import { ethers } from "ethers";
@@ -10,14 +9,10 @@ import { KitsuneTools } from "../../../src/integrations/kitsune";
 import request from "request-promise";
 import { ChannelType } from "../../../src/dataEntities";
 import { wait } from "../../../src/utils";
-import { PisaContainer, ParityContainer } from "../docker";
+import { PisaContainer, ParityContainer, uniqueName } from "../docker";
 import { FileUtils } from "../fileUtil";
 import { ChainData } from "../chainData";
 import { KeyStore } from "../keyStore";
-
-const newId = () => {
-    return uuid().substr(0, 8);
-};
 
 const prepareLogsDir = (dirPath: string) => {
     if (fs.existsSync(dirPath)) {
@@ -44,11 +39,11 @@ describe("Integration", function() {
             KeyStore.theKeyStore.account1
         );
         const dockerClient = new DockerClient();
-        const networkName = `test-network-${newId()}`;
+        
+        const networkName = uniqueName("test-network");
         parityPort = 8545;
         parity = new ParityContainer(
             dockerClient,
-            `parity-${newId()}`,
             parityPort,
             logsDirectory,
             networkName,
@@ -65,7 +60,7 @@ describe("Integration", function() {
             responderKey: "0x549a24a594a51f0bea8655a80c01689206a811120e2b28683d6b202f096a2049",
             receiptKey: "0x549a24a594a51f0bea8655a80c01689206a811120e2b28683d6b202f096a2049"
         };
-        pisa = new PisaContainer(dockerClient, `pisa-${newId()}`, config, 3000, logsDirectory, networkName);
+        pisa = new PisaContainer(dockerClient, config, 3000, logsDirectory, networkName);
 
         network = await dockerClient.createNetwork({
             Name: networkName
@@ -87,7 +82,7 @@ describe("Integration", function() {
         const key0 = KeyStore.theKeyStore.account0;
         const key1 = KeyStore.theKeyStore.account1;
         const wallet0 = key0.wallet.connect(provider);
-        const wallet1 = key0.wallet.connect(provider);
+        const wallet1 = key1.wallet.connect(provider);
 
         // contract
         const channelContractFactory = new ethers.ContractFactory(
