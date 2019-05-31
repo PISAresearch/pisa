@@ -24,7 +24,7 @@ export class Watcher extends StartStopService {
         private readonly appointmentSubscriber: AppointmentSubscriber,
         private readonly store: AppointmentStore
     ) {
-        super("Watcher");
+        super("watcher");
         this.startReorg = this.startReorg.bind(this);
         this.endReorg = this.endReorg.bind(this);
     }

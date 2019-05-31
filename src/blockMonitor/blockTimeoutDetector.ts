@@ -17,7 +17,7 @@ export class BlockTimeoutDetector extends StartStopService {
      * @param timeout The number of milliseconds without a new block before generating
      */
     constructor(private blockProcessor: BlockProcessor, public readonly timeout: number) {
-        super("Block timeout detector");
+        super("block-timeout-detector");
         this.resetNoNewBlockTimeout = this.resetNoNewBlockTimeout.bind(this);
     }
 

@@ -62,7 +62,7 @@ export class PisaService extends StartStopService {
         delayedProvider: ethers.providers.BaseProvider,
         db: LevelUp<encodingDown<string, any>>
     ) {
-        super("PISA");
+        super("pisa");
         const app = express();
 
         this.applyMiddlewares(app, config);
@@ -117,7 +117,7 @@ export class PisaService extends StartStopService {
         app.post("/appointment", this.appointment(tower));
 
         const service = app.listen(config.hostPort, config.hostName);
-        this.logger.info(`PISA listening on: ${config.hostName}:${config.hostPort}.`);
+        this.logger.info(`Listening on: ${config.hostName}:${config.hostPort}.`);
         this.server = service;
     }
 
@@ -142,7 +142,7 @@ export class PisaService extends StartStopService {
         await this.blockProcessor.stop();
         this.server.close(error => {
             if (error) this.logger.error(error.stack!);
-            this.logger.info(`PISA shutdown.`);
+            this.logger.info(`Shutdown.`);
         });
     }
 
@@ -168,12 +168,11 @@ export class PisaService extends StartStopService {
                 })
             );
             this.logger.info(
-                `PISA api global rate limit: ${
-                    config.rateLimitGlobalMax
-                } requests every: ${config.rateLimitGlobalWindowMs / 1000} seconds.`
+                `Api global rate limit: ${config.rateLimitGlobalMax} requests every: ${config.rateLimitGlobalWindowMs /
+                    1000} seconds.`
             );
         } else {
-            this.logger.warn(`PISA api global rate limit: NOT SET.`);
+            this.logger.warn(`Api global rate limit: NOT SET.`);
         }
 
         if (config.rateLimitUserMax && config.rateLimitUserWindowMs) {
@@ -187,12 +186,11 @@ export class PisaService extends StartStopService {
                 })
             );
             this.logger.info(
-                `PISA api per-user rate limit: ${
-                    config.rateLimitUserMax
-                } requests every: ${config.rateLimitUserWindowMs / 1000} seconds.`
+                `Api per-user rate limit: ${config.rateLimitUserMax} requests every: ${config.rateLimitUserWindowMs /
+                    1000} seconds.`
             );
         } else {
-            this.logger.warn(`PISA api per-user rate limit: NOT SET.`);
+            this.logger.warn(`Api per-user rate limit: NOT SET.`);
         }
     }
 

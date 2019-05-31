@@ -38,7 +38,7 @@ export class AppointmentStore extends StartStopService implements IAppointmentSt
         private readonly db: LevelUp<encodingDown<string, any>>,
         private readonly appointmentConstructors: Map<ChannelType, (obj: any) => IEthereumAppointment>
     ) {
-        super("Appointment store");
+        super("appointment-store");
     }
 
     protected async startInternal() {

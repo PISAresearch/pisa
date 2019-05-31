@@ -13,7 +13,7 @@ export class ConfirmationObserver extends StartStopService {
     private txListeners = new Set<TransactionListener>();
 
     constructor(private readonly blockCache: BlockCache, private readonly blockProcessor: BlockProcessor) {
-        super("Confirmation Observer");
+        super("confirmation-observer");
         this.handleNewHead = this.handleNewHead.bind(this);
     }
 

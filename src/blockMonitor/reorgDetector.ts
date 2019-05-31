@@ -48,7 +48,7 @@ export class ReorgDetector extends StartStopService {
         private readonly blockCache: BlockCache,
         public readonly store: ReorgHeightListenerStore
     ) {
-        super("Reorg detector");
+        super("reorg-detector");
 
         this.handleNewBlock = this.handleNewBlock.bind(this);
         this.conductReorg = this.conductReorg.bind(this);
@@ -109,7 +109,7 @@ export class ReorgDetector extends StartStopService {
             // prune events past the max depth
             this.prune();
         } catch (doh) {
-            this.logger.error(`${this.name}: Unexpected error.`);
+            this.logger.error("Unexpected error.");
             const dohError = doh as Error;
             if (dohError) {
                 this.logger.error(dohError.stack!);

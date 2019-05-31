@@ -24,7 +24,7 @@ export class BlockProcessor extends StartStopService {
     public static readonly NEW_HEAD_EVENT = "new_head";
 
     constructor(private provider: ethers.providers.BaseProvider, private blockCache: BlockCache) {
-        super("Block processor");
+        super("block-processor");
 
         this.handleBlockEvent = this.handleBlockEvent.bind(this);
     }
@@ -63,7 +63,7 @@ export class BlockProcessor extends StartStopService {
             }
         } catch (doh) {
             const error = doh as Error;
-            this.logger.error(`There was an error fetching blocks in ${this.name}: ${error.message}`);
+            this.logger.error(`There was an error fetching blocks: ${error.message}`);
             this.logger.error(error.stack!);
         }
     }
