@@ -36,7 +36,7 @@ export abstract class StartStopService extends EventEmitter {
 
         if (!/^[a-z0-9\-]+$/.test(name)) {
             throw new ConfigurationError(
-                "The name of a service must only contain lowercase letter, numbers and hyphens."
+                `"${name}" is not a valid service name: it must only contain lowercase letters, numbers and hyphens.`
             );
         }
 
