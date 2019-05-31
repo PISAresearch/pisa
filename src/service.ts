@@ -4,7 +4,6 @@ import rateLimit from "express-rate-limit";
 import { Server } from "http";
 import { inspect } from "util";
 import { ethers } from "ethers";
-import logger from "./logger";
 import {
     PublicInspectionError,
     PublicDataValidationError,
@@ -63,7 +62,7 @@ export class PisaService extends StartStopService {
         delayedProvider: ethers.providers.BaseProvider,
         db: LevelUp<encodingDown<string, any>>
     ) {
-        super("PISA");
+        super("pisa");
         const app = express();
 
         this.applyMiddlewares(app, config);
@@ -118,7 +117,7 @@ export class PisaService extends StartStopService {
         app.post("/appointment", this.appointment(tower));
 
         const service = app.listen(config.hostPort, config.hostName);
-        logger.info(`PISA listening on: ${config.hostName}:${config.hostPort}.`);
+        this.logger.info(`Listening on: ${config.hostName}:${config.hostPort}.`);
         this.server = service;
     }
 
@@ -142,8 +141,8 @@ export class PisaService extends StartStopService {
         await this.reorgDetector.stop();
         await this.blockProcessor.stop();
         this.server.close(error => {
-            if (error) logger.error(error.stack!);
-            logger.info(`PISA shutdown.`);
+            if (error) this.logger.error(error.stack!);
+            this.logger.info(`Shutdown.`);
         });
     }
 
@@ -168,13 +167,12 @@ export class PisaService extends StartStopService {
                     max: config.rateLimitGlobalMax
                 })
             );
-            logger.info(
-                `PISA api global rate limit: ${
-                    config.rateLimitGlobalMax
-                } requests every: ${config.rateLimitGlobalWindowMs / 1000} seconds.`
+            this.logger.info(
+                `Api global rate limit: ${config.rateLimitGlobalMax} requests every: ${config.rateLimitGlobalWindowMs /
+                    1000} seconds.`
             );
         } else {
-            logger.warn(`PISA api global rate limit: NOT SET.`);
+            this.logger.warn(`Api global rate limit: NOT SET.`);
         }
 
         if (config.rateLimitUserMax && config.rateLimitUserWindowMs) {
@@ -187,13 +185,12 @@ export class PisaService extends StartStopService {
                     max: config.rateLimitUserMax
                 })
             );
-            logger.info(
-                `PISA api per-user rate limit: ${
-                    config.rateLimitUserMax
-                } requests every: ${config.rateLimitUserWindowMs / 1000} seconds.`
+            this.logger.info(
+                `Api per-user rate limit: ${config.rateLimitUserMax} requests every: ${config.rateLimitUserWindowMs /
+                    1000} seconds.`
             );
         } else {
-            logger.warn(`PISA api per-user rate limit: NOT SET.`);
+            this.logger.warn(`Api per-user rate limit: NOT SET.`);
         }
     }
 
@@ -203,7 +200,7 @@ export class PisaService extends StartStopService {
     private appointment(tower: PisaTower) {
         return async (req: express.Request, res: express.Response, next: express.NextFunction) => {
             if (!this.started) {
-                logger.error("Service initialising. Could not serve request: \n" + inspect(req.body));
+                this.logger.error("Service initialising. Could not serve request: \n" + inspect(req.body));
                 res.status(503);
                 res.send("Service initialising, please try again later.");
                 return;
@@ -223,7 +220,7 @@ export class PisaService extends StartStopService {
                 else if (doh instanceof ApplicationError) this.logAndSend(500, doh.message, doh, res);
                 else if (doh instanceof Error) this.logAndSend(500, "Internal server error.", doh, res);
                 else {
-                    logger.error("Error: 500. \n" + inspect(doh));
+                    this.logger.error("Error: 500. \n" + inspect(doh));
                     res.status(500);
                     res.send("Internal server error.");
                 }
@@ -232,8 +229,8 @@ export class PisaService extends StartStopService {
     }
 
     private logAndSend(code: number, responseMessage: string, error: Error, res: Response) {
-        logger.error(`HTTP Status: ${code}.`);
-        logger.error(error.stack!);
+        this.logger.error(`HTTP Status: ${code}.`);
+        this.logger.error(error.stack!);
         res.status(code);
         res.send(responseMessage);
     }

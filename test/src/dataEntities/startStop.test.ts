@@ -5,7 +5,7 @@ import { verify, spy } from "ts-mockito";
 
 class TestStartStop extends StartStopService {
     constructor() {
-        super("TEST SERVICE");
+        super("test-service");
     }
     public async startInternal() {}
     public async stopInternal() {}
@@ -14,7 +14,7 @@ class TestStartStop extends StartStopService {
 class ManualStartStop extends StartStopService {
     public resolve: any;
     constructor() {
-        super("TEST SERVICE");
+        super("test-service");
     }
     public async startInternal() {
         await new Promise(resolve => {
@@ -35,7 +35,7 @@ describe("StartStop", () => {
             await testService.start();
             assert.fail();
         } catch (err) {
-            expect((err as Error).message).to.equal("TEST SERVICE: Already started.");
+            expect((err as Error).message).to.equal("Already started.");
         }
 
         await testService.stop();
@@ -61,7 +61,7 @@ describe("StartStop", () => {
             await testService.start();
             assert.fail();
         } catch (err) {
-            expect((err as Error).message).to.equal("TEST SERVICE: Currently starting.");
+            expect((err as Error).message).to.equal("Currently starting.");
         }
 
         testService.resolve();

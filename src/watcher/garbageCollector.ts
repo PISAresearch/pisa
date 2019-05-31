@@ -1,7 +1,6 @@
 import { IAppointmentStore } from "./store";
 import { AppointmentSubscriber } from "./appointmentSubscriber";
 import { ethers } from "ethers";
-import logger from "../logger";
 import { StartStopService } from "../dataEntities";
 
 /**
@@ -23,7 +22,7 @@ export class AppointmentStoreGarbageCollector extends StartStopService {
         private readonly store: IAppointmentStore,
         private readonly appointmentSubscriber: AppointmentSubscriber
     ) {
-        super("GC");
+        super("garbage-collector");
     }
 
     // only allow one collection at a time
@@ -52,7 +51,7 @@ export class AppointmentStoreGarbageCollector extends StartStopService {
      * @param blockNumber
      */
     public async removeExpiredSince(blockNumber: number) {
-        logger.info(`GC: Block mined ${blockNumber}.`);
+        this.logger.info(`Block mined ${blockNumber}.`);
         // it is safe for this function to be called concurrently
         // but there's no point, both would try to the same work which is wasteful
         // so we lock here anyway and just wait for the next block
@@ -63,17 +62,17 @@ export class AppointmentStoreGarbageCollector extends StartStopService {
                 // appointments expire when the current block is greater than their end time
                 // find all blocks that are expired
                 // we then allow a number of confirmations to ensure that we can safely dispose the block
-                logger.info(`GC: Collecting appointments expired since ${blockNumber - this.confirmationCount}.`);
+                this.logger.info(`Collecting appointments expired since ${blockNumber - this.confirmationCount}.`);
                 const expiredAppointments = this.store.getExpiredSince(blockNumber - this.confirmationCount);
                 if (expiredAppointments.length > 0) {
-                    logger.info(`GC: Collecting ${expiredAppointments.length} expired appointments.`);
+                    this.logger.info(`Collecting ${expiredAppointments.length} expired appointments.`);
 
                     // wait for all appointments to be removed from the store and the subscribers
                     await Promise.all(
                         expiredAppointments.map(async a => {
                             await this.store.removeById(a.id);
                             this.appointmentSubscriber.unsubscribe(a.id, a.getEventFilter());
-                            logger.info(a.formatLog(`GC: Collected appointment with end: ${a.endBlock}.`));
+                            this.logger.info(a.formatLog(`Collected appointment with end: ${a.endBlock}.`));
                         })
                     );
                 }
@@ -84,9 +83,9 @@ export class AppointmentStoreGarbageCollector extends StartStopService {
                 // an error here means that we were likely unable to collect all, or some of, the appointments
                 // consecutive errors could mean we have a systematic problem, or connection issues with the store
                 // in either case the problem is very serious - so we stop the GC
-                logger.error("GC: Unexpected error.");
-                logger.error(`GC: Consecutive errors: ${this.consecutiveErrors}.`);
-                logger.error(doh);
+                this.logger.error("Unexpected error.");
+                this.logger.error(`Consecutive errors: ${this.consecutiveErrors}.`);
+                this.logger.error(doh);
             } finally {
                 this.collecting = false;
             }
