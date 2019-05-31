@@ -102,7 +102,8 @@ export abstract class EthereumAppointment implements IEthereumAppointment {
             contractAddress: this.getContractAddress(),
             contractAbi: this.getContractAbi(),
             functionName: this.getResponseFunctionName(),
-            functionArgs: this.getResponseFunctionArgs()
+            functionArgs: this.getResponseFunctionArgs(),
+            endBlock: this.endBlock
         };
     }
 
@@ -144,4 +145,5 @@ export interface IEthereumResponseData {
     contractAbi: any;
     functionName: string;
     functionArgs: any[];
+    endBlock: number;
 }

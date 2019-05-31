@@ -82,7 +82,7 @@ export abstract class Responder extends EventEmitter {
 export abstract class EthereumResponder extends Responder {
     // TODO-93: the correct gas limit should be provided based on the appointment/integration.
     //          200000 is enough for Kitsune and Raiden (see https://github.com/raiden-network/raiden-contracts/blob/master/raiden_contracts/data/gas.json).
-    private static GAS_LIMIT = 200000;
+    public static readonly  GAS_LIMIT = 200000;
 
     // implementations should query the provider (or a service) to figure out the appropriate gas price
     protected gasPrice = new ethers.utils.BigNumber(21000000000);
