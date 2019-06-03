@@ -1,6 +1,6 @@
 ---
 eip: ??
-title: Data Registry for Temporary Storage
+title: Log Registry
 author:
 type: Standards Track
 category: ERC
@@ -10,11 +10,9 @@ created: 2019-04-11
 
 ## Abstract
 
-We propose a data registry that supports the storage and retrieval of short-lived data. This EIP provides an overview of the data registry and outlines its API to support other contracts interacting with it. 
-
-## Motivation 
-
-In the short-term, the data registry is useful for storing records of on-chain challenges for off-chain protocols. The challenge records can be used as evidence (alongside a signed receipt) to hold a watching service accountable. In the future, we envision this registry will be useful for any accountable central service or where there is a need for smart contracts to share data amongst each other. 
+We propose a registry to record logs for a limited period of time.
+In the short-term, the log registry is useful for recording disputes in off-chain channels. Given a signed receipt and the dispute records, the customer can use this as evidence to prove a third party watching service has cheated and thus hold them financially accountable. 
+In the future, a log registry is useful for any application in the Ethereum eco-system that may wish to hire a third party watching service to respond to an on-chain event on behalf of the user.
 
 ## Specification
 
@@ -25,9 +23,9 @@ In the short-term, the data registry is useful for storing records of on-chain c
 ## No signatures
 This standard does not require any signatures. It is only concerned with storing data on behalf of smart contracts.
 
-## DataRegistry
+## LogRegistry
 
-The DataRegistry is responsible for maintaining a list of DataShards. Each DataShard is responsible for storing a list of encoded bytes for a given smart contract. All DataShards have the same life-span (i.e. 1 day, 2 weeks, etc). It is eventually reset by self-destructing and re-creating the data shard's smart contract after its life-span. 
+The LogRegistry is responsible for maintaining a list of DataShards. Each DataShard is responsible for storing a list of encoded bytes for a given smart contract. All DataShards have the same life-span (i.e. 1 day, 2 weeks, etc). It is eventually reset by self-destructing and re-creating the data shard's smart contract after its life-span. 
 
 #### Total Data Shards 
 
@@ -36,7 +34,7 @@ uint constant INTERVAL;
 uint constant TOTAL_SHARDS;
 ```
 
-Every DataShard has a life-span of *INTERVAL* and there is a total of *TOTAL_SHARDS* in the smart contract. After each interval, the next data shard can be created by the data registry. When we re-visit an existing shard, the data registry will destory and re-create it. This is mostly a workaround to delete the contents of a mapping.
+Every DataShard has a life-span of *INTERVAL* and there is a total of *TOTAL_SHARDS* in the smart contract. After each interval, the next data shard can be created by the log registry. When we re-visit an existing shard, the log registry will destory and re-create it. This is mostly a workaround to delete the contents of a mapping.
 
 #### Uniquely identifying stored data 
 
@@ -79,7 +77,7 @@ As mentioned previously, the data recorded is listed according to *msg_sender* a
 function fetchRecords(uint _datashard, address _sc, uint _id) public returns (bytes[] memory)
 ```
 
-Fetches the list of data records for a given smart contract. The *_datashard* informs the DataRegistry which DataShard to use when fetching the records.
+Fetches the list of data records for a given smart contract. The *_datashard* informs the LogRegistry which DataShard to use when fetching the records.
 
 ``` js
 function fetchRecord(uint _datashard, address _sc, uint _id, uint _index) public returns (bytes memory)
@@ -104,7 +102,7 @@ Given a timestamp information, this will return the address for a DataShard.
 
 ## DataShard
 
-Each DataShard has a minimum life-span and it stores a list of data records. All functions can ONLY be executed by the owner of this contract - which should be the DataRegistry. 
+Each DataShard has a minimum life-span and it stores a list of data records. All functions can ONLY be executed by the owner of this contract - which should be the LogRegistry. 
 
 
 #### Storing data 
@@ -134,14 +132,14 @@ Returns the entire list *bytes[]* for the smart contract and the respective ID.
 function kill() onlyOwner public {
 ```
 
-This kills the DataShard. It is only callable by the DataRegistry conntract. This is used to let us destroy mapping records.
+This kills the DataShard. It is only callable by the LogRegistry contract. This is used to let us destroy mapping records.
 
 ## Implementation
 
 There is a single implementation by PISA Research Limited.
 
 #### Example implementations are available at
-- [PISA  implementation] https://github.com/PISAresearch/pisa/tree/master/dataregistry/contracts
+- [PISA  implementation] https://github.com/PISAresearch/pisa/tree/master/logregistry/contracts
 
 
 ## History
