@@ -55,7 +55,7 @@ export class ConfigManager {
             string: true
         }),
         new ConfigProperty("loglevel", config => config.loglevel, {
-            description: "Verboseness of the logs. Accepted values by increasing verbosity: 'error', 'info', 'debug'",
+            description: "Verbosity of the logs. Accepted values by increasing verbosity: 'error', 'info', 'debug'",
             string: true
         }),
         new ConfigProperty("rate-limit-user-window-ms", config => config.rateLimitUserWindowMs, {
