@@ -8,7 +8,8 @@ export type LogLevel = "error" | "info" | "debug";
 export const supportedLogLevels: LogLevel[] = ["error", "info", "debug"];
 type NpmLogLevel = "error" | "warn" | "info" | "verbose" | "debug" | "silly";
 
-let logLevel: LogLevel = "info";
+// Default to log level "info", unless we are running tests, then "debug"
+let logLevel: LogLevel = process.env.NODE_ENV === "test" ? "debug" : "info";
 
 // Returns the numerical npm log level
 function getLevelNumber(level: NpmLogLevel): number {
