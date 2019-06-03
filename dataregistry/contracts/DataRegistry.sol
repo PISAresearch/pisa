@@ -3,12 +3,12 @@ pragma experimental ABIEncoderV2;
 
 // There are two contracts:
 // - DataShard maintains data sent on a given day
-// - DataRegistry maintains a list of DataShards, and ensures delete/create each DataShard after TOTAL_SHARDS
+// - LogRegistry maintains a list of DataShards, and ensures delete/create each DataShard after TOTAL_SHARDS
 contract DataShard {
 
    uint public creationTime; // What unix timestamp was this record created?
 
-   address payable owner; // DataRegistry Contract
+   address payable owner; // LogRegistry Contract
 
    // The DisputeRegistry should be the owner!
    modifier onlyOwner {
@@ -62,7 +62,7 @@ contract DataShard {
 // Two functions:
 // - setData stores the data according to a unique ID and the sender's address.
 // - fetchRecords lets us retrieve stored data from a datashard based on a unique ID and the sender's address
-contract DataRegistry {
+contract LogRegistry {
 
    // Used to signal to the world about a new dispute record
    event NewRecord(uint datashard, address sc, uint id, uint index, bytes data);
@@ -164,13 +164,12 @@ contract DataRegistry {
       // Fetch the DataShard for this day. (It may reset it under the hood)
       DataShard rc = resetRecord(datashard);
 
-      uint index;
-
       // Update record!
+      uint index;
       index = rc.setData(msg.sender, _id, _data);
 
       // Tell the world we added the record!
-      emit NewRecord(datashard, msg.sender, _id, _index, _data);
+      emit NewRecord(datashard, msg.sender, _id, index, _data);
 
       return (datashard, index);
    }
