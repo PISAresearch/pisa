@@ -2,7 +2,7 @@ import { PisaService } from "./service";
 import { ethers } from "ethers";
 import jsonConfig, { IArgConfig, ConfigManager } from "./dataEntities/config";
 import { withDelay, validateProvider, getJsonRPCProvider } from "./utils/ethers";
-import logger from "./logger";
+import logger, { setLogLevel, LogLevel, supportedLogLevels } from "./logger";
 import levelup, { LevelUp } from "levelup";
 import encodingDown from "encoding-down";
 import leveldown from "leveldown";
@@ -26,11 +26,18 @@ const checkArgs = (args: IArgConfig) => {
         console.error("Options 'rate-limit-global-windowms' and 'rate-limit-global-max' must be provided together.");
         process.exit(1);
     }
+
+    if (commandLineConfig.loglevel && !supportedLogLevels.includes(commandLineConfig.loglevel as LogLevel)) {
+        console.error("Options 'loglevel' can only be 'error', 'info' or 'debug'.");
+        process.exit(1);
+    }
 };
 
 async function startUp() {
     checkArgs(commandLineConfig);
     const config = Object.assign(jsonConfig, commandLineConfig);
+
+    setLogLevel(config.loglevel as LogLevel);
 
     const provider = getJsonRPCProvider(config.jsonRpcUrl);
     const delayedProvider = getJsonRPCProvider(config.jsonRpcUrl);

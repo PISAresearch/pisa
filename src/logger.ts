@@ -2,6 +2,26 @@ import { createLogger, format, transports } from "winston";
 import { getRequestId } from "./customExpressHttpContext";
 import fs from "fs";
 const logDir = "logs";
+
+// For now, we only support three log levels
+export type LogLevel = "error" | "info" | "debug";
+export const supportedLogLevels: LogLevel[] = ["error", "info", "debug"];
+type NpmLogLevel = "error" | "warn" | "info" | "verbose" | "debug" | "silly";
+
+let logLevel: LogLevel = "info";
+
+// Returns the numerical npm log level
+function getLevelNumber(level: NpmLogLevel): number {
+    return {
+        error: 0,
+        warn: 1,
+        info: 2,
+        verbose: 3,
+        debug: 4,
+        silly: 5
+    }[level];
+}
+
 // create the log directory if it doesnt exist
 if (!fs.existsSync("./" + logDir)) {
     fs.mkdirSync("./" + logDir);
@@ -16,16 +36,39 @@ const myFormat = format.printf(info => {
 
 const combinedFormats = format.combine(format.timestamp(), myFormat);
 
+// Default logger
+const logger = createNamedLogger(null);
+export default logger;
+
+/**
+ * Set the log level for new loggers and for the default logger.
+ * NOTE: make sure to call this before any other logger is created.
+ **/
+export function setLogLevel(level: LogLevel) {
+    logLevel = level; // set log level for future logs
+    logger.level = level; // set log level for the default logger as well
+}
+
+/**
+ * Creates a named logger with name `name`. If `name` is given, the logs are saved in file with the `${name}-` prefix.
+ * Otherwise, there will be no prefix.
+ * @param name
+ */
 export function createNamedLogger(name: string | null) {
     const prefix = name !== null ? name + "-" : "";
+
+    const levelNumber = getLevelNumber(logLevel);
+
+    const selectedTransports: transports.FileTransportInstance[] = [];
+    for (const level of supportedLogLevels) {
+        if (getLevelNumber(level) <= levelNumber) {
+            selectedTransports.push(new transports.File({ dirname: logDir, filename: `${prefix}${level}.log`, level }));
+        }
+    }
+
     const newLogger = createLogger({
-        level: "info",
         format: combinedFormats,
-        transports: [
-            new transports.File({ dirname: logDir, filename: `${prefix}error.log`, level: "error" }),
-            new transports.File({ dirname: logDir, filename: `${prefix}info.log`, level: "info" }),
-            new transports.File({ dirname: logDir, filename: `${prefix}debug.log`, level: "debug" })
-        ]
+        transports: selectedTransports
     });
 
     // console log if we're not in production
@@ -39,7 +82,3 @@ export function createNamedLogger(name: string | null) {
 
     return newLogger;
 }
-
-// Default logger
-const logger = createNamedLogger(null);
-export default logger;
