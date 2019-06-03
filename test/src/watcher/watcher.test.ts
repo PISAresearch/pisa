@@ -254,7 +254,7 @@ describe("Watcher", () => {
     it("observe does nothing during a reorg", async () => {
         const blockCache = new BlockCache(200);
         const blockProcessor = new BlockProcessor(provider, blockCache);
-        const reorgDetect = new ReorgDetector(provider, blockProcessor, blockCache, new ReorgHeightListenerStore());
+        const reorgDetect = new ReorgDetector(provider, blockProcessor, new ReorgHeightListenerStore());
         const spiedReorgDetect = spy(reorgDetect);
         const watcher = new Watcher(responderInstance, reorgDetect, appointmentSubscriber, storeInstanceThrow);
         await watcher.start();

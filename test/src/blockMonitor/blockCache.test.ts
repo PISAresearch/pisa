@@ -1,6 +1,6 @@
 import "mocha";
 import { expect } from "chai";
-import { BlockCache, IBlockStub } from "../../../src/blockMonitor";
+import { BlockCache } from "../../../src/blockMonitor";
 import { ethers } from "ethers";
 
 function generateBlocks(nBlocks: number, initialHeight: number, chain: string): ethers.providers.Block[] {

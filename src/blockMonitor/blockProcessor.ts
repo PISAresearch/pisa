@@ -1,6 +1,6 @@
 import { ethers } from "ethers";
 import { StartStopService } from "../dataEntities";
-import { BlockCache } from "./blockCache";
+import { ReadOnlyBlockCache, BlockCache } from "./blockCache";
 import { IBlockStub } from "./blockStub";
 
 /**
@@ -11,6 +11,11 @@ import { IBlockStub } from "./blockStub";
  */
 export class BlockProcessor extends StartStopService {
     private lastBlockHashReceived: string;
+
+    private mBlockCache: BlockCache;
+    public get blockCache(): ReadOnlyBlockCache {
+        return this.mBlockCache;
+    }
 
     public get head(): IBlockStub | null {
         return this.blockCache.getBlockStub(this.lastBlockHashReceived);
@@ -23,8 +28,10 @@ export class BlockProcessor extends StartStopService {
      */
     public static readonly NEW_HEAD_EVENT = "new_head";
 
-    constructor(private provider: ethers.providers.BaseProvider, private blockCache: BlockCache) {
+    constructor(private provider: ethers.providers.BaseProvider, blockCache: BlockCache) {
         super("block-processor");
+
+        this.mBlockCache = blockCache;
 
         this.handleBlockEvent = this.handleBlockEvent.bind(this);
     }
@@ -54,7 +61,7 @@ export class BlockProcessor extends StartStopService {
 
             // populate fetched blocks into cache, starting from the deepest
             for (const block of blocksToAdd.reverse()) {
-                this.blockCache.addBlock(block);
+                this.mBlockCache.addBlock(block);
             }
 
             // is the observed block still the last block received?

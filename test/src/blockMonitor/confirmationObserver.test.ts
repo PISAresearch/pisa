@@ -98,7 +98,12 @@ describe("ConfirmationObserver", () => {
             writable: true
         });
 
-        confirmationObserver = new ConfirmationObserver(blockCache, mockBlockProcessor);
+        Object.defineProperty(mockBlockProcessor, "blockCache", {
+            value: blockCache,
+            writable: false
+        });
+
+        confirmationObserver = new ConfirmationObserver(mockBlockProcessor);
         await confirmationObserver.start();
     });
 

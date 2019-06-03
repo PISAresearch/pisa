@@ -1,7 +1,6 @@
 import { ethers } from "ethers";
 import { ArgumentError, StartStopService } from "../dataEntities";
 import { BlockStubChain, IBlockStub } from "./blockStub";
-import { BlockCache } from "./blockCache";
 import { ReorgHeightListenerStore } from "./reorgHeightListener";
 import { BlockProcessor } from "./blockProcessor";
 
@@ -16,7 +15,7 @@ export class ReorgDetector extends StartStopService {
     private conductingReorg: boolean = false;
 
     public get maxDepth() {
-        return this.blockCache.maxDepth;
+        return this.blockProcessor.blockCache.maxDepth;
     }
 
     /**
@@ -45,7 +44,6 @@ export class ReorgDetector extends StartStopService {
     constructor(
         private readonly provider: ethers.providers.BaseProvider,
         private readonly blockProcessor: BlockProcessor,
-        private readonly blockCache: BlockCache,
         public readonly store: ReorgHeightListenerStore
     ) {
         super("reorg-detector");
@@ -72,7 +70,7 @@ export class ReorgDetector extends StartStopService {
 
         try {
             // get the full block information for the incoming block
-            const fullBlock = this.blockCache.getBlockStub(blockHash)!;
+            const fullBlock = this.blockProcessor.blockCache.getBlockStub(blockHash)!;
 
             if (!this.headBlock) {
                 // no current block - start of operation
@@ -199,7 +197,7 @@ export class ReorgDetector extends StartStopService {
         differenceBlocks: IBlockStub[],
         minHeight: number
     ): BlockStubChain | null {
-        const blockRemote = this.blockCache.getBlockStub(remoteBlockHash);
+        const blockRemote = this.blockProcessor.blockCache.getBlockStub(remoteBlockHash);
         if (!blockRemote) return null;
         differenceBlocks.push(blockRemote);
         if (blockRemote.number <= minHeight) return null;

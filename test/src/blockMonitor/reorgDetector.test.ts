@@ -201,7 +201,7 @@ class ReorgMocks {
         const store = new ReorgHeightListenerStore();
         const blockCache = new BlockCache(maxDepth);
         const blockProcessor: BlockProcessor = new BlockProcessor(provider, blockCache);
-        const reorgDetector = new ReorgDetector(provider, blockProcessor, blockCache, store);
+        const reorgDetector = new ReorgDetector(provider, blockProcessor, store);
         await blockProcessor.start();
         await reorgDetector.start();
         return { blockCache, blockProcessor, reorgDetector, provider, store };
