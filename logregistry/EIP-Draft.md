@@ -5,7 +5,7 @@ author:
 type: Standards Track
 category: ERC
 status: Draft
-created: 2019-04-11
+created: 2019-06-03
 ---
 
 ## Abstract
@@ -138,8 +138,9 @@ This kills the DataShard. It is only callable by the LogRegistry contract. This 
 
 There is a single implementation by PISA Research Limited.
 
-#### Example implementations are available at
-- [PISA  implementation] https://github.com/PISAresearch/pisa/tree/master/logregistry/contracts
+#### Example implementation of LogRegistry and an example contract 
+- [Log Registry] https://github.com/PISAresearch/pisa/blob/master/logregistry/contracts/LogRegistry.sol
+- [Challenge Contract] https://github.com/PISAresearch/pisa/blob/master/logregistry/contracts/ChallengeCommandContract.sol
 
 
 ## History
