@@ -45,6 +45,7 @@ const blocksByHash: { [key: string]: IBlockStub } = {
 describe("BlockProcessor", () => {
     const maxDepth = 5;
     let blockCache: BlockCache;
+    let blockProcessor: BlockProcessor;
     let mockProvider: ethers.providers.BaseProvider;
     let provider: ethers.providers.BaseProvider;
 
@@ -57,6 +58,8 @@ describe("BlockProcessor", () => {
             when(mockProvider.getBlock(curBlock.number)).thenResolve(curBlock as ethers.providers.Block);
             curBlockHash = curBlock.parentHash;
         }
+
+        when(mockProvider.getBlockNumber()).thenResolve(blocksByHash[hash].number);
 
         provider.emit("block", blocksByHash[hash].number);
     }
@@ -86,10 +89,25 @@ describe("BlockProcessor", () => {
         provider = instance(mockProvider);
     });
 
+    afterEach(async () => {
+        await blockProcessor.stop();
+    });
+
+    it("correctly processes the blockchain head after startup", async () => {
+        emitBlockHash("a1");
+
+        blockProcessor = new BlockProcessor(provider, blockCache);
+        await blockProcessor.start();
+
+        expect(blockProcessor.head.hash).to.equal("a1");
+    });
+
     it("adds the first block received to the cache and emits a new head event", async () => {
-        const bp = new BlockProcessor(provider, blockCache);
+        blockProcessor = new BlockProcessor(provider, blockCache);
+        await blockProcessor.start();
+
         const res = new Promise(resolve => {
-            bp.on(BlockProcessor.NEW_HEAD_EVENT, (blockNumber, blockHash) => {
+            blockProcessor.on(BlockProcessor.NEW_HEAD_EVENT, (blockNumber, blockHash) => {
                 expect(blockCache.hasBlock("a5")).to.be.true;
 
                 resolve({ number: blockNumber, hash: blockHash });
@@ -102,7 +120,8 @@ describe("BlockProcessor", () => {
     });
 
     it("adds to the blockCache all ancestors until a known block", async () => {
-        const bp = new BlockProcessor(provider, blockCache);
+        blockProcessor = new BlockProcessor(provider, blockCache);
+        await blockProcessor.start();
 
         emitBlockHash("a1");
 
@@ -114,6 +133,9 @@ describe("BlockProcessor", () => {
     });
 
     it("adds both chain until the common ancestor if there is a fork", async () => {
+        blockProcessor = new BlockProcessor(provider, blockCache);
+        await blockProcessor.start();
+
         emitBlockHash("a1");
         emitBlockHash("a6");
         emitBlockHash("b6");
@@ -127,6 +149,9 @@ describe("BlockProcessor", () => {
     });
 
     it("adds both chain until the common ancestor if there is a fork", async () => {
+        blockProcessor = new BlockProcessor(provider, blockCache);
+        await blockProcessor.start();
+
         emitBlockHash("a1");
         emitBlockHash("a10");
         emitBlockHash("b10");

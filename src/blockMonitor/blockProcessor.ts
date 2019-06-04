@@ -1,7 +1,8 @@
 import { ethers } from "ethers";
-import { StartStopService } from "../dataEntities";
+import { StartStopService, ApplicationError } from "../dataEntities";
 import { ReadOnlyBlockCache, BlockCache } from "./blockCache";
 import { IBlockStub } from "./blockStub";
+import { waitForEvent } from "../utils";
 
 /**
  * Listens to the provider for new blocks, and updates `blockCache` with all the blocks, making sure that each block
@@ -14,7 +15,7 @@ export class BlockProcessor extends StartStopService {
     private lastBlockHashReceived: string;
 
     // keeps track of the latest known head received
-    private headHash: string | null = null;
+    private headHash: string;
 
     private mBlockCache: BlockCache;
 
@@ -28,9 +29,12 @@ export class BlockProcessor extends StartStopService {
     /**
      * Returns the IBlockStub of the latest known head block, or null if none is known yet
      */
-    public get head(): IBlockStub | null {
-        if (this.headHash === null) return null;
-        else return this.blockCache.getBlockStub(this.headHash);
+    public get head(): IBlockStub {
+        const blockStub = this.blockCache.getBlockStub(this.headHash);
+        if (blockStub === null) {
+            throw new ApplicationError(`Head block ${this.headHash} not found in the BlockCache, but should be there`);
+        }
+        return blockStub;
     }
 
     /**
@@ -45,18 +49,22 @@ export class BlockProcessor extends StartStopService {
 
         this.mBlockCache = blockCache;
 
-        this.handleBlockEvent = this.handleBlockEvent.bind(this);
+        this.processBlockNumber = this.processBlockNumber.bind(this);
     }
 
     protected async startInternal(): Promise<void> {
-        this.provider.on("block", this.handleBlockEvent);
+        // Make sure the current head block is processed
+        const initialBlockNumber = await this.provider.getBlockNumber();
+        await this.processBlockNumber(initialBlockNumber);
+
+        this.provider.on("block", this.processBlockNumber);
     }
 
     protected async stopInternal(): Promise<void> {
-        this.provider.removeListener("block", this.handleBlockEvent);
+        this.provider.removeListener("block", this.processBlockNumber);
     }
 
-    private async handleBlockEvent(blockNumber: number) {
+    private async processBlockNumber(blockNumber: number) {
         try {
             const observedBlock = await this.provider.getBlock(blockNumber);
 
