@@ -131,7 +131,7 @@ Each DataShard has a minimum life-span and it stores a list of data records. All
 #### Storing data 
 
 ``` js
-function setData(address sc, uint _id, bytes memory _data) onlyOwner public {
+function setData(address _sc, uint _id, bytes memory _data) onlyOwner public {
 ```
 
 
