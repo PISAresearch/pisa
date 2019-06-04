@@ -3,6 +3,20 @@ import { ApplicationError } from "../dataEntities";
 import { IBlockStub, BlockStubChain } from "./blockStub";
 
 /**
+ * This interface represents the read-only view of a BlockCache.
+ */
+export interface ReadOnlyBlockCache {
+    readonly maxDepth: number;
+    readonly maxHeight: number;
+    readonly minHeight: number;
+    canAddBlock(block: ethers.providers.Block): boolean;
+    getBlockStubChain(blockHash: string): BlockStubChain | null;
+    getBlockStub(blockHash: string): IBlockStub | null;
+    hasBlock(blockHash: string): boolean;
+    getConfirmations(headBlockHash: string, txHash: string): number;
+}
+
+/**
  * Utility class to store and query info on full blocks up to a given maximum depth `maxDepth`, compared to the current
  * maximum height ever seen.
  * It prunes all the blocks at depth bigger than `maxDepth`, or with height smaller than the first block that was added.
@@ -19,23 +33,23 @@ import { IBlockStub, BlockStubChain } from "./blockStub";
  * Note that in order to guarantee the invariant (1), `addBlock` can be safely called even for blocks that will not
  * actually be added (for example because they are already too deep); in that case, it will return `false`.
  **/
-export abstract class ReadOnlyBlockCache {
-    protected blockStubsByHash: Map<string, BlockStubChain> = new Map();
+export class BlockCache implements ReadOnlyBlockCache {
+    private blockStubsByHash: Map<string, BlockStubChain> = new Map();
 
     // set of tx hashes per block hash, for fast lookup
-    protected txHashesByBlockHash: Map<string, Set<string>> = new Map();
+    private txHashesByBlockHash: Map<string, Set<string>> = new Map();
 
     // store block hashes at a specific height (there could be more than one at some height because of forks)
-    protected blockHashesByHeight: Map<number, Set<string>> = new Map();
+    private blockHashesByHeight: Map<number, Set<string>> = new Map();
 
     // Next height to be pruned; the cache will not store a block with height strictly smaller than pruneHeight
-    protected pruneHeight: number;
+    private pruneHeight: number;
 
     // True before the first block ever is added
-    protected isEmpty = true;
+    private isEmpty = true;
 
     // Height of the highest known block
-    protected mMaxHeight = 0;
+    private mMaxHeight = 0;
     public get maxHeight() {
         return this.mMaxHeight;
     }
@@ -58,7 +72,7 @@ export abstract class ReadOnlyBlockCache {
     constructor(public readonly maxDepth: number) {}
 
     // Removes all info related to a block in blockStubsByHash and txHashesByBlockHash
-    protected removeBlock(blockHash: string) {
+    private removeBlock(blockHash: string) {
         const block = this.blockStubsByHash.get(blockHash);
         if (!block) {
             // This would signal a bug
@@ -75,7 +89,7 @@ export abstract class ReadOnlyBlockCache {
     }
 
     // Remove all the blocks that are deeper than maxDepth, and all connected information.
-    protected prune() {
+    private prune() {
         while (this.pruneHeight < this.minHeight) {
             for (const hash of this.blockHashesByHeight.get(this.pruneHeight) || []) {
                 this.removeBlock(hash);
@@ -87,7 +101,7 @@ export abstract class ReadOnlyBlockCache {
     }
 
     // Makes a new block stub, linking the parent if available
-    protected makeBlockStub(hash: string, number: number, parentHash: string) {
+    private makeBlockStub(hash: string, number: number, parentHash: string) {
         const parentBlockStubChain = this.blockStubsByHash.get(parentHash);
         let newBlockStubChain: BlockStubChain;
         if (parentBlockStubChain === undefined) {
@@ -114,7 +128,7 @@ export abstract class ReadOnlyBlockCache {
      * Here we check that the block is not actually already added, and it is not below a height
      * that would be pruned immediately.
      */
-    protected shouldAddBlock(block: ethers.providers.Block) {
+    private shouldAddBlock(block: ethers.providers.Block) {
         if (this.blockStubsByHash.has(block.hash)) {
             // block already in memory
             return false;
@@ -127,56 +141,6 @@ export abstract class ReadOnlyBlockCache {
         return true;
     }
 
-    /**
-     * Returns the `BlockStubChain` for the block with hash `blockHash`, or `null` if the block is not in cache.
-     * @param blockHash
-     */
-    public getBlockStubChain(blockHash: string): BlockStubChain | null {
-        return this.blockStubsByHash.get(blockHash) || null;
-    }
-
-    /**
-     * Returns the `IBlockStub` for the block with hash `blockHash`, or `null` if the block is not in cache.
-     * @param blockHash
-     */
-    public getBlockStub(blockHash: string): IBlockStub | null {
-        const blockStubChain = this.getBlockStubChain(blockHash);
-        if (blockStubChain === null) {
-            return null;
-        }
-        return blockStubChain.asBlockStub();
-    }
-
-    /**
-     * Returns true if the block with hash `blockHash` is currently in cache.
-     **/
-    public hasBlock(blockHash: string) {
-        return this.blockStubsByHash.has(blockHash);
-    }
-
-    /**
-     * Returns number of confirmations using `headBlockHash` as tip of the blockchain, looking for `txHash` among the ancestor blocks;
-     * return 0 if no ancestor containing the transaction is found.
-     * Note: This will return 0 for transactions already at depth bigger than `this.maxDepth` when this function is called.
-     */
-    public getConfirmations(headBlockHash: string, txHash: string): number {
-        let depth = 0;
-        let curBlock = this.getBlockStub(headBlockHash);
-        while (curBlock !== null) {
-            const txsInCurBlock = this.txHashesByBlockHash.get(curBlock.hash);
-            if (txsInCurBlock && txsInCurBlock.has(txHash)) {
-                return depth + 1;
-            }
-            curBlock = this.getBlockStub(curBlock.parentHash);
-            depth++;
-        }
-
-        // Not found
-        return 0;
-    }
-}
-
-export class BlockCache extends ReadOnlyBlockCache {
     /**
      * Adds `block`to the cache.
      * @param block
@@ -222,5 +186,53 @@ export class BlockCache extends ReadOnlyBlockCache {
         }
 
         return true;
+    }
+
+    /**
+     * Returns the `BlockStubChain` for the block with hash `blockHash`, or `null` if the block is not in cache.
+     * @param blockHash
+     */
+    public getBlockStubChain(blockHash: string): BlockStubChain | null {
+        return this.blockStubsByHash.get(blockHash) || null;
+    }
+
+    /**
+     * Returns the `IBlockStub` for the block with hash `blockHash`, or `null` if the block is not in cache.
+     * @param blockHash
+     */
+    public getBlockStub(blockHash: string): IBlockStub | null {
+        const blockStubChain = this.getBlockStubChain(blockHash);
+        if (blockStubChain === null) {
+            return null;
+        }
+        return blockStubChain.asBlockStub();
+    }
+
+    /**
+     * Returns true if the block with hash `blockHash` is currently in cache.
+     **/
+    public hasBlock(blockHash: string): boolean {
+        return this.blockStubsByHash.has(blockHash);
+    }
+
+    /**
+     * Returns number of confirmations using `headBlockHash` as tip of the blockchain, looking for `txHash` among the ancestor blocks;
+     * return 0 if no ancestor containing the transaction is found.
+     * Note: This will return 0 for transactions already at depth bigger than `this.maxDepth` when this function is called.
+     */
+    public getConfirmations(headBlockHash: string, txHash: string): number {
+        let depth = 0;
+        let curBlock = this.getBlockStub(headBlockHash);
+        while (curBlock !== null) {
+            const txsInCurBlock = this.txHashesByBlockHash.get(curBlock.hash);
+            if (txsInCurBlock && txsInCurBlock.has(txHash)) {
+                return depth + 1;
+            }
+            curBlock = this.getBlockStub(curBlock.parentHash);
+            depth++;
+        }
+
+        // Not found
+        return 0;
     }
 }
