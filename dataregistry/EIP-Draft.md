@@ -27,7 +27,7 @@ To enforce temporary data persistence, there may be two or more DataShards. The 
 
 Inside a DataShard, all data is stored based on the mapping: 
  
- * address[] -> uint[] -> bytes[]
+ * address -> uint[] -> bytes[]
  * sc -> id[] -> data[]
 
 The smart contract *sc* that sends data to the DataRegistry is responsible for selecting an identifier *id*. For example, this is useful if a single smart contract manages hundreds of channels as each channel can have its own unique identifier. 
