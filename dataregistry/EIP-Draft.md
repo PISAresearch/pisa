@@ -1,6 +1,6 @@
 ---
 eip: ??
-title: Temporary Data Persistence via a Data Registry
+title: Temporary Data Persistence (DataRegistry)
 author:
 type: Standards Track
 category: ERC
