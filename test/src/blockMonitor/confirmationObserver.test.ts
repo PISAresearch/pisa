@@ -124,10 +124,11 @@ describe("ConfirmationObserver", () => {
     });
 
     it("waitForConfirmations resolves after the right amount of confirmations, but not before", async () => {
+        await emitNewHead("a1");
+
         const p = new PromiseSpy(confirmationObserver.waitForConfirmations(txHash, 4));
         await Promise.resolve(); // flush promises
 
-        await emitNewHead("a1");
         await emitNewHead("a2"); // first confirmation
         await emitNewHead("a3");
         await emitNewHead("a4");
@@ -180,9 +181,10 @@ describe("ConfirmationObserver", () => {
     });
 
     it("waitForFirstConfirmationOrBlockThreshold resolves when the transaction is mined", async () => {
+        await emitNewHead("a1");
+
         const p = new PromiseSpy(confirmationObserver.waitForFirstConfirmationOrBlockThreshold(txHash, 4));
 
-        await emitNewHead("a1");
         await Promise.resolve(); // flush promises
 
         expect(p.settled, "Did not settle too early").to.be.false;
