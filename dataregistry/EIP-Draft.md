@@ -23,7 +23,7 @@ The API is simple:
  * **Store Data** A smart contract can store data using dataregsitry.setData(id, bytes), where *id* is an identifier for the record
  * **Fetch Data** Another smart contract can look up the data using dataregistry.fetchRecord(datashard, sc, id, index). 
  
-To enforce temporary data persistence, there may be two or more DataShards. The DataRegistry will rotate which DataShard is used to store data based on a fixed interval (i.e. every week a new datashard is used). This lets us delete and re-create the DaaShard when it is selected to store new data. Thus it lets us guarantee that data will remain in the registry for a minimum period of time *INTERVAL* and eventually it will be discarded when the DataShard is reset. 
+To enforce temporary data persistence, there may be two or more DataShards. The DataRegistry will rotate which DataShard is used to store data based on a fixed interval (i.e. every week a new datashard is used). This lets us delete and re-create the DataShard when it is selected to store new data. Thus it lets us guarantee that data will remain in the registry for a minimum period of time *INTERVAL* and eventually it will be discarded when the DataShard is reset. 
 
 Inside a DataShard, all data is stored based on the mapping: 
  
