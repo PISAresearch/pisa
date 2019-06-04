@@ -141,7 +141,7 @@ This kills the DataShard. It is only callable by the DataRegistry contract. This
 There is a single implementation by PISA Research Limited.
 
 #### Example implementation of DataRegistry and an example contract 
-- [Data Registry] https://github.com/PISAresearch/pisa/blob/master/DataRegistry/contracts/DataRegistry.sol
+- [Data Registry] https://github.com/PISAresearch/pisa/blob/master/dataregistry/contracts/DataRegistry.sol
 - [Challenge Contract] https://github.com/PISAresearch/pisa/blob/master/DataRegistry/contracts/ChallengeCommandContract.sol
 
 
