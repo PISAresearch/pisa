@@ -3,7 +3,7 @@ pragma experimental ABIEncoderV2;
 
 // There are two contracts:
 // - DataShard maintains data sent on a given day
-// - LogRegistry maintains a list of DataShards, and ensures delete/create each DataShard after TOTAL_SHARDS
+// - LogRegistry maintains a list of DataShards, and ensures delete/create each DataShard after a long INTERVAL. 
 contract DataShard {
 
    uint public creationTime; // What unix timestamp was this record created?
