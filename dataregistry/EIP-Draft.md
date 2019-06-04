@@ -23,15 +23,19 @@ The API is simple:
  * **Store Data** A smart contract can store data using dataregsitry.setData(id, bytes), where *id* is an identifier for the record
  * **Fetch Data** Another smart contract can look up the data using dataregistry.fetchRecord(datashard, sc, id, index). 
  
-Under the hood, all data is stored as the mapping:
+To enforce temporary data persistence, there may be two or more DataShards. The DataRegistry will rotate which DataShard is used to store data based on a fixed interval (i.e. every week a new datashard is used). This lets us delete and re-create the DaaShard when it is selected to store new data. Thus it lets us guarantee that data will remain in the registry for a minimum period of time *INTERVAL* and eventually it will be discarded when the DataShard is reset. 
 
-sc -> id[] -> bytes[] 
-
-The smart contract *sc* that sends the data is responsible for selecting an identifier *id* for storing data. All new data is simply appended to the list *bytes[]*. We recommend all data is encoded (i.e. abi.encode) 
-
-Given the smart contract address *sc* and an identifier *id*, any other smart contract on Ethereum can fetch records from the registry.
+Inside a DataShard, all data is stored based on the mapping: 
  
-All data is guaranteed to remain in the registry for a minimum period of time *INTERVAL* and eventually it will be discarded. 
+ * address[] -> uint[] -> bytes[]
+ * sc -> id[] -> data[]
+
+The smart contract *sc* that sends data to the DataRegistry is responsible for selecting an identifier *id*. For example, this is useful if a single smart contract manages hundreds of channels as each channel can have its own unique identifier. 
+
+All new data for an *id* is simply appended to the list *bytes[]*. We recommend all data is encoded (i.e. abi.encode) to permit for a simple API. 
+
+Given the smart contract address *sc*, the datashard *datashard* and an identifier *id*, any other smart contract on Ethereum can fetch records from the registry.
+ 
 
 ## Specification
 
@@ -44,7 +48,7 @@ This standard does not require any signatures. It is only concerned with storing
 
 ## DataRegistry
 
-The DataRegistry is responsible for maintaining a list of DataShards. Each DataShard is responsible for storing a list of encoded bytes for a given smart contract. All DataShards have the same life-span (i.e. 1 day, 2 weeks, etc). It is eventually reset by self-destructing and re-creating the data shard after its life-span. 
+The DataRegistry is responsible for maintaining a list of DataShards. Each DataShard maintains a list of encoded bytes for a list of smart contracts. All DataShards have the same life-span (i.e. 1 day, 2 weeks, etc). It is eventually reset by self-destructing and re-creating the data shard after its life-span. 
 
 #### Total Data Shards 
 
@@ -53,7 +57,7 @@ uint constant INTERVAL;
 uint constant TOTAL_SHARDS;
 ```
 
-Every DataShard has a life-span of *INTERVAL* and there is a total of *TOTAL_SHARDS* in the smart contract. After each interval, the next data shard can be created by the data registry. When we re-visit an existing shard, the data registry will destory and re-create it. This is mostly a workaround to delete the contents of a mapping.
+Every DataShard has a life-span of *INTERVAL* and there is a total of *TOTAL_SHARDS* in the smart contract. After each interval, the next data shard can be created by the data registry. When we re-visit an existing shard, the data registry will destory and re-create it. 
 
 #### Uniquely identifying stored data 
 
