@@ -17,9 +17,10 @@ However we envision that a central data registry will be useful for cross-smart 
 
 ## High-level overview
 
-We can modify an existing smart contract *sc* to log important events in the DataRegistry. The API is simple:
+We can modify an existing smart contract *sc* to log important events in the DataRegistry. 
 
- * **Store Data** A smart contract can store data using dataregsitry.setData(id, <bytes>), where *id* is an identifier for the record
+The API is simple:
+ * **Store Data** A smart contract can store data using dataregsitry.setData(id, bytes), where *id* is an identifier for the record
  * **Fetch Data** Another smart contract can look up the data using dataregistry.fetchRecord(datashard, sc, id, index). 
  
 Under the hood, all data is stored as the mapping:
