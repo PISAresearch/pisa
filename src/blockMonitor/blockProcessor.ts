@@ -10,15 +10,27 @@ import { IBlockStub } from "./blockStub";
  * the `blockCache` with the new block and its ancestors.
  */
 export class BlockProcessor extends StartStopService {
+    // keeps track of the last block hash received, in order to correctly emit NEW_HEAD_EVENT
     private lastBlockHashReceived: string;
 
+    // keeps track of the latest known head received
+    private headHash: string | null = null;
+
     private mBlockCache: BlockCache;
+
+    /**
+     * Returns the ReadOnlyBlockCache associated to this BlockProcessor.
+     */
     public get blockCache(): ReadOnlyBlockCache {
         return this.mBlockCache;
     }
 
+    /**
+     * Returns the IBlockStub of the latest known head block, or null if none is known yet
+     */
     public get head(): IBlockStub | null {
-        return this.blockCache.getBlockStub(this.lastBlockHashReceived);
+        if (this.headHash === null) return null;
+        else return this.blockCache.getBlockStub(this.headHash);
     }
 
     /**
@@ -66,6 +78,7 @@ export class BlockProcessor extends StartStopService {
 
             // is the observed block still the last block received?
             if (this.lastBlockHashReceived === observedBlock.hash) {
+                this.headHash = observedBlock.hash;
                 this.emit(BlockProcessor.NEW_HEAD_EVENT, observedBlock.number, observedBlock.hash);
             }
         } catch (doh) {
