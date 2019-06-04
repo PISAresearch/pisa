@@ -15,6 +15,11 @@ We envision the data registry will be used to record on-chain dispute logs for o
 Given a signed receipt and the dispute logs, the client can use this as indisputable proof a third party watching service has cheated and thus hold them financially accountable. 
 However we envision that a central data registry will be useful for cross-smart contract communication and for extending accountable watching services to support several applications in the Ethereum eco-system.
 
+## High-level overview
+
+We can modify an existing smart contract *sc* to log events into the DataRegistry. This can be as simple as dataregsitry.setData(id, <bytes), where *id* is an identifier for the log. Under the hood, the data is stored as sc -> id -> bytes[]. So given the smart contract address *sc* and *id*, any other smart contract on Ethereum can fetch the logs from the registry. For example, it the call will be  can fetch the logs from dataregistry.fetchRecord(datashard, sc, id, index). 
+All data is guaranteed to remain in the registry for a minimum period of time *INTERVAL* and eventually it will be discarded. 
+
 ## Specification
 
 **NOTES**:
@@ -26,7 +31,7 @@ This standard does not require any signatures. It is only concerned with storing
 
 ## DataRegistry
 
-The DataRegistry is responsible for maintaining a list of DataShards. Each DataShard is responsible for storing a list of encoded bytes for a given smart contract. All DataShards have the same life-span (i.e. 1 day, 2 weeks, etc). It is eventually reset by self-destructing and re-creating the data shard's smart contract after its life-span. 
+The DataRegistry is responsible for maintaining a list of DataShards. Each DataShard is responsible for storing a list of encoded bytes for a given smart contract. All DataShards have the same life-span (i.e. 1 day, 2 weeks, etc). It is eventually reset by self-destructing and re-creating the data shard after its life-span. 
 
 #### Total Data Shards 
 
@@ -49,7 +54,7 @@ A brief overview: `
 
 * **_datashard** - Index for the DataShard that stores the relevant data. 
 
-* **_sc** - Sender's address that stored data in the registry. 
+* **_sc** - Smart contract's address that stored data in the registry. 
 
 * **_id** - An application-specific identifier to index data in the registry.
 
