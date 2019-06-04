@@ -3,6 +3,20 @@ import { ApplicationError } from "../dataEntities";
 import { IBlockStub, BlockStubChain } from "./blockStub";
 
 /**
+ * This interface represents the read-only view of a BlockCache.
+ */
+export interface ReadOnlyBlockCache {
+    readonly maxDepth: number;
+    readonly maxHeight: number;
+    readonly minHeight: number;
+    canAddBlock(block: ethers.providers.Block): boolean;
+    getBlockStubChain(blockHash: string): BlockStubChain | null;
+    getBlockStub(blockHash: string): IBlockStub | null;
+    hasBlock(blockHash: string): boolean;
+    getConfirmations(headBlockHash: string, txHash: string): number;
+}
+
+/**
  * Utility class to store and query info on full blocks up to a given maximum depth `maxDepth`, compared to the current
  * maximum height ever seen.
  * It prunes all the blocks at depth bigger than `maxDepth`, or with height smaller than the first block that was added.
@@ -19,7 +33,7 @@ import { IBlockStub, BlockStubChain } from "./blockStub";
  * Note that in order to guarantee the invariant (1), `addBlock` can be safely called even for blocks that will not
  * actually be added (for example because they are already too deep); in that case, it will return `false`.
  **/
-export class BlockCache {
+export class BlockCache implements ReadOnlyBlockCache {
     private blockStubsByHash: Map<string, BlockStubChain> = new Map();
 
     // set of tx hashes per block hash, for fast lookup
@@ -197,7 +211,7 @@ export class BlockCache {
     /**
      * Returns true if the block with hash `blockHash` is currently in cache.
      **/
-    public hasBlock(blockHash: string) {
+    public hasBlock(blockHash: string): boolean {
         return this.blockStubsByHash.has(blockHash);
     }
 

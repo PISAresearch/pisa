@@ -173,7 +173,7 @@ describe("EthereumDedicatedResponder", () => {
 
         blockTimeoutDetector = new BlockTimeoutDetector(blockProcessor, 120 * 1000);
         await blockTimeoutDetector.start();
-        confirmationObserver = new ConfirmationObserver(blockCache, blockProcessor);
+        confirmationObserver = new ConfirmationObserver(blockProcessor);
         await confirmationObserver.start();
 
         // Set up the accounts
@@ -488,7 +488,7 @@ describe("EthereumTransactionMiner", async () => {
         await blockProcessor.start();
         blockTimeoutDetector = new BlockTimeoutDetector(blockProcessor, 120 * 1000);
         await blockTimeoutDetector.start();
-        confirmationObserver = new ConfirmationObserver(blockCache, blockProcessor);
+        confirmationObserver = new ConfirmationObserver(blockProcessor);
         await confirmationObserver.start();
         accounts = await provider.listAccounts();
         account0Signer = provider.getSigner(accounts[0]);

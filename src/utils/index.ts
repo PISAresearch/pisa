@@ -38,16 +38,23 @@ export class CancellablePromise<T> extends Promise<T> {
     }
 }
 
+// generalizes the events interface of both the EventEmitter and ethers.providers.BaseProvider
+interface EventEmitterLike<TEvent> {
+    once(event: TEvent, listener: (...args: any) => void): EventEmitterLike<TEvent>;
+    removeListener(event: TEvent, listener: (...args: any) => void): EventEmitterLike<TEvent>;
+}
+
 /**
  * Returns a CancellablePromise that resolves as soon as an event is fired for the first time.
+ * It resolves to the array arguments of the event handler's call.
  **/
-export function waitForEvent(emitter: EventEmitter, event: string | symbol): CancellablePromise<void> {
+export function waitForEvent<T>(emitter: EventEmitterLike<T>, event: T): CancellablePromise<any[]> {
     const cancellerInfo: { handler?: () => void } = {};
 
-    const canceller = () => emitter.off(event, cancellerInfo.handler!);
+    const canceller = () => emitter.removeListener(event, cancellerInfo.handler!);
 
-    return new CancellablePromise<void>(resolve => {
-        const handler = () => resolve();
+    return new CancellablePromise<any[]>(resolve => {
+        const handler = (...args: any[]) => resolve(args);
         cancellerInfo.handler = handler;
         emitter.once(event, handler);
     }, canceller);

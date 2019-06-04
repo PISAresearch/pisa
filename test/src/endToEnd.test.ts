@@ -76,14 +76,14 @@ describe("End to end", () => {
 
         const blockCache = new BlockCache(200);
         const blockProcessor = new BlockProcessor(provider, blockCache);
-        const reorgDetector = new ReorgDetector(provider, blockProcessor, blockCache, new ReorgHeightListenerStore());
+        const reorgDetector = new ReorgDetector(provider, blockProcessor, new ReorgHeightListenerStore());
         await blockProcessor.start();
         await reorgDetector.start();
 
         // 2. pass this appointment to the watcher
         const blockTimeoutDetector = new BlockTimeoutDetector(blockProcessor, 120 * 1000);
         await blockTimeoutDetector.start();
-        const confirmationObserver = new ConfirmationObserver(blockCache, blockProcessor);
+        const confirmationObserver = new ConfirmationObserver(blockProcessor);
         await confirmationObserver.start();
         const responderManager = new EthereumResponderManager(
             provider.getSigner(pisaAccount),

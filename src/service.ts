@@ -73,12 +73,7 @@ export class PisaService extends StartStopService {
         // start reorg detector and block monitor
         const blockCache = new BlockCache(200);
         this.blockProcessor = new BlockProcessor(delayedProvider, blockCache);
-        this.reorgDetector = new ReorgDetector(
-            delayedProvider,
-            this.blockProcessor,
-            blockCache,
-            new ReorgHeightListenerStore()
-        );
+        this.reorgDetector = new ReorgDetector(delayedProvider, this.blockProcessor, new ReorgHeightListenerStore());
 
         // dependencies
         this.appointmentStore = new AppointmentStore(
@@ -86,7 +81,7 @@ export class PisaService extends StartStopService {
             new Map(configs.map<[ChannelType, (obj: any) => IEthereumAppointment]>(c => [c.channelType, c.appointment]))
         );
         this.blockTimeoutDetector = new BlockTimeoutDetector(this.blockProcessor, 120 * 1000);
-        this.confirmationObserver = new ConfirmationObserver(blockCache, this.blockProcessor);
+        this.confirmationObserver = new ConfirmationObserver(this.blockProcessor);
         this.ethereumResponderManager = new EthereumResponderManager(
             wallet,
             this.blockTimeoutDetector,
