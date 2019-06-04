@@ -65,8 +65,8 @@ export class ConfirmationObserver extends StartStopService {
             );
         }
 
-        const headHash = this.blockProcessor.head && this.blockProcessor.head.hash;
-        if (headHash && blockCache.getConfirmations(headHash, txHash) >= nConfirmations) {
+        const headHash = this.blockProcessor.head.hash;
+        if (blockCache.getConfirmations(headHash, txHash) >= nConfirmations) {
             // already has enough confirmations, resolve immediately
             return new CancellablePromise(resolve => resolve());
         }
@@ -81,7 +81,7 @@ export class ConfirmationObserver extends StartStopService {
      **/
     public waitForBlocks(nBlocks: number) {
         // store the current height, or null if not known (will be set later);
-        let initialHeight = this.blockProcessor.head && this.blockProcessor.head.number;
+        let initialHeight = this.blockProcessor.head.number;
 
         return this.listenForPredicate((blockNumber, _) => {
             if (initialHeight === null) {

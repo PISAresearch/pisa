@@ -2,7 +2,6 @@ import { ethers } from "ethers";
 import { StartStopService, ApplicationError } from "../dataEntities";
 import { ReadOnlyBlockCache, BlockCache } from "./blockCache";
 import { IBlockStub } from "./blockStub";
-import { waitForEvent } from "../utils";
 
 /**
  * Listens to the provider for new blocks, and updates `blockCache` with all the blocks, making sure that each block
@@ -27,11 +26,14 @@ export class BlockProcessor extends StartStopService {
     }
 
     /**
-     * Returns the IBlockStub of the latest known head block, or null if none is known yet
+     * Returns the IBlockStub of the latest known head block.
+     *
+     * @throws ApplicationError if the block is not found in the cache. This should never happen, unless
+     *         `head` is read before the service is started.
      */
     public get head(): IBlockStub {
         const blockStub = this.blockCache.getBlockStub(this.headHash);
-        if (blockStub === null) {
+        if (!blockStub) {
             throw new ApplicationError(`Head block ${this.headHash} not found in the BlockCache, but should be there`);
         }
         return blockStub;
@@ -64,6 +66,8 @@ export class BlockProcessor extends StartStopService {
         this.provider.removeListener("block", this.processBlockNumber);
     }
 
+    // Processes a new block, adding it to the cache and emitting the appropriate events
+    // It is called for each new block received, but also at startup (during startInternal).
     private async processBlockNumber(blockNumber: number) {
         try {
             const observedBlock = await this.provider.getBlock(blockNumber);
@@ -87,7 +91,9 @@ export class BlockProcessor extends StartStopService {
             // is the observed block still the last block received?
             if (this.lastBlockHashReceived === observedBlock.hash) {
                 this.headHash = observedBlock.hash;
-                this.emit(BlockProcessor.NEW_HEAD_EVENT, observedBlock.number, observedBlock.hash);
+
+                // Emit a NEW_HEAD_EVENT, but only if the service is already started
+                if (this.started) this.emit(BlockProcessor.NEW_HEAD_EVENT, observedBlock.number, observedBlock.hash);
             }
         } catch (doh) {
             const error = doh as Error;
