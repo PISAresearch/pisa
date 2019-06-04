@@ -10,11 +10,10 @@ created: 2019-06-03
 
 ## Abstract
 
-We propose a registry to store data for a limited period of time. 
-The motivation is to guarantee temporary data persistence such that the sender can disappear (or self-destruct) after storing the data. 
-In the short-term, the data registry is useful for recording on-chain disputes for off-chain channels. Given a signed receipt and the dispute records, the client can use this evidence to prove a third party watching service has cheated and thus hold them financially accountable. 
-In the future, the data registry is useful for any application in the Ethereum eco-system when a client may wish to hire an accountable third party watching service to respond to on-chain events on their behalf. 
-
+We propose a registry to store data for a limited period of time. The motivation is to let another smart contract find the data (and check its timestamp) after the origin contract has disappeared. 
+We envision the data registry will be used to record on-chain dispute logs for off-chain channels. 
+Given a signed receipt and the dispute logs, the client can use this as indisputable proof a third party watching service has cheated and thus hold them financially accountable. 
+However we envision that a central data registry will be useful for cross-smart contract communication and for extending accountable watching services to support several applications in the Ethereum eco-system.
 
 ## Specification
 
@@ -48,11 +47,11 @@ uint _datashard, address _sc, uint _id, uint _index;
 
 A brief overview: `
 
-* **_datashard** - Which DataShard is the data stored in.
+* **_datashard** - Index for the DataShard that stores the relevant data. 
 
 * **_sc** - Sender's address that stored data in the registry. 
 
-* **_id** - An identifier for storing data in the registry. 
+* **_id** - An application-specific identifier to index data in the registry.
 
 * **_index** - *[optional]* All data is stored as *bytes[]*. The *_index* lets us look up one element in the list. If *_index* is not supplied, then the entire array is returned. 
 
