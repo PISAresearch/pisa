@@ -2,7 +2,7 @@ import { PisaService } from "./service";
 import { ethers } from "ethers";
 import jsonConfig, { IArgConfig, ConfigManager } from "./dataEntities/config";
 import { withDelay, validateProvider, getJsonRPCProvider } from "./utils/ethers";
-import logger from "./logger";
+import logger, { setLogLevel, LogLevel, LogLevelInfo } from "./logger";
 import levelup, { LevelUp } from "levelup";
 import encodingDown from "encoding-down";
 import leveldown from "leveldown";
@@ -10,7 +10,7 @@ import leveldown from "leveldown";
 const configManager = new ConfigManager(ConfigManager.PisaConfigProperties);
 const commandLineConfig = configManager.fromCommandLineArgs(process.argv);
 
-const checkArgs = (args: IArgConfig) => {
+function checkArgs(args: IArgConfig) {
     if (
         (args.rateLimitUserWindowMs && !args.rateLimitUserMax) ||
         (!args.rateLimitUserWindowMs && args.rateLimitUserMax)
@@ -26,11 +26,24 @@ const checkArgs = (args: IArgConfig) => {
         console.error("Options 'rate-limit-global-windowms' and 'rate-limit-global-max' must be provided together.");
         process.exit(1);
     }
-};
+}
+
+// Validates the 'loglevel' argument and returns the appropriate LogLevelInfo instance
+function checkLogLevel(logLevel: string): LogLevelInfo {
+    const logLevelInfo = LogLevelInfo.tryParse(logLevel);
+    if (!logLevelInfo) {
+        console.error("Option 'loglevel' can only be one of the following: " + Object.values(LogLevel).join(", "));
+        return process.exit(1); // never returns
+    }
+    return logLevelInfo;
+}
 
 async function startUp() {
     checkArgs(commandLineConfig);
     const config = Object.assign(jsonConfig, commandLineConfig);
+
+    const logLevelInfo = checkLogLevel(config.loglevel);
+    setLogLevel(logLevelInfo);
 
     const provider = getJsonRPCProvider(config.jsonRpcUrl);
     const delayedProvider = getJsonRPCProvider(config.jsonRpcUrl);

@@ -3,6 +3,7 @@
     "hostName": "localhost",
     "hostPort": 3000,
     "jsonRpcUrl": "http://localhost:8545",
+    "loglevel": "info",
     "rateLimitGlobalMax": 100,
     "rateLimitGlobalMessage": "Too many requests. Server limit reached. Please try again later.",
     "rateLimitGlobalWindowMs": 60000,

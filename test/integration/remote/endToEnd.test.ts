@@ -61,6 +61,7 @@ describe("Integration", function() {
             dbDir: "db",
             hostName: "0.0.0.0",
             hostPort: 3000,
+            loglevel: "info",
             jsonRpcUrl: `http://${parity.name}:${parityPort}`,
             responderKey: "0x549a24a594a51f0bea8655a80c01689206a811120e2b28683d6b202f096a2049",
             receiptKey: "0x549a24a594a51f0bea8655a80c01689206a811120e2b28683d6b202f096a2049"

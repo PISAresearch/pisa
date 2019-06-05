@@ -1,5 +1,6 @@
 import config from "../config.json";
 import yargs from "yargs";
+import { LogLevel } from "../logger";
 
 export interface IArgConfig {
     jsonRpcUrl: string;
@@ -7,6 +8,7 @@ export interface IArgConfig {
     hostPort: number;
     responderKey: string;
     receiptKey: string;
+    loglevel: string;
     rateLimitUserWindowMs?: number;
     rateLimitUserMax?: number;
     rateLimitUserMessage?: string;
@@ -53,6 +55,11 @@ export class ConfigManager {
             description: "Database directory",
             string: true
         }),
+        new ConfigProperty("loglevel", config => config.loglevel, {
+            description:
+                "Verbosity of the logs. Accepted values by increasing verbosity: " + Object.values(LogLevel).join(", "),
+            string: true
+        }),
         new ConfigProperty("rate-limit-user-window-ms", config => config.rateLimitUserWindowMs, {
             description: "Size of the per-user rate limit window in milliseconds",
             number: true
@@ -90,7 +97,7 @@ export class ConfigManager {
 
         // add each of the props
         this.properties.forEach(p => (commandLineConfig = commandLineConfig.option(p.commandLineName, p.yargConfig)));
-        
+
         return (commandLineConfig.parse(argv) as any) as IArgConfig;
     }
 

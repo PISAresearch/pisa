@@ -9,6 +9,7 @@ describe("ConfigManager", () => {
             hostName: "0.0.0.0",
             hostPort: 4567,
             jsonRpcUrl: "http://localhost:8545",
+            loglevel: "info",
             rateLimitGlobalMax: 100,
             rateLimitGlobalMessage: "Test global message",
             rateLimitGlobalWindowMs: 60000,
