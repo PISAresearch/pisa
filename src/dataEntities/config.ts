@@ -1,5 +1,6 @@
 import config from "../config.json";
 import yargs from "yargs";
+import { LogLevel } from "../logger";
 
 export interface IArgConfig {
     jsonRpcUrl: string;
@@ -55,7 +56,8 @@ export class ConfigManager {
             string: true
         }),
         new ConfigProperty("loglevel", config => config.loglevel, {
-            description: "Verbosity of the logs. Accepted values by increasing verbosity: 'error', 'info', 'debug'",
+            description:
+                "Verbosity of the logs. Accepted values by increasing verbosity: " + Object.values(LogLevel).join(", "),
             string: true
         }),
         new ConfigProperty("rate-limit-user-window-ms", config => config.rateLimitUserWindowMs, {
