@@ -4,171 +4,364 @@ pragma experimental ABIEncoderV2;
 contract DataRegistryInterface {
 
     /*
-     * Dispute Registry is a dedicated global contract for
-     * recording state channel disputes.
-     * If a state channel has recorded too many disputes, we'll run out of gas, but this is unlikely due to time to resolve each dispute.
+     * Data Registry is a global contract for "temporary" storage.
+     * It will record disputes from channels (used as evidence) and PISA will store its job there.
      */
+    function getTotalShards() public returns (uint);
+    function setData(uint _appointmentid, bytes memory _data) public returns(uint _datashard, uint _index);
+    function fetchRecord(uint _datashard, address _sc,  uint _appointmentid, uint _index) public returns (bytes memory);
+    function fetchRecords(uint _datashard, address _sc, uint _appointmentid) public returns (bytes[] memory);
 
-    // Test dispute. Day is 0-6 (depending on daily record).
-    function fetchRecords(address _sc, uint _datashard) public returns (bytes[] memory);
+}
+
+contract DisputeHandlerInterface {
+
+    // Given two disputes (and the receipt) - did we satisfy the postcondition?
+    function checkJob(uint[] memory _datashard, address _sc, uint _logid, uint[] memory _dataindex, bytes memory _postcondition, address _dataregistry) public returns (uint[2] memory, bool);
 }
 
 contract PISA {
-
-    // Simply stores deposit and waits on evidence of cheating from customer.
-    // Note: This implementation relies on "timestamps" and not "block time".
 
     // NoDeposit = contract set up, but no deposit from PISA.
     // OK = deposit in contract. ready to accept jobs.
     // CHEATED = customer has provided evidence of cheating, and deposit forfeited
     // CLOSED = PISA has shut down serves and withdrawn their coins.
-    enum Flag { NODEPOSIT, OK, CHEATED, CLOSING, CLOSED }
+    enum Flag { OK, CHEATED }
 
-    struct Watcher {
-        Flag flag;
-        uint withdrawtime; // What is the exact time PISA can withdraw deposit?
-        uint deposit; // Current security deposit?
+    Flag flag; // What is current state of PISA?
+    uint cheatedtimer; // How long does PISA have to send customer a refund?
+
+    // List of addresses for PISA
+    mapping(address => bool) watchers;
+    mapping(uint => address) disputeHandlers;
+    address payable admin;
+
+    // Cheated record
+    struct Cheated {
+        address payable customer;
+        uint refund;
+        uint refundby;
+        bool resolved;
     }
 
-    // List of PISA-compatible watchers
-    mapping(address => Watcher) watchers;
+    // Customer appointment
+    struct Appointment {
+        address sc; // Address for external contract
+        address payable cus; // Address for the customer who hired PISA
+        uint startTime; // When do we start watching?
+        uint finishTime; // Expiry time for appointment
+        uint challengePeriod; // Length of time for the dispute/challenge
+        uint appointmentid; // counter to keep track of appointments
+        uint jobid; // Monotonic counter to keep track of job updates to PISA
+        bytes data; // Job-specific data (depends whether it is Plasma, Channels, etc)
+        uint refund; // How much should PISA refund the customer by?
+        uint gas; // How much gas should PISA allocate to function call?
+        uint mode; // What dispute handler should check this appointment?
+        bytes postcondition; // If PISA was successful - what should the post-condition be?
+        bytes32 h; // Customer must reveal pre-image to prove appointment is valid
+    }
+
+    // Keep a record of who was cheated.
+    // Ideally, this should be small (or zero!)
+    mapping(uint => Cheated) cheated;
+    uint public pendingrefunds;
 
     // Central dispute registry
     address public dataregistry;
+    address public disputeoutcome;
 
-    // All watchers are forced to use same withdraw period (i.e. 2-3 months)
+    // A single withdraw period for PISA (i.e. 2-3 months)
     uint public withdrawperiod;
 
-    // Inform world the tower has deposited coins.
-    event PISADeposit(address watcher, uint coins, uint timestamp);
-    event PISAClosing(address watcher, uint withdrawtime, uint timestamp);
     event PISAClosed(address watcher, uint timestamp);
-    event PISACheated(address watcher, address SC, uint timestamp);
+    event PISACheated(address watcher, address sc, uint timestamp);
+    event PISARefunded(address watcher, address cus, uint refund, uint timestamp);
+    event PISARecordedResponse(address watccher, uint timestamp, uint jobid, bytes data, uint gas);
 
-
-    // Set up timers for PISA. No deposit yet.
-    // Two step process. Set timers, send deposit seperately.
-    constructor(address _dataregistry, uint _withdrawperiod) public {
+    // Set up PISA with data registry, timers and the admin address.
+    constructor(address _dataregistry, uint _withdrawperiod, uint _cheatedtimer, address payable _admin) public {
         dataregistry = _dataregistry;
         withdrawperiod = _withdrawperiod;
+        cheatedtimer = _cheatedtimer;
+        admin = _admin;
     }
 
-    // Accept deposit from PISA and set up contract .
-    // Can be re-used to topup deposit while channel is on
-    function sendDeposit() public payable {
+    // Given an apoointment, PISA will respond on behalf of the customer.
+    // The function call is recorded in the DataRegistry (and timestamped).
+    function recordedResponse(bytes memory _jobrequest, bytes memory _cussig) public {
 
-        // We can only submit a deposit (while there is no deposit or flag is OK)
-        require(watchers[msg.sender].flag == Flag.NODEPOSIT || watchers[msg.sender].flag == Flag.OK);
-        require(msg.value > 0);
-        watchers[msg.sender].flag = Flag.OK;
-        watchers[msg.sender].deposit = watchers[msg.sender].deposit + msg.value;
+        // Compute Appointment (avoid callstack issues)
+        Appointment memory appointment = computeAppointment(_jobrequest);
 
-        emit PISADeposit(msg.sender,msg.value,block.timestamp);
+        // Compute signature hash for this job request
+        bytes32 sighash = keccak256(abi.encode(_jobrequest, address(this)));
+
+        // Confirm the customer has signed this request!
+        require(appointment.cus == recoverEthereumSignedMessage(sighash, _cussig), "Not signed by customer");
+
+        // Only a PISA wallet can respond
+        // Customer and SC addresses should have nothing to do with PISA.
+        require(watchers[msg.sender], "Only watcher can send this job");
+
+        // Emit event about our response
+        emit PISARecordedResponse(appointment.sc, block.number, appointment.jobid, appointment.data, appointment.gas);
+
+        // Make a record of our call attempt
+        // Only gets stored if the transaction terminates/completes (i.e. we dont run out of gas)
+        bytes memory callLog = abi.encode(block.number, appointment.jobid, appointment.gas);
+
+        // H(sc, cus, logid) -> block number, customer address, jobid, gas
+        // It will "append" this entry to the list. So if we handle the job for multiple customers,
+        // it'll be appended to the list.
+        uint pisaid = uint(keccak256(abi.encode(appointment.sc, appointment.cus, appointment.appointmentid)));
+        DataRegistryInterface(dataregistry).setData(pisaid, callLog);
+
+        // ALL GOOD! Looks like we should call the function and then store it.
+        // By the way, _callData should be formatted as abi.encodeWithSignature("cool(uint256)", inputdata).
+        // PISA should check before accepting job, but really it is up to customer to get this right.
+        // If the function call fails, it isn't our fault.
+        require(gasleft() > appointment.gas, "Sufficient gas in job request was not allocated");
+        external_call(appointment.sc, 0, appointment.data.length, appointment.data, appointment.gas);
+
     }
 
-    // PISA wants to shut down.
-    function stopmonitoring() public {
-        // A watcher can only stop monitoring while operational
-        require(watchers[msg.sender].flag == Flag.OK);
+    // Customer will provide sign receipt + locator to find dispute record in DataRegistry
+    // PISA will look up registry to check if PISA has responded to the dispute. If so, it'll verify customer's signature and compare the jobid.
+    function recourse(bytes memory _appointment, bytes[] memory _sig,  uint _r, uint[] memory _datashard, uint[] memory _dataindex) public {
 
-        // Kick-start process of letting watcher get their deposit back
-        watchers[msg.sender].withdrawtime = block.timestamp + withdrawperiod;
-        watchers[msg.sender].flag = Flag.CLOSING;
+        // Compute Appointment (avoid callstack issues)
+        Appointment memory appointment = computeAppointment(_appointment);
 
-        // Tell the world
-        emit PISAClosing(msg.sender, watchers[msg.sender].withdrawtime, block.timestamp);
+        // Verify it is a ratified receipt!
+        bytes32 h = keccak256(abi.encode(_r));
+        require(appointment.h == h, "Wrong R" );
+
+        // Prevent replay attacks
+        // Customer ID is part of the "PISAID" so if we cheat two customers, then there are two different pisaid
+        // And thus both customers can seek recourse.
+        // We check if "customer" is set in cheated, if so then we've already sought recourse!
+        uint pisaid = uint(keccak256(abi.encode(appointment.sc, appointment.cus, appointment.appointmentid)));
+        require(cheated[pisaid].customer != appointment.cus, "Recourse was already successful");
+
+        // Both PISA and the customer must have authorised it!
+        // This is to avoid PISA faking a receipt and sending it as "recourse".
+        bytes32 sighash = keccak256(abi.encode(_appointment, address(this)));
+        require(watchers[recoverEthereumSignedMessage(sighash, _sig[0])], "PISA did not sign job");
+        require(appointment.cus == recoverEthereumSignedMessage(sighash, _sig[1]), "Customer did not sign job");
+
+        // Did we get the outcome we wanted?
+        uint[2] memory times;
+        bool outcome;
+
+        // Make sure a dispute handler exists for this given mode!
+        require(disputeHandlers[appointment.mode] != address(0), "Mode in appointment doesnt exist");
+
+        // Returns start time / challenge period and whether everything is ok.
+        // If "testdispute" fails, it should throw an exception.
+        (times, outcome) = DisputeHandlerInterface(disputeHandlers[appointment.mode]).checkJob(_datashard, appointment.sc, appointment.appointmentid, _dataindex, appointment.postcondition, dataregistry);
+
+        // Did PISA fail to do its job?
+        require(outcome, "PISA was a good tower");
+
+        // Just to be safe, make sure "times" is meaningful
+        require(times[0] != 0, "Sanity check start time");
+        require(times[1] != 0, "Sanity check challenge period");
+
+        // Let's first confirm the dispute period was the "minimum" PISA agreed too.
+        require(appointment.challengePeriod >= times[1], "Dispute did not satisfy min challenge period agreed");
+
+        // Did PISA respond within the appointment?
+        require(!checkPISAResponse(appointment, times), "PISA failed post-condition, but PISA sent the job when required");
+
+        // PISA has cheated. Provide opportunity for PISA to respond.
+        pendingrefunds = pendingrefunds + 1;
+        cheated[pisaid] = Cheated(appointment.cus, appointment.refund, block.number + cheatedtimer, false);
+
+        // Nothing to do... dispute is OK.
     }
 
-    // Let PISA withdraw deposit after time period
-    function withdraw() public {
-        require(watchers[msg.sender].flag == Flag.CLOSING, "Flag is not closing");
-        require(block.timestamp >= watchers[msg.sender].withdrawtime, "Must wait longer");
+    // Check if PISA recorded a function call for the given appointment/job
+    function checkPISAResponse(Appointment memory appointment, uint[2] memory _disputeTimes) internal returns (bool) {
 
-        // Safe from recusion - due to flag being CLOSED.
-        watchers[msg.sender].flag = Flag.CLOSED;
-        uint deposit = watchers[msg.sender].deposit;
-        watchers[msg.sender].deposit = 0;
-        msg.sender.transfer(deposit);
+        // Look through every shard (should be two in practice)
+        for(uint i=0; i<DataRegistryInterface(dataregistry).getTotalShards(); i++) {
 
-        // Tell everyone PISA has shut down
-        emit PISAClosed(msg.sender,block.timestamp);
-    }
+            // Fetch list of PISA responses on this DataShard for the given AppointmentID
+            uint pisaid = uint(keccak256(abi.encode(appointment.sc, appointment.cus, appointment.appointmentid)));
 
-    /*
-     * Signed message from PISA during appointment:
-     * - starttime = Start time of appointment
-     * - expry = End time of appointment
-     * - SC = Address of state channel smart contract
-     * - i = State Version (i.e. what counter the tower agreed to publish)
-     * - h = Conditional transfer hash (i.e. computed by tower)
-     * - s = Conditional transfer pre-image (i.e. prove Tower has been paid)
-     * - addr = address(this) is this contract's address.
-     * ------- We also require it to be signed! --------
-     * - signature = watcher signature
-     * - watcher = watcher address
-     */
-    function recourse(uint _channelmode, uint _starttime, uint _expiry, address _SC, uint _version, bytes32 _h, uint _s, bytes memory _signature, address _watcher, uint _datashard) public returns (bool){
+            bytes[] memory response = DataRegistryInterface(dataregistry).fetchRecords(i, address(this), pisaid);
 
-        // Watcher MUST have a deposit in our contract for flag == OK.
-        require(watchers[_watcher].flag == Flag.OK || watchers[_watcher].flag == Flag.CLOSING, "Can only seek recourse if watcher service is active");
-        require(_h == keccak256(abi.encodePacked(_s)), "Secret _s did not match receipt h = H(s)"); // Hash should match up
-        require(_expiry > _starttime, "Invalid expiry and starttime"); // Time periods in receipt should be valid
+            // It'll return a list of jobs for this given appointment (i.e. if PISA had to respond more than once)
+            for(uint j=0; j<response.length; j++) {
+                uint recordedJob;
+                uint recordedTime;
+                uint recordedGasAllocated;
+                address signer; // Who signed the job request?
 
-        // Compute hash signed by the tower
-        require(_watcher == recoverEthereumSignedMessage(keccak256(abi.encodePacked(_channelmode, _starttime, _expiry, _SC, _version, _h, address(this))), _signature), "Receipt is not signed by this watcher");
+                // Block number + job id recorded
+                (recordedTime, recordedJob, recordedGasAllocated) = abi.decode(response[j], (uint, uint, uint));
 
-        // Look up dispute registry to test signed receipt.
-        bytes[] memory disputes = DataRegistryInterface(dataregistry).fetchRecords(_SC, _datashard);
-
-        // Go through each recorded dispute and check if PISA should have responded!
-        for(uint i=0; i<disputes.length; i++) {
-
-            if(testDispute(disputes[i], _channelmode, _starttime, _expiry, _version)) {
-
-                watchers[_watcher].flag = Flag.CHEATED;
-                emit PISACheated(_watcher, _SC, block.timestamp);
-                return true;
+                // Is the recorded job equal (or better) than the hired job from this receipt?
+                // Did PISA respond during the challenge time
+                // IMPORTANT FACTS TO CONSIDER
+                // - PISA should always respond with a larger or equal Job ID
+                // - PISA should always allocate gas that is greater than ALL previous appointments.
+                // --> In practice - this should be a constant (i.e. 200k for resolving channel disputes)
+                // --> But it is important PISA does not pick "dynamic" gas - same gas or more for a given appointmentid.
+                // --> So if ALICE and BOB both hire PISA for same channel - worst case - PISA responds for twice - once for each party.
+                if(recordedJob >= appointment.jobid &&
+                   recordedTime >= _disputeTimes[0] && // PISA responded after dispute start time  initiated after appointment started
+                   recordedTime <= _disputeTimes[0]+_disputeTimes[1] && // PISA responded within challenge period
+                   recordedGasAllocated >= appointment.gas) {
+                    return true;
+                }
             }
         }
 
+       // Couldn't find a PISA response
         return false;
     }
 
+    // To avoid gas-issue, we compute the struct here.
+    function computeAppointment(bytes memory _appointment) internal pure returns(Appointment memory) {
+        address sc; // Address for smart contract
+        address payable cus; // Address for the customer who hired PISA
+        uint[3] memory timers; // [0] Start time for an appointment [1] Agreed finish time and [2] challenge period (minimum length of time for a single dispute)
+        uint[2] memory appointmentinfo; // [0] Monotonic counter to keep track of appointments and [1] to keep track of job updates in PISA
+        bytes[2] memory data; // [0] Job-specific data (depends whether it is Plasma, Channels, etc) and [1] is the post-condition data to check if dispute resolved as expected
+        uint[3] memory extraData; // [0] Refund value to customer. [1] Gas allocated for job. [3] Dispute handler mode.
+        bytes32 hash; // Customer must reveal pre-image to prove appointment is valid
 
-    // Can verify command and closure disputes
-    function testDispute(bytes memory _dispute, uint _channelmode, uint _starttime, uint _expiry, uint _version) pure public returns(bool) {
+        (sc,cus,timers, appointmentinfo, data, extraData, hash) = abi.decode(_appointment, (address, address, uint[3], uint[2], bytes[2], uint[3], bytes32));
 
-        uint dStarttime;
-        uint dExpiry;
-        uint dVersion;
+        return Appointment(sc, cus, timers[0], timers[1], timers[2], appointmentinfo[0], appointmentinfo[1], data[0], extraData[0], extraData[1], extraData[2], data[1], hash);
+    }
 
-        (dStarttime,dExpiry,dVersion) = abi.decode(_dispute,(uint, uint, uint));
+    // PISA must refund the customer before a deadline. If not, the security deposit is burnt/frozen
+    function refundCustomer(uint _pisaid, address _customer) payable public {
 
-        if(dStarttime >= _starttime && _expiry >= dExpiry) {
+        // Should be some refunds ready...
+        require(pendingrefunds > 0, "No refunds pending");
 
-            // We consider CLOSURE disputes
-            // Records:
-            // _i = 11, rec.round = 10, true (PISA had 11, state 10 was accepted, bad!)
-            // _i = 10, rec.round = 10, false. (PISA had 10, state 10 was accepted, good!)
-            // _i = 9, rec.round = 10, false (PISA had 9, state 10 was accepted, good!)
-            // This is becuase the dispute only stores latest version,
-            // Disputes do NOT increment the version.
-            if(_channelmode == 0 && _version > dVersion) {
-                return true;
-            }
+        // Fetch cheated record.
+        Cheated memory record = cheated[_pisaid];
 
-            // We consider COMMAND disputes
-            // Records:
-            // _i = 11, rec.round = 10, true (PISA had 11, state 9 was used for transition, bad)
-            // _i = 10, rec.round = 10, true (PISA had 10, state 9 was used for transition, bad)
-            // _i = 9, rec.round = 10, false. (PISA had 9, state 9 was used for transition, good)
-            // This is because the dispute transitions version from i to i+1
-            if(_channelmode == 1 && _version >= dVersion) {
-                return true;
-            }
+        // Make sure it is the same customer
+        require(record.customer == _customer, "Refunding wrong customer");
+        require(record.refund == msg.value, "Not refunding correct value");
+        require(record.refundby > block.number, "Too late to send refund!");
+        require(!record.resolved, "Already refunded");
+
+        // Lets pretend it is resolved!
+        cheated[_pisaid].resolved = true; // Delete array altogether (to remove empty slots)
+
+        // Coins deposited into contract
+        // And they can now be withdrawn by the customer
+        pendingrefunds = pendingrefunds - 1;
+
+        // Yup! All records gone.
+        // Our service can continue as normal
+        emit PISARefunded(msg.sender, _customer, msg.value, block.number);
+
+    }
+
+    // Once PISA has deposited coins, the customer can withdraw it!
+    function customerWithdrawRefund(uint _pisaid) payable public {
+
+      // Only customer can withdraw the coins
+      require(cheated[_pisaid].customer == msg.sender);
+      require(cheated[_pisaid].resolved);
+
+      // Send refund
+      uint toRefund = cheated[_pisaid].refund;
+      cheated[_pisaid].refund = 0;
+      cheated[_pisaid].customer.transfer(toRefund);
+
+    }
+
+    // PISA hasn't refunded the customer by the desired time?
+    // .... time to issue the ultimate punishment
+    function forfeit(uint _pisaid, address _customer) public {
+
+        // Sanity checking
+        require(pendingrefunds > 0, "Sanity check that there are outstanding refunds");
+        require(_customer != address(0), "Make sure customer has an address");
+
+        // Fetch cheated record.
+        Cheated memory record = cheated[_pisaid];
+
+        // Did PISA resolve the cheated customer by the desired time?
+        require(record.customer == _customer, "Wrong customer!"); // Make sure it is the right customer
+        require(record.refundby != 0, "There must be a refund time..."); // Make sure it is not zero!!!
+        require(block.number > record.refundby, "Time has passed since refund was due by PISA"); // Refund period should have expired
+        require(!record.resolved, "PISA did not issue a refund"); // Has PISA resolved refund?
+
+        flag = Flag.CHEATED;
+    }
+
+    // Install a dispute handler contract. Some off-chain protocols may slightly different,
+    // This lets us deal ith their records.
+    function installDisputeHandler(address _handler, uint _mode, uint _timestamp, bytes memory _sig) public {
+        require(disputeHandlers[_mode] == address(0));
+        require(block.number < _timestamp, "too late to install");
+        // Was this signed by the cold storage key?
+        bytes32 sighash = keccak256(abi.encode(_handler, _mode, _timestamp, address(this)));
+        require(admin == recoverEthereumSignedMessage(sighash, _sig));
+
+        // Install!
+        disputeHandlers[_mode] = _handler;
+    }
+
+    // Install a watcher address who is authorised to sign appointments.
+    function installWatcher(address _watcher, uint _timestamp, bytes memory _sig) public {
+
+        // Watcher should be installed before a given time...
+        require(!watchers[_watcher], "already installed");
+        require(block.number < _timestamp, "too late to install");
+
+        // Was this signed by the cold storage key?
+        bytes32 sighash = keccak256(abi.encode(_watcher, _timestamp, address(this)));
+        require(admin == recoverEthereumSignedMessage(sighash, _sig), "bad signature install watcher");
+
+        // Install watcher
+        watchers[_watcher] = true;
+    }
+
+    // Helper function
+    function getFlag() public view returns(uint) {
+        return uint(flag);
+    }
+
+    function getPendingRefunds() public view returns(uint) {
+        return pendingrefunds;
+    }
+
+    function isWatcher(address _watcher) public view returns(bool) {
+        return watchers[_watcher];
+    }
+
+    function getHandler(uint _mode) public view returns(address) {
+        return disputeHandlers[_mode];
+    }
+
+    // Borrow from Gnosis. Let's us perform a call in assembly.
+    // Why the assembly call? if the call fails i.e. exception thrown by require or assert - it'll be caught here and returns false.
+    function external_call(address destination, uint value, uint dataLength, bytes memory data, uint totalGas) internal returns (bool) {
+        bool result;
+        assembly {
+            let x := mload(0x40)   // "Allocate" memory for output (0x40 is where "free memory" pointer is stored by convention)
+            let d := add(data, 32) // First 32 bytes are the padded length of data, so exclude that
+            result := call(
+                totalGas, // totalGas will be is the value that solidity is currently emitting
+                destination,
+                value,
+                d,
+                dataLength,        // Size of the input (in bytes) - this is what fixes the padding problem
+                x,
+                0                  // Output is ignored, therefore the output size is zero
+            )
         }
-
-        return false;
+        return result;
     }
 
     // Placeholder for now to verify signed messages from PISA.
@@ -178,19 +371,7 @@ contract PISA {
         return recover(prefixedHash, _signature);
     }
 
-    // Helper function
-    function getDepositBalance(address _watcher) public view returns(uint) {
-        return watchers[_watcher].deposit;
-    }
-
-    function getFlag(address _watcher) public view returns(uint) {
-        return uint(watchers[_watcher].flag);
-    }
-
-    /********* ********* *********
-    * Code for verifying signatures
-    ********** ********* ********* */
-
+    // Recover signer's address
     function recover(bytes32 _hash, bytes memory _signature) internal pure returns (address) {
       bytes32 r;
       bytes32 s;
