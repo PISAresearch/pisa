@@ -4,7 +4,7 @@
 
 # PISA - An Accountable Watching Service
 
-PISA is a solution to help alleviate the online requirement for many smart contract.
+PISA is a solution to help alleviate the online requirement for smart contracts.
 
 It was first devised for off-chain protocols, where PISA could be hired to watch for challenges on behalf of its customer. However, in a very generic sense, PISA can be hired to watch any smart contract when a user must respond within a fixed time period to an on-chain event. 
 
