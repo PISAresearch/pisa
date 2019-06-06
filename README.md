@@ -2,71 +2,41 @@
 [![codecov](https://codecov.io/gh/PISAresearch/pisa/branch/master/graph/badge.svg)](https://codecov.io/gh/PISAresearch/pisa)
 
 
-# Pisa - The Accountable Third Party
+# PISA - An Accountable Watching Service
 
-This repository focuses on building an accountable third party service called Pisa that can be hired to watch channels on behalf of its users. The aim is to let anyone run a Pisa service and watch over several channel constructions (Kitsune, Counterfactual, Funfair, etc). We'll shortly present our architecture for this implementation of Pisa - but fundamentally it will let the Pisa service host "watchers" on several computers, and a central service is responsible for interacting with the state channel customer. 
+PISA is a solution to help alleviate the online requirement for many smart contract.
 
-## Short-term VS Long-term Goals
+It was first devised for off-chain protocols, where PISA could be hired to watch for challenges on behalf of its customer. However, in a very generic sense, PISA can be hired to watch any smart contract when a user must respond within a fixed time period to an on-chain event. 
 
-In the short-term, our plan is to build an MVP of Pisa that is free to use. We'll host it on several servers, and battle-test it in the wild. We hope our initial MVP will be compatible with Kitsune and Counterfactual, although new channels can be "plugged in" as required. 
+Our infrastructure focuses on supporting several smart contracts including off-chain channels, plasma, auctions, e-voting, makerdao, etc. 
 
-In the long-term, we hope to build the full life-cycle below. 
-
-## The Life-Cycle of Hiring Pisa 
-
-The customer wants to hire the Pisa service to watch the channel on their behalf. Briefly, it'll involve the following: 
-
-* Customer sends an appointment to Pisa (i.e. signatures from all parties, state hash, version)
-* Pisa inspects the appointment (i.e. verify that its legitimate and can be used to resolve a future dispute)
-* Pisa generates a secret "s" and hashes it to compute the receiptHash i.e. receiptHash = H(S). 
-* Pisa sends the appointment (and the receiptHash) to all watchers under its control (i.e. independent servers running geth + watching service)
-* All watchers will inspect the appointment (i.e. again, verify that its legitimate and can be used to resolve a future dispute) 
-* Each watcher will sign a receipt, send it back to Pisa and start watching the customer's channel.  
-* Once Pisa has received k of n signatures, all signatures are aggregated into a single signature. 
-  * In other words, there will be a threshold scheme to ensure that a sufficient number of watchers have accepted the job before the receipt is signed by Pisa's public key. 
-* Pisa will send the signed receipt back to the customer 
-* Customer sets up the conditional transfer to Pisa
-* Pisa reveals the secret "s" to the customer, and the transfer is complete. 
-
-## Limitations of above design 
-
-* The customer can send an appointment to Pisa, but not pay Pisa. 
-  * Our focus is on resilience / dependability. We want to outsource the job to several watchers, and then not "cancel" it in the future. If a customer doesn't pay, then Pisa will refuse all future jobs from the customer's key + state channel. 
-  * This isn't an issue with the Pisa protocol, but just our current architecture design. 
-
-## Life-Cycle of an Appointment Request
-
-![alt text](./diagrams/overview_flow.svg "Life-cycle of a request diagram, showing the different components involved")
-
-## Docker
-
-PISA is available as a docker image. To run PISA with a local instance of ganache download the docker-compose file at /docker/docker-compose.yml, then run:
-```
-docker-compose up
-```
-To stop PISA be sure to run:
-```
-docker-compose down
-```
-this safely shutdown containers and networks.
-If you are experiencing network issues ensure that you aren't using a local VPN, and ensure that the last containers were safely terminated by runnin 'docker-compose down'.
+We are working to minimise all integration effort - in the best case a smart contract may just need to post "logs" to a data registry - and we'll take care of the rest! 
 
 
-To run PISA on it's own without ganache execute:
-```
-docker run -d -p 3000:3000 pisaresearch/pisa:latest
-```
+## PISA to the rescue - fixing the bad UX for 2 step protocols
 
-### Smoke testing you installation
-Smoke testing your installation. Some test are available within the docker container to ensure that PISA has properly installed. First find the id of the docker container using:
-```
-docker ps
-```
-then run to attach to the container:
-```
-docker exec -it <container_image_here> bash
-```
-Finally run the tests with:
-```
-npm run test-docker
-```
+
+As a protocol designer, we love building protocols using commit and reveal to guarantee fairness. Good examples include auctions (seal bid, reveal bid), games (submit sealed choice, reveal choice), and e-voting (submit sealed vote, reveal vote). But so far, the UX around two-step protocols are really bad and users have lost money.
+
+**Why is commit and reveal a bad user experience?** Typically commit and reveal protocols have two time periods. 
+
+* Users "commit" to their choice (all must commit before time t1))
+* Users "reveal" their choice (all must reveal before time t2) 
+
+Requiring users *to be online* within both time periods doesn't translate well to the real world - people can easily busy and just forget to respond - sometimes if they forget, the protocol will slash them and make them lose their deposit. Not a great UX outcome, but a necessary evil in protocol design. 
+
+
+## How is PISA "Accountable"? 
+
+When PISA is hired by the customer, we provide the custoer with a signed receipt that proves we accepted the job. If we fail to respond on their behalf, then the customer can use on-chain evidence (via the DataRegistry) and the signed receipt as indisputable evidence of our wrongdoing. 
+
+*Two outcomes if we fail*. Either the customer is refunded within a fixed time period (based on what we promised in advance) or eventually the customer can slash our security deposit. 
+
+We always have an opportunity to make right our mistake and refund the customer - but ultimately we are financially accountable for the mistake. Thus the customer does NOT have to blindly trust us! 
+
+## When can I start using PISA? 
+
+We are currently working on the implementation and a set of standards to minimise integration efforts with us. If you want to partner with us such that your customers can hire PISA to respond on their behalf - please contact us at paddy@pisa.watch and check out the following standards (we will update this list as more are posted):
+
+* Data Registry (log events) - https://github.com/ethereum/EIPs/pull/2095 
+* Example of contract logging events (super simple) - https://github.com/PISAresearch/pisa/blob/master/sol/contracts/ChallengeClosureContract.sol 
