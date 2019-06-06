@@ -30,7 +30,7 @@ Requiring users *to be online within both time periods* does not translate well 
 
 When PISA is hired by the customer, we provide the custoer with a signed receipt that proves we accepted the job. If we fail to respond on their behalf, then the customer can use on-chain evidence (via the DataRegistry) and the signed receipt as indisputable evidence of our wrongdoing. 
 
-*Two outcomes if we fail*. Either the customer is refunded within a fixed time period (based on what we promised in advance) or eventually the customer can slash our security deposit. 
+**Two outcomes for the customer if PISA fails** Either the customer is refunded within a fixed time period (based on what we promised in advance) or eventually the customer can slash our security deposit. 
 
 We always have an opportunity to make right our mistake and refund the customer - but ultimately we are financially accountable for the mistake. Thus the customer does NOT have to blindly trust us! 
 
