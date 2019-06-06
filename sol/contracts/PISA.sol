@@ -1,6 +1,7 @@
 pragma solidity ^0.5.0;
+pragma experimental ABIEncoderV2;
 
-contract DisputeRegistryInterface {
+contract DataRegistryInterface {
 
     /*
      * Dispute Registry is a dedicated global contract for
@@ -9,7 +10,7 @@ contract DisputeRegistryInterface {
      */
 
     // Test dispute. Day is 0-6 (depending on daily record).
-    function testReceipt(uint _channelmode, address _sc, uint _starttime, uint _expiry, uint _version, uint _datashard) public returns (bool);
+    function fetchRecords(address _sc, uint _datashard) public returns (bytes[] memory);
 }
 
 contract PISA {
@@ -33,7 +34,7 @@ contract PISA {
     mapping(address => Watcher) watchers;
 
     // Central dispute registry
-    address public disputeregistry;
+    address public dataregistry;
 
     // All watchers are forced to use same withdraw period (i.e. 2-3 months)
     uint public withdrawperiod;
@@ -47,8 +48,8 @@ contract PISA {
 
     // Set up timers for PISA. No deposit yet.
     // Two step process. Set timers, send deposit seperately.
-    constructor(address _disputeregistry, uint _withdrawperiod) public {
-        disputeregistry = _disputeregistry;
+    constructor(address _dataregistry, uint _withdrawperiod) public {
+        dataregistry = _dataregistry;
         withdrawperiod = _withdrawperiod;
     }
 
@@ -106,7 +107,7 @@ contract PISA {
      * - signature = watcher signature
      * - watcher = watcher address
      */
-    function recourse(uint _channelmode, uint _starttime, uint _expiry, address _SC, uint _i, bytes32 _h, uint _s, bytes memory _signature, address _watcher, uint _datashard) public returns (bool){
+    function recourse(uint _channelmode, uint _starttime, uint _expiry, address _SC, uint _version, bytes32 _h, uint _s, bytes memory _signature, address _watcher, uint _datashard) public returns (bool){
 
         // Watcher MUST have a deposit in our contract for flag == OK.
         require(watchers[_watcher].flag == Flag.OK || watchers[_watcher].flag == Flag.CLOSING, "Can only seek recourse if watcher service is active");
@@ -114,16 +115,57 @@ contract PISA {
         require(_expiry > _starttime, "Invalid expiry and starttime"); // Time periods in receipt should be valid
 
         // Compute hash signed by the tower
-        bytes32 signedhash = keccak256(abi.encodePacked(_channelmode, _starttime, _expiry, _SC, _i, _h, address(this)));
-        require(_watcher == recoverEthereumSignedMessage(signedhash, _signature), "Receipt is not signed by this watcher");
+        require(_watcher == recoverEthereumSignedMessage(keccak256(abi.encodePacked(_channelmode, _starttime, _expiry, _SC, _version, _h, address(this))), _signature), "Receipt is not signed by this watcher");
 
         // Look up dispute registry to test signed receipt.
-        if(DisputeRegistryInterface(disputeregistry).testReceipt(_channelmode, _SC, _starttime, _expiry, _i, _datashard)) {
-            watchers[_watcher].flag = Flag.CHEATED;
+        bytes[] memory disputes = DataRegistryInterface(dataregistry).fetchRecords(_SC, _datashard);
 
-            // Tell the world that PISA cheated!
-            emit PISACheated(_watcher, _SC, block.timestamp);
-            return true;
+        // Go through each recorded dispute and check if PISA should have responded!
+        for(uint i=0; i<disputes.length; i++) {
+
+            if(testDispute(disputes[i], _channelmode, _starttime, _expiry, _version)) {
+
+                watchers[_watcher].flag = Flag.CHEATED;
+                emit PISACheated(_watcher, _SC, block.timestamp);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+
+    // Can verify command and closure disputes
+    function testDispute(bytes memory _dispute, uint _channelmode, uint _starttime, uint _expiry, uint _version) pure public returns(bool) {
+
+        uint dStarttime;
+        uint dExpiry;
+        uint dVersion;
+
+        (dStarttime,dExpiry,dVersion) = abi.decode(_dispute,(uint, uint, uint));
+
+        if(dStarttime >= _starttime && _expiry >= dExpiry) {
+
+            // We consider CLOSURE disputes
+            // Records:
+            // _i = 11, rec.round = 10, true (PISA had 11, state 10 was accepted, bad!)
+            // _i = 10, rec.round = 10, false. (PISA had 10, state 10 was accepted, good!)
+            // _i = 9, rec.round = 10, false (PISA had 9, state 10 was accepted, good!)
+            // This is becuase the dispute only stores latest version,
+            // Disputes do NOT increment the version.
+            if(_channelmode == 0 && _version > dVersion) {
+                return true;
+            }
+
+            // We consider COMMAND disputes
+            // Records:
+            // _i = 11, rec.round = 10, true (PISA had 11, state 9 was used for transition, bad)
+            // _i = 10, rec.round = 10, true (PISA had 10, state 9 was used for transition, bad)
+            // _i = 9, rec.round = 10, false. (PISA had 9, state 9 was used for transition, good)
+            // This is because the dispute transitions version from i to i+1
+            if(_channelmode == 1 && _version >= dVersion) {
+                return true;
+            }
         }
 
         return false;
@@ -135,13 +177,6 @@ contract PISA {
         bytes32 prefixedHash = keccak256(abi.encodePacked(prefix, _hash));
         return recover(prefixedHash, _signature);
     }
-/*
-    // Placeholder for now to verify signed messages from PISA.
-    function test(uint _starttime, uint _expiry, address _sc, uint _i, uint _h, bytes memory _signature, address _watcher) public view returns (bool) {
-        bytes32 signedhash = keccak256(abi.encodePacked(_starttime, _expiry, _sc,  _i,  _h, address(this)));
-        //bytes32 prefixedHash = keccak256(abi.encodePacked(prefix, _hash));
-        return _watcher == recoverEthereumSignedMessage(signedhash, _signature);
-    } */
 
     // Helper function
     function getDepositBalance(address _watcher) public view returns(uint) {
