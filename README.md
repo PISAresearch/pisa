@@ -18,12 +18,12 @@ We are working to minimise all integration effort - in the best case a smart con
 
 As a protocol designer, we love building protocols using commit and reveal to guarantee fairness. Good examples include auctions (seal bid, reveal bid), games (submit sealed choice, reveal choice), and e-voting (submit sealed vote, reveal vote). But so far, the UX around two-step protocols are really bad and users have lost money.
 
-**Why is commit and reveal a bad user experience?** Typically commit and reveal protocols have two time periods. 
+**Why is commit and reveal a bad user experience?** Generally, a commit and reveal protocols requires the user to be online "twice": 
 
-* Users "commit" to their choice (all must commit before time t1))
-* Users "reveal" their choice (all must reveal before time t2) 
+* Users "commit" to their choice (all users must commit before time t1)
+* Users "reveal" their choice (all users must reveal before time t2) 
 
-Requiring users *to be online* within both time periods doesn't translate well to the real world - people can easily busy and just forget to respond - sometimes if they forget, the protocol will slash them and make them lose their deposit. Not a great UX outcome, but a necessary evil in protocol design. 
+Requiring users *to be online within both time periods* does not translate well to a good user experience in the real world - people can very easily just forget to respond. The big issue is not that they forget and lose-out, but the smart contract will actually slash the custoner and make them lose their deposit. Not a great UX outcome, but a necessary evil in smart contract design. 
 
 
 ## How is PISA "Accountable"? 
