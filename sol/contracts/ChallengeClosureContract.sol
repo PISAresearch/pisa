@@ -7,7 +7,7 @@ contract DataRegistryInterface {
     function setData(uint _appointmentid, bytes memory _data) public returns(uint _datashard, uint _index);
 }
 
-contract ChallengeCommandContract {
+contract ChallengeClosureContract {
 
     // We only care about challenges
     enum Flag {RESOLVED, CHALLENGE}
@@ -22,7 +22,7 @@ contract ChallengeCommandContract {
 
     // Data Registry logging information
     address dataregistry;
-    bytes32 id;
+    uint id;
 
     event ChallengeEvent(uint shard, address addr, uint id, uint index, bytes data);
     event ResolveEvent(uint shard, address addr, uint id, uint index, bytes data);
@@ -30,7 +30,7 @@ contract ChallengeCommandContract {
     // Install data registry upon startup.
     constructor(address _registry) public {
         dataregistry = _registry;
-        id = 0;
+        id = 0; // Unique log identifier
         challengePeriod = 50; // hard-coded, 50 blocks.
     }
 
@@ -52,24 +52,16 @@ contract ChallengeCommandContract {
 
     // Evidence for the challenge period
     // PISA is expected to call it.
-    function evidence(bytes memory action) public {
+    function evidence(uint _v) public {
         require(flag == Flag.CHALLENGE);
-
-        // we just ignore the action here...
-        // dont care we are just mocking up example
-        // just extend deadline
-        // this is what counterfactual does.
-        challengeExpiry = challengeExpiry + challengePeriod;
+        require(_v > v);
+        v = _v;
     }
 
-    // PISA will send the agreed "latest state"
-    // This should cancel the dispute process...
-    function refute(uint _v) public {
-      require(_v > v);
-
-      v = _v;
-      flag = Flag.RESOLVED;
-      challengeExpiry = 0;
+    // Perhaps the on-chain challenge gets cancelled altogether
+    function cancel() public {
+        require(flag == Flag.CHALLENGE);
+        flag = Flag.RESOLVED;
     }
 
     // Resolve an on-chain challenge
@@ -79,7 +71,6 @@ contract ChallengeCommandContract {
 
         // Store log and resolve challenge
         flag = Flag.RESOLVED;
-        v = v + 1; // Just increments by 1... all commands executed in real-time
 
         // MSGTYPE, TIMESTAMP, V
         // 1 = resolve, block number, counter from evidence.
@@ -94,9 +85,5 @@ contract ChallengeCommandContract {
     // Helper function for unit-testing
     function getV() public view returns (uint) {
       return v;
-    }
-
-    function getFlag() public view returns (uint) {
-      return uint(flag);
     }
 }
