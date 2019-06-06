@@ -23,7 +23,7 @@ As a protocol designer, we love building protocols using commit and reveal to gu
 * Users "commit" to their choice (all users must commit before time t1)
 * Users "reveal" their choice (all users must reveal before time t2) 
 
-Requiring users *to be online within both time periods* does not translate well to a good user experience in the real world - people can very easily just forget to respond. The big issue is not that they forget and lose-out, but the smart contract will actually slash the custoner and make them lose their deposit. Not a great UX outcome, but a necessary evil in smart contract design. 
+Requiring users *to be online within both time periods* does not translate well to a good user experience in the real world - people can very easily just forget to respond. The big issue is not that they forget and lose-out, but the smart contract will actually slash the customer and make them lose their deposit. Not a great UX outcome, but a necessary evil in smart contract design. 
 
 
 ## How is PISA "Accountable"? 
