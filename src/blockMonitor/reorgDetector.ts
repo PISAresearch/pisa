@@ -1,8 +1,9 @@
 import { ethers } from "ethers";
-import { ArgumentError, StartStopService } from "../dataEntities";
-import { BlockStubChain, IBlockStub } from "./blockStub";
+import { StartStopService, ApplicationError } from "../dataEntities";
+import { IBlockStub } from "./blockStub";
 import { ReorgHeightListenerStore } from "./reorgHeightListener";
 import { BlockProcessor } from "./blockProcessor";
+import { Lock } from "../utils/lock";
 
 /**
  * Keeps track of the current head of the blockchain, and handles reorgs up to the same depth maxDepth as the
@@ -11,8 +12,9 @@ import { BlockProcessor } from "./blockProcessor";
  * so that appropriate block events are emitted.
  */
 export class ReorgDetector extends StartStopService {
-    private headBlock: BlockStubChain;
-    private conductingReorg: boolean = false;
+    private headBlock: IBlockStub;
+
+    private lock = new Lock();
 
     public get maxDepth() {
         return this.blockProcessor.blockCache.maxDepth;
@@ -48,63 +50,65 @@ export class ReorgDetector extends StartStopService {
     ) {
         super("reorg-detector");
 
-        this.handleNewBlock = this.handleNewBlock.bind(this);
+        this.handleReorgEvent = this.handleReorgEvent.bind(this);
+        this.handleNewHeadEvent = this.handleNewHeadEvent.bind(this);
         this.conductReorg = this.conductReorg.bind(this);
     }
 
     protected async startInternal(): Promise<void> {
-        this.blockProcessor.on(BlockProcessor.NEW_HEAD_EVENT, this.handleNewBlock);
+        this.blockProcessor.on(BlockProcessor.REORG_EVENT, this.handleReorgEvent);
+        this.blockProcessor.on(BlockProcessor.NEW_HEAD_EVENT, this.handleNewHeadEvent);
     }
     protected async stopInternal(): Promise<void> {
-        this.blockProcessor.off(BlockProcessor.NEW_HEAD_EVENT, this.handleNewBlock);
+        this.blockProcessor.off(BlockProcessor.REORG_EVENT, this.handleReorgEvent);
+        this.blockProcessor.off(BlockProcessor.NEW_HEAD_EVENT, this.handleNewHeadEvent);
+    }
+
+    private setNewHead(newHeadHash: string) {
+        const newHeadBlock = this.blockProcessor.blockCache.getBlockStub(newHeadHash);
+        if (!newHeadBlock) throw new ApplicationError(`BLock with hash ${newHeadHash} not found`);
+
+        this.headBlock = newHeadBlock;
+    }
+
+    private async handleNewHeadEvent(blockNumber: number, blockHash: string) {
+        // We enqueue the processing if there is a re-org in process
+        await this.lock.acquire();
+
+        this.setNewHead(blockHash);
+
+        // prune events past the max depth after each event
+        this.prune();
+
+        this.lock.release();
     }
 
     /**
      * Detect a reorg if a new block is observed
      * @param blockNumber
      */
-    private handleNewBlock(blockNumber: number, blockHash: string) {
-        // If a reorg is in process, we ignore further blocks.
-        // We will get up-to-date as soon as a new block is received after the reorg is complete.
-        if (this.conductingReorg) return;
+    private async handleReorgEvent(commonAncestorHash: string | null, newHeadHash: string, oldHeadHash: string) {
+        // We enqueue the processing if there is a re-org in process
+        await this.lock.acquire();
 
         try {
-            // get the full block information for the incoming block
-            const fullBlock = this.blockProcessor.blockCache.getBlockStub(blockHash)!;
+            if (commonAncestorHash === null) {
+                // if we couldn't find a common ancestor the reorg must be too deep
+                const newHeadBlock = this.blockProcessor.blockCache.getBlockStub(newHeadHash)!;
+                this.emit(ReorgDetector.REORG_BEYOND_DEPTH_EVENT, this.headBlock, newHeadBlock);
 
-            if (!this.headBlock) {
-                // no current block - start of operation
-                this.headBlock = BlockStubChain.newRoot(fullBlock);
-            } else if (fullBlock.parentHash === this.headBlock.hash) {
-                // direct parent - extend the chain
-                this.headBlock = this.headBlock.extend(fullBlock);
+                // find the oldest ancestor of the new head which is still in cache
+                const oldestAncestor = this.blockProcessor.blockCache.getOldestAncestorInCache(newHeadHash);
+
+                // Start a reorg (asynchronous process)
+                await this.conductReorg(oldestAncestor);
             } else {
-                // if we couldn't extend this is a re-org, reset to the common ancestor
-                const { commonAncestor, differenceBlocks } = this.findCommonAncestor(
-                    fullBlock,
-                    this.headBlock,
-                    this.maxDepth
-                );
+                // indirect ancestor found - conduct reorg
 
-                if (commonAncestor === this.headBlock) {
-                    // direct ancestor - extend the chain
-                    this.headBlock = this.headBlock.extendMany(differenceBlocks.reverse());
-                } else if (commonAncestor === null) {
-                    // if we couldn't find a common ancestor the reorg must be too deep
-                    this.emit(ReorgDetector.REORG_BEYOND_DEPTH_EVENT, this.headBlock.asBlockStub(), fullBlock);
-                    // conduct a reorg with a new genesis
-                    const oldestBlock = differenceBlocks[differenceBlocks.length - 1];
-
-                    // Start a reorg (asynchronous process)
-                    this.conductReorg(BlockStubChain.newRoot(oldestBlock));
-                } else {
-                    // indirect ancestor found - conduct reorg
-                    // Start a reorg (asynchronous process)
-                    this.conductReorg(commonAncestor);
-                }
+                // Start a reorg (asynchronous process)
+                await this.conductReorg(this.blockProcessor.blockCache.getBlockStub(commonAncestorHash)!);
             }
-
-            // prune events past the max depth
+            // prune events past the max depth after each event
             this.prune();
         } catch (doh) {
             this.logger.error("Unexpected error.");
@@ -113,39 +117,36 @@ export class ReorgDetector extends StartStopService {
                 this.logger.error(dohError.stack!);
             }
         }
+
+        this.lock.release();
     }
 
     /**
      * Updates local state according to a new head, and informs subscribers
      * @param newHead
      */
-    private async conductReorg(newHead: BlockStubChain) {
-        // We need to ignore further events until we are done with the reorg
-        this.conductingReorg = true;
-
+    private async conductReorg(newHead: IBlockStub) {
         // we found a commong ancestor that was not the head - therfore we need
         // to conduct a reorg. Inform other listeners so that they might pause their
         // processing in the meantime
 
         this.provider.polling = false;
-        this.emit(ReorgDetector.REORG_START_EVENT, newHead.height);
-        // set the new head
-        this.headBlock = newHead;
+        this.emit(ReorgDetector.REORG_START_EVENT, newHead.number);
+
+        this.setNewHead(newHead.hash);
 
         // emit reorg listener events for everything above the ancestor
         // it's important that we emit all of these, and be sure that they've been
         // completed before turning polling back on so as to give listeners a chance
         // to add/remove listeners before we rewind.
-        await this.emitReorgHeightEvents(newHead.height + 1);
+        await this.emitReorgHeightEvents(newHead.number + 1);
 
         // reset this provider so that we can continue moving forward from here
-        this.provider.resetEventsBlock(newHead.height + 1);
+        this.provider.resetEventsBlock(newHead.number + 1);
 
         // and emit the end reorg event
-        this.emit(ReorgDetector.REORG_END_EVENT, newHead.height);
+        this.emit(ReorgDetector.REORG_END_EVENT, newHead.number);
         this.provider.polling = true;
-
-        this.conductingReorg = false;
     }
 
     /**
@@ -154,9 +155,8 @@ export class ReorgDetector extends StartStopService {
      */
     private prune() {
         // prune current re-org height listeners
-        const minHeight = this.headBlock.height - this.maxDepth;
+        const minHeight = this.headBlock.number - this.maxDepth;
 
-        this.headBlock.prune(minHeight);
         this.store.prune(minHeight);
     }
 
@@ -178,71 +178,6 @@ export class ReorgDetector extends StartStopService {
     }
 
     /**
-     * Finds the common ancestor between a local block stub chain and the block that corresponds
-     * to a given hash. It does this by recursively requesting blocks for this hash from the provider and
-     * checking whether the parent exists in the local chain. Will not look below a certain height.
-     *
-     * This is an O(n) operation meaning that it can be expensive when called in a loop - there are other ways we could
-     * arrange this logic to mitigate this. See: https://github.com/PISAresearch/pisa/issues/130
-     *
-     * @param remoteBlockHash The hash corresponding to the head of the remote block
-     * @param localBlock The local chain with which to compare the new remote one
-     * @param differenceBlocks If a common ancestor is found the blocks between it and the remote block are populated here
-     * @param minHeight The minimum height to search to
-     *
-     */
-    public findCommonAncestorDeep(
-        remoteBlockHash: string,
-        localBlock: BlockStubChain,
-        differenceBlocks: IBlockStub[],
-        minHeight: number
-    ): BlockStubChain | null {
-        const blockRemote = this.blockProcessor.blockCache.getBlockStub(remoteBlockHash);
-        if (!blockRemote) return null;
-        differenceBlocks.push(blockRemote);
-        if (blockRemote.number <= minHeight) return null;
-
-        const ancestor = localBlock.ancestorWithHash(blockRemote.parentHash);
-        if (ancestor) return ancestor;
-
-        return this.findCommonAncestorDeep(blockRemote.parentHash, localBlock, differenceBlocks, minHeight);
-    }
-
-    /**
-     * Finds the common ancestor between a new block and the current head. Looks first shallowly, then
-     * deep.BlockHeightListenerStore
-     * @param newBlock
-     * @param currentHead
-     */
-    public findCommonAncestor(
-        newBlock: IBlockStub,
-        currentHead: BlockStubChain,
-        maxDepth: number
-    ): { commonAncestor: BlockStubChain | null; differenceBlocks: IBlockStub[] } {
-        if (newBlock.parentHash === null) {
-            throw new ArgumentError("newBlock should have a parentHash");
-        }
-
-        let commonAncestor: BlockStubChain | null;
-        let differenceBlocks: IBlockStub[] = [];
-        const minHeight = currentHead.height - maxDepth;
-        // the chain has reduced linearly
-        if ((commonAncestor = currentHead.ancestorWithHash(newBlock.hash))) {
-        }
-        // sibling or greater
-        else if ((commonAncestor = currentHead.ancestorWithHash(newBlock.parentHash))) {
-            differenceBlocks.push(newBlock);
-        }
-        // recurse down the ancestry of the provided block, looking for a common ancestor
-        else {
-            differenceBlocks.push(newBlock);
-            commonAncestor = this.findCommonAncestorDeep(newBlock.parentHash, currentHead, differenceBlocks, minHeight);
-        }
-
-        return { commonAncestor, differenceBlocks };
-    }
-
-    /**
      * Add a listener for reorg events that reorg the chain to a common ancestor below a certain height. These events are guaranteed
      * to fire after ReorgDetector.REORG_START_EVENT and before ReorgDetector.REORG_END_EVENT
      * @param listener This listener will not be present in the listeners() or listenerCount() properties as it
@@ -257,7 +192,7 @@ export class ReorgDetector extends StartStopService {
      * The current head of the chain
      */
     public get head() {
-        if (this.headBlock) return this.headBlock.asBlockStub();
+        if (this.headBlock) return this.headBlock;
         else return null;
     }
 }

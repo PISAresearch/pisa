@@ -1,5 +1,5 @@
 import { ethers } from "ethers";
-import { ApplicationError } from "../dataEntities";
+import { ApplicationError, ArgumentError } from "../dataEntities";
 import { IBlockStub, BlockStubChain } from "./blockStub";
 
 /**
@@ -14,6 +14,8 @@ export interface ReadOnlyBlockCache {
     getBlockStub(blockHash: string): IBlockStub | null;
     hasBlock(blockHash: string): boolean;
     getConfirmations(headBlockHash: string, txHash: string): number;
+    findAncestor(initialBlockHash: string, predicate: (block: IBlockStub) => boolean): IBlockStub | null;
+    getOldestAncestorInCache(blockHash: string): IBlockStub;
 }
 
 /**
@@ -216,19 +218,65 @@ export class BlockCache implements ReadOnlyBlockCache {
     }
 
     /**
+     * Iterator over all the blocks in the ancestry of the block with hash `initialBlockHash` (inclusive).
+     * @param initialBlockHash
+     */
+    private *ancestry(initialBlockHash: string): IterableIterator<IBlockStub> {
+        let curBlock = this.getBlockStub(initialBlockHash);
+        while (curBlock !== null) {
+            yield curBlock;
+            curBlock = this.getBlockStub(curBlock.parentHash);
+        }
+    }
+
+    /**
+     * Finds and returns the nearest ancestor that satisfies `predicate`.
+     * Returns `null` if no such ancestor is found.
+     */
+    public findAncestor(initialBlockHash: string, predicate: (block: IBlockStub) => boolean): IBlockStub | null {
+        for (const block of this.ancestry(initialBlockHash)) {
+            if (predicate(block)) {
+                return block;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Returns the IBlockStub of the oldest ancestor of `blockStub` that is stored in the blockCache.
+     * @throws ArgumentError if `blockHash` is not in the blockCache.
+     * @param blockHash
+     */
+    public getOldestAncestorInCache(blockHash: string): IBlockStub {
+        if (!this.hasBlock(blockHash)) {
+            throw new ArgumentError(`The block with hash ${blockHash} is not in cache`);
+        }
+
+        // Find the deepest ancestor that is in cache
+        const result = this.findAncestor(blockHash, block => !this.hasBlock(block.parentHash));
+
+        if (!result) {
+            // This should never happen
+            throw new ApplicationError(
+                `An error occurred while searching the oldest block in cache after a catastrophic reorg. This is a bug.`
+            );
+        }
+
+        return result;
+    }
+
+    /**
      * Returns number of confirmations using `headBlockHash` as tip of the blockchain, looking for `txHash` among the ancestor blocks;
      * return 0 if no ancestor containing the transaction is found.
      * Note: This will return 0 for transactions already at depth bigger than `this.maxDepth` when this function is called.
      */
     public getConfirmations(headBlockHash: string, txHash: string): number {
-        let depth = 0;
-        let curBlock = this.getBlockStub(headBlockHash);
-        while (curBlock !== null) {
-            const txsInCurBlock = this.txHashesByBlockHash.get(curBlock.hash);
+        let depth = 1;
+        for (const block of this.ancestry(headBlockHash)) {
+            const txsInCurBlock = this.txHashesByBlockHash.get(block.hash);
             if (txsInCurBlock && txsInCurBlock.has(txHash)) {
-                return depth + 1;
+                return depth;
             }
-            curBlock = this.getBlockStub(curBlock.parentHash);
             depth++;
         }
 
