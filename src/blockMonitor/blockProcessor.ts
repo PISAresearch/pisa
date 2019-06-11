@@ -68,7 +68,7 @@ export class BlockProcessor extends StartStopService {
 
     protected async startInternal(): Promise<void> {
         // Make sure the current head block is processed
-        let initialBlockNumber = await this.provider.getBlockNumber();
+        const initialBlockNumber = await this.provider.getBlockNumber();
 
         // This should never happen
         if (initialBlockNumber == null) throw new ApplicationError(`getBlockNumber returned ${initialBlockNumber}`);
