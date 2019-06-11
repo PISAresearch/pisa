@@ -10,7 +10,6 @@ export interface ReadOnlyBlockCache {
     readonly maxHeight: number;
     readonly minHeight: number;
     canAddBlock(block: ethers.providers.Block): boolean;
-    getBlockStubChain(blockHash: string): BlockStubChain | null;
     getBlockStub(blockHash: string): IBlockStub | null;
     hasBlock(blockHash: string): boolean;
     getConfirmations(headBlockHash: string, txHash: string): number;
@@ -36,7 +35,7 @@ export interface ReadOnlyBlockCache {
  * actually be added (for example because they are already too deep); in that case, it will return `false`.
  **/
 export class BlockCache implements ReadOnlyBlockCache {
-    private blockStubsByHash: Map<string, BlockStubChain> = new Map();
+    private blockStubsByHash: Map<string, IBlockStub> = new Map();
 
     // set of tx hashes per block hash, for fast lookup
     private txHashesByBlockHash: Map<string, Set<string>> = new Map();
@@ -81,9 +80,6 @@ export class BlockCache implements ReadOnlyBlockCache {
             throw new ApplicationError(`Block with hash ${blockHash} not found, but it was expected.`);
         }
 
-        // Make sure we prune old BlockStubChains when removing a block
-        block.prune(block.height);
-
         this.blockStubsByHash.delete(blockHash);
 
         // Remove stored set of transactions for this block
@@ -100,18 +96,6 @@ export class BlockCache implements ReadOnlyBlockCache {
 
             this.pruneHeight++;
         }
-    }
-
-    // Makes a new block stub, linking the parent if available
-    private makeBlockStub(hash: string, number: number, parentHash: string) {
-        const parentBlockStubChain = this.blockStubsByHash.get(parentHash);
-        let newBlockStubChain: BlockStubChain;
-        if (parentBlockStubChain === undefined) {
-            newBlockStubChain = BlockStubChain.newRoot({ hash, number, parentHash });
-        } else {
-            newBlockStubChain = parentBlockStubChain.extend({ hash, number, parentHash });
-        }
-        return newBlockStubChain;
     }
 
     /**
@@ -167,7 +151,7 @@ export class BlockCache implements ReadOnlyBlockCache {
         // Update data structures
 
         // Save block stub
-        const newBlockStub = this.makeBlockStub(block.hash, block.number, block.parentHash);
+        const newBlockStub = { hash: block.hash, number: block.number, parentHash: block.parentHash };
         this.blockStubsByHash.set(block.hash, newBlockStub);
 
         // Add set of transactions for this block hash
@@ -191,23 +175,11 @@ export class BlockCache implements ReadOnlyBlockCache {
     }
 
     /**
-     * Returns the `BlockStubChain` for the block with hash `blockHash`, or `null` if the block is not in cache.
-     * @param blockHash
-     */
-    public getBlockStubChain(blockHash: string): BlockStubChain | null {
-        return this.blockStubsByHash.get(blockHash) || null;
-    }
-
-    /**
      * Returns the `IBlockStub` for the block with hash `blockHash`, or `null` if the block is not in cache.
      * @param blockHash
      */
     public getBlockStub(blockHash: string): IBlockStub | null {
-        const blockStubChain = this.getBlockStubChain(blockHash);
-        if (blockStubChain === null) {
-            return null;
-        }
-        return blockStubChain.asBlockStub();
+        return this.blockStubsByHash.get(blockHash) || null;
     }
 
     /**
