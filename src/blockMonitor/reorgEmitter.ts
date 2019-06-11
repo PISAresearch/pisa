@@ -11,7 +11,7 @@ import { Lock } from "../utils/lock";
  * Emits appropriate events when reorgs are observed, and resets the provider to the common ancestor (whenever possible)
  * so that appropriate block events are emitted.
  */
-export class ReorgDetector extends StartStopService {
+export class ReorgEmitter extends StartStopService {
     private headBlock: IBlockStub;
 
     private lock = new Lock();
@@ -95,7 +95,7 @@ export class ReorgDetector extends StartStopService {
             if (commonAncestorHash === null) {
                 // if we couldn't find a common ancestor the reorg must be too deep
                 const newHeadBlock = this.blockProcessor.blockCache.getBlockStub(newHeadHash)!;
-                this.emit(ReorgDetector.REORG_BEYOND_DEPTH_EVENT, this.headBlock, newHeadBlock);
+                this.emit(ReorgEmitter.REORG_BEYOND_DEPTH_EVENT, this.headBlock, newHeadBlock);
 
                 // find the oldest ancestor of the new head which is still in cache
                 const oldestAncestor = this.blockProcessor.blockCache.getOldestAncestorInCache(newHeadHash);
@@ -131,7 +131,7 @@ export class ReorgDetector extends StartStopService {
         // processing in the meantime
 
         this.provider.polling = false;
-        this.emit(ReorgDetector.REORG_START_EVENT, newHead.number);
+        this.emit(ReorgEmitter.REORG_START_EVENT, newHead.number);
 
         this.setNewHead(newHead.hash);
 
@@ -145,7 +145,7 @@ export class ReorgDetector extends StartStopService {
         this.provider.resetEventsBlock(newHead.number + 1);
 
         // and emit the end reorg event
-        this.emit(ReorgDetector.REORG_END_EVENT, newHead.number);
+        this.emit(ReorgEmitter.REORG_END_EVENT, newHead.number);
         this.provider.polling = true;
     }
 
@@ -179,7 +179,7 @@ export class ReorgDetector extends StartStopService {
 
     /**
      * Add a listener for reorg events that reorg the chain to a common ancestor below a certain height. These events are guaranteed
-     * to fire after ReorgDetector.REORG_START_EVENT and before ReorgDetector.REORG_END_EVENT
+     * to fire after ReorgEmitter.REORG_START_EVENT and before ReorgEmitter.REORG_END_EVENT
      * @param listener This listener will not be present in the listeners() or listenerCount() properties as it
      * can be an async callback, but we must await for it's completion here before emitting synchronous callbacks. So
      * it must be emitted in a different way.

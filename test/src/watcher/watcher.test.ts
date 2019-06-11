@@ -9,7 +9,7 @@ import { AppointmentSubscriber } from "../../../src/watcher/appointmentSubscribe
 import * as Ganache from "ganache-core";
 import { EthereumResponderManager } from "../../../src/responder";
 import { BlockProcessor, ReorgHeightListenerStore, BlockCache } from "../../../src/blockMonitor";
-import { ReorgDetector } from "../../../src/blockMonitor/reorgDetector";
+import { ReorgEmitter } from "../../../src/blockMonitor/reorgEmitter";
 
 describe("Watcher", () => {
     const ganache = Ganache.provider({});
@@ -81,9 +81,9 @@ describe("Watcher", () => {
     when(mockedStoreThatThrows.getAll()).thenReturn([appointmentCanBeUpdated, appointmentNotUpdated]);
     const storeInstanceThrow = instance(mockedStoreThatThrows);
 
-    const mockedReorgDetector = mock(ReorgDetector);
-    when(mockedReorgDetector.addReorgHeightListener(anyNumber(), anything())).thenReturn();
-    const reorgDetectorInstance = instance(mockedReorgDetector);
+    const mockedReorgEmitter = mock(ReorgEmitter);
+    when(mockedReorgEmitter.addReorgHeightListener(anyNumber(), anything())).thenReturn();
+    const reorgEmitterInstance = instance(mockedReorgEmitter);
 
     const event = {
         blockNumber: 10
@@ -96,11 +96,11 @@ describe("Watcher", () => {
         resetCalls(mockedStore);
         resetCalls(mockedResponderThatThrows);
         resetCalls(mockedStoreThatThrows);
-        resetCalls(mockedReorgDetector);
+        resetCalls(mockedReorgEmitter);
     });
 
     it("add appointment updates store and subscriptions", async () => {
-        const watcher = new Watcher(responderInstance, reorgDetectorInstance, appointmentSubscriber, store);
+        const watcher = new Watcher(responderInstance, reorgEmitterInstance, appointmentSubscriber, store);
 
         assert.strictEqual(await watcher.addAppointment(appointmentCanBeUpdated), true);
 
@@ -116,7 +116,7 @@ describe("Watcher", () => {
     });
 
     it("add appointment without update does not update subscriptions and returns false", async () => {
-        const watcher = new Watcher(responderInstance, reorgDetectorInstance, appointmentSubscriber, store);
+        const watcher = new Watcher(responderInstance, reorgEmitterInstance, appointmentSubscriber, store);
 
         assert.strictEqual(await watcher.addAppointment(appointmentNotUpdated), false);
 
@@ -131,7 +131,7 @@ describe("Watcher", () => {
         ).never();
     });
     it("add appointment not passed inspection throws error", async () => {
-        const watcher = new Watcher(responderInstance, reorgDetectorInstance, appointmentSubscriber, store);
+        const watcher = new Watcher(responderInstance, reorgEmitterInstance, appointmentSubscriber, store);
 
         try {
             await watcher.addAppointment(appointmentNotInspected);
@@ -149,7 +149,7 @@ describe("Watcher", () => {
         }
     });
     it("add appointment throws error when update store throws error", async () => {
-        const watcher = new Watcher(responderInstance, reorgDetectorInstance, appointmentSubscriber, store);
+        const watcher = new Watcher(responderInstance, reorgEmitterInstance, appointmentSubscriber, store);
 
         try {
             await watcher.addAppointment(appointmentErrorUpdate);
@@ -167,7 +167,7 @@ describe("Watcher", () => {
         }
     });
     it("add appointment throws error when subscribe unsubscribeall throws error", async () => {
-        const watcher = new Watcher(responderInstance, reorgDetectorInstance, appointmentSubscriber, store);
+        const watcher = new Watcher(responderInstance, reorgEmitterInstance, appointmentSubscriber, store);
 
         try {
             await watcher.addAppointment(appointmentErrorUnsubscribe);
@@ -185,7 +185,7 @@ describe("Watcher", () => {
         }
     });
     it("add appointment throws error when subscriber once throw error", async () => {
-        const watcher = new Watcher(responderInstance, reorgDetectorInstance, appointmentSubscriber, store);
+        const watcher = new Watcher(responderInstance, reorgEmitterInstance, appointmentSubscriber, store);
 
         try {
             await watcher.addAppointment(appointmentErrorSubscribeOnce);
@@ -204,49 +204,44 @@ describe("Watcher", () => {
     });
 
     it("observe successfully responds and updates store", async () => {
-        const watcher = new Watcher(responderInstance, reorgDetectorInstance, appointmentSubscriber, store);
+        const watcher = new Watcher(responderInstance, reorgEmitterInstance, appointmentSubscriber, store);
 
         await watcher.observe(appointmentCanBeUpdated, event);
 
         // respond, reorg and remove were called in that order
         verify(mockedResponder.respond(appointmentCanBeUpdated)).once();
         verify(mockedStore.removeById(appointmentCanBeUpdated.id)).once();
-        verify(mockedReorgDetector.addReorgHeightListener(anyNumber(), anything())).once();
+        verify(mockedReorgEmitter.addReorgHeightListener(anyNumber(), anything())).once();
         verify(mockedResponder.respond(appointmentCanBeUpdated)).calledBefore(
             mockedStore.removeById(appointmentCanBeUpdated.id)
         );
-        verify(mockedReorgDetector.addReorgHeightListener(anyNumber(), anything())).calledBefore(
+        verify(mockedReorgEmitter.addReorgHeightListener(anyNumber(), anything())).calledBefore(
             mockedStore.removeById(appointmentCanBeUpdated.id)
         );
         verify(mockedAppointmentSubscriber.unsubscribe(appointmentCanBeUpdated.id, anything())).once();
         verify(mockedAppointmentSubscriber.unsubscribe(appointmentCanBeUpdated.id, anything())).calledBefore(
             mockedStore.removeById(appointmentCanBeUpdated.id)
         );
-        const [firstArg, _] = capture(mockedReorgDetector.addReorgHeightListener).last();
+        const [firstArg, _] = capture(mockedReorgEmitter.addReorgHeightListener).last();
         assert.strictEqual(firstArg, event.blockNumber, "Event block height incorrect.");
     });
 
     it("observe doesnt propagate errors from responder", async () => {
-        const watcher = new Watcher(responderInstanceThrow, reorgDetectorInstance, appointmentSubscriber, store);
+        const watcher = new Watcher(responderInstanceThrow, reorgEmitterInstance, appointmentSubscriber, store);
         await watcher.observe(appointmentCanBeUpdated, event);
 
         verify(mockedResponderThatThrows.respond(appointmentCanBeUpdated)).once();
         verify(mockedStore.removeById(appointmentCanBeUpdated.id)).never();
         verify(mockedAppointmentSubscriber.unsubscribe(appointmentCanBeUpdated.id, anything())).never();
-        verify(mockedReorgDetector.addReorgHeightListener(anyNumber(), anything())).never();
+        verify(mockedReorgEmitter.addReorgHeightListener(anyNumber(), anything())).never();
     });
 
     it("observe doesnt propagate errors from store", async () => {
-        const watcher = new Watcher(
-            responderInstance,
-            reorgDetectorInstance,
-            appointmentSubscriber,
-            storeInstanceThrow
-        );
+        const watcher = new Watcher(responderInstance, reorgEmitterInstance, appointmentSubscriber, storeInstanceThrow);
         await watcher.observe(appointmentCanBeUpdated, event);
 
         verify(mockedResponder.respond(appointmentCanBeUpdated)).once();
-        verify(mockedReorgDetector.addReorgHeightListener(anyNumber(), anything())).once();
+        verify(mockedReorgEmitter.addReorgHeightListener(anyNumber(), anything())).once();
         verify(mockedAppointmentSubscriber.unsubscribe(appointmentCanBeUpdated.id, anything())).once();
         verify(mockedStoreThatThrows.removeById(anything())).once();
     });
@@ -254,14 +249,14 @@ describe("Watcher", () => {
     it("observe does nothing during a reorg", async () => {
         const blockCache = new BlockCache(200);
         const blockProcessor = new BlockProcessor(provider, blockCache);
-        const reorgDetect = new ReorgDetector(provider, blockProcessor, new ReorgHeightListenerStore());
+        const reorgDetect = new ReorgEmitter(provider, blockProcessor, new ReorgHeightListenerStore());
         const spiedReorgDetect = spy(reorgDetect);
         const watcher = new Watcher(responderInstance, reorgDetect, appointmentSubscriber, storeInstanceThrow);
         await watcher.start();
 
-        reorgDetect.emit(ReorgDetector.REORG_START_EVENT);
+        reorgDetect.emit(ReorgEmitter.REORG_START_EVENT);
         await watcher.observe(appointmentCanBeUpdated, event);
-        reorgDetect.emit(ReorgDetector.REORG_END_EVENT);
+        reorgDetect.emit(ReorgEmitter.REORG_END_EVENT);
 
         verify(mockedResponder.respond(appointmentCanBeUpdated)).never();
         verify(spiedReorgDetect.addReorgHeightListener(anyNumber(), anything())).never();
@@ -279,12 +274,7 @@ describe("Watcher", () => {
     });
 
     it("start correctly adds existing appointments to subscriber", async () => {
-        const watcher = new Watcher(
-            responderInstance,
-            reorgDetectorInstance,
-            appointmentSubscriber,
-            storeInstanceThrow
-        );
+        const watcher = new Watcher(responderInstance, reorgEmitterInstance, appointmentSubscriber, storeInstanceThrow);
         await watcher.start();
 
         verify(

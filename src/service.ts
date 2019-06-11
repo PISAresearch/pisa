@@ -29,7 +29,7 @@ import {
 } from "./blockMonitor";
 import { LevelUp } from "levelup";
 import encodingDown from "encoding-down";
-import { ReorgDetector } from "./blockMonitor/reorgDetector";
+import { ReorgEmitter } from "./blockMonitor/reorgEmitter";
 
 /**
  * Hosts a PISA service at the endpoint.
@@ -37,7 +37,7 @@ import { ReorgDetector } from "./blockMonitor/reorgDetector";
 export class PisaService extends StartStopService {
     private readonly server: Server;
     private readonly garbageCollector: AppointmentStoreGarbageCollector;
-    private readonly reorgDetector: ReorgDetector;
+    private readonly reorgEmitter: ReorgEmitter;
     private readonly blockProcessor: BlockProcessor;
     private readonly blockTimeoutDetector: BlockTimeoutDetector;
     private readonly confirmationObserver: ConfirmationObserver;
@@ -73,7 +73,7 @@ export class PisaService extends StartStopService {
         // start reorg detector and block monitor
         const blockCache = new BlockCache(200);
         this.blockProcessor = new BlockProcessor(delayedProvider, blockCache);
-        this.reorgDetector = new ReorgDetector(delayedProvider, this.blockProcessor, new ReorgHeightListenerStore());
+        this.reorgEmitter = new ReorgEmitter(delayedProvider, this.blockProcessor, new ReorgHeightListenerStore());
 
         // dependencies
         this.appointmentStore = new AppointmentStore(
@@ -90,7 +90,7 @@ export class PisaService extends StartStopService {
         const appointmentSubscriber = new AppointmentSubscriber(delayedProvider);
         this.watcher = new Watcher(
             this.ethereumResponderManager,
-            this.reorgDetector,
+            this.reorgEmitter,
             appointmentSubscriber,
             this.appointmentStore
         );
@@ -118,7 +118,7 @@ export class PisaService extends StartStopService {
 
     protected async startInternal() {
         await this.blockProcessor.start();
-        await this.reorgDetector.start();
+        await this.reorgEmitter.start();
         await this.blockTimeoutDetector.start();
         await this.confirmationObserver.start();
         await this.garbageCollector.start();
@@ -133,7 +133,7 @@ export class PisaService extends StartStopService {
         await this.garbageCollector.stop();
         await this.confirmationObserver.stop();
         await this.blockTimeoutDetector.stop();
-        await this.reorgDetector.stop();
+        await this.reorgEmitter.stop();
         await this.blockProcessor.stop();
         this.server.close(error => {
             if (error) this.logger.error(error.stack!);
