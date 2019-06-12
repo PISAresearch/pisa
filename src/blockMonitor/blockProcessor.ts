@@ -82,28 +82,31 @@ export class BlockProcessor extends StartStopService {
         this.provider.removeListener("block", this.processBlockNumber);
     }
 
+    // Returns true if `blockHash` is the last blockHash that was received
+    private isBlockHashLastReceived(blockHash: string) {
+        return this.lastBlockHashReceived === blockHash;
+    }
+
     // update the new headHash if needed, and emit the appropriate events
     private processNewHead(headBlock: ethers.providers.Block, commonAncestorBlock: IBlockStub | null) {
         const oldHeadHash = this.headHash; // we need to remember the old head for proper Reorg event handling
         this.headHash = headBlock.hash;
 
-        if (!this.headHash || this.headHash === this.lastBlockHashReceived) {
-            // Emit the appropriate events, but only if the service is already started
-            if (this.started) {
-                if (
-                    !commonAncestorBlock || // deep reorg, no common ancestor
-                    oldHeadHash !== commonAncestorBlock.hash // normal reorg
-                ) {
-                    this.emit(
-                        BlockProcessor.REORG_EVENT,
-                        commonAncestorBlock && commonAncestorBlock.hash,
-                        this.headHash,
-                        oldHeadHash
-                    );
-                }
-
-                this.emit(BlockProcessor.NEW_HEAD_EVENT, headBlock.number, headBlock.hash);
+        // Emit the appropriate events, but only if the service is already started
+        if (this.isBlockHashLastReceived(this.headHash) && this.started) {
+            if (
+                !commonAncestorBlock || // deep reorg, no common ancestor
+                oldHeadHash !== commonAncestorBlock.hash // normal reorg
+            ) {
+                this.emit(
+                    BlockProcessor.REORG_EVENT,
+                    commonAncestorBlock && commonAncestorBlock.hash,
+                    this.headHash,
+                    oldHeadHash
+                );
             }
+
+            this.emit(BlockProcessor.NEW_HEAD_EVENT, headBlock.number, headBlock.hash);
         }
     }
 
@@ -113,6 +116,9 @@ export class BlockProcessor extends StartStopService {
         try {
             const observedBlock = await this.provider.getBlock(blockNumber);
 
+            if (!observedBlock.hash) {
+                console.log(observedBlock);
+            }
             this.lastBlockHashReceived = observedBlock.hash;
 
             const blocksToAdd = [observedBlock]; // blocks to add, in reverse order
@@ -134,7 +140,7 @@ export class BlockProcessor extends StartStopService {
             }
 
             // is the observed block still the last block received (or the first block during startup)?
-            if (!this.lastBlockHashReceived || this.lastBlockHashReceived === observedBlock.hash) {
+            if (this.isBlockHashLastReceived(observedBlock.hash)) {
                 this.processNewHead(observedBlock, commonAncestorBlock);
             }
         } catch (doh) {
