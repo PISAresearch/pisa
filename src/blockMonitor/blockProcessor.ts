@@ -70,9 +70,6 @@ export class BlockProcessor extends StartStopService {
         // Make sure the current head block is processed
         const initialBlockNumber = await this.provider.getBlockNumber();
 
-        // This should never happen
-        if (initialBlockNumber == null) throw new ApplicationError(`getBlockNumber returned ${initialBlockNumber}`);
-
         await this.processBlockNumber(initialBlockNumber);
 
         this.provider.on("block", this.processBlockNumber);
@@ -112,9 +109,6 @@ export class BlockProcessor extends StartStopService {
         try {
             const observedBlock = await this.provider.getBlock(blockNumber);
 
-            if (!observedBlock.hash) {
-                console.log(observedBlock);
-            }
             this.lastBlockHashReceived = observedBlock.hash;
 
             const blocksToAdd = [observedBlock]; // blocks to add, in reverse order
