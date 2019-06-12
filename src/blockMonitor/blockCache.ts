@@ -230,7 +230,7 @@ export class BlockCache implements ReadOnlyBlockCache {
         if (!result) {
             // This should never happen
             throw new ApplicationError(
-                `An error occurred while searching the oldest block in cache after a catastrophic reorg. This is a bug.`
+                `An error occurred while searching the oldest ancestor in cache. This is a bug.`
             );
         }
 

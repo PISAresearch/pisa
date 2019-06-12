@@ -12,9 +12,16 @@ import { Lock } from "../utils/lock";
  * so that appropriate block events are emitted.
  */
 export class ReorgEmitter extends StartStopService {
-    private headBlock: IBlockStub;
-
     private lock = new Lock();
+
+    private headBlock: IBlockStub | null;
+
+    /**
+     * The current head of the chain
+     */
+    public get head() {
+        return this.headBlock;
+    }
 
     public get maxDepth() {
         return this.blockProcessor.blockCache.maxDepth;
@@ -66,7 +73,7 @@ export class ReorgEmitter extends StartStopService {
 
     private setNewHead(newHeadHash: string) {
         const newHeadBlock = this.blockProcessor.blockCache.getBlockStub(newHeadHash);
-        if (!newHeadBlock) throw new ApplicationError(`BLock with hash ${newHeadHash} not found`);
+        if (!newHeadBlock) throw new ApplicationError(`Block with hash ${newHeadHash} not found`);
 
         this.headBlock = newHeadBlock;
     }
@@ -94,8 +101,9 @@ export class ReorgEmitter extends StartStopService {
         try {
             if (commonAncestorHash === null) {
                 // if we couldn't find a common ancestor the reorg must be too deep
+                const oldHeadBlock = this.blockProcessor.blockCache.getBlockStub(oldHeadHash)!;
                 const newHeadBlock = this.blockProcessor.blockCache.getBlockStub(newHeadHash)!;
-                this.emit(ReorgEmitter.REORG_BEYOND_DEPTH_EVENT, this.headBlock, newHeadBlock);
+                this.emit(ReorgEmitter.REORG_BEYOND_DEPTH_EVENT, oldHeadBlock, newHeadBlock);
 
                 // find the oldest ancestor of the new head which is still in cache
                 const oldestAncestor = this.blockProcessor.blockCache.getOldestAncestorInCache(newHeadHash);
@@ -151,11 +159,13 @@ export class ReorgEmitter extends StartStopService {
 
     /**
      * Since this reorg detector only detects reorgs below a max depth it can prune records
-     * that it has below that
+     * that it has below that.
      */
     private prune() {
+        if (!this.head) throw new ApplicationError("Cannot prune before initializing the head field");
+
         // prune current re-org height listeners
-        const minHeight = this.headBlock.number - this.maxDepth;
+        const minHeight = this.head.number - this.maxDepth;
 
         this.store.prune(minHeight);
     }
@@ -186,13 +196,5 @@ export class ReorgEmitter extends StartStopService {
      */
     public addReorgHeightListener(height: number, listener: () => Promise<void>) {
         this.store.addListener(height, listener);
-    }
-
-    /**
-     * The current head of the chain
-     */
-    public get head() {
-        if (this.headBlock) return this.headBlock;
-        else return null;
     }
 }
