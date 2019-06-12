@@ -47,8 +47,8 @@ export class BlockProcessor extends StartStopService {
      *         `head` is read before the service is started.
      */
     public get head(): IBlockStub {
-        if (this.headHash === null) {
-            throw new ApplicationError("head used before the BlockProcessor is initialized");
+        if (this.headHash == null) {
+            throw new ApplicationError("head used before the BlockProcessor is initialized.");
         }
 
         const blockStub = this.blockCache.getBlockStub(this.headHash);
