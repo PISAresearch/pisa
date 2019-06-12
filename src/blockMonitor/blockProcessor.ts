@@ -94,16 +94,12 @@ export class BlockProcessor extends StartStopService {
 
         // Emit the appropriate events, but only if the service is already started
         if (this.isBlockHashLastReceived(this.headHash) && this.started) {
-            if (
-                !commonAncestorBlock || // deep reorg, no common ancestor
-                oldHeadHash !== commonAncestorBlock.hash // normal reorg
-            ) {
-                this.emit(
-                    BlockProcessor.REORG_EVENT,
-                    commonAncestorBlock && commonAncestorBlock.hash,
-                    this.headHash,
-                    oldHeadHash
-                );
+            if (!commonAncestorBlock) {
+                // reorg beyond the depth of the cache; no common ancestor found
+                this.emit(BlockProcessor.REORG_EVENT, null, this.headHash, oldHeadHash);
+            } else if (oldHeadHash !== commonAncestorBlock.hash) {
+                // reorg with a known common ancestor in cache
+                this.emit(BlockProcessor.REORG_EVENT, commonAncestorBlock.hash, this.headHash, oldHeadHash);
             }
 
             this.emit(BlockProcessor.NEW_HEAD_EVENT, headBlock.number, headBlock.hash);
