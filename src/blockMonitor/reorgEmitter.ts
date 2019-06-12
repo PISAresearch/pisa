@@ -12,7 +12,8 @@ import { Lock } from "../utils/lock";
  * so that appropriate block events are emitted.
  */
 export class ReorgEmitter extends StartStopService {
-    private lock = new Lock();
+    // Lock used to enqueue further events if an event is not done processing
+    private processingEventLock = new Lock();
 
     private headBlock: IBlockStub | null;
 
@@ -80,14 +81,14 @@ export class ReorgEmitter extends StartStopService {
 
     private async handleNewHeadEvent(blockNumber: number, blockHash: string) {
         // We enqueue the processing if there is a re-org in process
-        await this.lock.acquire();
+        await this.processingEventLock.acquire();
 
         this.setNewHead(blockHash);
 
         // prune events past the max depth after each event
         this.prune();
 
-        this.lock.release();
+        this.processingEventLock.release();
     }
 
     /**
@@ -96,7 +97,7 @@ export class ReorgEmitter extends StartStopService {
      */
     private async handleReorgEvent(commonAncestorHash: string | null, newHeadHash: string, oldHeadHash: string) {
         // We enqueue the processing if there is a re-org in process
-        await this.lock.acquire();
+        await this.processingEventLock.acquire();
 
         try {
             if (commonAncestorHash === null) {
@@ -126,7 +127,7 @@ export class ReorgEmitter extends StartStopService {
             }
         }
 
-        this.lock.release();
+        this.processingEventLock.release();
     }
 
     /**
