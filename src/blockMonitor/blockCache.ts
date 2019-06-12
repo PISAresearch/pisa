@@ -228,10 +228,8 @@ export class BlockCache implements ReadOnlyBlockCache {
         const result = this.findAncestor(blockHash, block => !this.hasBlock(block.parentHash));
 
         if (!result) {
-            // This should never happen
-            throw new ApplicationError(
-                `An error occurred while searching the oldest ancestor in cache. This is a bug.`
-            );
+            // This can never happen, since blockHash already satisfies the predicate in findAncestor
+            throw new ApplicationError("An error occurred while searching for the oldest ancestor in cache.");
         }
 
         return result;
