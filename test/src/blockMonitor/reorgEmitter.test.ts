@@ -1,18 +1,12 @@
 import "mocha";
 import { expect } from "chai";
-import {
-    BlockProcessor,
-    IBlockStub,
-    ReorgHeightListenerStore,
-    BlockStubChain,
-    BlockCache
-} from "../../../src/blockMonitor";
+import { BlockProcessor, IBlockStub, ReorgHeightListenerStore, BlockCache } from "../../../src/blockMonitor";
 import { ethers } from "ethers";
 import { mock, when, instance, verify, anything } from "ts-mockito";
 import { EventType, Listener } from "ethers/providers";
 import { ApplicationError } from "../../../src/dataEntities";
 import { MethodStubSetter } from "ts-mockito/lib/MethodStubSetter";
-import { ReorgDetector } from "../../../src/blockMonitor";
+import { ReorgEmitter } from "../../../src/blockMonitor";
 
 const hashes_a = ["a_hash0", "a_hash1", "a_hash2", "a_hash3", "a_hash4", "a_hash5", "a_hash6", "a_hash7"];
 const hashes_b = ["b_hash0", "b_hash1", "b_hash2", "b_hash3", "b_hash4", "b_hash5", "b_hash6", "b_hash7"];
@@ -131,12 +125,12 @@ class TestCase {
             ]
         );
 
-    public async traverse(reorgDetector: ReorgDetector, provider: asyncEmitTestProvider) {
+    public async traverse(reorgEmitter: ReorgEmitter, provider: asyncEmitTestProvider) {
         const findReorgSpec = (blockNumber: number) =>
             this.reorgs.filter(r => r.expectedAtBlockNumber === blockNumber && !r.observed)[0];
         let currentReorg: IReorgInfo | undefined;
 
-        reorgDetector.on(ReorgDetector.REORG_END_EVENT, (commonAncestor: number) => {
+        reorgEmitter.on(ReorgEmitter.REORG_END_EVENT, (commonAncestor: number) => {
             // find a reorg with this block number that has not been observed
             const reorg = findReorgSpec(commonAncestor);
             if (!reorg) throw new ApplicationError("Unexpected reorg at " + commonAncestor);
@@ -156,6 +150,7 @@ class TestCase {
             }
 
             await provider.asyncEmit("block", this.blocks[index].number);
+
             if (currentReorg && currentReorg.resetIndex) {
                 // temporarily increase the index size to allow for a reorg that
                 // happens on the last block
@@ -165,9 +160,11 @@ class TestCase {
     }
 
     public async testChain(reorgDepth: number) {
-        const { provider, blockProcessor, reorgDetector } = await ReorgMocks.getSetup(this.blocks, reorgDepth);
+        const { provider, blockProcessor, reorgEmitter } = await ReorgMocks.getSetup(this.blocks, reorgDepth);
 
-        await this.traverse(reorgDetector, provider);
+        await this.traverse(reorgEmitter, provider);
+
+        await Promise.resolve();
 
         await blockProcessor.stop();
         expect(this.blocks[this.blocks.length - 1]).to.deep.equal(blockProcessor.head!);
@@ -201,10 +198,10 @@ class ReorgMocks {
         const store = new ReorgHeightListenerStore();
         const blockCache = new BlockCache(maxDepth);
         const blockProcessor: BlockProcessor = new BlockProcessor(provider, blockCache);
-        const reorgDetector = new ReorgDetector(provider, blockProcessor, store);
+        const reorgEmitter = new ReorgEmitter(provider, blockProcessor, store);
         await blockProcessor.start();
-        await reorgDetector.start();
-        return { blockCache, blockProcessor, reorgDetector, provider, store };
+        await reorgEmitter.start();
+        return { blockCache, blockProcessor, reorgEmitter, provider, store };
     }
 
     public static addProviderFuncs(asyncProvider: asyncEmitTestProvider) {
@@ -219,6 +216,9 @@ class ReorgMocks {
             await cachedBlockListener(args[0]);
             return true;
         };
+
+        // The BlockCache assumes that getBlockNumber is defined at creation time
+        asyncProvider.getBlockNumber = () => Promise.resolve(0);
 
         const newAsyncProvider = Object.keys(asyncProvider).reduce((object: any, key: any) => {
             if (key !== "polling") {
@@ -245,17 +245,19 @@ class ReorgMocks {
     }
 }
 
-describe("ReorgDetector", () => {
+describe("ReorgEmitter", () => {
     const maxDepth = 10;
 
     it("new block correctly adds genesis", async () => {
-        const { provider, blockProcessor, reorgDetector } = await ReorgMocks.getSetup(
+        const { provider, blockProcessor, reorgEmitter } = await ReorgMocks.getSetup(
             TestCase.linear().blocks,
             maxDepth
         );
         await provider.asyncEmit("block", 0);
-        expect(a_block0).to.deep.equal(reorgDetector.head!);
-        await reorgDetector.stop();
+        await Promise.resolve();
+
+        expect(a_block0).to.deep.equal(reorgEmitter.head!);
+        await reorgEmitter.stop();
         await blockProcessor.stop();
     });
 
@@ -285,38 +287,42 @@ describe("ReorgDetector", () => {
 
     it("new block emits catastrophic reorg when too deep", async () => {
         const testCase = TestCase.splitAt1Depth5ReorgSplitAgainAt4Depth2Reorg();
-        const { provider, blockProcessor, reorgDetector } = await ReorgMocks.getSetup(testCase.blocks, 2);
+        const { provider, blockProcessor, reorgEmitter } = await ReorgMocks.getSetup(testCase.blocks, 2);
+
+        await provider.asyncEmit("block", 0);
+        await provider.asyncEmit("block", 1);
+        await Promise.resolve();
 
         const maxDepthFired = new Promise<{ local: IBlockStub; remote: IBlockStub }>((resolve, reject) => {
-            reorgDetector.on(ReorgDetector.REORG_BEYOND_DEPTH_EVENT, (local: IBlockStub, remote: IBlockStub) => {
+            reorgEmitter.on(ReorgEmitter.REORG_BEYOND_DEPTH_EVENT, (local: IBlockStub, remote: IBlockStub) => {
                 resolve({ local, remote });
             });
         });
         const startReorg = new Promise<number>((resolve, reject) => {
-            reorgDetector.on(ReorgDetector.REORG_START_EVENT, blockNumber => {
+            reorgEmitter.on(ReorgEmitter.REORG_START_EVENT, blockNumber => {
                 resolve(blockNumber);
             });
         });
         const endReorg = new Promise<number>((resolve, reject) => {
-            reorgDetector.on(ReorgDetector.REORG_END_EVENT, blockNumber => {
+            reorgEmitter.on(ReorgEmitter.REORG_END_EVENT, blockNumber => {
                 resolve(blockNumber);
             });
         });
 
-        await provider.asyncEmit("block", 0);
-        await provider.asyncEmit("block", 1);
         await provider.asyncEmit("block", 2);
         await provider.asyncEmit("block", 3);
         await provider.asyncEmit("block", 4);
         await provider.asyncEmit("block", 5);
-        expect(a_block5).to.deep.equal(reorgDetector.head!);
+        await Promise.resolve();
+
+        expect(a_block5).to.deep.equal(reorgEmitter.head!);
 
         // this will trigger a reorg - and a catastrophic event
         await provider.asyncEmit("block", 5);
 
-        expect(reorgDetector.head!.hash).to.deep.equal(b_block3.hash);
-        expect(reorgDetector.head!.number).to.deep.equal(b_block3.number);
-        expect(reorgDetector.head!.parentHash).to.deep.equal(b_block3.parentHash);
+        expect(reorgEmitter.head!.hash).to.deep.equal(b_block3.hash);
+        expect(reorgEmitter.head!.number).to.deep.equal(b_block3.number);
+        expect(reorgEmitter.head!.parentHash).to.deep.equal(b_block3.parentHash);
 
         const catastrophic = await maxDepthFired;
         expect(a_block5).to.deep.equal(catastrophic.local);
@@ -326,81 +332,95 @@ describe("ReorgDetector", () => {
         const endBlock = await endReorg;
         expect(endBlock).to.equal(3);
 
-        await reorgDetector.stop();
+        await reorgEmitter.stop();
         await blockProcessor.stop();
     });
     it("new block does extend by many", async () => {
         const testCase = TestCase.linear();
-        const { provider, blockProcessor, reorgDetector } = await ReorgMocks.getSetup(testCase.blocks, maxDepth);
+        const { provider, blockProcessor, reorgEmitter } = await ReorgMocks.getSetup(testCase.blocks, maxDepth);
         await provider.asyncEmit("block", 0);
-        expect(a_block0).to.deep.equal(reorgDetector.head!);
+        await Promise.resolve();
+        expect(a_block0).to.deep.equal(reorgEmitter.head!);
+
         await provider.asyncEmit("block", 1);
-        expect(a_block1).to.deep.equal(reorgDetector.head!);
+        await Promise.resolve();
+        expect(a_block1).to.deep.equal(reorgEmitter.head!);
 
         await provider.asyncEmit("block", 4);
-        expect(a_block4).to.deep.equal(reorgDetector.head!);
-        await reorgDetector.stop();
+        await Promise.resolve();
+        expect(a_block4).to.deep.equal(reorgEmitter.head!);
+        await reorgEmitter.stop();
         await blockProcessor.stop();
     });
     it("new block does fire reorg height events upon reorg", async () => {
         const testCase = TestCase.flipFlop();
-        const { provider, blockProcessor, reorgDetector } = await ReorgMocks.getSetup(testCase.blocks, maxDepth);
+        const { provider, blockProcessor, reorgEmitter } = await ReorgMocks.getSetup(testCase.blocks, maxDepth);
 
         let fired0 = 0,
             fired1 = 0,
             fired2 = 0;
 
-        reorgDetector.addReorgHeightListener(0, async () => {
+        await provider.asyncEmit("block", 0);
+        await provider.asyncEmit("block", 1);
+        await Promise.resolve();
+
+        reorgEmitter.addReorgHeightListener(0, async () => {
             fired0++;
         });
-        reorgDetector.addReorgHeightListener(1, async () => {
+        reorgEmitter.addReorgHeightListener(1, async () => {
             fired1++;
         });
-        reorgDetector.addReorgHeightListener(2, async () => {
+        reorgEmitter.addReorgHeightListener(2, async () => {
             fired2++;
         });
 
-        await provider.asyncEmit("block", 0);
-        await provider.asyncEmit("block", 1);
         await provider.asyncEmit("block", 2);
-        expect(fired0).to.equal(0);
-        expect(fired1).to.equal(0);
-        expect(fired2).to.equal(0);
+        await Promise.resolve();
+        expect(fired0, "did not fire at height 0").to.equal(0);
+        expect(fired1, "did not fire at height 1").to.equal(0);
+        expect(fired2, "did not fire at height 2").to.equal(0);
 
         await provider.asyncEmit("block", 2);
-        expect(fired0).to.equal(0);
-        expect(fired1).to.equal(0);
-        expect(fired2).to.equal(1);
+        await Promise.resolve();
+        expect(fired0, "did not fire at height 0").to.equal(0);
+        expect(fired1, "did not fire at height 1").to.equal(0);
+        expect(fired2, "fired at height 2").to.equal(1);
 
         // check that listeners have been removed by triggering reorg again!
         await provider.asyncEmit("block", 2);
-        expect(fired0).to.equal(0);
-        expect(fired1).to.equal(0);
-        expect(fired2).to.equal(1);
+        await Promise.resolve();
+        expect(fired0, "did not fire at height 0").to.equal(0);
+        expect(fired1, "did not fire at height 1").to.equal(0);
+        expect(fired2, "fired at height 2").to.equal(1);
 
         expect(a_block2).to.deep.equal(blockProcessor.head!);
         await blockProcessor.stop();
     });
     it("new block emits start, then end, reset events provider upon reorg", async () => {
         const testCase = TestCase.splitAt1Depth2();
-        const { provider, blockProcessor, reorgDetector } = await ReorgMocks.getSetup(testCase.blocks, maxDepth);
+        const { provider, blockProcessor, reorgEmitter } = await ReorgMocks.getSetup(testCase.blocks, maxDepth);
+
+        await provider.asyncEmit("block", 0);
+        await provider.asyncEmit("block", 1);
+        await Promise.resolve();
+
         const startReorg = new Promise<number>((resolve, reject) => {
-            reorgDetector.on(ReorgDetector.REORG_START_EVENT, blockNumber => {
+            reorgEmitter.on(ReorgEmitter.REORG_START_EVENT, blockNumber => {
                 resolve(blockNumber);
             });
         });
         const endReorg = new Promise<number>((resolve, reject) => {
-            reorgDetector.on(ReorgDetector.REORG_END_EVENT, blockNumber => {
+            reorgEmitter.on(ReorgEmitter.REORG_END_EVENT, blockNumber => {
                 resolve(blockNumber);
             });
         });
 
-        await provider.asyncEmit("block", 0);
-        await provider.asyncEmit("block", 1);
         await provider.asyncEmit("block", 2);
         await provider.asyncEmit("block", 2);
-        expect(a_block1).to.deep.equal(reorgDetector.head!);
-        await reorgDetector.stop();
+        await Promise.resolve();
+
+        expect(a_block1).to.deep.equal(reorgEmitter.head!);
+        await reorgEmitter.stop();
         await blockProcessor.stop();
 
         const start = await startReorg;
@@ -414,159 +434,40 @@ describe("ReorgDetector", () => {
     });
     it("prune does remove blocks and listeners", async () => {
         const testCase = TestCase.linear();
-        const { provider, blockProcessor, reorgDetector, store } = await ReorgMocks.getSetup(testCase.blocks, 2);
-        reorgDetector.addReorgHeightListener(0, async () => {});
-        reorgDetector.addReorgHeightListener(1, async () => {});
-        reorgDetector.addReorgHeightListener(2, async () => {});
-        reorgDetector.addReorgHeightListener(3, async () => {});
-        reorgDetector.addReorgHeightListener(4, async () => {});
-        reorgDetector.addReorgHeightListener(5, async () => {});
-
-        await provider.asyncEmit("block", 0);
-        expect(a_block0).to.deep.equal(reorgDetector.head!);
-        expect(store.getListenersFromHeight(0).length).to.equal(6);
+        const { provider, blockProcessor, reorgEmitter, store } = await ReorgMocks.getSetup(testCase.blocks, 2);
+        reorgEmitter.addReorgHeightListener(1, async () => {});
+        reorgEmitter.addReorgHeightListener(2, async () => {});
+        reorgEmitter.addReorgHeightListener(3, async () => {});
+        reorgEmitter.addReorgHeightListener(4, async () => {});
+        reorgEmitter.addReorgHeightListener(5, async () => {});
+        reorgEmitter.addReorgHeightListener(6, async () => {});
 
         await provider.asyncEmit("block", 1);
-        expect(a_block1).to.deep.equal(reorgDetector.head!);
-        expect(store.getListenersFromHeight(0).length).to.equal(6);
+        await Promise.resolve();
+        expect(a_block1).to.deep.equal(reorgEmitter.head!);
+        expect(store.getListenersFromHeight(1).length).to.equal(6);
 
         await provider.asyncEmit("block", 2);
-        expect(a_block2).to.deep.equal(reorgDetector.head!);
-        expect(store.getListenersFromHeight(0).length).to.equal(6);
+        await Promise.resolve();
+        expect(a_block2).to.deep.equal(reorgEmitter.head!);
+        expect(store.getListenersFromHeight(1).length).to.equal(6);
 
         await provider.asyncEmit("block", 3);
-        expect(a_block3).to.deep.equal(reorgDetector.head!);
-        expect(store.getListenersFromHeight(0).length).to.equal(5);
+        await Promise.resolve();
+        expect(a_block3).to.deep.equal(reorgEmitter.head!);
+        expect(store.getListenersFromHeight(1).length).to.equal(6);
 
         await provider.asyncEmit("block", 4);
-        expect(a_block4).to.deep.equal(reorgDetector.head!);
-        expect(store.getListenersFromHeight(0).length).to.equal(4);
+        await Promise.resolve();
+        expect(a_block4).to.deep.equal(reorgEmitter.head!);
+        expect(store.getListenersFromHeight(1).length).to.equal(5);
 
         await provider.asyncEmit("block", 5);
-        expect(a_block5).to.deep.equal(reorgDetector.head!);
-        expect(store.getListenersFromHeight(0).length).to.equal(3);
+        await Promise.resolve();
+        expect(a_block5).to.deep.equal(reorgEmitter.head!);
+        expect(store.getListenersFromHeight(1).length).to.equal(4);
 
-        await reorgDetector.stop();
+        await reorgEmitter.stop();
         await blockProcessor.stop();
-    });
-
-    it("findCommonAncestorDeep does identify a common ancestor, and correctly populates the difference blocks", async () => {
-        const remoteBlocks = [a_block0, a_block1, b_block2, b_block3];
-        const localBlocks = BlockStubChain.newRoot(a_block0).extendMany([a_block1, a_block2, a_block3]);
-        const { provider, reorgDetector } = await ReorgMocks.getSetup(remoteBlocks, 2);
-
-        await provider.asyncEmit("block", 0);
-        await provider.asyncEmit("block", 1);
-        await provider.asyncEmit("block", 2);
-        await provider.asyncEmit("block", 3);
-
-        const differenceBlocks: IBlockStub[] = [];
-        const ancestor = await reorgDetector.findCommonAncestorDeep(
-            remoteBlocks[remoteBlocks.length - 1].hash,
-            localBlocks,
-            differenceBlocks,
-            1
-        );
-
-        expect(a_block1).to.deep.equal(ancestor!.asBlockStub());
-        expect(differenceBlocks.length).to.equal(2);
-        expect(b_block3).to.deep.equal(differenceBlocks[0]);
-        expect(b_block2).to.deep.equal(differenceBlocks[1]);
-    });
-
-    it("findCommonAncestorDeep does not identify a common ancestor when one does not exist", async () => {
-        const remoteBlocks = [b_block4, b_block5, b_block6];
-        const localBlocks = BlockStubChain.newRoot(a_block4).extendMany([a_block5, a_block6]);
-        const { provider, reorgDetector } = await ReorgMocks.getSetup(remoteBlocks, 2);
-
-        await provider.asyncEmit("block", 4);
-        await provider.asyncEmit("block", 5);
-        await provider.asyncEmit("block", 6);
-
-        const differenceBlocks: IBlockStub[] = [];
-        const ancestor = await reorgDetector.findCommonAncestorDeep(
-            remoteBlocks[remoteBlocks.length - 1].hash,
-            localBlocks,
-            differenceBlocks,
-            0
-        );
-        expect(ancestor).to.equal(null);
-        expect(differenceBlocks).to.deep.equal([b_block6, b_block5, b_block4]);
-    });
-
-    it("findCommonAncestorDeep does not identify a common ancestor when one exists but is below the min height", async () => {
-        const remoteBlocks = [a_block0, a_block1, b_block2, b_block3];
-        const localBlocks = BlockStubChain.newRoot(a_block0).extendMany([a_block1, a_block2, a_block3]);
-        const { provider, reorgDetector } = await ReorgMocks.getSetup(remoteBlocks, 2);
-
-        await provider.asyncEmit("block", 0);
-        await provider.asyncEmit("block", 1);
-        await provider.asyncEmit("block", 2);
-        await provider.asyncEmit("block", 3);
-
-        const differenceBlocks: IBlockStub[] = [];
-        const ancestor = await reorgDetector.findCommonAncestorDeep(
-            remoteBlocks[remoteBlocks.length - 1].hash,
-            localBlocks,
-            differenceBlocks,
-            2
-        );
-        expect(ancestor).to.equal(null);
-        expect(differenceBlocks).to.deep.equal([b_block3, b_block2]);
-    });
-
-    it("findCommonAncestorDeep does find an extension", async () => {
-        const remoteBlocks = [a_block4, a_block5, a_block6];
-        const localBlocks = BlockStubChain.newRoot(a_block0).extendMany([a_block1, a_block2, a_block3]);
-        const { provider, reorgDetector } = await ReorgMocks.getSetup(remoteBlocks, 2);
-
-        await provider.asyncEmit("block", 4);
-        await provider.asyncEmit("block", 5);
-        await provider.asyncEmit("block", 6);
-
-        const differenceBlocks: IBlockStub[] = [];
-        const ancestor = await reorgDetector.findCommonAncestorDeep(
-            remoteBlocks[remoteBlocks.length - 1].hash,
-            localBlocks,
-            differenceBlocks,
-            0
-        );
-        expect(a_block3).to.deep.equal(ancestor!.asBlockStub());
-        expect(differenceBlocks.length).to.equal(3);
-        expect(differenceBlocks[0]).to.deep.equal(a_block6);
-        expect(differenceBlocks[1]).to.deep.equal(a_block5);
-        expect(differenceBlocks[2]).to.deep.equal(a_block4);
-    });
-
-    it("findCommonAncestor finds immediate parents", async () => {
-        const remoteBlocks = [a_block1];
-        const localBlocks = BlockStubChain.newRoot(a_block0).extendMany([a_block1]);
-        const { provider, reorgDetector } = await ReorgMocks.getSetup(remoteBlocks, 5);
-
-        await provider.asyncEmit("block", 1);
-
-        const { commonAncestor, differenceBlocks } = await reorgDetector.findCommonAncestor(
-            remoteBlocks[remoteBlocks.length - 1],
-            localBlocks,
-            5
-        );
-        expect(a_block1).to.deep.equal(commonAncestor!.asBlockStub());
-        expect(differenceBlocks).to.deep.equal([]);
-    });
-
-    it("findCommonAncestor finds immediate siblings", async () => {
-        const remoteBlocks = [b_block2];
-        const localBlocks = BlockStubChain.newRoot(a_block0).extendMany([a_block1, a_block2]);
-        const { provider, reorgDetector } = await ReorgMocks.getSetup(remoteBlocks, 5);
-
-        await provider.asyncEmit("block", 2);
-
-        const { commonAncestor, differenceBlocks } = await reorgDetector.findCommonAncestor(
-            remoteBlocks[remoteBlocks.length - 1],
-            localBlocks,
-            5
-        );
-        expect(a_block1).to.deep.equal(commonAncestor!.asBlockStub());
-        expect(differenceBlocks).to.deep.equal([b_block2]);
     });
 });
