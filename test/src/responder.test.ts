@@ -14,9 +14,17 @@ import {
     EthereumTransactionMiner
 } from "../../src/responder";
 import { CancellablePromise } from "../../src/utils";
-import { ChannelType, BlockThresholdReachedError, ReorgError, BlockTimeoutError } from "../../src/dataEntities";
+import {
+    ChannelType,
+    BlockThresholdReachedError,
+    ReorgError,
+    BlockTimeoutError,
+    IBlockStub,
+    HasTxHashes
+} from "../../src/dataEntities";
 import { BlockCache, BlockProcessor, BlockTimeoutDetector } from "../../src/blockMonitor";
 import { ConfirmationObserver } from "../../src/blockMonitor/confirmationObserver";
+import { minimalBlockFactory } from "../../src/blockMonitor/blockProcessor";
 
 chai.use(chaiAsPromised);
 chai.use(require("sinon-chai"));
@@ -151,10 +159,10 @@ function waitForSpy(spy: any, interval = 20) {
 describe("EthereumDedicatedResponder", () => {
     let ganache: any;
     let provider: ethers.providers.Web3Provider;
-    let blockCache: BlockCache;
-    let blockProcessor: BlockProcessor;
+    let blockCache: BlockCache<IBlockStub & HasTxHashes>;
+    let blockProcessor: BlockProcessor<IBlockStub & HasTxHashes>;
     let blockTimeoutDetector: BlockTimeoutDetector;
-    let confirmationObserver: ConfirmationObserver;
+    let confirmationObserver: ConfirmationObserver<IBlockStub & HasTxHashes>;
     let transactionMiner: EthereumTransactionMiner;
 
     let account0: string, account1: string, responderAccount: string;
@@ -167,8 +175,8 @@ describe("EthereumDedicatedResponder", () => {
         provider = new ethers.providers.Web3Provider(ganache);
         provider.pollingInterval = 100;
 
-        blockCache = new BlockCache(100);
-        blockProcessor = new BlockProcessor(provider, blockCache);
+        blockCache = new BlockCache<IBlockStub & HasTxHashes>(100);
+        blockProcessor = new BlockProcessor<IBlockStub & HasTxHashes>(provider, minimalBlockFactory, blockCache);
         await blockProcessor.start();
 
         blockTimeoutDetector = new BlockTimeoutDetector(blockProcessor, 120 * 1000);
@@ -469,10 +477,10 @@ describe("EthereumDedicatedResponder", () => {
 describe("EthereumTransactionMiner", async () => {
     let ganache: any;
     let provider: ethers.providers.Web3Provider;
-    let blockCache: BlockCache;
-    let blockProcessor: BlockProcessor;
+    let blockCache: BlockCache<IBlockStub & HasTxHashes>;
+    let blockProcessor: BlockProcessor<IBlockStub & HasTxHashes>;
     let blockTimeoutDetector: BlockTimeoutDetector;
-    let confirmationObserver: ConfirmationObserver;
+    let confirmationObserver: ConfirmationObserver<IBlockStub & HasTxHashes>;
     let accounts: string[];
     let account0Signer: ethers.Signer;
     let transactionRequest: ethers.providers.TransactionRequest;
@@ -483,8 +491,8 @@ describe("EthereumTransactionMiner", async () => {
         } as any); // TODO: remove generic types when @types/ganache-core is updated
         provider = new ethers.providers.Web3Provider(ganache);
         provider.pollingInterval = 20;
-        blockCache = new BlockCache(200);
-        blockProcessor = new BlockProcessor(provider, blockCache);
+        blockCache = new BlockCache<IBlockStub & HasTxHashes>(200);
+        blockProcessor = new BlockProcessor<IBlockStub & HasTxHashes>(provider, minimalBlockFactory, blockCache);
         await blockProcessor.start();
         blockTimeoutDetector = new BlockTimeoutDetector(blockProcessor, 120 * 1000);
         await blockTimeoutDetector.start();
@@ -545,6 +553,31 @@ describe("EthereumTransactionMiner", async () => {
 
     it("waitForFirstConfirmation throws BlockThresholdReachedError if the transaction is stuck", async () => {
         const blockThresholdForStuckTransaction = 10;
+        const spiedSigner = mockito.spy(account0Signer);
+
+        // Fake date for responses
+        const fakeTxReceipt: ethers.providers.TransactionReceipt = {
+            confirmations: 0,
+            from: "",
+            to: "",
+            byzantium: true
+        };
+        const fakeTxResponse: ethers.providers.TransactionResponse = {
+            hash: "0x1234", // only relevant value
+            confirmations: 0,
+            from: "",
+            to: "",
+            wait: (confirmations: number | undefined) => Promise.resolve(fakeTxReceipt),
+            nonce: 0,
+            gasLimit: new ethers.utils.BigNumber(21000),
+            gasPrice: new ethers.utils.BigNumber(20000000000),
+            data: "",
+            value: new ethers.utils.BigNumber(0),
+            chainId: 0
+        };
+
+        // Fake a response, but does not actually send the transaction
+        when(spiedSigner.sendTransaction(transactionRequest)).thenResolve(fakeTxResponse);
 
         const miner = new EthereumTransactionMiner(
             account0Signer,
@@ -558,9 +591,8 @@ describe("EthereumTransactionMiner", async () => {
         const res = miner.waitForFirstConfirmation(txHash);
 
         // Simulate blockThresholdForStuckTransaction new blocks without mining the transaction
-        const blockNumber = await provider.getBlockNumber();
         for (let i = 1; i <= blockThresholdForStuckTransaction + 1; i++) {
-            blockProcessor.emit(BlockProcessor.NEW_HEAD_EVENT, blockNumber + 1 + i, `hash${blockNumber + 1 + i}`);
+            await mineBlock(ganache, provider);
         }
 
         return expect(res).to.be.rejectedWith(BlockThresholdReachedError);

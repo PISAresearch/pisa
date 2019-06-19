@@ -1,10 +1,16 @@
 import "mocha";
 import * as chai from "chai";
 import chaiAsPromised from "chai-as-promised";
-import { ConfirmationObserver, BlockProcessor, BlockCache, IBlockStub } from "../../../src/blockMonitor";
+import { ConfirmationObserver, BlockProcessor, BlockCache } from "../../../src/blockMonitor";
 import { EventEmitter } from "events";
 import { ethers } from "ethers";
-import { ApplicationError, BlockThresholdReachedError, ReorgError } from "../../../src/dataEntities";
+import {
+    ApplicationError,
+    BlockThresholdReachedError,
+    ReorgError,
+    IBlockStub,
+    HasTxHashes
+} from "../../../src/dataEntities";
 
 chai.use(chaiAsPromised);
 const expect = chai.expect;
@@ -65,10 +71,10 @@ class PromiseSpy<T> {
 }
 
 describe("ConfirmationObserver", () => {
-    let blockCache: BlockCache;
-    let mockBlockProcessor: BlockProcessor;
+    let blockCache: BlockCache<IBlockStub & HasTxHashes>;
+    let mockBlockProcessor: BlockProcessor<IBlockStub & HasTxHashes>;
 
-    let confirmationObserver: ConfirmationObserver;
+    let confirmationObserver: ConfirmationObserver<IBlockStub & HasTxHashes>;
 
     async function emitNewHead(hash: string): Promise<void> {
         if (!(hash in blocksByHash)) {
@@ -91,7 +97,7 @@ describe("ConfirmationObserver", () => {
         }
 
         const eventEmitter = new EventEmitter();
-        mockBlockProcessor = eventEmitter as BlockProcessor; // we just need the mock to emit events
+        mockBlockProcessor = eventEmitter as BlockProcessor<IBlockStub & HasTxHashes>; // we just need the mock to emit events
 
         Object.defineProperty(mockBlockProcessor, "head", {
             value: null,

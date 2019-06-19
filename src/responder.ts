@@ -3,7 +3,14 @@ import { ethers } from "ethers";
 import { wait, plural, waitForEvent } from "./utils";
 import { IEthereumAppointment, IEthereumResponseData } from "./dataEntities/appointment";
 import logger from "./logger";
-import { ApplicationError, ArgumentError, BlockThresholdReachedError, BlockTimeoutError } from "./dataEntities";
+import {
+    ApplicationError,
+    ArgumentError,
+    BlockThresholdReachedError,
+    BlockTimeoutError,
+    IBlockStub,
+    HasTxHashes
+} from "./dataEntities";
 import { BlockTimeoutDetector, ConfirmationObserver } from "./blockMonitor";
 
 /**
@@ -179,7 +186,7 @@ export class EthereumTransactionMiner {
     constructor(
         public readonly signer: ethers.Signer,
         private readonly blockTimeoutDetector: BlockTimeoutDetector,
-        private readonly confirmationObserver: ConfirmationObserver,
+        private readonly confirmationObserver: ConfirmationObserver<IBlockStub & HasTxHashes>,
         public readonly confirmationsRequired: number,
         public readonly blocksThresholdForStuckTransaction: number
     ) {
@@ -390,7 +397,7 @@ export class EthereumResponderManager {
     constructor(
         private readonly signer: ethers.Signer,
         private readonly blockTimeoutDetector: BlockTimeoutDetector,
-        private readonly confirmationObserver: ConfirmationObserver
+        private readonly confirmationObserver: ConfirmationObserver<IBlockStub & HasTxHashes>
     ) {
         if (!signer.provider) throw new ArgumentError("The given signer is not connected to a provider");
 

@@ -4,13 +4,14 @@ import chaiAsPromised from "chai-as-promised";
 import lolex from "lolex";
 import { BlockTimeoutDetector, BlockProcessor } from "../../../src/blockMonitor";
 import { EventEmitter } from "events";
+import { IBlockStub } from "../../../src/dataEntities";
 
 chai.use(chaiAsPromised);
 const expect = chai.expect;
 
 describe("BlockTimeoutDetector", () => {
     const timeout = 120 * 1000;
-    let mockBlockProcessor: BlockProcessor;
+    let mockBlockProcessor: BlockProcessor<IBlockStub>;
     let clock: lolex.InstalledClock;
     let blockTimeoutDetector: BlockTimeoutDetector;
 
@@ -18,7 +19,7 @@ describe("BlockTimeoutDetector", () => {
         clock = lolex.install();
 
         const eventEmitter = new EventEmitter();
-        mockBlockProcessor = eventEmitter as BlockProcessor; // we just need the mock to emit events
+        mockBlockProcessor = eventEmitter as BlockProcessor<IBlockStub>; // we just need the mock to emit events
 
         blockTimeoutDetector = new BlockTimeoutDetector(mockBlockProcessor, timeout);
         await blockTimeoutDetector.start();

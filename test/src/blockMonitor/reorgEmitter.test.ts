@@ -1,10 +1,10 @@
 import "mocha";
 import { expect } from "chai";
-import { BlockProcessor, IBlockStub, ReorgHeightListenerStore, BlockCache } from "../../../src/blockMonitor";
+import { BlockProcessor, ReorgHeightListenerStore, BlockCache } from "../../../src/blockMonitor";
 import { ethers } from "ethers";
 import { mock, when, instance, verify, anything } from "ts-mockito";
 import { EventType, Listener } from "ethers/providers";
-import { ApplicationError } from "../../../src/dataEntities";
+import { ApplicationError, IBlockStub } from "../../../src/dataEntities";
 import { MethodStubSetter } from "ts-mockito/lib/MethodStubSetter";
 import { ReorgEmitter } from "../../../src/blockMonitor";
 
@@ -51,6 +51,16 @@ interface IReorgInfo {
     observed?: boolean;
 }
 
+const mockBlockFactory = (provider: ethers.providers.Provider) => async (
+    blockNumberOrHash: string | number
+): Promise<IBlockStub> => {
+    const block = await provider.getBlock(blockNumberOrHash);
+    return {
+        hash: block.hash,
+        number: block.number,
+        parentHash: block.parentHash
+    };
+};
 class TestCase {
     constructor(public blocks: IBlockStub[], public reorgs: IReorgInfo[]) {}
     public static linear = () => new TestCase([a_block0, a_block1, a_block2, a_block3, a_block4, a_block5], []);
@@ -197,7 +207,7 @@ class ReorgMocks {
         provider = ReorgMocks.addProviderFuncs(provider);
         const store = new ReorgHeightListenerStore();
         const blockCache = new BlockCache(maxDepth);
-        const blockProcessor: BlockProcessor = new BlockProcessor(provider, blockCache);
+        const blockProcessor: BlockProcessor<IBlockStub> = new BlockProcessor(provider, mockBlockFactory, blockCache);
         const reorgEmitter = new ReorgEmitter(provider, blockProcessor, store);
         await blockProcessor.start();
         await reorgEmitter.start();

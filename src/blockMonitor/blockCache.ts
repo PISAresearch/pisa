@@ -1,20 +1,18 @@
-import { ethers } from "ethers";
 import { ApplicationError, ArgumentError } from "../dataEntities";
-import { IBlockStub, BlockStubChain } from "./blockStub";
+import { IBlockStub, HasTxHashes } from "../dataEntities/block";
 
 /**
  * This interface represents the read-only view of a BlockCache.
  */
-export interface ReadOnlyBlockCache {
+export interface ReadOnlyBlockCache<T extends IBlockStub> {
     readonly maxDepth: number;
     readonly maxHeight: number;
     readonly minHeight: number;
-    canAddBlock(block: ethers.providers.Block): boolean;
-    getBlockStub(blockHash: string): IBlockStub | null;
+    canAddBlock(block: T): boolean;
+    getBlockStub(blockHash: string): T | null;
     hasBlock(blockHash: string): boolean;
-    getConfirmations(headBlockHash: string, txHash: string): number;
-    findAncestor(initialBlockHash: string, predicate: (block: IBlockStub) => boolean): IBlockStub | null;
-    getOldestAncestorInCache(blockHash: string): IBlockStub;
+    findAncestor(initialBlockHash: string, predicate: (block: T) => boolean): T | null;
+    getOldestAncestorInCache(blockHash: string): T;
 }
 
 /**
@@ -34,11 +32,8 @@ export interface ReadOnlyBlockCache {
  * Note that in order to guarantee the invariant (1), `addBlock` can be safely called even for blocks that will not
  * actually be added (for example because they are already too deep); in that case, it will return `false`.
  **/
-export class BlockCache implements ReadOnlyBlockCache {
-    private blockStubsByHash: Map<string, IBlockStub> = new Map();
-
-    // set of tx hashes per block hash, for fast lookup
-    private txHashesByBlockHash: Map<string, Set<string>> = new Map();
+export class BlockCache<T extends IBlockStub> implements ReadOnlyBlockCache<T> {
+    private blockStubsByHash: Map<string, T> = new Map();
 
     // store block hashes at a specific height (there could be more than one at some height because of forks)
     private blockHashesByHeight: Map<number, Set<string>> = new Map();
@@ -72,7 +67,7 @@ export class BlockCache implements ReadOnlyBlockCache {
      */
     constructor(public readonly maxDepth: number) {}
 
-    // Removes all info related to a block in blockStubsByHash and txHashesByBlockHash
+    // Removes all info related to a block in blockStubsByHash
     private removeBlock(blockHash: string) {
         const block = this.blockStubsByHash.get(blockHash);
         if (!block) {
@@ -81,9 +76,6 @@ export class BlockCache implements ReadOnlyBlockCache {
         }
 
         this.blockStubsByHash.delete(blockHash);
-
-        // Remove stored set of transactions for this block
-        this.txHashesByBlockHash.delete(blockHash);
     }
 
     // Remove all the blocks that are deeper than maxDepth, and all connected information.
@@ -105,7 +97,7 @@ export class BlockCache implements ReadOnlyBlockCache {
      *   - it is at depth least `this.maxDepth`.
      * @param block
      */
-    public canAddBlock(block: ethers.providers.Block): boolean {
+    public canAddBlock(block: T): boolean {
         return this.isEmpty || this.hasBlock(block.parentHash) || block.number <= this.minHeight;
     }
 
@@ -114,7 +106,7 @@ export class BlockCache implements ReadOnlyBlockCache {
      * Here we check that the block is not actually already added, and it is not below a height
      * that would be pruned immediately.
      */
-    private shouldAddBlock(block: ethers.providers.Block) {
+    private shouldAddBlock(block: T) {
         if (this.blockStubsByHash.has(block.hash)) {
             // block already in memory
             return false;
@@ -133,7 +125,7 @@ export class BlockCache implements ReadOnlyBlockCache {
      * @returns `true` if the block was added, `false` if the block was not added (because too deep or already in cache).
      * @throws `ApplicationError` if the block cannot be added because its parent is not in cache.
      */
-    public addBlock(block: ethers.providers.Block): boolean {
+    public addBlock(block: T): boolean {
         // If the block's parent is above the minimum visible height, it needs to be added first
         if (!this.canAddBlock(block)) {
             throw new ApplicationError("Tried to add a block before its parent block.");
@@ -150,12 +142,8 @@ export class BlockCache implements ReadOnlyBlockCache {
 
         // Update data structures
 
-        // Save block stub
-        const newBlockStub = { hash: block.hash, number: block.number, parentHash: block.parentHash };
-        this.blockStubsByHash.set(block.hash, newBlockStub);
-
-        // Add set of transactions for this block hash
-        this.txHashesByBlockHash.set(block.hash, new Set(block.transactions));
+        // Save block
+        this.blockStubsByHash.set(block.hash, block);
 
         // Index block by its height
         const hashesByHeight = this.blockHashesByHeight.get(block.number);
@@ -178,7 +166,7 @@ export class BlockCache implements ReadOnlyBlockCache {
      * Returns the `IBlockStub` for the block with hash `blockHash`, or `null` if the block is not in cache.
      * @param blockHash
      */
-    public getBlockStub(blockHash: string): IBlockStub | null {
+    public getBlockStub(blockHash: string): T | null {
         return this.blockStubsByHash.get(blockHash) || null;
     }
 
@@ -193,7 +181,7 @@ export class BlockCache implements ReadOnlyBlockCache {
      * Iterator over all the blocks in the ancestry of the block with hash `initialBlockHash` (inclusive).
      * @param initialBlockHash
      */
-    private *ancestry(initialBlockHash: string): IterableIterator<IBlockStub> {
+    private *ancestry(initialBlockHash: string): IterableIterator<T> {
         let curBlock = this.getBlockStub(initialBlockHash);
         while (curBlock !== null) {
             yield curBlock;
@@ -205,7 +193,7 @@ export class BlockCache implements ReadOnlyBlockCache {
      * Finds and returns the nearest ancestor that satisfies `predicate`.
      * Returns `null` if no such ancestor is found.
      */
-    public findAncestor(initialBlockHash: string, predicate: (block: IBlockStub) => boolean): IBlockStub | null {
+    public findAncestor(initialBlockHash: string, predicate: (block: T) => boolean): T | null {
         for (const block of this.ancestry(initialBlockHash)) {
             if (predicate(block)) {
                 return block;
@@ -215,11 +203,11 @@ export class BlockCache implements ReadOnlyBlockCache {
     }
 
     /**
-     * Returns the IBlockStub of the oldest ancestor of `blockStub` that is stored in the blockCache.
+     * Returns the oldest ancestor of `blockStub` that is stored in the blockCache.
      * @throws ArgumentError if `blockHash` is not in the blockCache.
      * @param blockHash
      */
-    public getOldestAncestorInCache(blockHash: string): IBlockStub {
+    public getOldestAncestorInCache(blockHash: string): T {
         if (!this.hasBlock(blockHash)) {
             throw new ArgumentError(`The block with hash ${blockHash} is not in cache`);
         }
@@ -234,23 +222,26 @@ export class BlockCache implements ReadOnlyBlockCache {
 
         return result;
     }
+}
 
-    /**
-     * Returns number of confirmations using `headBlockHash` as tip of the blockchain, looking for `txHash` among the ancestor blocks;
-     * return 0 if no ancestor containing the transaction is found.
-     * Note: This will return 0 for transactions already at depth bigger than `this.maxDepth` when this function is called.
-     */
-    public getConfirmations(headBlockHash: string, txHash: string): number {
-        let depth = 1;
-        for (const block of this.ancestry(headBlockHash)) {
-            const txsInCurBlock = this.txHashesByBlockHash.get(block.hash);
-            if (txsInCurBlock && txsInCurBlock.has(txHash)) {
-                return depth;
-            }
-            depth++;
-        }
+/**
+ * Gets the number of confirmations of the transaction with hash `txHash`, assuming that the block with hash
+ * `headHash` is the head of the blockchain.
+ * Return 0 if no such transaction was found in any ancestor block in the cache.
+ * @param cache
+ * @param headHash
+ * @param txHash
+ * @throws `ArgumentError` if the block with hash `headHash` is not in the cache.
+ */
+export function getConfirmations<T extends IBlockStub & HasTxHashes>(
+    cache: ReadOnlyBlockCache<T>,
+    headHash: string,
+    txHash: string
+): number {
+    const headBlock = cache.getBlockStub(headHash);
+    if (!headBlock) throw new ArgumentError(`The block with hash ${headHash} was not found`);
 
-        // Not found
-        return 0;
-    }
+    const blockTxIsMinedIn = cache.findAncestor(headHash, block => block.transactions.includes(txHash));
+    if (!blockTxIsMinedIn) return 0;
+    else return headBlock.number - blockTxIsMinedIn.number + 1;
 }

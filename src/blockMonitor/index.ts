@@ -1,5 +1,5 @@
-export { BlockStubChain, IBlockStub } from "./blockStub";
-export { ReadOnlyBlockCache, BlockCache } from "./blockCache";
+export { BlockStubChain } from "./blockStub";
+export { ReadOnlyBlockCache, BlockCache, getConfirmations } from "./blockCache";
 export { BlockProcessor } from "./blockProcessor";
 export { ReorgEmitter } from "./reorgEmitter";
 export { ConfirmationObserver } from "./confirmationObserver";
