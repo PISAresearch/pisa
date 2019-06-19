@@ -1,10 +1,10 @@
 import { EventEmitter } from "events";
 import { ethers } from "ethers";
-import { wait, plural, waitForEvent } from "./utils";
-import { IEthereumAppointment, IEthereumResponseData } from "./dataEntities/appointment";
-import logger from "./logger";
-import { ApplicationError, ArgumentError, BlockThresholdReachedError, BlockTimeoutError } from "./dataEntities";
-import { BlockTimeoutDetector, ConfirmationObserver } from "./blockMonitor";
+import { wait, waitForEvent } from "../utils";
+import { IEthereumResponseData } from "../dataEntities/appointment";
+import { ApplicationError, ArgumentError, BlockThresholdReachedError, BlockTimeoutError } from "../dataEntities";
+import { BlockTimeoutDetector, ConfirmationObserver } from "../blockMonitor";
+import { BigNumber } from "ethers/utils";
 
 /**
  * Responsible for storing the state and managing the flow of a single response.
@@ -82,10 +82,7 @@ export abstract class Responder extends EventEmitter {
 export abstract class EthereumResponder extends Responder {
     // TODO-93: the correct gas limit should be provided based on the appointment/integration.
     //          200000 is enough for Kitsune and Raiden (see https://github.com/raiden-network/raiden-contracts/blob/master/raiden_contracts/data/gas.json).
-    private static GAS_LIMIT = 200000;
-
-    // implementations should query the provider (or a service) to figure out the appropriate gas price
-    protected gasPrice = new ethers.utils.BigNumber(21000000000);
+    public static readonly GAS_LIMIT = 200000;
 
     protected provider: ethers.providers.Provider;
 
@@ -95,29 +92,6 @@ export abstract class EthereumResponder extends Responder {
         if (!signer.provider) throw new ArgumentError("The given signer is not connected to a provider");
 
         this.provider = signer.provider;
-    }
-
-    /**
-     * Creates the transaction request to be sent to handle the response in `resposeData`.
-     *
-     * @param responseData the response data used to create the transaction
-     * @param nonce The nonce to be used.
-     */
-    protected prepareTransactionRequest(
-        responseData: IEthereumResponseData,
-        nonce: number
-    ): ethers.providers.TransactionRequest {
-        // form the interface so that we can serialise the args and the function name
-        const abiInterface = new ethers.utils.Interface(responseData.contractAbi);
-        const data = abiInterface.functions[responseData.functionName].encode(responseData.functionArgs);
-        // now create a transaction, specifying possible oher variables
-        return {
-            to: responseData.contractAddress,
-            gasLimit: EthereumResponder.GAS_LIMIT,
-            nonce: nonce,
-            gasPrice: this.gasPrice,
-            data: data
-        };
     }
 
     /**
@@ -295,6 +269,33 @@ export class EthereumDedicatedResponder extends EthereumResponder {
         super(signer);
     }
 
+        /**
+     * Creates the transaction request to be sent to handle the response in `resposeData`.
+     *
+     * @param responseData the response data used to create the transaction
+     * @param nonce The nonce to be used.
+     */
+    private prepareTransactionRequest(
+        responseData: IEthereumResponseData,
+        nonce: number,
+        gasPrice: BigNumber,
+        chainId: number
+    ): ethers.providers.TransactionRequest {
+        // form the interface so that we can serialise the args and the function name
+        const abiInterface = new ethers.utils.Interface(responseData.contractAbi);
+        const data = abiInterface.functions[responseData.functionName].encode(responseData.functionArgs);
+        // now create a transaction, specifying possible oher variables
+        return {
+            to: responseData.contractAddress,
+            gasLimit: EthereumResponder.GAS_LIMIT,
+            nonce,
+            gasPrice,
+            data,
+            chainId,
+            value: 0
+        };
+    }
+
     // Makes sure that the class is locked while `fn` is running, and that any listener is registered and cleared correctly
     private async withLock(fn: () => Promise<any>): Promise<any> {
         if (this.locked) {
@@ -318,9 +319,11 @@ export class EthereumDedicatedResponder extends EthereumResponder {
 
             // Get the current nonce to be used
             const nonce = await this.provider.getTransactionCount(signerAddress);
+            // TODO:174: get this earlier
+            const chainId = (await this.provider.getNetwork()).chainId;
 
             // Get the initial gas price
-            this.gasPrice = await this.gasPolicy.getInitialPrice();
+            let gasPrice = await this.gasPolicy.getInitialPrice();
 
             let attemptsDone = 0;
             while (attemptsDone < this.maxAttempts) {
@@ -328,7 +331,7 @@ export class EthereumDedicatedResponder extends EthereumResponder {
                 try {
                     // Try to call submitStateFunction, but timeout with an error if
                     // there is no response for WAIT_TIME_FOR_PROVIDER_RESPONSE ms.
-                    const txRequest = this.prepareTransactionRequest(responseData, nonce);
+                    const txRequest = this.prepareTransactionRequest(responseData, nonce, gasPrice, chainId);
 
                     const txHash = await this.transactionMiner.sendTransaction(txRequest);
 
@@ -349,7 +352,7 @@ export class EthereumDedicatedResponder extends EthereumResponder {
                 } catch (doh) {
                     if (doh instanceof BlockThresholdReachedError) {
                         // Bump the gas price before the next attempt
-                        this.gasPrice = this.gasPolicy.getIncreasedGasPrice(this.gasPrice);
+                        gasPrice = this.gasPolicy.getIncreasedGasPrice(gasPrice);
 
                         this.asyncEmit(
                             ResponderEvent.AttemptFailed,
@@ -371,87 +374,5 @@ export class EthereumDedicatedResponder extends EthereumResponder {
             responseFlow.state = ResponseState.Failed;
             this.asyncEmit(ResponderEvent.ResponseFailed, responseFlow, attemptsDone);
         });
-    }
-}
-
-/**
- * Responsible for handling the business logic of the Responders.
- */
-// TODO: This is a mock class and only correctly handles one active response.
-//       Should add a pool of wallets to allow concurrent responses.
-
-export class EthereumResponderManager {
-    // Waiting time before throwing an error if no new blocks are received, in milliseconds
-
-    private provider: ethers.providers.Provider;
-    private responders: Set<EthereumResponder> = new Set();
-    private gasPolicy: IGasPolicy;
-
-    constructor(
-        private readonly signer: ethers.Signer,
-        private readonly blockTimeoutDetector: BlockTimeoutDetector,
-        private readonly confirmationObserver: ConfirmationObserver
-    ) {
-        if (!signer.provider) throw new ArgumentError("The given signer is not connected to a provider");
-
-        this.provider = signer.provider;
-
-        this.gasPolicy = new DoublingGasPolicy(this.provider);
-    }
-
-    public async respond(appointment: IEthereumAppointment) {
-        const ethereumResponseData = appointment.getResponseData();
-
-        const transactionMiner = new EthereumTransactionMiner(
-            this.signer,
-            this.blockTimeoutDetector,
-            this.confirmationObserver,
-            40,
-            10
-        );
-        const responder = new EthereumDedicatedResponder(this.signer, this.gasPolicy, 40, 10, transactionMiner);
-        this.responders.add(responder);
-        responder
-            .on(ResponderEvent.ResponseSent, (responseFlow: ResponseFlow, attemptNumber: number) => {
-                logger.info(
-                    `Successfully responded to appointment ${
-                        appointment.id
-                    } on attempt #${attemptNumber}. Waiting for enough confirmations.`
-                );
-
-                // TODO: Should we store information about past responders anywhere?
-                this.responders.delete(responder);
-            })
-            .on(ResponderEvent.ResponseConfirmed, (responseFlow: ResponseFlow, attemptNumber: number) => {
-                logger.info(
-                    `Successfully responded to appointment ${appointment.id} after ${attemptNumber} ${plural(
-                        attemptNumber,
-                        "attempt"
-                    )}.`
-                );
-
-                // Should we keep inactive responders anywhere?
-                this.responders.delete(responder);
-            })
-            .on(ResponderEvent.AttemptFailed, (responseFlow: ResponseFlow, doh: Error, attemptNumber: number) => {
-                logger.error(
-                    `Failed to respond to appointment ${appointment.id}; ${attemptNumber} ${plural(
-                        attemptNumber,
-                        "attempt"
-                    )}.`
-                );
-                logger.error(doh);
-            })
-            .on(ResponderEvent.ResponseFailed, (responseFlow: ResponseFlow, attempts: number) => {
-                logger.error(
-                    `Failed to respond to ${appointment.id}, after ${attempts} ${plural(
-                        attempts,
-                        "attempt"
-                    )}. Giving up.`
-                );
-
-                // TODO: this is serious and should be escalated.
-            })
-            .startResponse(appointment.id, ethereumResponseData);
     }
 }

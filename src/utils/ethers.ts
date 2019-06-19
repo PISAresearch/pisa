@@ -58,3 +58,4 @@ export async function validateProvider(provider: ethers.providers.Provider) {
         } else throw new Error(`Provider ${JSON.stringify(provider)} failed to connect.\n ${err}`);
     }
 }
+

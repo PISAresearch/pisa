@@ -95,3 +95,13 @@ export class ReorgError extends Error {
         this.name = "ReorgError";
     }
 }
+
+/**
+ * Thrown when an inconsistency in a queue is observed.
+ */
+export class QueueConsistencyError extends ApplicationError {
+    constructor(message: string) {
+        super(message);
+        this.name = "QueueConsistencyError"
+    }
+}

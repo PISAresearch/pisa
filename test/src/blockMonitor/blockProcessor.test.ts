@@ -5,7 +5,7 @@ import { BlockProcessor, BlockCache, IBlockStub } from "../../../src/blockMonito
 import { ethers } from "ethers";
 import { mock, when, instance, anything } from "ts-mockito";
 import { EventEmitter } from "events";
-
+// TODO:174: transactions are missing here
 chai.use(chaiAsPromised);
 const expect = chai.expect;
 
@@ -55,7 +55,9 @@ describe("BlockProcessor", () => {
         let curBlockHash: string = hash;
         while (curBlockHash in blocksByHash) {
             const curBlock = blocksByHash[curBlockHash];
-            when(mockProvider.getBlock(curBlock.number)).thenResolve(curBlock as ethers.providers.Block);
+            //when(mockProvider.getBlock(curBlock.number)).thenResolve(curBlock as ethers.providers.Block);
+            //TODO:174:
+            when(mockProvider.getBlock(curBlock.number, anything())).thenResolve(curBlock as ethers.providers.Block);
             curBlockHash = curBlock.parentHash;
         }
 
@@ -70,7 +72,9 @@ describe("BlockProcessor", () => {
         // Instruct the mocked provider to return the blocks by hash with getBlock
         mockProvider = mock(ethers.providers.BaseProvider);
         for (const [hash, blockStub] of Object.entries(blocksByHash)) {
-            when(mockProvider.getBlock(hash)).thenResolve(blockStub as ethers.providers.Block);
+            when(mockProvider.getBlock(hash, anything())).thenResolve(blockStub as ethers.providers.Block);
+            // TODO:174:
+//            when(mockProvider.getBlock(hash)).thenResolve(blockStub as ethers.providers.Block);
         }
 
         // The mocked Provider should behave like an eventEmitter

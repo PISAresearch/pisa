@@ -14,6 +14,7 @@ export interface ReadOnlyBlockCache {
     getBlockStub(blockHash: string): IBlockStub | null;
     hasBlock(blockHash: string): boolean;
     getConfirmations(headBlockHash: string, txHash: string): number;
+    getTransactions(blockHash: string): ethers.providers.TransactionResponse[] | null;
 }
 
 /**
@@ -38,6 +39,7 @@ export class BlockCache implements ReadOnlyBlockCache {
 
     // set of tx hashes per block hash, for fast lookup
     private txHashesByBlockHash: Map<string, Set<string>> = new Map();
+    private txsByBlockHash: Map<string, Set<ethers.providers.TransactionResponse>> = new Map();
 
     // store block hashes at a specific height (there could be more than one at some height because of forks)
     private blockHashesByHeight: Map<number, Set<string>> = new Map();
@@ -86,6 +88,7 @@ export class BlockCache implements ReadOnlyBlockCache {
 
         // Remove stored set of transactions for this block
         this.txHashesByBlockHash.delete(blockHash);
+        this.txsByBlockHash.delete(blockHash);
     }
 
     // Remove all the blocks that are deeper than maxDepth, and all connected information.
@@ -168,8 +171,14 @@ export class BlockCache implements ReadOnlyBlockCache {
         const newBlockStub = this.makeBlockStub(block.hash, block.number, block.parentHash);
         this.blockStubsByHash.set(block.hash, newBlockStub);
 
+        // TODO:174: this is a hack
         // Add set of transactions for this block hash
-        this.txHashesByBlockHash.set(block.hash, new Set(block.transactions));
+        const transactionResponses = (block.transactions as any) as ethers.providers.TransactionResponse[];
+        if (transactionResponses && transactionResponses[0] && typeof transactionResponses[0] !== "string") {
+            // we have full transactions
+            this.txHashesByBlockHash.set(block.hash, new Set(transactionResponses.map(t => t.hash!)));
+            this.txsByBlockHash.set(block.hash, new Set(transactionResponses));
+        } else this.txHashesByBlockHash.set(block.hash, new Set(block.transactions));
 
         // Index block by its height
         const hashesByHeight = this.blockHashesByHeight.get(block.number);
@@ -234,5 +243,11 @@ export class BlockCache implements ReadOnlyBlockCache {
 
         // Not found
         return 0;
+    }
+
+    // TODO:174:remove
+    public getTransactions(blockHash: string) {
+        const transactions = this.txsByBlockHash.get(blockHash);
+        return transactions ? Array.from(transactions.values()) : null;
     }
 }

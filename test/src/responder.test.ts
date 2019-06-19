@@ -13,7 +13,7 @@ import {
     DoublingGasPolicy,
     EthereumTransactionMiner
 } from "../../src/responder";
-import { CancellablePromise } from "../../src/utils";
+import { CancellablePromise, wait } from "../../src/utils";
 import { ChannelType, BlockThresholdReachedError, ReorgError, BlockTimeoutError } from "../../src/dataEntities";
 import { BlockCache, BlockProcessor, BlockTimeoutDetector } from "../../src/blockMonitor";
 import { ConfirmationObserver } from "../../src/blockMonitor/confirmationObserver";
@@ -108,15 +108,14 @@ function mineBlock(ganache: any, provider: ethers.providers.Web3Provider): Promi
             if (err) reject(err);
         });
 
-        const testBlockNumber = async function() {
+        while(true) {
             const blockNumber = await provider.getBlockNumber();
             if (blockNumber > initialBlockNumber) {
                 resolve(blockNumber);
-            } else {
-                _setTimeout(testBlockNumber, 10);
+                return;
             }
-        };
-        _setTimeout(testBlockNumber, 10);
+            await wait(10);
+        }
     });
 }
 
@@ -482,7 +481,7 @@ describe("EthereumTransactionMiner", async () => {
             blockTime: 100000 // disable automatic blocks
         } as any); // TODO: remove generic types when @types/ganache-core is updated
         provider = new ethers.providers.Web3Provider(ganache);
-        provider.pollingInterval = 20;
+        provider.pollingInterval = 100;
         blockCache = new BlockCache(200);
         blockProcessor = new BlockProcessor(provider, blockCache);
         await blockProcessor.start();
@@ -528,7 +527,7 @@ describe("EthereumTransactionMiner", async () => {
         await mineBlock(ganache, provider);
 
         return expect(res).to.be.fulfilled;
-    });
+    }).timeout(4000);
 
     it("waitForFirstConfirmation throws BlockTimeoutError after timeout", async () => {
         const miner = new EthereumTransactionMiner(account0Signer, blockTimeoutDetector, confirmationObserver, 5, 10);

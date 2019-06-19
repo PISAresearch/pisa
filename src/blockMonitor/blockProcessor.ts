@@ -70,7 +70,7 @@ export class BlockProcessor extends StartStopService {
     // It is called for each new block received, but also at startup (during startInternal).
     private async processBlockNumber(blockNumber: number) {
         try {
-            const observedBlock = await this.provider.getBlock(blockNumber);
+            const observedBlock = await this.provider.getBlock(blockNumber, true);
 
             this.lastBlockHashReceived = observedBlock.hash;
 
@@ -79,7 +79,7 @@ export class BlockProcessor extends StartStopService {
             // fetch ancestors until one is found that can be added
             let curBlock = observedBlock;
             while (!this.blockCache.canAddBlock(curBlock)) {
-                curBlock = await this.provider.getBlock(curBlock.parentHash);
+                curBlock = await this.provider.getBlock(curBlock.parentHash, true);
                 blocksToAdd.push(curBlock);
             }
 

@@ -179,7 +179,7 @@ type asyncEmitTestProvider = ethers.providers.BaseProvider & {
     currentBlock: number;
     currentBlockSet: boolean;
 };
-
+// TODO:174: transactions missing here too
 class ReorgMocks {
     public static async getSetup(blocks: IBlockStub[], maxDepth: number) {
         const mockedProvider = mock(ethers.providers.JsonRpcProvider);
@@ -189,11 +189,15 @@ class ReorgMocks {
 
         for (const key of blocks) {
             if (!face[key.number]) {
-                face[key.number] = when(mockedProvider.getBlock(key.number)).thenResolve(key as ethers.providers.Block);
+              //  face[key.number] = when(mockedProvider.getBlock(key.number)).thenResolve(key as ethers.providers.Block);
+                // TODO:174:
+                face[key.number] = when(mockedProvider.getBlock(key.number, anything())).thenResolve(key as ethers.providers.Block);
             } else {
                 face[key.number] = face[key.number].thenResolve(key as ethers.providers.Block);
             }
-            when(mockedProvider.getBlock(key.hash)).thenResolve(key as ethers.providers.Block);
+            //when(mockedProvider.getBlock(key.hash)).thenResolve(key as ethers.providers.Block);
+            // TODO:174:
+            when(mockedProvider.getBlock(key.hash, anything())).thenResolve(key as ethers.providers.Block);
         }
 
         let provider: asyncEmitTestProvider = instance(mockedProvider) as any;

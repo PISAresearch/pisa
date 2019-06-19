@@ -4,7 +4,7 @@ import { KitsuneInspector, KitsuneAppointment, KitsuneTools } from "../../src/in
 import { ethers } from "ethers";
 import Ganache from "ganache-core";
 import { ChannelType } from "../../src/dataEntities";
-import { EthereumResponderManager } from "../../src/responder";
+import { EthereumResponderManager, GasPriceEstimator, TransactionTracker } from "../../src/responder";
 import { AppointmentStore } from "../../src/watcher/store";
 import { AppointmentSubscriber } from "../../src/watcher/appointmentSubscriber";
 import { wait } from "../../src/utils";
@@ -85,10 +85,18 @@ describe("End to end", () => {
         await blockTimeoutDetector.start();
         const confirmationObserver = new ConfirmationObserver(blockProcessor);
         await confirmationObserver.start();
+
+        const gasPriceEstimator = new GasPriceEstimator(provider, blockProcessor);
+        const transactionTracker = new TransactionTracker(blockProcessor);
+        await transactionTracker.start();
+
         const responderManager = new EthereumResponderManager(
+            false,
             provider.getSigner(pisaAccount),
             blockTimeoutDetector,
-            confirmationObserver
+            confirmationObserver,
+            gasPriceEstimator,
+            transactionTracker
         );
 
         let db = levelup(MemDown());
@@ -109,6 +117,7 @@ describe("End to end", () => {
 
         await watcher.stop();
         await store.stop();
+        await transactionTracker.stop();
         await confirmationObserver.stop();
         await blockTimeoutDetector.stop();
         await reorgDetector.stop();
