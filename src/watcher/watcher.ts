@@ -3,7 +3,7 @@ import { inspect } from "util";
 import { IEthereumAppointment, StartStopService } from "../dataEntities";
 import { ConfigurationError } from "../dataEntities/errors";
 import { EthereumResponderManager } from "../responder";
-import { ReorgDetector } from "../blockMonitor/reorgDetector";
+import { ReorgEmitter } from "../blockMonitor/reorgEmitter";
 import { AppointmentSubscriber } from "./appointmentSubscriber";
 import { AppointmentStore } from "./store";
 
@@ -20,7 +20,7 @@ export class Watcher extends StartStopService {
      */
     constructor(
         private readonly responder: EthereumResponderManager,
-        private readonly reorgDetector: ReorgDetector,
+        private readonly reorgEmitter: ReorgEmitter,
         private readonly appointmentSubscriber: AppointmentSubscriber,
         private readonly store: AppointmentStore
     ) {
@@ -36,8 +36,8 @@ export class Watcher extends StartStopService {
         this.reorgInProgress = false;
     }
     protected async startInternal() {
-        this.reorgDetector.on(ReorgDetector.REORG_START_EVENT, this.startReorg);
-        this.reorgDetector.on(ReorgDetector.REORG_END_EVENT, this.endReorg);
+        this.reorgEmitter.on(ReorgEmitter.REORG_START_EVENT, this.startReorg);
+        this.reorgEmitter.on(ReorgEmitter.REORG_END_EVENT, this.endReorg);
 
         // add any existing appointments in the store to the subscriber
         for (const appointment of this.store.getAll()) {
@@ -47,8 +47,8 @@ export class Watcher extends StartStopService {
         }
     }
     protected async stopInternal() {
-        this.reorgDetector.removeListener(ReorgDetector.REORG_START_EVENT, this.startReorg);
-        this.reorgDetector.removeListener(ReorgDetector.REORG_END_EVENT, this.endReorg);
+        this.reorgEmitter.removeListener(ReorgEmitter.REORG_START_EVENT, this.startReorg);
+        this.reorgEmitter.removeListener(ReorgEmitter.REORG_END_EVENT, this.endReorg);
     }
 
     // there are three separate processes that can run concurrently as part of the watcher
@@ -139,7 +139,7 @@ export class Watcher extends StartStopService {
             await this.responder.respond(appointment);
 
             // register a reorg event
-            this.reorgDetector.addReorgHeightListener(event.blockNumber!, async () => {
+            this.reorgEmitter.addReorgHeightListener(event.blockNumber!, async () => {
                 await this.addAppointment(appointment);
             });
 

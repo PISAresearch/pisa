@@ -2,8 +2,14 @@ import "mocha";
 import { expect } from "chai";
 import { BlockCache } from "../../../src/blockMonitor";
 import { ethers } from "ethers";
+import { ArgumentError } from "../../../src/dataEntities";
 
-function generateBlocks(nBlocks: number, initialHeight: number, chain: string): ethers.providers.Block[] {
+function generateBlocks(
+    nBlocks: number,
+    initialHeight: number,
+    chain: string,
+    rootParentHash?: string | null // if given, the parentHash of the first block in the returned chain
+): ethers.providers.Block[] {
     const result: ethers.providers.Block[] = [];
     for (let height = initialHeight; height < initialHeight + nBlocks; height++) {
         const transactions: string[] = [];
@@ -13,8 +19,9 @@ function generateBlocks(nBlocks: number, initialHeight: number, chain: string): 
 
         const block = {
             number: height,
-            hash: `hash${height}`,
-            parentHash: `hash${height - 1}`,
+            hash: `hash-${chain}-${height}`,
+            parentHash:
+                rootParentHash != null && height === initialHeight ? rootParentHash : `hash-${chain}-${height - 1}`,
             transactions
         };
 
@@ -38,9 +45,7 @@ describe("BlockCache", () => {
         const bc = new BlockCache(maxDepth);
         const initialHeight = 3;
         const blocks = generateBlocks(maxDepth - 1, initialHeight, "main");
-        for (const block of blocks) {
-            bc.addBlock(block);
-        }
+        blocks.forEach(block => bc.addBlock(block));
 
         expect(bc.minHeight).to.equal(initialHeight);
     });
@@ -51,9 +56,7 @@ describe("BlockCache", () => {
         const blocksAdded = 2 * maxDepth;
         const lastBlockAdded = initialHeight + blocksAdded - 1;
         const blocks = generateBlocks(blocksAdded, initialHeight, "main");
-        for (const block of blocks) {
-            bc.addBlock(block);
-        }
+        blocks.forEach(block => bc.addBlock(block));
 
         expect(bc.minHeight).to.equal(lastBlockAdded - maxDepth);
     });
@@ -94,9 +97,7 @@ describe("BlockCache", () => {
         const initialHeight = 3;
         const blocksAdded = maxDepth + 1;
         const blocks = generateBlocks(blocksAdded, initialHeight, "main");
-        for (const block of blocks) {
-            bc.addBlock(block);
-        }
+        blocks.forEach(block => bc.addBlock(block));
 
         const otherBlocks = generateBlocks(2, initialHeight - 1, "main");
 
@@ -127,20 +128,15 @@ describe("BlockCache", () => {
     it("records blocks until maximum depth", () => {
         const bc = new BlockCache(maxDepth);
         const blocks = generateBlocks(maxDepth, 0, "main");
+        blocks.forEach(block => bc.addBlock(block));
 
-        for (const block of blocks) {
-            bc.addBlock(block);
-        }
         expect(blocks[0]).to.deep.include(bc.getBlockStub(blocks[0].hash)!);
     });
 
     it("forgets blocks past the maximum depth", () => {
         const bc = new BlockCache(maxDepth);
         const blocks = generateBlocks(maxDepth + 2, 0, "main"); // head is depth 0, so first pruned is maxDepth + 2
-
-        for (const block of blocks) {
-            bc.addBlock(block);
-        }
+        blocks.forEach(block => bc.addBlock(block));
 
         expect(bc.getBlockStub(blocks[0].hash)).to.equal(null);
     });
@@ -148,10 +144,8 @@ describe("BlockCache", () => {
     it("getConfirmations correctly computes the number of confirmations for a transaction", () => {
         const bc = new BlockCache(maxDepth);
         const blocks = generateBlocks(7, 0, "main"); // must be less blocks than maxDepth
+        blocks.forEach(block => bc.addBlock(block));
 
-        for (const block of blocks) {
-            bc.addBlock(block);
-        }
         const headBlock = blocks[blocks.length - 1];
         expect(bc.getConfirmations(headBlock.hash, blocks[0].transactions[0])).to.equal(blocks.length);
         expect(bc.getConfirmations(headBlock.hash, blocks[1].transactions[0])).to.equal(blocks.length - 1);
@@ -159,12 +153,60 @@ describe("BlockCache", () => {
 
     it("getConfirmations correctly returns 0 confirmations if transaction is not known", () => {
         const bc = new BlockCache(maxDepth);
-        const blocks = generateBlocks(128, 0, "main"); // must be less blocks than maxDepth
+        const blocks = generateBlocks(128, 0, "main");
+        blocks.forEach(block => bc.addBlock(block));
 
-        for (const block of blocks) {
-            bc.addBlock(block);
-        }
         const headBlock = blocks[blocks.length - 1];
         expect(bc.getConfirmations(headBlock.hash, "nonExistingTxHash")).to.equal(0);
+    });
+
+    it("findAncestor returns the nearest ancestor that satisfies the predicate", () => {
+        const bc = new BlockCache(maxDepth);
+        const blocks = generateBlocks(5, 0, "main");
+        blocks.forEach(block => bc.addBlock(block));
+        const headBlock = blocks[blocks.length - 1];
+
+        const result = bc.findAncestor(headBlock.hash, block => block.hash == blocks[2].hash);
+        expect(result).to.not.be.null;
+        expect(blocks[2]).to.deep.include(result!);
+    });
+
+    it("findAncestor returns self if satisfies the predicate", () => {
+        const bc = new BlockCache(maxDepth);
+        const blocks = generateBlocks(5, 0, "main");
+        blocks.forEach(block => bc.addBlock(block));
+        const headBlock = blocks[blocks.length - 1];
+
+        const result = bc.findAncestor(headBlock.hash, block => block.hash == headBlock.hash);
+        expect(result).to.not.be.null;
+        expect(headBlock).to.deep.include(result!);
+    });
+
+    it("findAncestor returns self if satisfies the predicate", () => {
+        const bc = new BlockCache(maxDepth);
+        const blocks = generateBlocks(5, 0, "main");
+        blocks.forEach(block => bc.addBlock(block));
+        const headBlock = blocks[blocks.length - 1];
+
+        const result = bc.findAncestor(headBlock.hash, block => block.hash == "notExistingHash");
+        expect(result).to.be.null;
+    });
+
+    it("getOldestAncestorInCache returns the deepest ancestor", () => {
+        const bc = new BlockCache(maxDepth);
+        const blocks = generateBlocks(5, 0, "main");
+        blocks.forEach(block => bc.addBlock(block));
+        const headBlock = blocks[blocks.length - 1];
+
+        const result = bc.getOldestAncestorInCache(headBlock.hash);
+        expect(blocks[0]).to.deep.include(result);
+    });
+
+    it("getOldestAncestorInCache throws ArgumentError for a hash not in cache", () => {
+        const bc = new BlockCache(maxDepth);
+        const blocks = generateBlocks(5, 0, "main");
+        blocks.forEach(block => bc.addBlock(block));
+
+        expect(() => bc.getOldestAncestorInCache("notExistingHash")).to.throw(ArgumentError);
     });
 });

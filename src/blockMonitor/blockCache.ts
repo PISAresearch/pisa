@@ -1,5 +1,5 @@
 import { ethers } from "ethers";
-import { ApplicationError } from "../dataEntities";
+import { ApplicationError, ArgumentError } from "../dataEntities";
 import { IBlockStub, BlockStubChain } from "./blockStub";
 
 /**
@@ -10,11 +10,12 @@ export interface ReadOnlyBlockCache {
     readonly maxHeight: number;
     readonly minHeight: number;
     canAddBlock(block: ethers.providers.Block): boolean;
-    getBlockStubChain(blockHash: string): BlockStubChain | null;
     getBlockStub(blockHash: string): IBlockStub | null;
     hasBlock(blockHash: string): boolean;
     getConfirmations(headBlockHash: string, txHash: string): number;
     getTransactions(blockHash: string): ethers.providers.TransactionResponse[] | null;
+    findAncestor(initialBlockHash: string, predicate: (block: IBlockStub) => boolean): IBlockStub | null;
+    getOldestAncestorInCache(blockHash: string): IBlockStub;
 }
 
 /**
@@ -35,7 +36,7 @@ export interface ReadOnlyBlockCache {
  * actually be added (for example because they are already too deep); in that case, it will return `false`.
  **/
 export class BlockCache implements ReadOnlyBlockCache {
-    private blockStubsByHash: Map<string, BlockStubChain> = new Map();
+    private blockStubsByHash: Map<string, IBlockStub> = new Map();
 
     // set of tx hashes per block hash, for fast lookup
     private txHashesByBlockHash: Map<string, Set<string>> = new Map();
@@ -81,9 +82,6 @@ export class BlockCache implements ReadOnlyBlockCache {
             throw new ApplicationError(`Block with hash ${blockHash} not found, but it was expected.`);
         }
 
-        // Make sure we prune old BlockStubChains when removing a block
-        block.prune(block.height);
-
         this.blockStubsByHash.delete(blockHash);
 
         // Remove stored set of transactions for this block
@@ -101,18 +99,6 @@ export class BlockCache implements ReadOnlyBlockCache {
 
             this.pruneHeight++;
         }
-    }
-
-    // Makes a new block stub, linking the parent if available
-    private makeBlockStub(hash: string, number: number, parentHash: string) {
-        const parentBlockStubChain = this.blockStubsByHash.get(parentHash);
-        let newBlockStubChain: BlockStubChain;
-        if (parentBlockStubChain === undefined) {
-            newBlockStubChain = BlockStubChain.newRoot({ hash, number, parentHash });
-        } else {
-            newBlockStubChain = parentBlockStubChain.extend({ hash, number, parentHash });
-        }
-        return newBlockStubChain;
     }
 
     /**
@@ -168,7 +154,7 @@ export class BlockCache implements ReadOnlyBlockCache {
         // Update data structures
 
         // Save block stub
-        const newBlockStub = this.makeBlockStub(block.hash, block.number, block.parentHash);
+        const newBlockStub = { hash: block.hash, number: block.number, parentHash: block.parentHash };
         this.blockStubsByHash.set(block.hash, newBlockStub);
 
         // TODO:174: this is a hack
@@ -198,23 +184,11 @@ export class BlockCache implements ReadOnlyBlockCache {
     }
 
     /**
-     * Returns the `BlockStubChain` for the block with hash `blockHash`, or `null` if the block is not in cache.
-     * @param blockHash
-     */
-    public getBlockStubChain(blockHash: string): BlockStubChain | null {
-        return this.blockStubsByHash.get(blockHash) || null;
-    }
-
-    /**
      * Returns the `IBlockStub` for the block with hash `blockHash`, or `null` if the block is not in cache.
      * @param blockHash
      */
     public getBlockStub(blockHash: string): IBlockStub | null {
-        const blockStubChain = this.getBlockStubChain(blockHash);
-        if (blockStubChain === null) {
-            return null;
-        }
-        return blockStubChain.asBlockStub();
+        return this.blockStubsByHash.get(blockHash) || null;
     }
 
     /**
@@ -225,19 +199,63 @@ export class BlockCache implements ReadOnlyBlockCache {
     }
 
     /**
+     * Iterator over all the blocks in the ancestry of the block with hash `initialBlockHash` (inclusive).
+     * @param initialBlockHash
+     */
+    private *ancestry(initialBlockHash: string): IterableIterator<IBlockStub> {
+        let curBlock = this.getBlockStub(initialBlockHash);
+        while (curBlock !== null) {
+            yield curBlock;
+            curBlock = this.getBlockStub(curBlock.parentHash);
+        }
+    }
+
+    /**
+     * Finds and returns the nearest ancestor that satisfies `predicate`.
+     * Returns `null` if no such ancestor is found.
+     */
+    public findAncestor(initialBlockHash: string, predicate: (block: IBlockStub) => boolean): IBlockStub | null {
+        for (const block of this.ancestry(initialBlockHash)) {
+            if (predicate(block)) {
+                return block;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Returns the IBlockStub of the oldest ancestor of `blockStub` that is stored in the blockCache.
+     * @throws ArgumentError if `blockHash` is not in the blockCache.
+     * @param blockHash
+     */
+    public getOldestAncestorInCache(blockHash: string): IBlockStub {
+        if (!this.hasBlock(blockHash)) {
+            throw new ArgumentError(`The block with hash ${blockHash} is not in cache`);
+        }
+
+        // Find the deepest ancestor that is in cache
+        const result = this.findAncestor(blockHash, block => !this.hasBlock(block.parentHash));
+
+        if (!result) {
+            // This can never happen, since blockHash already satisfies the predicate in findAncestor
+            throw new ApplicationError("An error occurred while searching for the oldest ancestor in cache.");
+        }
+
+        return result;
+    }
+
+    /**
      * Returns number of confirmations using `headBlockHash` as tip of the blockchain, looking for `txHash` among the ancestor blocks;
      * return 0 if no ancestor containing the transaction is found.
      * Note: This will return 0 for transactions already at depth bigger than `this.maxDepth` when this function is called.
      */
     public getConfirmations(headBlockHash: string, txHash: string): number {
-        let depth = 0;
-        let curBlock = this.getBlockStub(headBlockHash);
-        while (curBlock !== null) {
-            const txsInCurBlock = this.txHashesByBlockHash.get(curBlock.hash);
+        let depth = 1;
+        for (const block of this.ancestry(headBlockHash)) {
+            const txsInCurBlock = this.txHashesByBlockHash.get(block.hash);
             if (txsInCurBlock && txsInCurBlock.has(txHash)) {
-                return depth + 1;
+                return depth;
             }
-            curBlock = this.getBlockStub(curBlock.parentHash);
             depth++;
         }
 

@@ -90,6 +90,9 @@ describe("BlockProcessor", () => {
             eventEmitter.removeAllListeners(arg0)
         );
 
+        // We initially return 0 as the current block number
+        when(mockProvider.getBlockNumber()).thenResolve(0);
+
         provider = instance(mockProvider);
     });
 
