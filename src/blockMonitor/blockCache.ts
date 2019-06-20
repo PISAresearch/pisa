@@ -1,6 +1,6 @@
 import { ethers } from "ethers";
 import { ApplicationError, ArgumentError } from "../dataEntities";
-import { IBlockStub, BlockStubChain } from "./blockStub";
+import { IBlockStub } from "./blockStub";
 
 /**
  * This interface represents the read-only view of a BlockCache.
