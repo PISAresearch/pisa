@@ -548,6 +548,7 @@ describe("EthereumTransactionMiner", async () => {
         const txHash = await miner.sendTransaction(transactionRequest);
 
         const res = miner.waitForFirstConfirmation(txHash);
+        res.catch(() => {}); // ignore if it throwa
 
         // Simulates BLOCK_TIMEOUT_EVENT
         blockTimeoutDetector.emit(BlockTimeoutDetector.BLOCK_TIMEOUT_EVENT);
@@ -593,6 +594,7 @@ describe("EthereumTransactionMiner", async () => {
         const txHash = await miner.sendTransaction(transactionRequest);
 
         const res = miner.waitForFirstConfirmation(txHash);
+        res.catch(() => {}); // ignore if it throws
 
         // Simulate blockThresholdForStuckTransaction new blocks without mining the transaction
         for (let i = 1; i <= blockThresholdForStuckTransaction + 1; i++) {
@@ -635,6 +637,7 @@ describe("EthereumTransactionMiner", async () => {
         await miner.waitForFirstConfirmation(txHash);
 
         const res = miner.waitForEnoughConfirmations(txHash);
+        res.catch(() => {}); // ignore if it throws
 
         // Simulates BLOCK_TIMEOUT_EVENT
         blockTimeoutDetector.emit(BlockTimeoutDetector.BLOCK_TIMEOUT_EVENT);
