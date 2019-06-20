@@ -62,7 +62,6 @@ export class MultiResponder extends EthereumResponder {
 
     public async startResponse(appointmentId: string, responseData: IEthereumResponseData) {
         await this.setup();
-        logger.error(inspect(this.queue.queueItems))
         if (this.queue.depthReached()) {
             throw new Error(`Cannot add to queue. Max queue depth ${this.queue.maxQueueDepth} reached.`);
         }
@@ -83,9 +82,7 @@ export class MultiResponder extends EthereumResponder {
         // add the queue item to the queue, since the queue is ordered this may mean
         // that we need to replace some transactions on the network. Find those and
         // broadcast them
-        
         const replacedQueue = this.queue.add(request);
-        
         const replacedTransactions = replacedQueue.difference(this.queue);
         this.queue = replacedQueue;
         
