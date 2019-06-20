@@ -2,13 +2,13 @@ import { ethers } from "ethers";
 import { StartStopService, ApplicationError } from "../dataEntities";
 import { ReadOnlyBlockCache, BlockCache } from "./blockCache";
 import { IBlockStub } from "../dataEntities";
-import { Block, HasTxHashes } from "../dataEntities/block";
+import { Block, Transactions } from "../dataEntities/block";
 
 type BlockFactory<T> = (provider: ethers.providers.Provider) => (blockNumberOrHash: number | string) => Promise<T>;
 
-export const minimalBlockFactory = (provider: ethers.providers.Provider) => async (
+export const blockStubAndTxFactory = (provider: ethers.providers.Provider) => async (
     blockNumberOrHash: string | number
-): Promise<IBlockStub & HasTxHashes> => {
+): Promise<IBlockStub & Transactions> => {
     const block = await provider.getBlock(blockNumberOrHash);
     return {
         hash: block.hash,
@@ -18,13 +18,15 @@ export const minimalBlockFactory = (provider: ethers.providers.Provider) => asyn
     };
 };
 
-export const defaultBlockFactory = (provider: ethers.providers.Provider) => async (
+export const blockFactory = (provider: ethers.providers.Provider) => async (
     blockNumberOrHash: string | number
 ): Promise<Block> => {
     const block = await provider.getBlock(blockNumberOrHash);
+
+    // We could filter out the logs that we are not interesting in order to save space
+    // (e.g.: only keep the logs from the DataRegistry).
     const logs = await provider.getLogs({
         blockHash: block.hash
-        // TODO: filter interesting logs, instead of taking everything
     });
 
     return {

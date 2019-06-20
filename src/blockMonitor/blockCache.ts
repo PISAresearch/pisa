@@ -1,5 +1,5 @@
 import { ApplicationError, ArgumentError } from "../dataEntities";
-import { IBlockStub, HasTxHashes } from "../dataEntities/block";
+import { IBlockStub, Transactions } from "../dataEntities/block";
 
 /**
  * This interface represents the read-only view of a BlockCache.
@@ -233,7 +233,7 @@ export class BlockCache<T extends IBlockStub> implements ReadOnlyBlockCache<T> {
  * @param txHash
  * @throws `ArgumentError` if the block with hash `headHash` is not in the cache.
  */
-export function getConfirmations<T extends IBlockStub & HasTxHashes>(
+export function getConfirmations<T extends IBlockStub & Transactions>(
     cache: ReadOnlyBlockCache<T>,
     headHash: string,
     txHash: string

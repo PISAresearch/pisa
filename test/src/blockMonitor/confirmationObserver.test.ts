@@ -9,7 +9,7 @@ import {
     BlockThresholdReachedError,
     ReorgError,
     IBlockStub,
-    HasTxHashes
+    Transactions
 } from "../../../src/dataEntities";
 
 chai.use(chaiAsPromised);
@@ -71,10 +71,10 @@ class PromiseSpy<T> {
 }
 
 describe("ConfirmationObserver", () => {
-    let blockCache: BlockCache<IBlockStub & HasTxHashes>;
-    let mockBlockProcessor: BlockProcessor<IBlockStub & HasTxHashes>;
+    let blockCache: BlockCache<IBlockStub & Transactions>;
+    let mockBlockProcessor: BlockProcessor<IBlockStub & Transactions>;
 
-    let confirmationObserver: ConfirmationObserver<IBlockStub & HasTxHashes>;
+    let confirmationObserver: ConfirmationObserver;
 
     async function emitNewHead(hash: string): Promise<void> {
         if (!(hash in blocksByHash)) {
@@ -97,7 +97,7 @@ describe("ConfirmationObserver", () => {
         }
 
         const eventEmitter = new EventEmitter();
-        mockBlockProcessor = eventEmitter as BlockProcessor<IBlockStub & HasTxHashes>; // we just need the mock to emit events
+        mockBlockProcessor = eventEmitter as BlockProcessor<IBlockStub & Transactions>; // we just need the mock to emit events
 
         Object.defineProperty(mockBlockProcessor, "head", {
             value: null,

@@ -1,5 +1,5 @@
 import { BlockProcessor } from "./blockProcessor";
-import { StartStopService } from "../dataEntities";
+import { StartStopService, IBlockStub } from "../dataEntities";
 
 /**
  * Generates events when no new block is observed for too long, possibly signaling a malfunctioning of the provider.
@@ -16,7 +16,7 @@ export class BlockTimeoutDetector extends StartStopService {
     /**
      * @param timeout The number of milliseconds without a new block before generating
      */
-    constructor(private blockProcessor: BlockProcessor<any>, public readonly timeout: number) {
+    constructor(private blockProcessor: BlockProcessor<IBlockStub>, public readonly timeout: number) {
         super("block-timeout-detector");
         this.resetNoNewBlockTimeout = this.resetNoNewBlockTimeout.bind(this);
     }

@@ -6,12 +6,12 @@ export interface IBlockStub {
     parentHash: string;
 }
 
-export interface HasLogs {
-    logs: ethers.providers.Log[]; // TODO: use own type?
+export interface Logs {
+    logs: ethers.providers.Log[];
 }
 
-export interface HasTxHashes {
+export interface Transactions {
     transactions: string[];
 }
 
-export interface Block extends IBlockStub, HasLogs, HasTxHashes {}
+export interface Block extends IBlockStub, Logs, Transactions {}

@@ -20,11 +20,15 @@ import {
     ReorgError,
     BlockTimeoutError,
     IBlockStub,
-    HasTxHashes
+    Transactions
 } from "../../src/dataEntities";
-import { BlockCache, BlockProcessor, BlockTimeoutDetector } from "../../src/blockMonitor";
-import { ConfirmationObserver } from "../../src/blockMonitor/confirmationObserver";
-import { minimalBlockFactory } from "../../src/blockMonitor/blockProcessor";
+import {
+    BlockCache,
+    BlockProcessor,
+    BlockTimeoutDetector,
+    ConfirmationObserver,
+    blockStubAndTxFactory
+} from "../../src/blockMonitor";
 
 chai.use(chaiAsPromised);
 chai.use(require("sinon-chai"));
@@ -159,10 +163,10 @@ function waitForSpy(spy: any, interval = 20) {
 describe("EthereumDedicatedResponder", () => {
     let ganache: any;
     let provider: ethers.providers.Web3Provider;
-    let blockCache: BlockCache<IBlockStub & HasTxHashes>;
-    let blockProcessor: BlockProcessor<IBlockStub & HasTxHashes>;
+    let blockCache: BlockCache<IBlockStub & Transactions>;
+    let blockProcessor: BlockProcessor<IBlockStub & Transactions>;
     let blockTimeoutDetector: BlockTimeoutDetector;
-    let confirmationObserver: ConfirmationObserver<IBlockStub & HasTxHashes>;
+    let confirmationObserver: ConfirmationObserver;
     let transactionMiner: EthereumTransactionMiner;
 
     let account0: string, account1: string, responderAccount: string;
@@ -175,8 +179,8 @@ describe("EthereumDedicatedResponder", () => {
         provider = new ethers.providers.Web3Provider(ganache);
         provider.pollingInterval = 100;
 
-        blockCache = new BlockCache<IBlockStub & HasTxHashes>(100);
-        blockProcessor = new BlockProcessor<IBlockStub & HasTxHashes>(provider, minimalBlockFactory, blockCache);
+        blockCache = new BlockCache<IBlockStub & Transactions>(100);
+        blockProcessor = new BlockProcessor<IBlockStub & Transactions>(provider, blockStubAndTxFactory, blockCache);
         await blockProcessor.start();
 
         blockTimeoutDetector = new BlockTimeoutDetector(blockProcessor, 120 * 1000);
@@ -477,10 +481,10 @@ describe("EthereumDedicatedResponder", () => {
 describe("EthereumTransactionMiner", async () => {
     let ganache: any;
     let provider: ethers.providers.Web3Provider;
-    let blockCache: BlockCache<IBlockStub & HasTxHashes>;
-    let blockProcessor: BlockProcessor<IBlockStub & HasTxHashes>;
+    let blockCache: BlockCache<IBlockStub & Transactions>;
+    let blockProcessor: BlockProcessor<IBlockStub & Transactions>;
     let blockTimeoutDetector: BlockTimeoutDetector;
-    let confirmationObserver: ConfirmationObserver<IBlockStub & HasTxHashes>;
+    let confirmationObserver: ConfirmationObserver;
     let accounts: string[];
     let account0Signer: ethers.Signer;
     let transactionRequest: ethers.providers.TransactionRequest;
@@ -491,8 +495,8 @@ describe("EthereumTransactionMiner", async () => {
         } as any); // TODO: remove generic types when @types/ganache-core is updated
         provider = new ethers.providers.Web3Provider(ganache);
         provider.pollingInterval = 20;
-        blockCache = new BlockCache<IBlockStub & HasTxHashes>(200);
-        blockProcessor = new BlockProcessor<IBlockStub & HasTxHashes>(provider, minimalBlockFactory, blockCache);
+        blockCache = new BlockCache<IBlockStub & Transactions>(200);
+        blockProcessor = new BlockProcessor<IBlockStub & Transactions>(provider, blockStubAndTxFactory, blockCache);
         await blockProcessor.start();
         blockTimeoutDetector = new BlockTimeoutDetector(blockProcessor, 120 * 1000);
         await blockTimeoutDetector.start();

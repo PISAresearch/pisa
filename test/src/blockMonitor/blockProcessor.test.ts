@@ -4,9 +4,8 @@ import chaiAsPromised from "chai-as-promised";
 import { ethers } from "ethers";
 import { mock, when, instance, anything } from "ts-mockito";
 import { EventEmitter } from "events";
-import { BlockProcessor, BlockCache } from "../../../src/blockMonitor";
+import { BlockProcessor, BlockCache, blockStubAndTxFactory } from "../../../src/blockMonitor";
 import { IBlockStub } from "../../../src/dataEntities";
-import { minimalBlockFactory } from "../../../src/blockMonitor/blockProcessor";
 
 chai.use(chaiAsPromised);
 const expect = chai.expect;
@@ -101,14 +100,14 @@ describe("BlockProcessor", () => {
     it("correctly processes the blockchain head after startup", async () => {
         emitBlockHash("a1");
 
-        blockProcessor = new BlockProcessor(provider, minimalBlockFactory, blockCache);
+        blockProcessor = new BlockProcessor(provider, blockStubAndTxFactory, blockCache);
         await blockProcessor.start();
 
         expect(blockProcessor.head.hash).to.equal("a1");
     });
 
     it("adds the first block received to the cache and emits a new head event", async () => {
-        blockProcessor = new BlockProcessor(provider, minimalBlockFactory, blockCache);
+        blockProcessor = new BlockProcessor(provider, blockStubAndTxFactory, blockCache);
         await blockProcessor.start();
 
         const res = new Promise(resolve => {
@@ -125,7 +124,7 @@ describe("BlockProcessor", () => {
     });
 
     it("adds to the blockCache all ancestors until a known block", async () => {
-        blockProcessor = new BlockProcessor(provider, minimalBlockFactory, blockCache);
+        blockProcessor = new BlockProcessor(provider, blockStubAndTxFactory, blockCache);
         await blockProcessor.start();
 
         emitBlockHash("a1");
@@ -138,7 +137,7 @@ describe("BlockProcessor", () => {
     });
 
     it("adds both chain until the common ancestor if there is a fork", async () => {
-        blockProcessor = new BlockProcessor(provider, minimalBlockFactory, blockCache);
+        blockProcessor = new BlockProcessor(provider, blockStubAndTxFactory, blockCache);
         await blockProcessor.start();
 
         emitBlockHash("a1");
@@ -154,7 +153,7 @@ describe("BlockProcessor", () => {
     });
 
     it("adds both chain until the common ancestor if there is a fork", async () => {
-        blockProcessor = new BlockProcessor(provider, minimalBlockFactory, blockCache);
+        blockProcessor = new BlockProcessor(provider, blockStubAndTxFactory, blockCache);
         await blockProcessor.start();
 
         emitBlockHash("a1");

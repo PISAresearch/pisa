@@ -2,7 +2,7 @@ import "mocha";
 import { expect } from "chai";
 import { BlockCache, getConfirmations } from "../../../src/blockMonitor";
 import { ethers } from "ethers";
-import { ArgumentError, IBlockStub, HasTxHashes } from "../../../src/dataEntities";
+import { ArgumentError, IBlockStub, Transactions } from "../../../src/dataEntities";
 
 function generateBlocks(
     nBlocks: number,
@@ -195,7 +195,7 @@ describe("BlockCache", () => {
 describe("getConfirmations", () => {
     const maxDepth = 100;
     it("correctly computes the number of confirmations for a transaction", () => {
-        const bc = new BlockCache<IBlockStub & HasTxHashes>(maxDepth);
+        const bc = new BlockCache<IBlockStub & Transactions>(maxDepth);
         const blocks = generateBlocks(7, 0, "main"); // must be less blocks than maxDepth
         blocks.forEach(block => bc.addBlock(block));
 
@@ -205,7 +205,7 @@ describe("getConfirmations", () => {
     });
 
     it("correctly returns 0 confirmations if transaction is not known", () => {
-        const bc = new BlockCache<IBlockStub & HasTxHashes>(maxDepth);
+        const bc = new BlockCache<IBlockStub & Transactions>(maxDepth);
         const blocks = generateBlocks(128, 0, "main");
         blocks.forEach(block => bc.addBlock(block));
 
@@ -214,7 +214,7 @@ describe("getConfirmations", () => {
     });
 
     it("throws ArgumentError if no block with the given hash is in the BlockCache", () => {
-        const bc = new BlockCache<IBlockStub & HasTxHashes>(maxDepth);
+        const bc = new BlockCache<IBlockStub & Transactions>(maxDepth);
         const blocks = generateBlocks(128, 0, "main");
         blocks.forEach(block => bc.addBlock(block));
 

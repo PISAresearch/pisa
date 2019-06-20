@@ -8,10 +8,14 @@ import { ethers } from "ethers";
 import { AppointmentSubscriber } from "../../../src/watcher/appointmentSubscriber";
 import * as Ganache from "ganache-core";
 import { EthereumResponderManager } from "../../../src/responder";
-import { BlockProcessor, ReorgHeightListenerStore, BlockCache } from "../../../src/blockMonitor";
-import { ReorgEmitter } from "../../../src/blockMonitor/reorgEmitter";
-import { IBlockStub, HasTxHashes } from "../../../src/dataEntities";
-import { minimalBlockFactory } from "../../../src/blockMonitor/blockProcessor";
+import {
+    BlockProcessor,
+    ReorgHeightListenerStore,
+    BlockCache,
+    ReorgEmitter,
+    blockStubAndTxFactory
+} from "../../../src/blockMonitor";
+import { IBlockStub, Transactions } from "../../../src/dataEntities";
 
 describe("Watcher", () => {
     const ganache = Ganache.provider({});
@@ -249,8 +253,12 @@ describe("Watcher", () => {
     });
 
     it("observe does nothing during a reorg", async () => {
-        const blockCache = new BlockCache<IBlockStub & HasTxHashes>(200);
-        const blockProcessor = new BlockProcessor<IBlockStub & HasTxHashes>(provider, minimalBlockFactory, blockCache);
+        const blockCache = new BlockCache<IBlockStub & Transactions>(200);
+        const blockProcessor = new BlockProcessor<IBlockStub & Transactions>(
+            provider,
+            blockStubAndTxFactory,
+            blockCache
+        );
         const reorgDetect = new ReorgEmitter(provider, blockProcessor, new ReorgHeightListenerStore());
         const spiedReorgDetect = spy(reorgDetect);
         const watcher = new Watcher(responderInstance, reorgDetect, appointmentSubscriber, storeInstanceThrow);

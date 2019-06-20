@@ -29,8 +29,7 @@ import {
 } from "./blockMonitor";
 import { LevelUp } from "levelup";
 import encodingDown from "encoding-down";
-import { ReorgEmitter } from "./blockMonitor/reorgEmitter";
-import { defaultBlockFactory } from "./blockMonitor/blockProcessor";
+import { ReorgEmitter, blockFactory } from "./blockMonitor";
 import { Block } from "./dataEntities/block";
 
 /**
@@ -42,7 +41,7 @@ export class PisaService extends StartStopService {
     private readonly reorgEmitter: ReorgEmitter;
     private readonly blockProcessor: BlockProcessor<Block>;
     private readonly blockTimeoutDetector: BlockTimeoutDetector;
-    private readonly confirmationObserver: ConfirmationObserver<Block>;
+    private readonly confirmationObserver: ConfirmationObserver;
     private readonly ethereumResponderManager: EthereumResponderManager;
     private readonly watcher: Watcher;
     private readonly appointmentStore: AppointmentStore;
@@ -74,7 +73,7 @@ export class PisaService extends StartStopService {
 
         // start reorg detector and block monitor
         const blockCache = new BlockCache<Block>(200);
-        this.blockProcessor = new BlockProcessor<Block>(delayedProvider, defaultBlockFactory, blockCache);
+        this.blockProcessor = new BlockProcessor<Block>(delayedProvider, blockFactory, blockCache);
         this.reorgEmitter = new ReorgEmitter(delayedProvider, this.blockProcessor, new ReorgHeightListenerStore());
 
         // dependencies
