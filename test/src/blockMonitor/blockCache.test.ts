@@ -142,6 +142,8 @@ describe("BlockCache", () => {
         expect(bc.getBlockStub(blocks[0].hash)).to.equal(null);
     });
 
+    it("ancestry iterates over all the ancestors");
+
     it("findAncestor returns the nearest ancestor that satisfies the predicate", () => {
         const bc = new BlockCache(maxDepth);
         const blocks = generateBlocks(5, 0, "main");

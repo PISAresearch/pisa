@@ -78,7 +78,7 @@ describe("ConfirmationObserver", () => {
 
         (mockBlockProcessor as any).head = blocksByHash[hash]; // set this block as head for the blockProcessor
 
-        mockBlockProcessor.emit(BlockProcessor.NEW_HEAD_EVENT, blocksByHash[hash].number, hash); // emit new head event
+        mockBlockProcessor.emit(BlockProcessor.NEW_HEAD_EVENT, { number: blocksByHash[hash].number, hash: hash }); // emit new head event
 
         await Promise.resolve(); // Make sure events are processed
     }

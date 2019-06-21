@@ -62,7 +62,7 @@ describe("BlockTimeoutDetector", () => {
         clock.tick(timeout - 1); // wait less than the timeout
 
         // produce a block
-        mockBlockProcessor.emit(BlockProcessor.NEW_HEAD_EVENT, 42, "0x42424242");
+        mockBlockProcessor.emit(BlockProcessor.NEW_HEAD_EVENT, { number: 42, hash: "0x42424242" });
 
         clock.tick(timeout - 2); // wait less than the timeout
 

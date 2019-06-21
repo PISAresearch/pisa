@@ -49,6 +49,9 @@ export class BlockProcessor<T extends IBlockStub> extends StartStopService {
     // keeps track of the last block hash received, in order to correctly emit NEW_HEAD_EVENT; null on startup
     private lastBlockHashReceived: string | null;
 
+    // for set of blocks currently emitted as head block
+    private emittedBlocks: WeakSet<Readonly<T>> = new WeakSet();
+
     // keeps track of the latest known head received
     private headHash: string | null = null;
 
@@ -66,7 +69,7 @@ export class BlockProcessor<T extends IBlockStub> extends StartStopService {
     /**
      * Event emitted when a new block is mined and has been added to the BlockCache.
      * It is not guaranteed that no block is skipped, especially in case of reorgs.
-     * Emits the block height and the block hash.
+     * Emits the block stu.
      */
     public static readonly NEW_HEAD_EVENT = "new_head";
 
@@ -84,7 +87,7 @@ export class BlockProcessor<T extends IBlockStub> extends StartStopService {
      * @throws ApplicationError if the block is not found in the cache. This should never happen, unless
      *         `head` is read before the service is started.
      */
-    public get head(): T {
+    public get head(): Readonly<T> {
         if (this.headHash == null) {
             throw new ApplicationError("head used before the BlockProcessor is initialized.");
         }
@@ -128,7 +131,7 @@ export class BlockProcessor<T extends IBlockStub> extends StartStopService {
     }
 
     // update the new headHash if needed, and emit the appropriate events
-    private processNewHead(headBlock: T, commonAncestorBlock: T | null) {
+    private processNewHead(headBlock: Readonly<T>, commonAncestorBlock: T | null) {
         const oldHeadHash = this.headHash; // we need to remember the old head for proper Reorg event handling
         this.headHash = headBlock.hash;
 
@@ -142,7 +145,11 @@ export class BlockProcessor<T extends IBlockStub> extends StartStopService {
                 this.emit(BlockProcessor.REORG_EVENT, commonAncestorBlock.hash, this.headHash, oldHeadHash);
             }
 
-            this.emit(BlockProcessor.NEW_HEAD_EVENT, headBlock.number, headBlock.hash);
+            const nearestEmittedBlockInAncestry = this.blockCache.findAncestor(headBlock.hash, block =>
+                this.emittedBlocks.has(block)
+            );
+            this.emit(BlockProcessor.NEW_HEAD_EVENT, headBlock, nearestEmittedBlockInAncestry);
+            this.emittedBlocks.add(headBlock);
         }
     }
 

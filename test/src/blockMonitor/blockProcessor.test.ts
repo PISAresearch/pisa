@@ -111,10 +111,10 @@ describe("BlockProcessor", () => {
         await blockProcessor.start();
 
         const res = new Promise(resolve => {
-            blockProcessor.on(BlockProcessor.NEW_HEAD_EVENT, (blockNumber, blockHash) => {
+            blockProcessor.on(BlockProcessor.NEW_HEAD_EVENT, (head: IBlockStub) => {
                 expect(blockCache.hasBlock("a5")).to.be.true;
 
-                resolve({ number: blockNumber, hash: blockHash });
+                resolve({ number: head.number, hash: head.hash });
             });
         });
 

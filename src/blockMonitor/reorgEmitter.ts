@@ -14,7 +14,7 @@ export class ReorgEmitter extends StartStopService {
     // Lock used to enqueue further events if an event is not done processing
     private processingEventLock = new Lock();
 
-    private headBlock: IBlockStub | null;
+    private headBlock: Readonly<IBlockStub> | null;
 
     /**
      * The current head of the chain
@@ -78,11 +78,11 @@ export class ReorgEmitter extends StartStopService {
         this.headBlock = newHeadBlock;
     }
 
-    private async handleNewHeadEvent(blockNumber: number, blockHash: string) {
+    private async handleNewHeadEvent(head: Readonly<IBlockStub>) {
         // We enqueue the processing if there is a re-org in process
         await this.processingEventLock.acquire();
 
-        this.setNewHead(blockHash);
+        this.setNewHead(head.hash);
 
         // prune events past the max depth after each event
         this.prune();
