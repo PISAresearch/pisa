@@ -142,7 +142,20 @@ describe("BlockCache", () => {
         expect(bc.getBlockStub(blocks[0].hash)).to.equal(null);
     });
 
-    it("ancestry iterates over all the ancestors");
+    it("ancestry iterates over all the ancestors", () => {
+        const bc = new BlockCache(maxDepth);
+        const blocks = generateBlocks(10, 0, "main");
+        blocks.forEach(block => bc.addBlock(block));
+        const headBlock = blocks[blocks.length - 1];
+
+        // Add some other blocks in a forked chain at height 3
+        generateBlocks(5, 3, "fork", blocks[1].hash).forEach(block => bc.addBlock(block));
+
+        const result = [...bc.ancestry(headBlock.hash)];
+        result.reverse();
+
+        expect(result).to.deep.equal(blocks);
+    });
 
     it("findAncestor returns the nearest ancestor that satisfies the predicate", () => {
         const bc = new BlockCache(maxDepth);
