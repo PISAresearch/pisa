@@ -1,6 +1,8 @@
 import { StartStopService, ArgumentError, BlockThresholdReachedError, ReorgError } from "../dataEntities";
 import { BlockProcessor } from "./blockProcessor";
 import { CancellablePromise, cancellablePromiseRace } from "../utils";
+import { Transactions, IBlockStub } from "../dataEntities/block";
+import { getConfirmations } from "./blockCache";
 
 // A TransactionListener fulfills/rejects a promise if possible; returns true on success
 type TransactionListener = (blockNumber: number, blockHash: string) => boolean;
@@ -11,7 +13,7 @@ type TransactionListener = (blockNumber: number, blockHash: string) => boolean;
 export class ConfirmationObserver extends StartStopService {
     private txListeners = new Set<TransactionListener>();
 
-    constructor(private readonly blockProcessor: BlockProcessor) {
+    constructor(private readonly blockProcessor: BlockProcessor<IBlockStub & Transactions>) {
         super("confirmation-observer");
         this.handleNewHead = this.handleNewHead.bind(this);
     }
@@ -33,7 +35,7 @@ export class ConfirmationObserver extends StartStopService {
         }
     }
 
-    private listenForPredicate<T>(predicate: TransactionListener): CancellablePromise<T> {
+    private listenForPredicate(predicate: TransactionListener): CancellablePromise<void> {
         const createResolvingPredicate = (resolve: () => void) => (blockNumber: number, blockHash: string): boolean => {
             const result = predicate(blockNumber, blockHash);
             if (result) resolve();
@@ -66,13 +68,13 @@ export class ConfirmationObserver extends StartStopService {
         }
 
         const headHash = this.blockProcessor.head.hash;
-        if (blockCache.getConfirmations(headHash, txHash) >= nConfirmations) {
+        if (getConfirmations(blockCache, headHash, txHash) >= nConfirmations) {
             // already has enough confirmations, resolve immediately
             return new CancellablePromise(resolve => resolve());
         }
 
         return this.listenForPredicate(
-            (_, blockHash) => blockCache.getConfirmations(blockHash, txHash) >= nConfirmations
+            (_, blockHash) => getConfirmations(blockCache, blockHash, txHash) >= nConfirmations
         );
     }
 
@@ -99,7 +101,7 @@ export class ConfirmationObserver extends StartStopService {
     public waitForConfirmationsToGoToZero(txHash: string) {
         // listen on each block to see if the confirmations for this block go to zero
         return this.listenForPredicate(
-            (_, blockHash) => this.blockProcessor.blockCache.getConfirmations(blockHash, txHash) === 0
+            (_, blockHash) => getConfirmations(this.blockProcessor.blockCache, blockHash, txHash) === 0
         );
     }
 
@@ -108,7 +110,10 @@ export class ConfirmationObserver extends StartStopService {
      * confirmation, but throws a `BlockThresholdReachedError` if  `blockThreshold` new blocks are mined and the
      * transaction is still unconfirmed.
      */
-    public waitForFirstConfirmationOrBlockThreshold(txHash: string, blockThreshold: number): CancellablePromise<{}> {
+    public waitForFirstConfirmationOrBlockThreshold(
+        txHash: string,
+        blockThreshold: number
+    ): CancellablePromise<unknown> {
         const confirmationsPromise = this.waitForConfirmations(txHash, 1);
         const blockThresholdPromise = this.waitForBlocks(blockThreshold);
         const blockThresholdPromiseThrow = blockThresholdPromise.then(() => {

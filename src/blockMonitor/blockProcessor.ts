@@ -1,7 +1,42 @@
 import { ethers } from "ethers";
 import { StartStopService, ApplicationError } from "../dataEntities";
 import { ReadOnlyBlockCache, BlockCache } from "./blockCache";
-import { IBlockStub } from "./blockStub";
+import { IBlockStub } from "../dataEntities";
+import { Block, Transactions } from "../dataEntities/block";
+
+type BlockFactory<T> = (provider: ethers.providers.Provider) => (blockNumberOrHash: number | string) => Promise<T>;
+
+export const blockStubAndTxFactory = (provider: ethers.providers.Provider) => async (
+    blockNumberOrHash: string | number
+): Promise<IBlockStub & Transactions> => {
+    const block = await provider.getBlock(blockNumberOrHash);
+    return {
+        hash: block.hash,
+        number: block.number,
+        parentHash: block.parentHash,
+        transactions: block.transactions
+    };
+};
+
+export const blockFactory = (provider: ethers.providers.Provider) => async (
+    blockNumberOrHash: string | number
+): Promise<Block> => {
+    const block = await provider.getBlock(blockNumberOrHash);
+
+    // We could filter out the logs that we are not interesting in order to save space
+    // (e.g.: only keep the logs from the DataRegistry).
+    const logs = await provider.getLogs({
+        blockHash: block.hash
+    });
+
+    return {
+        hash: block.hash,
+        number: block.number,
+        parentHash: block.parentHash,
+        transactions: block.transactions,
+        logs
+    };
+};
 
 /**
  * Listens to the provider for new blocks, and updates `blockCache` with all the blocks, making sure that each block
@@ -9,19 +44,21 @@ import { IBlockStub } from "./blockStub";
  * It generates a `NEW_HEAD_EVENT` every time a new block is received by the provider, but only after populating
  * the `blockCache` with the new block and its ancestors.
  */
-export class BlockProcessor extends StartStopService {
+export class BlockProcessor<T extends IBlockStub> extends StartStopService {
     // keeps track of the last block hash received, in order to correctly emit NEW_HEAD_EVENT; null on startup
     private lastBlockHashReceived: string | null;
 
     // keeps track of the latest known head received
     private headHash: string | null = null;
 
-    private mBlockCache: BlockCache;
+    private mBlockCache: BlockCache<T>;
+
+    private getBlock: (blockNumberOrHash: string | number) => Promise<T>;
 
     /**
      * Returns the ReadOnlyBlockCache associated to this BlockProcessor.
      */
-    public get blockCache(): ReadOnlyBlockCache {
+    public get blockCache(): ReadOnlyBlockCache<T> {
         return this.mBlockCache;
     }
 
@@ -41,12 +78,12 @@ export class BlockProcessor extends StartStopService {
     public static readonly REORG_EVENT = "reorg";
 
     /**
-     * Returns the IBlockStub of the latest known head block.
+     * Returns the latest known head block.
      *
      * @throws ApplicationError if the block is not found in the cache. This should never happen, unless
      *         `head` is read before the service is started.
      */
-    public get head(): IBlockStub {
+    public get head(): T {
         if (this.headHash == null) {
             throw new ApplicationError("head used before the BlockProcessor is initialized.");
         }
@@ -58,9 +95,14 @@ export class BlockProcessor extends StartStopService {
         return blockStub;
     }
 
-    constructor(private provider: ethers.providers.BaseProvider, blockCache: BlockCache) {
+    constructor(
+        private provider: ethers.providers.BaseProvider,
+        blockFactory: BlockFactory<T>,
+        blockCache: BlockCache<T>
+    ) {
         super("block-processor");
 
+        this.getBlock = blockFactory(provider);
         this.mBlockCache = blockCache;
 
         this.processBlockNumber = this.processBlockNumber.bind(this);
@@ -85,7 +127,7 @@ export class BlockProcessor extends StartStopService {
     }
 
     // update the new headHash if needed, and emit the appropriate events
-    private processNewHead(headBlock: ethers.providers.Block, commonAncestorBlock: IBlockStub | null) {
+    private processNewHead(headBlock: T, commonAncestorBlock: T | null) {
         const oldHeadHash = this.headHash; // we need to remember the old head for proper Reorg event handling
         this.headHash = headBlock.hash;
 
@@ -107,7 +149,7 @@ export class BlockProcessor extends StartStopService {
     // It is called for each new block received, but also at startup (during startInternal).
     private async processBlockNumber(blockNumber: number) {
         try {
-            const observedBlock = await this.provider.getBlock(blockNumber);
+            const observedBlock = await this.getBlock(blockNumber);
 
             this.lastBlockHashReceived = observedBlock.hash;
 
@@ -116,7 +158,7 @@ export class BlockProcessor extends StartStopService {
             // fetch ancestors until one is found that can be added
             let curBlock = observedBlock;
             while (!this.blockCache.canAddBlock(curBlock)) {
-                curBlock = await this.provider.getBlock(curBlock.parentHash);
+                curBlock = await this.getBlock(curBlock.parentHash);
                 blocksToAdd.push(curBlock);
             }
             blocksToAdd.reverse(); // add blocks from the oldest

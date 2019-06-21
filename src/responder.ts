@@ -3,7 +3,14 @@ import { ethers } from "ethers";
 import { wait, plural, waitForEvent } from "./utils";
 import { IEthereumAppointment, IEthereumResponseData } from "./dataEntities/appointment";
 import logger from "./logger";
-import { ApplicationError, ArgumentError, BlockThresholdReachedError, BlockTimeoutError } from "./dataEntities";
+import {
+    ApplicationError,
+    ArgumentError,
+    BlockThresholdReachedError,
+    BlockTimeoutError,
+    IBlockStub,
+    Transactions
+} from "./dataEntities";
 import { BlockTimeoutDetector, ConfirmationObserver } from "./blockMonitor";
 
 /**
