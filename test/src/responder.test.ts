@@ -108,7 +108,7 @@ function mineBlock(ganache: any, provider: ethers.providers.Web3Provider): Promi
             if (err) reject(err);
         });
 
-        while(true) {
+        while (true) {
             const blockNumber = await provider.getBlockNumber();
             if (blockNumber > initialBlockNumber) {
                 resolve(blockNumber);

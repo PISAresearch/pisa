@@ -1,10 +1,10 @@
 import { IEthereumResponseData, StartStopService } from "../dataEntities";
 import { EthereumResponder } from "./responder";
 import {
-    PendingQueue,
+    GasQueue,
     PisaTransactionIdentifier,
-    TransactionQueueItem,
-    TransactionQueueItemRequest
+    GasQueueItem,
+    GasQueueItemRequest
 } from "./pendingQueue";
 import { GasPriceEstimator } from "./gasPriceEstimator";
 import { ethers } from "ethers";
@@ -15,7 +15,7 @@ import logger from "../logger";
 import { QueueConsistencyError } from "../dataEntities/errors";
 
 export class MultiResponder extends EthereumResponder {
-    private queue: PendingQueue;
+    private queue: GasQueue;
     private chainId: number;
 
     /**
@@ -55,7 +55,7 @@ export class MultiResponder extends EthereumResponder {
         if (!this.queue) {
             const address = await this.signer.getAddress();
             const nonce = await this.provider.getTransactionCount(address);
-            this.queue = new PendingQueue([], nonce, this.replacementRate, this.maxConcurrentResponses);
+            this.queue = new GasQueue([], nonce, this.replacementRate, this.maxConcurrentResponses);
             this.chainId = (await this.provider.getNetwork()).chainId;
         }
     }
@@ -77,7 +77,7 @@ export class MultiResponder extends EthereumResponder {
             new BigNumber(EthereumResponder.GAS_LIMIT)
         );
         const idealGas = await this.gasEstimator.estimate(responseData);
-        const request = new TransactionQueueItemRequest(txIdentifier, idealGas, responseData);
+        const request = new GasQueueItemRequest(txIdentifier, idealGas, responseData);
 
         // add the queue item to the queue, since the queue is ordered this may mean
         // that we need to replace some transactions on the network. Find those and
@@ -151,7 +151,7 @@ export class MultiResponder extends EthereumResponder {
         }
     }
 
-    private async broadcast(queueItem: TransactionQueueItem) {
+    private async broadcast(queueItem: GasQueueItem) {
         // TODO:174: - any errors?
         // 1. could be nonce too low -what if we do? that means this nonce got mined in the mean time!!! is this possible? yes, always!, so we need to try this operation again with a higher nonce
         // 2. could get not get mined after we added its

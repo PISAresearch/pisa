@@ -1,5 +1,5 @@
 import { IEthereumResponseData, ArgumentError } from "../dataEntities";
-import { BigNumber } from "ethers/utils";
+import { BigNumber, formatUnits } from "ethers/utils";
 import { ethers } from "ethers";
 
 export class PisaTransactionIdentifier {
@@ -23,15 +23,15 @@ export class PisaTransactionIdentifier {
             other.chainId === this.chainId &&
             other.data === this.data &&
             other.to === this.to &&
-            other.value === this.value &&
-            other.gasLimit === this.gasLimit
+            other.value.eq(this.value) &&
+            other.gasLimit.eq(this.gasLimit)
         );
     }
 }
 
-export class TransactionQueueItemRequest {
+export class GasQueueItemRequest {
     /**
-     * A request to a queue a transaction.
+     * A request to a queue a transaction at a specified gas price.
      * @param identifier
      * @param idealGasPrice The minimum gas price at which this item should be submitted to the network
      * @param responseData The response data relevant to this request
@@ -43,7 +43,7 @@ export class TransactionQueueItemRequest {
     ) {}
 }
 
-export class TransactionQueueItem {
+export class GasQueueItem {
     /**
      * A queued transaction
      * @param request
@@ -54,7 +54,7 @@ export class TransactionQueueItem {
      * @param nonce The nonce which this item should be submitted at
      */
     constructor(
-        public readonly request: TransactionQueueItemRequest,
+        public readonly request: GasQueueItemRequest,
         public readonly currentGasPrice: BigNumber,
         public readonly idealGasPrice: BigNumber,
         public readonly nonce: number
@@ -84,10 +84,9 @@ export class TransactionQueueItem {
     }
 }
 
-export class PendingQueue {
+export class GasQueue {
     /**
-     * A queue of transactions items that can or have been submitted to the network.
-     * The order of the queue is dictated by an ideal gas price. Items in the queue
+     * Items ordered by an ideal gas prices. Items in the queue
      * will always be ordered from highest ideal gas price to lowest ideal gas price.
      * They will also always be ordered by nonce ascending. This ensures that an item
      * with a high ideal gas price cannot get stuck behind an item with lower ideal
@@ -104,22 +103,28 @@ export class PendingQueue {
      *      if any queue items exists
      * @param replacementRate
      *      The amount by which the current gas price of a transaction must be greater than
-     *      an existing transaction if it is to replace it.
+     *      an existing transaction if it is to replace it. Expresses as an integer pertange eg
+     *      increase by 13 percent = 13
      * @param maxQueueDepth The maximum possible number of items that can be put into this queue
      */
     public constructor(
-        public readonly queueItems: ReadonlyArray<TransactionQueueItem>,
+        public readonly queueItems: ReadonlyArray<GasQueueItem>,
         public readonly emptyNonce: number,
         public readonly replacementRate: number,
         public readonly maxQueueDepth: number
     ) {
+        if (replacementRate < 1) throw new ArgumentError("Replacement rate should be positive.", replacementRate);
+        if (emptyNonce < 0) throw new ArgumentError("Nonce must not be negative.", emptyNonce);
+        if (maxQueueDepth < 1) throw new ArgumentError("Max queue depth must be greater than 0.", maxQueueDepth);
+
         if (queueItems.length !== 0) {
             let gasPrice = queueItems[0].idealGasPrice;
             let nonce = queueItems[0].nonce - 1;
 
+            // check the integrity of the queue
             for (let index = 0; index < queueItems.length; index++) {
                 const item = queueItems[index];
-                if (item.idealGasPrice.lt(gasPrice)) {
+                if (item.idealGasPrice.gt(gasPrice)) {
                     throw new ArgumentError(
                         "Ideal gas price of queue item was greater than the previous item.",
                         queueItems
@@ -155,11 +160,12 @@ export class PendingQueue {
     }
 
     private getReplacementGasPrice(currentGasPrice: BigNumber, replacementRate: number) {
-        return currentGasPrice.mul(replacementRate);
+        const rRate = new BigNumber(replacementRate).add(100);
+        return currentGasPrice.mul(rRate).div(100);
     }
 
     private cloneQueueItems() {
-        return ([] as ReadonlyArray<TransactionQueueItem>).concat(this.queueItems);
+        return ([] as ReadonlyArray<GasQueueItem>).concat(this.queueItems);
     }
 
     /**
@@ -168,13 +174,8 @@ export class PendingQueue {
      * @param queueItems
      * @param request
      */
-    private append(queueItems: TransactionQueueItem[], request: TransactionQueueItemRequest) {
-        const queueItem = new TransactionQueueItem(
-            request,
-            request.idealGasPrice,
-            request.idealGasPrice,
-            this.emptyNonce
-        );
+    private append(queueItems: GasQueueItem[], request: GasQueueItemRequest) {
+        const queueItem = new GasQueueItem(request, request.idealGasPrice, request.idealGasPrice, this.emptyNonce);
         queueItems.push(queueItem);
     }
 
@@ -186,7 +187,7 @@ export class PendingQueue {
      * @param startIndex
      * @param endIndex
      */
-    private shiftRight(queueItems: TransactionQueueItem[], startIndex: number, endIndex: number) {
+    private shiftRight(queueItems: GasQueueItem[], startIndex: number, endIndex: number) {
         if (startIndex > endIndex) {
             throw new ArgumentError("Start index must be less than or equal end index.", startIndex, endIndex);
         }
@@ -195,17 +196,14 @@ export class PendingQueue {
         }
         if (startIndex < 0) throw new ArgumentError("Start index cannot be less than zero.", startIndex);
 
-        // start from the end of the specified index, then move back up to the start idex
-        for (let queueIndex = endIndex; queueIndex < startIndex; queueIndex--) {
+        for (let queueIndex = endIndex; queueIndex >= startIndex; queueIndex--) {
             const previousItemRequest = queueItems[queueIndex].request;
             const nextIndex = queueIndex + 1;
+            // replace if we're not at the end of the array
             if (nextIndex !== queueItems.length) this.replace(queueItems, nextIndex, previousItemRequest);
-            // but if we're at the end of the array we can append without replacing
+            // but if we are at the end we can append without replacing
             else this.append(queueItems, previousItemRequest);
         }
-
-        // prune from the front of the array
-        queueItems.shift();
     }
 
     /**
@@ -216,7 +214,7 @@ export class PendingQueue {
      * @param index The index of the item to replace
      * @param request The new request to replace the item at the current index
      */
-    private replace(queueItems: TransactionQueueItem[], index: number, request: TransactionQueueItemRequest) {
+    private replace(queueItems: GasQueueItem[], index: number, request: GasQueueItemRequest) {
         if (queueItems.length === 0) throw new ArgumentError("Cannot replace in empty queue.", queueItems.length);
         if (index < 0 || index > queueItems.length - 1) {
             throw new ArgumentError("Index out of range", index, queueItems.length - 1);
@@ -231,7 +229,7 @@ export class PendingQueue {
         // we need to increase to the replaced gas price
         const newGasPrice = replacementPrice.gt(request.idealGasPrice) ? replacementPrice : request.idealGasPrice;
 
-        queueItems[index] = new TransactionQueueItem(request, newGasPrice, request.idealGasPrice, nonce);
+        queueItems[index] = new GasQueueItem(request, newGasPrice, request.idealGasPrice, nonce);
     }
 
     /**
@@ -241,7 +239,7 @@ export class PendingQueue {
      * down the queue, and in doing so will have to be replaced on the network.
      * @param request
      */
-    public add(request: TransactionQueueItemRequest): PendingQueue {
+    public add(request: GasQueueItemRequest): GasQueue {
         if (this.depthReached()) {
             throw new ArgumentError(`Cannot add item. Max queue depth reached.`, this.maxQueueDepth);
         }
@@ -259,13 +257,13 @@ export class PendingQueue {
         if (foundTxIndex !== -1) {
             // to insert we shift right everything after the index to make a space
             // then replace at the index
-            this.shiftRight(clonedArray, foundTxIndex, clonedArray.length);
+            this.shiftRight(clonedArray, foundTxIndex, clonedArray.length - 1);
             this.replace(clonedArray, foundTxIndex, request);
         } else {
             this.append(clonedArray, request);
         }
 
-        return new PendingQueue(clonedArray, this.emptyNonce + 1, this.replacementRate, this.maxQueueDepth);
+        return new GasQueue(clonedArray, this.emptyNonce + 1, this.replacementRate, this.maxQueueDepth);
     }
 
     /**
@@ -277,24 +275,27 @@ export class PendingQueue {
         const index = this.queueItems.findIndex(i => identifier.equals(i.request.identifier));
         if (index === -1) throw new ArgumentError("Identifier not found in queue.", identifier);
         const clonedArray = this.cloneQueueItems();
+        // shift right the range to consume the item at the index
+        // the remove the front of the queue
         this.shiftRight(clonedArray, 0, index);
-        return new PendingQueue(clonedArray, this.emptyNonce, this.replacementRate, this.maxQueueDepth);
+        clonedArray.shift();
+        return new GasQueue(clonedArray, this.emptyNonce, this.replacementRate, this.maxQueueDepth);
     }
 
     /**
      * Removes and item from the front of the queue
      */
-    public dequeue(): PendingQueue {
+    public dequeue(): GasQueue {
         const clonedArray = this.cloneQueueItems();
         clonedArray.shift();
-        return new PendingQueue(clonedArray, this.emptyNonce, this.replacementRate, this.maxQueueDepth);
+        return new GasQueue(clonedArray, this.emptyNonce, this.replacementRate, this.maxQueueDepth);
     }
 
     /**
      * The items in this queue that are not in the provided queue
      * @param queue
      */
-    public difference(queue: PendingQueue) {
+    public difference(queue: GasQueue) {
         return this.queueItems.filter(tx => !queue.queueItems.includes(tx));
     }
 
