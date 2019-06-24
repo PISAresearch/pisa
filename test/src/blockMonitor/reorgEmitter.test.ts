@@ -1,10 +1,10 @@
 import "mocha";
 import { expect } from "chai";
-import { BlockProcessor, IBlockStub, ReorgHeightListenerStore, BlockCache } from "../../../src/blockMonitor";
+import { BlockProcessor, ReorgHeightListenerStore, BlockCache } from "../../../src/blockMonitor";
 import { ethers } from "ethers";
 import { mock, when, instance, verify, anything } from "ts-mockito";
 import { EventType, Listener } from "ethers/providers";
-import { ApplicationError } from "../../../src/dataEntities";
+import { ApplicationError, IBlockStub } from "../../../src/dataEntities";
 import { MethodStubSetter } from "ts-mockito/lib/MethodStubSetter";
 import { ReorgEmitter } from "../../../src/blockMonitor";
 
@@ -24,25 +24,25 @@ const blockStub = (index: number, hashes: string[], parentHashes: string[]): IBl
 
 // linear chain
 // 0-1-2-3-4-5
-const a_block0 = blockStub(0, hashes_a, hashes_a) as ethers.providers.Block;
-const a_block1 = blockStub(1, hashes_a, hashes_a) as ethers.providers.Block;
-const a_block2 = blockStub(2, hashes_a, hashes_a) as ethers.providers.Block;
-const a_block3 = blockStub(3, hashes_a, hashes_a) as ethers.providers.Block;
-const a_block4 = blockStub(4, hashes_a, hashes_a) as ethers.providers.Block;
-const a_block5 = blockStub(5, hashes_a, hashes_a) as ethers.providers.Block;
-const a_block6 = blockStub(6, hashes_a, hashes_a) as ethers.providers.Block;
+const a_block0 = blockStub(0, hashes_a, hashes_a);
+const a_block1 = blockStub(1, hashes_a, hashes_a);
+const a_block2 = blockStub(2, hashes_a, hashes_a);
+const a_block3 = blockStub(3, hashes_a, hashes_a);
+const a_block4 = blockStub(4, hashes_a, hashes_a);
+const a_block5 = blockStub(5, hashes_a, hashes_a);
+const a_block6 = blockStub(6, hashes_a, hashes_a);
 
 // side chain from 1
 // 1-2'
-const b_block2 = blockStub(2, hashes_b, hashes_a) as ethers.providers.Block;
-const b_block3 = blockStub(3, hashes_b, hashes_b) as ethers.providers.Block;
-const b_block4 = blockStub(4, hashes_b, hashes_b) as ethers.providers.Block;
-const b_block5 = blockStub(5, hashes_b, hashes_b) as ethers.providers.Block;
-const b_block6 = blockStub(6, hashes_b, hashes_b) as ethers.providers.Block;
+const b_block2 = blockStub(2, hashes_b, hashes_a);
+const b_block3 = blockStub(3, hashes_b, hashes_b);
+const b_block4 = blockStub(4, hashes_b, hashes_b);
+const b_block5 = blockStub(5, hashes_b, hashes_b);
+const b_block6 = blockStub(6, hashes_b, hashes_b);
 
 // side chain from 4-b
-const c_block5 = blockStub(5, hashes_c, hashes_b) as ethers.providers.Block;
-const c_block6 = blockStub(6, hashes_c, hashes_c) as ethers.providers.Block;
+const c_block5 = blockStub(5, hashes_c, hashes_b);
+const c_block6 = blockStub(6, hashes_c, hashes_c);
 
 interface IReorgInfo {
     expectedAtBlockNumber: number;
@@ -51,6 +51,16 @@ interface IReorgInfo {
     observed?: boolean;
 }
 
+const mockBlockFactory = (provider: ethers.providers.Provider) => async (
+    blockNumberOrHash: string | number
+): Promise<IBlockStub> => {
+    const block = await provider.getBlock(blockNumberOrHash);
+    return {
+        hash: block.hash,
+        number: block.number,
+        parentHash: block.parentHash
+    };
+};
 class TestCase {
     constructor(public blocks: IBlockStub[], public reorgs: IReorgInfo[]) {}
     public static linear = () => new TestCase([a_block0, a_block1, a_block2, a_block3, a_block4, a_block5], []);
@@ -176,7 +186,6 @@ type asyncEmitTestProvider = ethers.providers.BaseProvider & {
     currentBlock: number;
     currentBlockSet: boolean;
 };
-// TODO:174: transactions missing here too
 class ReorgMocks {
     public static async getSetup(blocks: IBlockStub[], maxDepth: number) {
         const mockedProvider = mock(ethers.providers.JsonRpcProvider);
@@ -186,24 +195,21 @@ class ReorgMocks {
 
         for (const key of blocks) {
             if (!face[key.number]) {
-              //  face[key.number] = when(mockedProvider.getBlock(key.number)).thenResolve(key as ethers.providers.Block);
-                // TODO:174:
-                face[key.number] = when(mockedProvider.getBlock(key.number, anything())).thenResolve(key as ethers.providers.Block);
+                face[key.number] = when(mockedProvider.getBlock(key.number)).thenResolve(key as ethers.providers.Block);
             } else {
                 face[key.number] = face[key.number].thenResolve(key as ethers.providers.Block);
             }
-            //when(mockedProvider.getBlock(key.hash)).thenResolve(key as ethers.providers.Block);
-            // TODO:174:
-            when(mockedProvider.getBlock(key.hash, anything())).thenResolve(key as ethers.providers.Block);
+
+            when(mockedProvider.getBlock(key.hash)).thenResolve(key as ethers.providers.Block);
         }
 
         let provider: asyncEmitTestProvider = instance(mockedProvider) as any;
         provider = ReorgMocks.addProviderFuncs(provider);
         const store = new ReorgHeightListenerStore();
         const blockCache = new BlockCache(maxDepth);
-        const blockProcessor: BlockProcessor = new BlockProcessor(provider, blockCache);
-        const reorgEmitter = new ReorgEmitter(provider, blockProcessor, store);
+        const blockProcessor: BlockProcessor<IBlockStub> = new BlockProcessor(provider, mockBlockFactory, blockCache);
         await blockProcessor.start();
+        const reorgEmitter = new ReorgEmitter(provider, blockProcessor, store);        
         await reorgEmitter.start();
         return { blockCache, blockProcessor, reorgEmitter, provider, store };
     }

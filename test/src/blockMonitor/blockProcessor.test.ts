@@ -1,11 +1,12 @@
 import "mocha";
 import * as chai from "chai";
 import chaiAsPromised from "chai-as-promised";
-import { BlockProcessor, BlockCache, IBlockStub } from "../../../src/blockMonitor";
 import { ethers } from "ethers";
 import { mock, when, instance, anything } from "ts-mockito";
 import { EventEmitter } from "events";
-// TODO:174: transactions are missing here
+import { BlockProcessor, BlockCache, blockStubAndTxFactory } from "../../../src/blockMonitor";
+import { IBlockStub } from "../../../src/dataEntities";
+
 chai.use(chaiAsPromised);
 const expect = chai.expect;
 
@@ -44,8 +45,8 @@ const blocksByHash: { [key: string]: IBlockStub } = {
 
 describe("BlockProcessor", () => {
     const maxDepth = 5;
-    let blockCache: BlockCache;
-    let blockProcessor: BlockProcessor;
+    let blockCache: BlockCache<IBlockStub>;
+    let blockProcessor: BlockProcessor<IBlockStub>;
     let mockProvider: ethers.providers.BaseProvider;
     let provider: ethers.providers.BaseProvider;
 
@@ -55,9 +56,7 @@ describe("BlockProcessor", () => {
         let curBlockHash: string = hash;
         while (curBlockHash in blocksByHash) {
             const curBlock = blocksByHash[curBlockHash];
-            //when(mockProvider.getBlock(curBlock.number)).thenResolve(curBlock as ethers.providers.Block);
-            //TODO:174:
-            when(mockProvider.getBlock(curBlock.number, anything())).thenResolve(curBlock as ethers.providers.Block);
+            when(mockProvider.getBlock(curBlock.number)).thenResolve(curBlock as ethers.providers.Block);
             curBlockHash = curBlock.parentHash;
         }
 
@@ -72,9 +71,7 @@ describe("BlockProcessor", () => {
         // Instruct the mocked provider to return the blocks by hash with getBlock
         mockProvider = mock(ethers.providers.BaseProvider);
         for (const [hash, blockStub] of Object.entries(blocksByHash)) {
-            when(mockProvider.getBlock(hash, anything())).thenResolve(blockStub as ethers.providers.Block);
-            // TODO:174:
-//            when(mockProvider.getBlock(hash)).thenResolve(blockStub as ethers.providers.Block);
+            when(mockProvider.getBlock(hash)).thenResolve(blockStub as ethers.providers.Block);
         }
 
         // The mocked Provider should behave like an eventEmitter
@@ -103,14 +100,14 @@ describe("BlockProcessor", () => {
     it("correctly processes the blockchain head after startup", async () => {
         emitBlockHash("a1");
 
-        blockProcessor = new BlockProcessor(provider, blockCache);
+        blockProcessor = new BlockProcessor(provider, blockStubAndTxFactory, blockCache);
         await blockProcessor.start();
 
         expect(blockProcessor.head.hash).to.equal("a1");
     });
 
     it("adds the first block received to the cache and emits a new head event", async () => {
-        blockProcessor = new BlockProcessor(provider, blockCache);
+        blockProcessor = new BlockProcessor(provider, blockStubAndTxFactory, blockCache);
         await blockProcessor.start();
 
         const res = new Promise(resolve => {
@@ -127,7 +124,7 @@ describe("BlockProcessor", () => {
     });
 
     it("adds to the blockCache all ancestors until a known block", async () => {
-        blockProcessor = new BlockProcessor(provider, blockCache);
+        blockProcessor = new BlockProcessor(provider, blockStubAndTxFactory, blockCache);
         await blockProcessor.start();
 
         emitBlockHash("a1");
@@ -140,7 +137,7 @@ describe("BlockProcessor", () => {
     });
 
     it("adds both chain until the common ancestor if there is a fork", async () => {
-        blockProcessor = new BlockProcessor(provider, blockCache);
+        blockProcessor = new BlockProcessor(provider, blockStubAndTxFactory, blockCache);
         await blockProcessor.start();
 
         emitBlockHash("a1");
@@ -156,7 +153,7 @@ describe("BlockProcessor", () => {
     });
 
     it("adds both chain until the common ancestor if there is a fork", async () => {
-        blockProcessor = new BlockProcessor(provider, blockCache);
+        blockProcessor = new BlockProcessor(provider, blockStubAndTxFactory, blockCache);
         await blockProcessor.start();
 
         emitBlockHash("a1");

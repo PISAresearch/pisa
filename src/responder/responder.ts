@@ -319,7 +319,6 @@ export class EthereumDedicatedResponder extends EthereumResponder {
 
             // Get the current nonce to be used
             const nonce = await this.provider.getTransactionCount(signerAddress);
-            // TODO:174: get this earlier
             const chainId = (await this.provider.getNetwork()).chainId;
 
             // Get the initial gas price

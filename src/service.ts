@@ -33,7 +33,8 @@ import {
 } from "./blockMonitor";
 import { LevelUp } from "levelup";
 import encodingDown from "encoding-down";
-import { ReorgEmitter } from "./blockMonitor/reorgEmitter";
+import { ReorgEmitter, blockFactory } from "./blockMonitor";
+import { Block } from "./dataEntities/block";
 
 /**
  * Hosts a PISA service at the endpoint.
@@ -42,7 +43,7 @@ export class PisaService extends StartStopService {
     private readonly server: Server;
     private readonly garbageCollector: AppointmentStoreGarbageCollector;
     private readonly reorgEmitter: ReorgEmitter;
-    private readonly blockProcessor: BlockProcessor;
+    private readonly blockProcessor: BlockProcessor<Block>;
     private readonly blockTimeoutDetector: BlockTimeoutDetector;
     private readonly confirmationObserver: ConfirmationObserver;
     private readonly ethereumResponderManager: EthereumResponderManager;
@@ -76,8 +77,8 @@ export class PisaService extends StartStopService {
         const configs = [Raiden, Kitsune];
 
         // start reorg detector and block monitor
-        const blockCache = new BlockCache(200);
-        this.blockProcessor = new BlockProcessor(delayedProvider, blockCache);
+        const blockCache = new BlockCache<Block>(200);
+        this.blockProcessor = new BlockProcessor<Block>(delayedProvider, blockFactory, blockCache);
         this.reorgEmitter = new ReorgEmitter(delayedProvider, this.blockProcessor, new ReorgHeightListenerStore());
 
         // dependencies

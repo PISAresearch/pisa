@@ -1,4 +1,4 @@
-import { IEthereumResponseData, ArgumentError } from "../dataEntities";
+import { IEthereumResponseData, ArgumentError, IBlockStub } from "../dataEntities";
 import { BlockProcessor } from "../blockMonitor";
 import { BigNumber } from "ethers/utils";
 import { ethers } from "ethers";
@@ -12,7 +12,7 @@ export class GasPriceEstimator {
      */
     public constructor(
         private readonly provider: ethers.providers.Provider,
-        private readonly blockProcessor: BlockProcessor,
+        private readonly blockProcessor: BlockProcessor<IBlockStub>,
     ) {}
 
     /**

@@ -1,33 +1,34 @@
 import "mocha";
 import * as chai from "chai";
 import chaiAsPromised from "chai-as-promised";
-import { ConfirmationObserver, BlockProcessor, BlockCache, IBlockStub } from "../../../src/blockMonitor";
+import { ConfirmationObserver, BlockProcessor, BlockCache } from "../../../src/blockMonitor";
 import { EventEmitter } from "events";
-import { ethers } from "ethers";
-import { ApplicationError, BlockThresholdReachedError, ReorgError } from "../../../src/dataEntities";
+import {
+    ApplicationError,
+    BlockThresholdReachedError,
+    ReorgError,
+    IBlockStub,
+    Transactions, TransactionHashes
+} from "../../../src/dataEntities";
 
 chai.use(chaiAsPromised);
 const expect = chai.expect;
 
-interface IBlockStubWithTransactions extends IBlockStub {
-    transactions: string[];
-}
-
 const txHash = "0x12345678";
 const forkedTxHash = "0xffffffff";
 
-const blocksByHash: { [key: string]: IBlockStubWithTransactions } = {
-    a1: { number: 1, hash: "a1", parentHash: "a0", transactions: [] },
-    a2: { number: 2, hash: "a2", parentHash: "a1", transactions: [txHash] },
-    a3: { number: 3, hash: "a3", parentHash: "a2", transactions: [] },
-    a4: { number: 4, hash: "a4", parentHash: "a3", transactions: [forkedTxHash] },
-    a5: { number: 5, hash: "a5", parentHash: "a4", transactions: [] },
-    a6: { number: 6, hash: "a6", parentHash: "a5", transactions: [] },
-    a7: { number: 7, hash: "a7", parentHash: "a6", transactions: [] },
+const blocksByHash: { [key: string]: IBlockStub & TransactionHashes } = {
+    a1: { number: 1, hash: "a1", parentHash: "a0", transactionHashes: [] },
+    a2: { number: 2, hash: "a2", parentHash: "a1", transactionHashes: [txHash] },
+    a3: { number: 3, hash: "a3", parentHash: "a2", transactionHashes: [] },
+    a4: { number: 4, hash: "a4", parentHash: "a3", transactionHashes: [forkedTxHash] },
+    a5: { number: 5, hash: "a5", parentHash: "a4", transactionHashes: [] },
+    a6: { number: 6, hash: "a6", parentHash: "a5", transactionHashes: [] },
+    a7: { number: 7, hash: "a7", parentHash: "a6", transactionHashes: [] },
     // A fork
-    b3: { number: 3, hash: "b3", parentHash: "a2", transactions: [] },
-    b4: { number: 4, hash: "b4", parentHash: "b3", transactions: [] },
-    b5: { number: 5, hash: "b5", parentHash: "b4", transactions: [] }
+    b3: { number: 3, hash: "b3", parentHash: "a2", transactionHashes: [] },
+    b4: { number: 4, hash: "b4", parentHash: "b3", transactionHashes: [] },
+    b5: { number: 5, hash: "b5", parentHash: "b4", transactionHashes: [] }
 };
 
 class PromiseSpy<T> {
@@ -65,8 +66,8 @@ class PromiseSpy<T> {
 }
 
 describe("ConfirmationObserver", () => {
-    let blockCache: BlockCache;
-    let mockBlockProcessor: BlockProcessor;
+    let blockCache: BlockCache<IBlockStub & TransactionHashes>;
+    let mockBlockProcessor: BlockProcessor<IBlockStub & TransactionHashes>;
 
     let confirmationObserver: ConfirmationObserver;
 
@@ -87,11 +88,11 @@ describe("ConfirmationObserver", () => {
 
         // we put all the blocks in the block cache, so the confirmationObserver finds them when needed
         for (const block of Object.values(blocksByHash)) {
-            blockCache.addBlock(block as ethers.providers.Block);
+            blockCache.addBlock(block);
         }
 
         const eventEmitter = new EventEmitter();
-        mockBlockProcessor = eventEmitter as BlockProcessor; // we just need the mock to emit events
+        mockBlockProcessor = eventEmitter as BlockProcessor<IBlockStub & TransactionHashes>; // we just need the mock to emit events
 
         Object.defineProperty(mockBlockProcessor, "head", {
             value: null,

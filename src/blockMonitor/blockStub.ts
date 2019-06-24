@@ -1,4 +1,5 @@
 import { ArgumentError } from "../dataEntities";
+import { IBlockStub } from "../dataEntities";
 
 /**
  * A chain of linked block stubs.
@@ -123,10 +124,4 @@ export class BlockStubChain {
             parentHash: this.parentHash
         };
     }
-}
-
-export interface IBlockStub {
-    hash: string;
-    number: number;
-    parentHash: string;
 }

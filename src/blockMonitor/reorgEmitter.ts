@@ -1,6 +1,5 @@
 import { ethers } from "ethers";
-import { StartStopService, ApplicationError } from "../dataEntities";
-import { IBlockStub } from "./blockStub";
+import { StartStopService, ApplicationError, IBlockStub } from "../dataEntities";
 import { ReorgHeightListenerStore } from "./reorgHeightListener";
 import { BlockProcessor } from "./blockProcessor";
 import { Lock } from "../utils/lock";
@@ -53,7 +52,7 @@ export class ReorgEmitter extends StartStopService {
      */
     constructor(
         private readonly provider: ethers.providers.BaseProvider,
-        private readonly blockProcessor: BlockProcessor,
+        private readonly blockProcessor: BlockProcessor<IBlockStub>,
         public readonly store: ReorgHeightListenerStore
     ) {
         super("reorg-detector");

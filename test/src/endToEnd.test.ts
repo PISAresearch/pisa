@@ -3,8 +3,8 @@ import { Watcher } from "../../src/watcher/watcher";
 import { KitsuneInspector, KitsuneAppointment, KitsuneTools } from "../../src/integrations/kitsune";
 import { ethers } from "ethers";
 import Ganache from "ganache-core";
-import { ChannelType } from "../../src/dataEntities";
 import { EthereumResponderManager, GasPriceEstimator, TransactionTracker } from "../../src/responder";
+import { ChannelType, IBlockStub, Transactions } from "../../src/dataEntities";
 import { AppointmentStore } from "../../src/watcher/store";
 import { AppointmentSubscriber } from "../../src/watcher/appointmentSubscriber";
 import { wait } from "../../src/utils";
@@ -13,11 +13,14 @@ import {
     ReorgHeightListenerStore,
     BlockCache,
     BlockTimeoutDetector,
-    ConfirmationObserver
+    ConfirmationObserver,
+    blockFactory
 } from "../../src/blockMonitor";
 import levelup from "levelup";
 import MemDown from "memdown";
-import { ReorgEmitter } from "../../src/blockMonitor/reorgEmitter";
+import { ReorgEmitter, blockStubAndTxFactory } from "../../src/blockMonitor";
+import { Block } from "../../src/dataEntities/block";
+
 const ganache = Ganache.provider({
     mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect"
 });
@@ -74,8 +77,12 @@ describe("End to end", () => {
         });
         await inspector.inspectAndPass(appointment);
 
-        const blockCache = new BlockCache(200);
-        const blockProcessor = new BlockProcessor(provider, blockCache);
+        const blockCache = new BlockCache<Block>(200);
+        const blockProcessor = new BlockProcessor<Block>(
+            provider,
+            blockFactory,
+            blockCache
+        );
         const reorgEmitter = new ReorgEmitter(provider, blockProcessor, new ReorgHeightListenerStore());
         await blockProcessor.start();
         await reorgEmitter.start();

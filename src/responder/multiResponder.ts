@@ -1,11 +1,6 @@
-import { IEthereumResponseData, StartStopService } from "../dataEntities";
+import { IEthereumResponseData, StartStopService, IBlockStub } from "../dataEntities";
 import { EthereumResponder } from "./responder";
-import {
-    GasQueue,
-    PisaTransactionIdentifier,
-    GasQueueItem,
-    GasQueueItemRequest
-} from "./pendingQueue";
+import { GasQueue, PisaTransactionIdentifier, GasQueueItem, GasQueueItemRequest } from "./pendingQueue";
 import { GasPriceEstimator } from "./gasPriceEstimator";
 import { ethers } from "ethers";
 import { BlockProcessor } from "../blockMonitor";
@@ -13,6 +8,7 @@ import { BigNumber } from "ethers/utils";
 import { inspect } from "util";
 import logger from "../logger";
 import { QueueConsistencyError } from "../dataEntities/errors";
+import { Block } from "../dataEntities/block";
 
 export class MultiResponder extends EthereumResponder {
     private queue: GasQueue;
@@ -61,32 +57,41 @@ export class MultiResponder extends EthereumResponder {
     }
 
     public async startResponse(appointmentId: string, responseData: IEthereumResponseData) {
-        await this.setup();
-        if (this.queue.depthReached()) {
-            throw new Error(`Cannot add to queue. Max queue depth ${this.queue.maxQueueDepth} reached.`);
+        try {
+            await this.setup();
+            if (this.queue.depthReached()) {
+                throw new Error(`Cannot add to queue. Max queue depth ${this.queue.maxQueueDepth} reached.`);
+            }
+
+            // form a queue item request
+            const abiInterface = new ethers.utils.Interface(responseData.contractAbi);
+            const data = abiInterface.functions[responseData.functionName].encode(responseData.functionArgs);
+            const txIdentifier = new PisaTransactionIdentifier(
+                this.chainId,
+                data,
+                responseData.contractAddress,
+                new BigNumber(0),
+                new BigNumber(EthereumResponder.GAS_LIMIT)
+            );
+            const idealGas = await this.gasEstimator.estimate(responseData);
+            const request = new GasQueueItemRequest(txIdentifier, idealGas, responseData);
+
+            // add the queue item to the queue, since the queue is ordered this may mean
+            // that we need to replace some transactions on the network. Find those and
+            // broadcast them
+            const replacedQueue = this.queue.add(request);
+            const replacedTransactions = replacedQueue.difference(this.queue);
+            this.queue = replacedQueue;
+
+            await Promise.all(replacedTransactions.map(this.broadcast));
+        } catch (doh) {
+            if (doh instanceof QueueConsistencyError) logger.error(doh.stack!);
+            else {
+                logger.error(`Unexpected error trying to respond for: ${appointmentId}.`);
+                if (doh.stack) logger.error(doh.stack);
+                else logger.error(doh);
+            }
         }
-
-        // form a queue item request
-        const abiInterface = new ethers.utils.Interface(responseData.contractAbi);
-        const data = abiInterface.functions[responseData.functionName].encode(responseData.functionArgs);
-        const txIdentifier = new PisaTransactionIdentifier(
-            this.chainId,
-            data,
-            responseData.contractAddress,
-            new BigNumber(0),
-            new BigNumber(EthereumResponder.GAS_LIMIT)
-        );
-        const idealGas = await this.gasEstimator.estimate(responseData);
-        const request = new GasQueueItemRequest(txIdentifier, idealGas, responseData);
-
-        // add the queue item to the queue, since the queue is ordered this may mean
-        // that we need to replace some transactions on the network. Find those and
-        // broadcast them
-        const replacedQueue = this.queue.add(request);
-        const replacedTransactions = replacedQueue.difference(this.queue);
-        this.queue = replacedQueue;
-        
-        await Promise.all(replacedTransactions.map(this.broadcast));
     }
 
     /**
@@ -145,24 +150,30 @@ export class MultiResponder extends EthereumResponder {
         } catch (doh) {
             if (doh instanceof QueueConsistencyError) logger.error(doh.stack!);
             else {
-                logger.error(`Unexpected error trying to mine transaction. ${txIdenfifier}.`);
+                logger.error(`Unexpected error after mining transaction. ${txIdenfifier}.`);
                 if (doh.stack) logger.error(doh.stack);
+                else logger.error(doh);
             }
         }
     }
 
     private async broadcast(queueItem: GasQueueItem) {
-        // TODO:174: - any errors?
-        // 1. could be nonce too low -what if we do? that means this nonce got mined in the mean time!!! is this possible? yes, always!, so we need to try this operation again with a higher nonce
-        // 2. could get not get mined after we added its
-
-        this.transactionTracker.addTx(queueItem.request.identifier, this.txMined);
-        await this.signer.sendTransaction(queueItem.toTransactionRequest());
+        try {
+            this.transactionTracker.addTx(queueItem.request.identifier, this.txMined);
+            await this.signer.sendTransaction(queueItem.toTransactionRequest());
+        } catch (doh) {
+            // we've failed to broadcast a transaction however this isn't a fatal
+            // error. Periodically, we look to see if a transaction has been mined
+            // for whatever reason if not then we'll need to re-issue the transaction
+            // anyway
+            if (doh.stack) logger.error(doh.stack);
+            else logger.error(doh);
+        }
     }
 }
 
 export class TransactionTracker extends StartStopService {
-    constructor(private readonly blockProcessor: BlockProcessor) {
+    constructor(private readonly blockProcessor: BlockProcessor<Block>) {
         super("transaction-tracker");
         this.checkTxs = this.checkTxs.bind(this);
     }
@@ -196,10 +207,9 @@ export class TransactionTracker extends StartStopService {
         let blockStub = this.blockProcessor.blockCache.getBlockStub(blockHash);
 
         for (let index = blockNumber; index > this.lastBlockNumber; index--) {
-            // TODO: 174: these conditions should be impossible! so throw error?
             if (!blockStub) continue;
             // check all the transactions in that block
-            const txs = this.blockProcessor.blockCache.getTransactions(blockStub.hash);
+            const txs = this.blockProcessor.blockCache.getBlockStub(blockStub.hash)!.transactions;
             if (!txs) continue;
 
             for (const tx of txs) {
@@ -209,8 +219,6 @@ export class TransactionTracker extends StartStopService {
 
                 // look for matching transactions
                 const txIdenfifier = new PisaTransactionIdentifier(tx.chainId, tx.data, tx.to, tx.value, tx.gasLimit);
-
-                //TODO: 174: fix this heavy double loop
                 for (const callbackKey of this.txCallbacks.keys()) {
                     if (callbackKey.equals(txIdenfifier)) {
                         const callback = this.txCallbacks.get(callbackKey);
@@ -227,22 +235,3 @@ export class TransactionTracker extends StartStopService {
         this.lastBlockNumber = blockNumber;
     }
 }
-
-// // TODO:174: does this belong here?
-// TODO:174: write up on the existing ticket for this
-// public transactionExists(data: IEthereumResponseData): string {
-//     throw new Error("not implemented ex")
-
-//     // check the current block chain and pending pool to see if this event
-//     // already has a transaction registered for it
-
-//     // if on the blockchain any tx that satisifes will do
-//      a) from this node? we should have a record of it in auxiliary state - given that we never revert aux state, and that we always record a tx before broadcast
-//      b) from another node? defo possible, if we also submit a tx then we waste money
-
-//     // if in the pending pool check that the gas of that tx is >= ideal gas
-//      a) from us? we should have a record, we dont revert the pending queue even if we do a reorg? - but dont we need to ensure that all of those transactions are there? -no, that is ensured already
-//      b) from someone else? - at the moment we'll just potentially issue a doube transaction
-
-//     // if true add the tx to the list of observable transactions
-// }
