@@ -1,17 +1,13 @@
 import { EventEmitter } from "events";
 import { BlockProcessor } from "./blockProcessor";
-import { IBlockStub } from "../dataEntities";
+import { IBlockStub, ApplicationError } from "../dataEntities";
 
 // Generic class to handle the anchor statee of a blockchain state machine
 export class BlockchainMachine<TAnchorState extends object> extends EventEmitter {
     public static NEW_STATE_EVENT = "new_state";
 
     private blockStates = new WeakMap<IBlockStub, TAnchorState>();
-    private mHeadState: TAnchorState | null = null;
-
-    public get headState() {
-        return this.mHeadState;
-    }
+    private headState: TAnchorState | null = null;
 
     constructor(
         private blockProcessor: BlockProcessor<IBlockStub>,
@@ -19,6 +15,12 @@ export class BlockchainMachine<TAnchorState extends object> extends EventEmitter
         private reducer: (prevAnchorState: TAnchorState, block: IBlockStub) => TAnchorState
     ) {
         super();
+
+        if (blockProcessor.started) {
+            throw new ApplicationError(
+                "The block processor should not be started when the BlockchainMachine is created."
+            );
+        }
 
         this.processNewHead = this.processNewHead.bind(this);
 
@@ -48,7 +50,7 @@ export class BlockchainMachine<TAnchorState extends object> extends EventEmitter
         }
 
         const oldState = this.headState;
-        this.mHeadState = state;
+        this.headState = state;
 
         // TODO: should we (deeply) compare old state and new state and only emit if different?
         // Probably not, it might be expensive/inefficient depending on what is in TAnchorState
