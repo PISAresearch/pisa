@@ -7,7 +7,7 @@ import { BlockProcessor } from "../blockMonitor";
 import { BigNumber } from "ethers/utils";
 import { inspect } from "util";
 import logger from "../logger";
-import { QueueConsistencyError } from "../dataEntities/errors";
+import { QueueConsistencyError, ArgumentError } from "../dataEntities/errors";
 import { Block } from "../dataEntities/block";
 
 export class MultiResponder extends EthereumResponder {
@@ -20,17 +20,18 @@ export class MultiResponder extends EthereumResponder {
      * the signer. Can handle a concurrent number of responses up to maxQueueDepth
      * @param signer
      *   The signer used to sign transaction created by this responder. This responder
-     *   requires exlusive use of this signer.
+     *   requires exclusive use of this signer.
      * @param gasEstimator
      * @param transactionTracker
      * @param maxConcurrentResponses
      *   Parity and Geth set maximums on the number of pending transactions in the
-     *   pool that can eminate from a single accouunt. Current defaults:
+     *   pool that can emanate from a single account. Current defaults:
      *   Parity: max(16, 1% of the pool): https://wiki.parity.io/Configuring-Parity-Ethereum --tx-queue-per-sender
      *   Geth: 64: https://github.com/ethereum/go-ethereum/wiki/Command-Line-Options --txpool.accountqueue
      * @param replacementRate
      *   This responder replaces existing transactions on the network.
-     *   This replacement rate is set by the nodes.
+     *   This replacement rate is set by the nodes. The value should be the percentage increase
+     *   eg. 13. Must be positive.
      *   Parity: 12.5%: https://github.com/paritytech/parity-ethereum/blob/master/miner/src/pool/scoring.rs#L38
      *   Geth: 10% default : https://github.com/ethereum/go-ethereum/wiki/Command-Line-Options --txpool.pricebump
      */
@@ -39,9 +40,13 @@ export class MultiResponder extends EthereumResponder {
         private readonly gasEstimator: GasPriceEstimator,
         private readonly transactionTracker: TransactionTracker,
         public readonly maxConcurrentResponses: number = 12,
-        public readonly replacementRate: number = 1.13
+        public readonly replacementRate: number = 13
     ) {
         super(signer);
+        if (replacementRate < 0) throw new ArgumentError("Cannot have negative replacement rate.", replacementRate);
+        if (maxConcurrentResponses < 1) {
+            throw new ArgumentError("Maximum concurrent requests cannot be negative.", maxConcurrentResponses);
+        }
         this.txMined = this.txMined.bind(this);
         this.broadcast = this.broadcast.bind(this);
     }
@@ -51,8 +56,8 @@ export class MultiResponder extends EthereumResponder {
         if (!this.queue) {
             const address = await this.signer.getAddress();
             const nonce = await this.provider.getTransactionCount(address);
-            this.queue = new GasQueue([], nonce, this.replacementRate, this.maxConcurrentResponses);
             this.chainId = (await this.provider.getNetwork()).chainId;
+            this.queue = new GasQueue([], nonce, this.replacementRate, this.maxConcurrentResponses);
         }
     }
 
@@ -98,36 +103,36 @@ export class MultiResponder extends EthereumResponder {
      * A newly mined transaction requires updating the local representation of the
      * transaction pool. If a transaction has been mined, but was already replaced
      * then more transactions may need to be re-issued.
-     * @param txIdenfifier
+     * @param txIdentifier  
      * Identifier of the mined transaction
      * @param nonce
      * Nonce of the mined transaction. Should always correspond to the nonce at the
-     * front of the current transaction queue. Will throw ArgumentException otherwise.
+     * front of the current transaction queue. Will throw QueueConsistencyError otherwise.
      * This enforces that this method is called in the same order that transactions are mined
      */
-    public async txMined(txIdenfifier: PisaTransactionIdentifier, nonce: number) {
+    public async txMined(txIdentifier: PisaTransactionIdentifier, nonce: number) {
         try {
             // since we've made this method available publicly we need to ensure that the class has been initialised
             await this.setup();
 
             if (this.queue.queueItems.length === 0) {
                 throw new QueueConsistencyError(
-                    `Transaction mined for empty queue at nonce ${nonce}. ${inspect(txIdenfifier)}`
+                    `Transaction mined for empty queue at nonce ${nonce}. ${inspect(txIdentifier)}`
                 );
             }
-            if (!this.queue.contains(txIdenfifier)) {
-                throw new QueueConsistencyError(`Transaction identifier not found in queue. ${inspect(txIdenfifier)}`);
+            if (!this.queue.contains(txIdentifier)) {
+                throw new QueueConsistencyError(`Transaction identifier not found in queue. ${inspect(txIdentifier)}`);
             }
             const frontItem = this.queue.queueItems[0];
             if (frontItem.nonce !== nonce) {
                 throw new QueueConsistencyError(
                     `Front of queue nonce ${frontItem.nonce} does not correspond to nonce ${nonce}. ${inspect(
-                        txIdenfifier
+                        txIdentifier
                     )}`
                 );
             }
 
-            if (txIdenfifier.equals(frontItem.request.identifier)) {
+            if (txIdentifier.equals(frontItem.request.identifier)) {
                 // the mined transaction was the one at the front of the current queue
                 // this is what we hoped for, simply dequeue the transaction
                 this.queue = this.queue.dequeue();
@@ -139,7 +144,7 @@ export class MultiResponder extends EthereumResponder {
                 // the mined tx and remove it. In doing so free up a later nonce.
                 // and bump up all transactions with a lower nonce so that the tx that is
                 // at the front of the current queue - but was not mined - remains there
-                const reducedQueue = this.queue.consume(txIdenfifier);
+                const reducedQueue = this.queue.consume(txIdentifier);
                 const replacedTransactions = reducedQueue.difference(this.queue);
                 this.queue = reducedQueue;
 
@@ -150,7 +155,7 @@ export class MultiResponder extends EthereumResponder {
         } catch (doh) {
             if (doh instanceof QueueConsistencyError) logger.error(doh.stack!);
             else {
-                logger.error(`Unexpected error after mining transaction. ${txIdenfifier}.`);
+                logger.error(`Unexpected error after mining transaction. ${txIdentifier}.`);
                 if (doh.stack) logger.error(doh.stack);
                 else logger.error(doh);
             }
@@ -180,7 +185,7 @@ export class TransactionTracker extends StartStopService {
     private lastBlockNumber: number;
     private readonly txCallbacks: Map<
         PisaTransactionIdentifier,
-        (txIdenfifier: PisaTransactionIdentifier, nonce: number) => {}
+        (txIdentifier: PisaTransactionIdentifier, nonce: number) => {}
     > = new Map();
 
     protected async startInternal() {
@@ -194,7 +199,7 @@ export class TransactionTracker extends StartStopService {
 
     public addTx(
         identifier: PisaTransactionIdentifier,
-        callback: (txIdenfifier: PisaTransactionIdentifier, nonce: number) => {}
+        callback: (txIdentifier: PisaTransactionIdentifier, nonce: number) => {}
     ) {
         this.txCallbacks.set(identifier, callback);
     }
@@ -218,12 +223,12 @@ export class TransactionTracker extends StartStopService {
                 if (!tx.to) continue;
 
                 // look for matching transactions
-                const txIdenfifier = new PisaTransactionIdentifier(tx.chainId, tx.data, tx.to, tx.value, tx.gasLimit);
+                const txIdentifier = new PisaTransactionIdentifier(tx.chainId, tx.data, tx.to, tx.value, tx.gasLimit);
                 for (const callbackKey of this.txCallbacks.keys()) {
-                    if (callbackKey.equals(txIdenfifier)) {
+                    if (callbackKey.equals(txIdentifier)) {
                         const callback = this.txCallbacks.get(callbackKey);
                         this.txCallbacks.delete(callbackKey);
-                        callback!(txIdenfifier, tx.nonce);
+                        callback!(txIdentifier, tx.nonce);
                     }
                 }
             }

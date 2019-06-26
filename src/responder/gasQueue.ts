@@ -117,12 +117,12 @@ export class GasQueue {
         if (emptyNonce < 0) throw new ArgumentError("Nonce must not be negative.", emptyNonce);
         if (maxQueueDepth < 1) throw new ArgumentError("Max queue depth must be greater than 0.", maxQueueDepth);
 
-        if (queueItems.length !== 0) {
+        if (queueItems.length > 1) {
             let gasPrice = queueItems[0].idealGasPrice;
             let nonce = queueItems[0].nonce - 1;
 
             // check the integrity of the queue
-            for (let index = 0; index < queueItems.length; index++) {
+            for (let index = 1; index < queueItems.length; index++) {
                 const item = queueItems[index];
                 if (item.idealGasPrice.gt(gasPrice)) {
                     throw new ArgumentError(
@@ -161,7 +161,8 @@ export class GasQueue {
 
     private getReplacementGasPrice(currentGasPrice: BigNumber, replacementRate: number) {
         const rRate = new BigNumber(replacementRate).add(100);
-        return currentGasPrice.mul(rRate).div(100);
+        // we add 99 here to ensure that we round up.
+        return currentGasPrice.mul(rRate).add(99).div(100);
     }
 
     private cloneQueueItems() {
@@ -180,7 +181,7 @@ export class GasQueue {
     }
 
     /**
-     * Take a subset of the array and shift it to the right by one - towards higher index vnalues.
+     * Take a subset of the array and shift it to the right by one - towards higher index values.
      * The queue item at endIndex + 1 will be overwritten.
      * Modifies the supplied array.
      * @param queueItems
@@ -234,7 +235,7 @@ export class GasQueue {
 
     /**
      * Add an item to the queue. Append to the end if this request has the lowest
-     * ideal gas price, or insert in the middle of it has a higlher ideal gas price.
+     * ideal gas price, or insert in the middle of it has a higher ideal gas price.
      * If an insert occurs, transactions with lower gas price will have to be bumped
      * down the queue, and in doing so will have to be replaced on the network.
      * @param request
