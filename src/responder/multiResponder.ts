@@ -1,6 +1,6 @@
-import { IEthereumResponseData, StartStopService, IBlockStub } from "../dataEntities";
+import { IEthereumResponseData, StartStopService } from "../dataEntities";
 import { EthereumResponder } from "./responder";
-import { GasQueue, PisaTransactionIdentifier, GasQueueItem, GasQueueItemRequest } from "./pendingQueue";
+import { GasQueue, PisaTransactionIdentifier, GasQueueItem, GasQueueItemRequest } from "./gasQueue";
 import { GasPriceEstimator } from "./gasPriceEstimator";
 import { ethers } from "ethers";
 import { BlockProcessor } from "../blockMonitor";

@@ -5,7 +5,7 @@ import {
     GasQueueItem,
     GasQueueItemRequest,
     PisaTransactionIdentifier
-} from "../../../src/responder/pendingQueue";
+} from "../../../src/responder/gasQueue";
 import { ArgumentError, IEthereumResponseData } from "../../../src/dataEntities";
 import { BigNumber } from "ethers/utils";
 
