@@ -118,24 +118,19 @@ export class GasQueue {
         if (maxQueueDepth < 1) throw new ArgumentError("Max queue depth must be greater than 0.", maxQueueDepth);
 
         if (queueItems.length > 1) {
-            let gasPrice = queueItems[0].idealGasPrice;
-            let nonce = queueItems[0].nonce;
-
             // check the integrity of the queue
             for (let index = 1; index < queueItems.length; index++) {
+                const prevItem = queueItems[index - 1];
                 const item = queueItems[index];
-                if (item.idealGasPrice.gt(gasPrice)) {
+                if (item.idealGasPrice.gt(prevItem.idealGasPrice)) {
                     throw new ArgumentError(
                         "Ideal gas price of queue item was greater than the previous item.",
                         queueItems
                     );
                 }
-                if (item.nonce !== nonce + 1) {
+                if (item.nonce !== prevItem.nonce + 1) {
                     throw new ArgumentError("Nonce of queue item did not increase by one.", queueItems);
                 }
-
-                gasPrice = item.idealGasPrice;
-                nonce = item.nonce;
 
                 if (queueItems.find((q, i) => q.request.identifier.equals(item.request.identifier) && i !== index)) {
                     throw new ArgumentError("Identifier found twice in queue.", item.request.identifier, queueItems);
