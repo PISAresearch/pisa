@@ -119,7 +119,7 @@ export class GasQueue {
 
         if (queueItems.length > 1) {
             let gasPrice = queueItems[0].idealGasPrice;
-            let nonce = queueItems[0].nonce - 1;
+            let nonce = queueItems[0].nonce;
 
             // check the integrity of the queue
             for (let index = 1; index < queueItems.length; index++) {
@@ -137,18 +137,17 @@ export class GasQueue {
                 gasPrice = item.idealGasPrice;
                 nonce = item.nonce;
 
-                if (queueItems.find((q, i) => q.request.identifier.equals(item.request.identifier) && i > index)) {
+                if (queueItems.find((q, i) => q.request.identifier.equals(item.request.identifier) && i !== index)) {
                     throw new ArgumentError("Identifier found twice in queue.", item.request.identifier, queueItems);
                 }
             }
-
-            if (queueItems[queueItems.length - 1].nonce + 1 !== emptyNonce) {
-                throw new ArgumentError(
-                    "Empty nonce is not equal to the last queue item nonce plus one.",
-                    queueItems,
-                    emptyNonce
-                );
-            }
+        }
+        if (queueItems.length > 0 && queueItems[queueItems.length - 1].nonce + 1 !== emptyNonce) {
+            throw new ArgumentError(
+                "Empty nonce is not equal to the last queue item nonce plus one.",
+                queueItems,
+                emptyNonce
+            );
         }
         if (this.queueItems.length > this.maxQueueDepth) {
             throw new ArgumentError(`Cannot create queue. Max queue depth of ${this.maxQueueDepth} reached.`);
@@ -162,7 +161,10 @@ export class GasQueue {
     private getReplacementGasPrice(currentGasPrice: BigNumber, replacementRate: number) {
         const rRate = new BigNumber(replacementRate).add(100);
         // we add 99 here to ensure that we round up.
-        return currentGasPrice.mul(rRate).add(99).div(100);
+        return currentGasPrice
+            .mul(rRate)
+            .add(99)
+            .div(100);
     }
 
     private cloneQueueItems() {
