@@ -4,13 +4,11 @@ import { KitsuneInspector, KitsuneAppointment, KitsuneTools } from "../../src/in
 import { ethers } from "ethers";
 import Ganache from "ganache-core";
 import { EthereumResponderManager, GasPriceEstimator, TransactionTracker } from "../../src/responder";
-import { ChannelType, IBlockStub, Transactions } from "../../src/dataEntities";
+import { ChannelType, Block } from "../../src/dataEntities";
 import { AppointmentStore } from "../../src/watcher/store";
-import { AppointmentSubscriber } from "../../src/watcher/appointmentSubscriber";
 import { wait } from "../../src/utils";
 import {
     BlockProcessor,
-    ReorgHeightListenerStore,
     BlockCache,
     BlockTimeoutDetector,
     ConfirmationObserver,
@@ -18,8 +16,6 @@ import {
 } from "../../src/blockMonitor";
 import levelup from "levelup";
 import MemDown from "memdown";
-import { ReorgEmitter, blockStubAndTxFactory } from "../../src/blockMonitor";
-import { Block } from "../../src/dataEntities/block";
 
 const ganache = Ganache.provider({
     mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect"
@@ -78,14 +74,8 @@ describe("End to end", () => {
         await inspector.inspectAndPass(appointment);
 
         const blockCache = new BlockCache<Block>(200);
-        const blockProcessor = new BlockProcessor<Block>(
-            provider,
-            blockFactory,
-            blockCache
-        );
-        const reorgEmitter = new ReorgEmitter(provider, blockProcessor, new ReorgHeightListenerStore());
+        const blockProcessor = new BlockProcessor<Block>(provider, blockFactory, blockCache);
         await blockProcessor.start();
-        await reorgEmitter.start();
 
         // 2. pass this appointment to the watcher
         const blockTimeoutDetector = new BlockTimeoutDetector(blockProcessor, 120 * 1000);
@@ -112,7 +102,7 @@ describe("End to end", () => {
             new Map([[ChannelType.Kitsune, (obj: any) => new KitsuneAppointment(obj)]])
         );
         await store.start();
-        const watcher = new Watcher(responderManager, reorgEmitter, new AppointmentSubscriber(provider), store);
+        const watcher = new Watcher(responderManager, blockProcessor, store, 0);
         await watcher.start();
         const player0Contract = channelContract.connect(provider.getSigner(player0));
 
@@ -127,7 +117,6 @@ describe("End to end", () => {
         await transactionTracker.stop();
         await confirmationObserver.stop();
         await blockTimeoutDetector.stop();
-        await reorgEmitter.stop();
         await blockProcessor.stop();
         await db.close();
         await wait(2000);

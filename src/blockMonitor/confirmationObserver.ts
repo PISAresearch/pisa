@@ -26,7 +26,7 @@ export class ConfirmationObserver extends StartStopService {
         this.blockProcessor.removeListener(BlockProcessor.NEW_HEAD_EVENT, this.handleNewHead);
     }
 
-    private handleNewHead(head: Readonly<IBlockStub & Transactions>) {
+    private handleNewHead(head: Readonly<IBlockStub & TransactionHashes>) {
         // Execute each listener, remove the ones that are completed
         for (const listener of this.txListeners) {
             if (listener(head.number, head.hash) === true) {

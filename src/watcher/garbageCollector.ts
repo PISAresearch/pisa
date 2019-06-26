@@ -19,8 +19,7 @@ export class AppointmentStoreGarbageCollector extends StartStopService {
     constructor(
         private readonly provider: ethers.providers.Provider,
         private readonly confirmationCount: number,
-        private readonly store: IAppointmentStore,
-        private readonly appointmentSubscriber: AppointmentSubscriber
+        private readonly store: IAppointmentStore
     ) {
         super("garbage-collector");
     }
@@ -71,7 +70,6 @@ export class AppointmentStoreGarbageCollector extends StartStopService {
                     await Promise.all(
                         expiredAppointments.map(async a => {
                             await this.store.removeById(a.id);
-                            this.appointmentSubscriber.unsubscribe(a.id, a.getEventFilter());
                             this.logger.info(a.formatLog(`Collected appointment with end: ${a.endBlock}.`));
                         })
                     );

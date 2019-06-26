@@ -16,24 +16,13 @@ import { Raiden, Kitsune } from "./integrations";
 import { Watcher, AppointmentStore } from "./watcher";
 import { PisaTower, HotEthereumAppointmentSigner } from "./tower";
 import { setRequestId } from "./customExpressHttpContext";
-import {
-    EthereumResponderManager,
-    GasPriceEstimator,
-    TransactionTracker,
-} from "./responder";
+import { EthereumResponderManager, GasPriceEstimator, TransactionTracker } from "./responder";
 import { AppointmentStoreGarbageCollector } from "./watcher/garbageCollector";
-import { AppointmentSubscriber } from "./watcher/appointmentSubscriber";
 import { IArgConfig } from "./dataEntities/config";
-import {
-    BlockProcessor,
-    ReorgHeightListenerStore,
-    BlockCache,
-    BlockTimeoutDetector,
-    ConfirmationObserver
-} from "./blockMonitor";
+import { BlockProcessor, BlockCache, BlockTimeoutDetector, ConfirmationObserver } from "./blockMonitor";
 import { LevelUp } from "levelup";
 import encodingDown from "encoding-down";
-import { ReorgEmitter, blockFactory } from "./blockMonitor";
+import { blockFactory } from "./blockMonitor";
 import { Block } from "./dataEntities/block";
 
 /**
@@ -42,7 +31,6 @@ import { Block } from "./dataEntities/block";
 export class PisaService extends StartStopService {
     private readonly server: Server;
     private readonly garbageCollector: AppointmentStoreGarbageCollector;
-    private readonly reorgEmitter: ReorgEmitter;
     private readonly blockProcessor: BlockProcessor<Block>;
     private readonly blockTimeoutDetector: BlockTimeoutDetector;
     private readonly confirmationObserver: ConfirmationObserver;
@@ -58,15 +46,16 @@ export class PisaService extends StartStopService {
      * @param provider A connection to ethereum
      * @param wallet A signing authority for submitting transactions
      * @param receiptSigner A signing authority for receipts returned from Pisa
-     * @param delayedProvider A connection to ethereum that is delayed by a number of confirmations
+     * @param db The instance of the database
+     * @param watcherResponseDelay The number of blocks the watcher should wait before starting a response
      */
     constructor(
         config: IArgConfig,
         provider: ethers.providers.BaseProvider,
         wallet: ethers.Wallet,
         receiptSigner: ethers.Signer,
-        delayedProvider: ethers.providers.BaseProvider,
-        db: LevelUp<encodingDown<string, any>>
+        db: LevelUp<encodingDown<string, any>>,
+        watcherResponseDelay: number
     ) {
         super("pisa");
         const app = express();
@@ -78,8 +67,7 @@ export class PisaService extends StartStopService {
 
         // start reorg detector and block monitor
         const blockCache = new BlockCache<Block>(200);
-        this.blockProcessor = new BlockProcessor<Block>(delayedProvider, blockFactory, blockCache);
-        this.reorgEmitter = new ReorgEmitter(delayedProvider, this.blockProcessor, new ReorgHeightListenerStore());
+        this.blockProcessor = new BlockProcessor<Block>(provider, blockFactory, blockCache);
 
         // dependencies
         this.appointmentStore = new AppointmentStore(
@@ -94,24 +82,18 @@ export class PisaService extends StartStopService {
             wallet,
             this.blockTimeoutDetector,
             this.confirmationObserver,
-            new GasPriceEstimator(wallet.provider, this.blockProcessor ),
+            new GasPriceEstimator(wallet.provider, this.blockProcessor),
             this.transactionTracker
         );
-        const appointmentSubscriber = new AppointmentSubscriber(delayedProvider);
         this.watcher = new Watcher(
             this.ethereumResponderManager,
-            this.reorgEmitter,
-            appointmentSubscriber,
-            this.appointmentStore
+            this.blockProcessor,
+            this.appointmentStore,
+            watcherResponseDelay
         );
 
         // gc
-        this.garbageCollector = new AppointmentStoreGarbageCollector(
-            provider,
-            10,
-            this.appointmentStore,
-            appointmentSubscriber
-        );
+        this.garbageCollector = new AppointmentStoreGarbageCollector(provider, 10, this.appointmentStore);
 
         // if a key to sign receipts was provided, create an EthereumAppointmentSigner
         const appointmentSigner = new HotEthereumAppointmentSigner(receiptSigner);
@@ -129,7 +111,6 @@ export class PisaService extends StartStopService {
     protected async startInternal() {
         await this.blockProcessor.start();
         await this.transactionTracker.start();
-        await this.reorgEmitter.start();
         await this.blockTimeoutDetector.start();
         await this.confirmationObserver.start();
         await this.garbageCollector.start();
@@ -144,7 +125,6 @@ export class PisaService extends StartStopService {
         await this.garbageCollector.stop();
         await this.confirmationObserver.stop();
         await this.blockTimeoutDetector.stop();
-        await this.reorgEmitter.stop();
         await this.transactionTracker.stop();
         await this.blockProcessor.stop();
         this.server.close(error => {

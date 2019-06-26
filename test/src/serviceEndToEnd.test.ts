@@ -49,7 +49,7 @@ describe("Service end-to-end", () => {
 
         const signerWallet = new ethers.Wallet(config.receiptKey!, provider);
 
-        service = new PisaService(config, provider, responderWallet, signerWallet, provider, db);
+        service = new PisaService(config, provider, responderWallet, signerWallet, db, 0);
         await service.start();
 
         // accounts
@@ -84,8 +84,8 @@ describe("Service end-to-end", () => {
             provider,
             watcherWallet,
             signerWallet,
-            provider,
-            db
+            db,
+            0
         );
 
         const round = 1,
