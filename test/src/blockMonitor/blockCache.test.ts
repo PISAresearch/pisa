@@ -2,15 +2,16 @@ import "mocha";
 import { expect } from "chai";
 import { BlockCache, getConfirmations } from "../../../src/blockMonitor";
 import { ethers } from "ethers";
-import { ArgumentError, IBlockStub, Transactions } from "../../../src/dataEntities";
+import { ArgumentError, IBlockStub, TransactionHashes } from "../../../src/dataEntities";
+import {} from "../../../src/dataEntities/block";
 
 function generateBlocks(
     nBlocks: number,
     initialHeight: number,
     chain: string,
     rootParentHash?: string | null // if given, the parentHash of the first block in the returned chain
-): ethers.providers.Block[] {
-    const result: ethers.providers.Block[] = [];
+): (IBlockStub & TransactionHashes)[] {
+    const result: (IBlockStub & TransactionHashes)[] = [];
     for (let height = initialHeight; height < initialHeight + nBlocks; height++) {
         const transactions: string[] = [];
         for (let i = 0; i < 5; i++) {
@@ -22,10 +23,10 @@ function generateBlocks(
             hash: `hash-${chain}-${height}`,
             parentHash:
                 rootParentHash != null && height === initialHeight ? rootParentHash : `hash-${chain}-${height - 1}`,
-            transactions
+            transactionHashes: transactions
         };
 
-        result.push(block as ethers.providers.Block);
+        result.push(block as (IBlockStub & TransactionHashes));
     }
     return result;
 }
@@ -195,17 +196,17 @@ describe("BlockCache", () => {
 describe("getConfirmations", () => {
     const maxDepth = 100;
     it("correctly computes the number of confirmations for a transaction", () => {
-        const bc = new BlockCache<IBlockStub & Transactions>(maxDepth);
+        const bc = new BlockCache<IBlockStub & TransactionHashes>(maxDepth);
         const blocks = generateBlocks(7, 0, "main"); // must be less blocks than maxDepth
         blocks.forEach(block => bc.addBlock(block));
 
         const headBlock = blocks[blocks.length - 1];
-        expect(getConfirmations(bc, headBlock.hash, blocks[0].transactions[0])).to.equal(blocks.length);
-        expect(getConfirmations(bc, headBlock.hash, blocks[1].transactions[0])).to.equal(blocks.length - 1);
+        expect(getConfirmations(bc, headBlock.hash, blocks[0].transactionHashes[0])).to.equal(blocks.length);
+        expect(getConfirmations(bc, headBlock.hash, blocks[1].transactionHashes[0])).to.equal(blocks.length - 1);
     });
 
     it("correctly returns 0 confirmations if transaction is not known", () => {
-        const bc = new BlockCache<IBlockStub & Transactions>(maxDepth);
+        const bc = new BlockCache<IBlockStub & TransactionHashes>(maxDepth);
         const blocks = generateBlocks(128, 0, "main");
         blocks.forEach(block => bc.addBlock(block));
 
@@ -214,11 +215,13 @@ describe("getConfirmations", () => {
     });
 
     it("throws ArgumentError if no block with the given hash is in the BlockCache", () => {
-        const bc = new BlockCache<IBlockStub & Transactions>(maxDepth);
+        const bc = new BlockCache<IBlockStub & TransactionHashes>(maxDepth);
         const blocks = generateBlocks(128, 0, "main");
         blocks.forEach(block => bc.addBlock(block));
 
         const headBlock = blocks[blocks.length - 1];
-        expect(() => getConfirmations(bc, "nonExistingBlockHash", headBlock.transactions[0])).to.throw(ArgumentError);
+        expect(() => getConfirmations(bc, "nonExistingBlockHash", headBlock.transactionHashes[0])).to.throw(
+            ArgumentError
+        );
     });
 });

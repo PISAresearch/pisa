@@ -1,5 +1,5 @@
 import { ApplicationError, ArgumentError } from "../dataEntities";
-import { IBlockStub, Transactions } from "../dataEntities/block";
+import { IBlockStub, TransactionHashes } from "../dataEntities/block";
 
 /**
  * This interface represents the read-only view of a BlockCache.
@@ -233,7 +233,7 @@ export class BlockCache<T extends IBlockStub> implements ReadOnlyBlockCache<T> {
  * @param txHash
  * @throws `ArgumentError` if the block with hash `headHash` is not in the cache.
  */
-export function getConfirmations<T extends IBlockStub & Transactions>(
+export function getConfirmations<T extends IBlockStub & TransactionHashes>(
     cache: ReadOnlyBlockCache<T>,
     headHash: string,
     txHash: string
@@ -241,7 +241,7 @@ export function getConfirmations<T extends IBlockStub & Transactions>(
     const headBlock = cache.getBlockStub(headHash);
     if (!headBlock) throw new ArgumentError(`The block with hash ${headHash} was not found`);
 
-    const blockTxIsMinedIn = cache.findAncestor(headHash, block => block.transactions.includes(txHash));
+    const blockTxIsMinedIn = cache.findAncestor(headHash, block => block.transactionHashes.includes(txHash));
     if (!blockTxIsMinedIn) return 0;
     else return headBlock.number - blockTxIsMinedIn.number + 1;
 }

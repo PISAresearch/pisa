@@ -1,7 +1,7 @@
 import { StartStopService, ArgumentError, BlockThresholdReachedError, ReorgError } from "../dataEntities";
 import { BlockProcessor } from "./blockProcessor";
 import { CancellablePromise, cancellablePromiseRace } from "../utils";
-import { Transactions, IBlockStub } from "../dataEntities/block";
+import { TransactionHashes, IBlockStub } from "../dataEntities/block";
 import { getConfirmations } from "./blockCache";
 
 // A TransactionListener fulfills/rejects a promise if possible; returns true on success
@@ -13,7 +13,7 @@ type TransactionListener = (blockNumber: number, blockHash: string) => boolean;
 export class ConfirmationObserver extends StartStopService {
     private txListeners = new Set<TransactionListener>();
 
-    constructor(private readonly blockProcessor: BlockProcessor<IBlockStub & Transactions>) {
+    constructor(private readonly blockProcessor: BlockProcessor<IBlockStub & TransactionHashes>) {
         super("confirmation-observer");
         this.handleNewHead = this.handleNewHead.bind(this);
     }

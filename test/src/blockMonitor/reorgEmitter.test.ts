@@ -24,25 +24,25 @@ const blockStub = (index: number, hashes: string[], parentHashes: string[]): IBl
 
 // linear chain
 // 0-1-2-3-4-5
-const a_block0 = blockStub(0, hashes_a, hashes_a) as ethers.providers.Block;
-const a_block1 = blockStub(1, hashes_a, hashes_a) as ethers.providers.Block;
-const a_block2 = blockStub(2, hashes_a, hashes_a) as ethers.providers.Block;
-const a_block3 = blockStub(3, hashes_a, hashes_a) as ethers.providers.Block;
-const a_block4 = blockStub(4, hashes_a, hashes_a) as ethers.providers.Block;
-const a_block5 = blockStub(5, hashes_a, hashes_a) as ethers.providers.Block;
-const a_block6 = blockStub(6, hashes_a, hashes_a) as ethers.providers.Block;
+const a_block0 = blockStub(0, hashes_a, hashes_a);
+const a_block1 = blockStub(1, hashes_a, hashes_a);
+const a_block2 = blockStub(2, hashes_a, hashes_a);
+const a_block3 = blockStub(3, hashes_a, hashes_a);
+const a_block4 = blockStub(4, hashes_a, hashes_a);
+const a_block5 = blockStub(5, hashes_a, hashes_a);
+const a_block6 = blockStub(6, hashes_a, hashes_a);
 
 // side chain from 1
 // 1-2'
-const b_block2 = blockStub(2, hashes_b, hashes_a) as ethers.providers.Block;
-const b_block3 = blockStub(3, hashes_b, hashes_b) as ethers.providers.Block;
-const b_block4 = blockStub(4, hashes_b, hashes_b) as ethers.providers.Block;
-const b_block5 = blockStub(5, hashes_b, hashes_b) as ethers.providers.Block;
-const b_block6 = blockStub(6, hashes_b, hashes_b) as ethers.providers.Block;
+const b_block2 = blockStub(2, hashes_b, hashes_a);
+const b_block3 = blockStub(3, hashes_b, hashes_b);
+const b_block4 = blockStub(4, hashes_b, hashes_b);
+const b_block5 = blockStub(5, hashes_b, hashes_b);
+const b_block6 = blockStub(6, hashes_b, hashes_b);
 
 // side chain from 4-b
-const c_block5 = blockStub(5, hashes_c, hashes_b) as ethers.providers.Block;
-const c_block6 = blockStub(6, hashes_c, hashes_c) as ethers.providers.Block;
+const c_block5 = blockStub(5, hashes_c, hashes_b);
+const c_block6 = blockStub(6, hashes_c, hashes_c);
 
 interface IReorgInfo {
     expectedAtBlockNumber: number;
@@ -186,7 +186,6 @@ type asyncEmitTestProvider = ethers.providers.BaseProvider & {
     currentBlock: number;
     currentBlockSet: boolean;
 };
-
 class ReorgMocks {
     public static async getSetup(blocks: IBlockStub[], maxDepth: number) {
         const mockedProvider = mock(ethers.providers.JsonRpcProvider);
@@ -200,6 +199,7 @@ class ReorgMocks {
             } else {
                 face[key.number] = face[key.number].thenResolve(key as ethers.providers.Block);
             }
+
             when(mockedProvider.getBlock(key.hash)).thenResolve(key as ethers.providers.Block);
         }
 
@@ -208,8 +208,8 @@ class ReorgMocks {
         const store = new ReorgHeightListenerStore();
         const blockCache = new BlockCache(maxDepth);
         const blockProcessor: BlockProcessor<IBlockStub> = new BlockProcessor(provider, mockBlockFactory, blockCache);
-        const reorgEmitter = new ReorgEmitter(provider, blockProcessor, store);
         await blockProcessor.start();
+        const reorgEmitter = new ReorgEmitter(provider, blockProcessor, store);        
         await reorgEmitter.start();
         return { blockCache, blockProcessor, reorgEmitter, provider, store };
     }

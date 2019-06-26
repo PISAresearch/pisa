@@ -2,26 +2,26 @@ import { ethers } from "ethers";
 import { StartStopService, ApplicationError } from "../dataEntities";
 import { ReadOnlyBlockCache, BlockCache } from "./blockCache";
 import { IBlockStub } from "../dataEntities";
-import { Block, Transactions } from "../dataEntities/block";
+import { Block, TransactionHashes } from "../dataEntities/block";
 
 type BlockFactory<T> = (provider: ethers.providers.Provider) => (blockNumberOrHash: number | string) => Promise<T>;
 
-export const blockStubAndTxFactory = (provider: ethers.providers.Provider) => async (
+export const blockStubAndTxHashFactory = (provider: ethers.providers.Provider) => async (
     blockNumberOrHash: string | number
-): Promise<IBlockStub & Transactions> => {
+): Promise<IBlockStub & TransactionHashes> => {
     const block = await provider.getBlock(blockNumberOrHash);
     return {
         hash: block.hash,
         number: block.number,
         parentHash: block.parentHash,
-        transactions: block.transactions
+        transactionHashes: block.transactions
     };
 };
 
 export const blockFactory = (provider: ethers.providers.Provider) => async (
     blockNumberOrHash: string | number
 ): Promise<Block> => {
-    const block = await provider.getBlock(blockNumberOrHash);
+    const block = await provider.getBlock(blockNumberOrHash, true);
 
     // We could filter out the logs that we are not interesting in order to save space
     // (e.g.: only keep the logs from the DataRegistry).
@@ -33,7 +33,8 @@ export const blockFactory = (provider: ethers.providers.Provider) => async (
         hash: block.hash,
         number: block.number,
         parentHash: block.parentHash,
-        transactions: block.transactions,
+        transactions: (block.transactions as any) as ethers.providers.TransactionResponse[],
+        transactionHashes: ((block.transactions as any) as ethers.providers.TransactionResponse[]).map(t => t.hash!),
         logs
     };
 };

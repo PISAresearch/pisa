@@ -15,7 +15,7 @@ import {
     ReorgEmitter,
     blockStubAndTxFactory
 } from "../../../src/blockMonitor";
-import { IBlockStub, Transactions } from "../../../src/dataEntities";
+import { IBlockStub, TransactionHashes } from "../../../src/dataEntities";
 
 describe("Watcher", () => {
     const ganache = Ganache.provider({});
@@ -253,8 +253,8 @@ describe("Watcher", () => {
     });
 
     it("observe does nothing during a reorg", async () => {
-        const blockCache = new BlockCache<IBlockStub & Transactions>(200);
-        const blockProcessor = new BlockProcessor<IBlockStub & Transactions>(
+        const blockCache = new BlockCache<IBlockStub & TransactionHashes>(200);
+        const blockProcessor = new BlockProcessor<IBlockStub & TransactionHashes>(
             provider,
             blockStubAndTxFactory,
             blockCache

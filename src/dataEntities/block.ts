@@ -10,8 +10,12 @@ export interface Logs {
     logs: ethers.providers.Log[];
 }
 
-export interface Transactions {
-    transactions: string[];
+export interface TransactionHashes {
+    transactionHashes: string[];
 }
 
-export interface Block extends IBlockStub, Logs, Transactions {}
+export interface Transactions {
+    transactions: ethers.providers.TransactionResponse[];
+}
+
+export interface Block extends IBlockStub, Logs, Transactions, TransactionHashes {}

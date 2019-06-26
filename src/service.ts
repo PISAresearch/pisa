@@ -16,7 +16,11 @@ import { Raiden, Kitsune } from "./integrations";
 import { Watcher, AppointmentStore } from "./watcher";
 import { PisaTower, HotEthereumAppointmentSigner } from "./tower";
 import { setRequestId } from "./customExpressHttpContext";
-import { EthereumResponderManager } from "./responder";
+import {
+    EthereumResponderManager,
+    GasPriceEstimator,
+    TransactionTracker,
+} from "./responder";
 import { AppointmentStoreGarbageCollector } from "./watcher/garbageCollector";
 import { AppointmentSubscriber } from "./watcher/appointmentSubscriber";
 import { IArgConfig } from "./dataEntities/config";
@@ -45,6 +49,7 @@ export class PisaService extends StartStopService {
     private readonly ethereumResponderManager: EthereumResponderManager;
     private readonly watcher: Watcher;
     private readonly appointmentStore: AppointmentStore;
+    private readonly transactionTracker: TransactionTracker;
 
     /**
      *
@@ -83,10 +88,14 @@ export class PisaService extends StartStopService {
         );
         this.blockTimeoutDetector = new BlockTimeoutDetector(this.blockProcessor, 120 * 1000);
         this.confirmationObserver = new ConfirmationObserver(this.blockProcessor);
+        this.transactionTracker = new TransactionTracker(this.blockProcessor);
         this.ethereumResponderManager = new EthereumResponderManager(
+            false,
             wallet,
             this.blockTimeoutDetector,
-            this.confirmationObserver
+            this.confirmationObserver,
+            new GasPriceEstimator(wallet.provider, this.blockProcessor ),
+            this.transactionTracker
         );
         const appointmentSubscriber = new AppointmentSubscriber(delayedProvider);
         this.watcher = new Watcher(
@@ -119,6 +128,7 @@ export class PisaService extends StartStopService {
 
     protected async startInternal() {
         await this.blockProcessor.start();
+        await this.transactionTracker.start();
         await this.reorgEmitter.start();
         await this.blockTimeoutDetector.start();
         await this.confirmationObserver.start();
@@ -135,6 +145,7 @@ export class PisaService extends StartStopService {
         await this.confirmationObserver.stop();
         await this.blockTimeoutDetector.stop();
         await this.reorgEmitter.stop();
+        await this.transactionTracker.stop();
         await this.blockProcessor.stop();
         this.server.close(error => {
             if (error) this.logger.error(error.stack!);

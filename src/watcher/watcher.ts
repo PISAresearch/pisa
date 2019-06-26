@@ -136,7 +136,7 @@ export class Watcher extends StartStopService {
         return await this.addObserveLogAndCatch(appointment, event, this.reorgInProgress, async () => {
             // pass the appointment to the responder to complete. At this point the job has completed as far as
             // the watcher is concerned, therefore although respond is an async function we do not need to await it for a result
-            this.responder.respond(appointment);
+            await this.responder.respond(appointment);
 
             // register a reorg event
             this.reorgEmitter.addReorgHeightListener(event.blockNumber!, async () => {
@@ -179,7 +179,13 @@ export class Watcher extends StartStopService {
                     `An unexpected errror occured whilst responding to event ${appointment.getEventName()} in contract ${appointment.getContractAddress()}.`
                 )
             );
-            this.logger.error(appointment.formatLog(doh));
+            
+            if(doh instanceof Error) {
+                this.logger.error(appointment.formatLog(doh.stack!));
+            }
+            else {
+                this.logger.error(appointment.formatLog(doh));
+            }
         }
     }
 }

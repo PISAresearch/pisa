@@ -13,15 +13,8 @@ import {
     DoublingGasPolicy,
     EthereumTransactionMiner
 } from "../../src/responder";
-import { CancellablePromise } from "../../src/utils";
-import {
-    ChannelType,
-    BlockThresholdReachedError,
-    ReorgError,
-    BlockTimeoutError,
-    IBlockStub,
-    Transactions
-} from "../../src/dataEntities";
+import { CancellablePromise, wait } from "../../src/utils";
+import { ChannelType, BlockThresholdReachedError, ReorgError, BlockTimeoutError, IBlockStub, TransactionHashes } from "../../src/dataEntities";
 import {
     BlockCache,
     BlockProcessor,
@@ -120,15 +113,14 @@ function mineBlock(ganache: any, provider: ethers.providers.Web3Provider): Promi
             if (err) reject(err);
         });
 
-        const testBlockNumber = async function() {
+        while (true) {
             const blockNumber = await provider.getBlockNumber();
             if (blockNumber > initialBlockNumber) {
                 resolve(blockNumber);
-            } else {
-                _setTimeout(testBlockNumber, 10);
+                return;
             }
-        };
-        _setTimeout(testBlockNumber, 10);
+            await wait(10);
+        }
     });
 }
 
@@ -163,8 +155,8 @@ function waitForSpy(spy: any, interval = 20) {
 describe("EthereumDedicatedResponder", () => {
     let ganache: any;
     let provider: ethers.providers.Web3Provider;
-    let blockCache: BlockCache<IBlockStub & Transactions>;
-    let blockProcessor: BlockProcessor<IBlockStub & Transactions>;
+    let blockCache: BlockCache<IBlockStub & TransactionHashes>;
+    let blockProcessor: BlockProcessor<IBlockStub & TransactionHashes>;
     let blockTimeoutDetector: BlockTimeoutDetector;
     let confirmationObserver: ConfirmationObserver;
     let transactionMiner: EthereumTransactionMiner;
@@ -179,8 +171,8 @@ describe("EthereumDedicatedResponder", () => {
         provider = new ethers.providers.Web3Provider(ganache);
         provider.pollingInterval = 100;
 
-        blockCache = new BlockCache<IBlockStub & Transactions>(100);
-        blockProcessor = new BlockProcessor<IBlockStub & Transactions>(provider, blockStubAndTxFactory, blockCache);
+        blockCache = new BlockCache<IBlockStub & TransactionHashes>(100);
+        blockProcessor = new BlockProcessor<IBlockStub & TransactionHashes>(provider, blockStubAndTxFactory, blockCache);
         await blockProcessor.start();
 
         blockTimeoutDetector = new BlockTimeoutDetector(blockProcessor, 120 * 1000);
@@ -481,8 +473,8 @@ describe("EthereumDedicatedResponder", () => {
 describe("EthereumTransactionMiner", async () => {
     let ganache: any;
     let provider: ethers.providers.Web3Provider;
-    let blockCache: BlockCache<IBlockStub & Transactions>;
-    let blockProcessor: BlockProcessor<IBlockStub & Transactions>;
+    let blockCache: BlockCache<IBlockStub & TransactionHashes>;
+    let blockProcessor: BlockProcessor<IBlockStub & TransactionHashes>;
     let blockTimeoutDetector: BlockTimeoutDetector;
     let confirmationObserver: ConfirmationObserver;
     let accounts: string[];
@@ -495,8 +487,8 @@ describe("EthereumTransactionMiner", async () => {
         } as any); // TODO: remove generic types when @types/ganache-core is updated
         provider = new ethers.providers.Web3Provider(ganache);
         provider.pollingInterval = 20;
-        blockCache = new BlockCache<IBlockStub & Transactions>(200);
-        blockProcessor = new BlockProcessor<IBlockStub & Transactions>(provider, blockStubAndTxFactory, blockCache);
+        blockCache = new BlockCache<IBlockStub & TransactionHashes>(200);
+        blockProcessor = new BlockProcessor<IBlockStub & TransactionHashes>(provider, blockStubAndTxFactory, blockCache);
         await blockProcessor.start();
         blockTimeoutDetector = new BlockTimeoutDetector(blockProcessor, 120 * 1000);
         await blockTimeoutDetector.start();
@@ -540,7 +532,7 @@ describe("EthereumTransactionMiner", async () => {
         await mineBlock(ganache, provider);
 
         return expect(res).to.be.fulfilled;
-    });
+    }).timeout(4000);
 
     it("waitForFirstConfirmation throws BlockTimeoutError after timeout", async () => {
         const miner = new EthereumTransactionMiner(account0Signer, blockTimeoutDetector, confirmationObserver, 5, 10);

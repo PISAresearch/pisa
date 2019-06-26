@@ -3,8 +3,8 @@ import { Watcher } from "../../src/watcher/watcher";
 import { KitsuneInspector, KitsuneAppointment, KitsuneTools } from "../../src/integrations/kitsune";
 import { ethers } from "ethers";
 import Ganache from "ganache-core";
+import { EthereumResponderManager, GasPriceEstimator, TransactionTracker } from "../../src/responder";
 import { ChannelType, IBlockStub, Transactions } from "../../src/dataEntities";
-import { EthereumResponderManager } from "../../src/responder";
 import { AppointmentStore } from "../../src/watcher/store";
 import { AppointmentSubscriber } from "../../src/watcher/appointmentSubscriber";
 import { wait } from "../../src/utils";
@@ -13,11 +13,13 @@ import {
     ReorgHeightListenerStore,
     BlockCache,
     BlockTimeoutDetector,
-    ConfirmationObserver
+    ConfirmationObserver,
+    blockFactory
 } from "../../src/blockMonitor";
 import levelup from "levelup";
 import MemDown from "memdown";
 import { ReorgEmitter, blockStubAndTxFactory } from "../../src/blockMonitor";
+import { Block } from "../../src/dataEntities/block";
 
 const ganache = Ganache.provider({
     mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect"
@@ -75,10 +77,10 @@ describe("End to end", () => {
         });
         await inspector.inspectAndPass(appointment);
 
-        const blockCache = new BlockCache<IBlockStub & Transactions>(200);
-        const blockProcessor = new BlockProcessor<IBlockStub & Transactions>(
+        const blockCache = new BlockCache<Block>(200);
+        const blockProcessor = new BlockProcessor<Block>(
             provider,
-            blockStubAndTxFactory,
+            blockFactory,
             blockCache
         );
         const reorgEmitter = new ReorgEmitter(provider, blockProcessor, new ReorgHeightListenerStore());
@@ -90,10 +92,18 @@ describe("End to end", () => {
         await blockTimeoutDetector.start();
         const confirmationObserver = new ConfirmationObserver(blockProcessor);
         await confirmationObserver.start();
+
+        const gasPriceEstimator = new GasPriceEstimator(provider, blockProcessor);
+        const transactionTracker = new TransactionTracker(blockProcessor);
+        await transactionTracker.start();
+
         const responderManager = new EthereumResponderManager(
+            false,
             provider.getSigner(pisaAccount),
             blockTimeoutDetector,
-            confirmationObserver
+            confirmationObserver,
+            gasPriceEstimator,
+            transactionTracker
         );
 
         let db = levelup(MemDown());
@@ -114,6 +124,7 @@ describe("End to end", () => {
 
         await watcher.stop();
         await store.stop();
+        await transactionTracker.stop();
         await confirmationObserver.stop();
         await blockTimeoutDetector.stop();
         await reorgEmitter.stop();
