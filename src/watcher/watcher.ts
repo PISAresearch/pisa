@@ -2,9 +2,30 @@ import { IEthereumAppointment, StartStopService } from "../dataEntities";
 import { ConfigurationError, ApplicationError } from "../dataEntities/errors";
 import { EthereumResponderManager } from "../responder";
 import { AppointmentStore } from "./store";
-import { BlockProcessor, BlockCache } from "../blockMonitor";
+import { BlockProcessor } from "../blockMonitor";
 import { Block } from "../dataEntities/block";
 import { EventFilter } from "ethers";
+import { BlockchainMachine } from "../blockMonitor/blockchainMachine";
+
+type AppointmentState =
+    | {
+          state: "watching";
+      }
+    | {
+          state: "observed";
+          blockObserved: number;
+      };
+
+export type AppointmentsState = {
+    [appointmentId: string]: Readonly<AppointmentState> | undefined;
+};
+
+// TODO: move this to a utility function somewhere
+const hasLogMatchingEvent = (block: Block, filter: EventFilter): boolean => {
+    return block.logs.some(
+        log => log.address === filter.address && filter.topics!.every((topic, idx) => log.topics[idx] === topic)
+    );
+};
 
 /**
  * Watches the chain for events related to the supplied appointments. When an event is noticed data is forwarded to the
@@ -12,6 +33,9 @@ import { EventFilter } from "ethers";
  * acted upon, that is the responsibility of the responder.
  */
 export class Watcher extends StartStopService {
+    private blockchainMachine: BlockchainMachine<AppointmentsState, Block>;
+    private appointmentsState: AppointmentsState = {};
+
     /**
      * Watches the chain for events related to the supplied appointments. When an event is noticed data is forwarded to the
      * observe method to complete the task. The watcher is not responsible for ensuring that observed events are properly
@@ -25,38 +49,70 @@ export class Watcher extends StartStopService {
     ) {
         super("watcher");
 
-        this.processNewHead = this.processNewHead.bind(this);
+        this.blockchainMachine = new BlockchainMachine<AppointmentsState, Block>(blockProcessor, {}, this.reducer);
+
+        this.handleNewStateEvent = this.handleNewStateEvent.bind(this);
     }
 
-    private findAncestorMatchingFilter(head: Block, filter: EventFilter) {
-        if (!filter.topics) throw new ApplicationError(`topics should not be undefined`);
-
-        return this.blockProcessor.blockCache.findAncestor(head.hash, block => {
-            for (const log of block.logs) {
-                // TODO: is this the right way of testing the event?
-                if (log.address === filter.address && filter.topics!.every(topic => log.topics.includes(topic))) {
-                    return true;
-                }
+    private reduceAppointmentState(
+        appointment: IEthereumAppointment,
+        prevAppointmentState: AppointmentState | undefined,
+        block: Block
+    ): AppointmentState {
+        if (!prevAppointmentState) {
+            // Compute from the cache
+            return this.getAppointmentState(appointment, block);
+        } else {
+            if (prevAppointmentState.state === "watching" && hasLogMatchingEvent(block, appointment.getEventFilter())) {
+                return {
+                    state: "observed",
+                    blockObserved: block.number
+                };
+            } else {
+                return prevAppointmentState;
             }
-            return false;
-        });
+        }
     }
 
-    async processNewHead(head: Block, prevHead: Block | null) {
+    private reducer = (prevAppointmentsState: AppointmentsState, block: Block): AppointmentsState => {
+        const result: AppointmentsState = {};
+        const appointments = this.store.getAll();
+        for (const appointment of appointments) {
+            result[appointment.id] = this.reduceAppointmentState(
+                appointment,
+                prevAppointmentsState[appointment.id],
+                block
+            );
+        }
+        return result;
+    };
+
+    private async handleNewStateEvent(
+        head: Block,
+        state: AppointmentsState,
+        prevHead: Block | null,
+        prevState: AppointmentsState | null
+    ) {
+        const shouldHaveStartedResponder = (
+            block: Block | null | undefined,
+            st: AppointmentState | null | undefined
+        ): boolean => {
+            if (!st) return false;
+            return st.state === "observed" && block!.number >= st.blockObserved + this.blocksDelay;
+        };
+
         for (const appointment of this.store.getAll()) {
-            // for each appointment, check if we need to start the responder or not
-            const filter = appointment.getEventFilter();
-
-            // Find an ancestor with the right event log, if any
-            const eventAncestor = this.findAncestorMatchingFilter(head, filter);
-
-            if (eventAncestor && eventAncestor.number <= head.number - this.blocksDelay) {
+            const appState = state[appointment.id];
+            const prevAppState = prevState && prevState[appointment.id]; // previous state for this appointment
+            if (shouldHaveStartedResponder(head, appState) && !shouldHaveStartedResponder(prevHead, prevAppState)) {
+                // start the responder
                 try {
                     this.logger.info(
                         appointment.formatLog(
                             `Observed event ${appointment.getEventName()} in contract ${appointment.getContractAddress()}.`
                         )
                     );
+
                     // TODO: add some logging to replace this
                     // this.logger.debug(appointment.formatLog(`Event info: ${inspect(event)}`));
 
@@ -70,7 +126,7 @@ export class Watcher extends StartStopService {
                     // an error occured whilst responding to the callback - this is serious and the problem needs to be correctly diagnosed
                     this.logger.error(
                         appointment.formatLog(
-                            `An unexpected errror occured whilst responding to event ${appointment.getEventName()} in contract ${appointment.getContractAddress()}.`
+                            `An unexpected error occured whilst responding to event ${appointment.getEventName()} in contract ${appointment.getContractAddress()}.`
                         )
                     );
                     this.logger.error(appointment.formatLog(doh));
@@ -80,10 +136,36 @@ export class Watcher extends StartStopService {
     }
 
     protected async startInternal() {
-        this.blockProcessor.on(BlockProcessor.NEW_HEAD_EVENT, this.processNewHead);
+        this.blockchainMachine.on(BlockchainMachine.NEW_STATE_EVENT, this.handleNewStateEvent);
+
+        // Get the initial appointment states
+        for (const appointment of this.store.getAll()) {
+            this.appointmentsState[appointment.id] = this.getAppointmentState(appointment, this.blockProcessor.head);
+        }
     }
     protected async stopInternal() {
-        this.blockProcessor.off(BlockProcessor.NEW_HEAD_EVENT, this.processNewHead);
+        this.blockchainMachine.off(BlockchainMachine.NEW_STATE_EVENT, this.handleNewStateEvent);
+    }
+
+    // Gets the appointment state based on the whole history
+    private getAppointmentState(appointment: IEthereumAppointment, head: Block): AppointmentState {
+        const filter = appointment.getEventFilter();
+        if (!filter.topics) throw new ApplicationError(`topics should not be undefined`);
+
+        const eventAncestor = this.blockProcessor.blockCache.findAncestor(head.hash, block =>
+            hasLogMatchingEvent(block, filter)
+        );
+
+        if (!eventAncestor) {
+            return {
+                state: "watching"
+            };
+        } else {
+            return {
+                state: "observed",
+                blockObserved: eventAncestor.number
+            };
+        }
     }
 
     /**

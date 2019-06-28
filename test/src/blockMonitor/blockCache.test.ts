@@ -1,9 +1,7 @@
 import "mocha";
 import { expect } from "chai";
 import { BlockCache, getConfirmations } from "../../../src/blockMonitor";
-import { ethers } from "ethers";
 import { ArgumentError, IBlockStub, TransactionHashes } from "../../../src/dataEntities";
-import {} from "../../../src/dataEntities/block";
 
 function generateBlocks(
     nBlocks: number,

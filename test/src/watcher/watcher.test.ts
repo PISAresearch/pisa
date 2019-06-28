@@ -43,6 +43,10 @@ describe("Watcher", () => {
     const appointmentErrorUnsubscribe = createMockAppointment(appointmentErrorUnsubscribeId, errorEventFilter, true);
     const appointmentErrorSubscribeOnce = createMockAppointment(appointmentErrorSubscribeOnceId, eventFilter, true);
 
+    // BlockProcessor mock
+    const mockedBlockProcessor = mock(BlockProcessor);
+    const blockProcessor = instance(mockedBlockProcessor);
+
     // store mock
     const mockedStore = mock(AppointmentStore);
     when(mockedStore.addOrUpdateByStateLocator(appointmentCanBeUpdated)).thenResolve(true);
@@ -77,112 +81,64 @@ describe("Watcher", () => {
         resetCalls(mockedStoreThatThrows);
     });
 
-    // it("add appointment updates store and subscriptions", async () => {
-    //     const watcher = new Watcher(responderInstance, reorgEmitterInstance, appointmentSubscriber, store);
+    it("add appointment updates store and subscriptions", async () => {
+        const watcher = new Watcher(responderInstance, blockProcessor, store, 0);
 
-    //     assert.strictEqual(await watcher.addAppointment(appointmentCanBeUpdated), true);
+        assert.strictEqual(await watcher.addAppointment(appointmentCanBeUpdated), true);
 
-    //     verify(mockedStore.addOrUpdateByStateLocator(appointmentCanBeUpdated)).once();
-    //     verify(mockedAppointmentSubscriber.unsubscribeAll(appointmentCanBeUpdated.getEventFilter())).once();
-    //     verify(
-    //         mockedAppointmentSubscriber.subscribe(
-    //             appointmentCanBeUpdated.id,
-    //             appointmentCanBeUpdated.getEventFilter(),
-    //             anything()
-    //         )
-    //     ).once();
-    // });
+        verify(mockedStore.addOrUpdateByStateLocator(appointmentCanBeUpdated)).once();
+    });
 
-    // it("add appointment without update does not update subscriptions and returns false", async () => {
-    //     const watcher = new Watcher(responderInstance, reorgEmitterInstance, appointmentSubscriber, store);
+    it("add appointment without update does not update subscriptions and returns false", async () => {
+        const watcher = new Watcher(responderInstance, blockProcessor, store, 0);
 
-    //     assert.strictEqual(await watcher.addAppointment(appointmentNotUpdated), false);
+        assert.strictEqual(await watcher.addAppointment(appointmentNotUpdated), false);
 
-    //     verify(mockedStore.addOrUpdateByStateLocator(appointmentNotUpdated)).once();
-    //     verify(mockedAppointmentSubscriber.unsubscribeAll(appointmentNotUpdated.getEventFilter())).never();
-    //     verify(
-    //         mockedAppointmentSubscriber.subscribe(
-    //             appointmentNotUpdated.id,
-    //             appointmentNotUpdated.getEventFilter(),
-    //             anything()
-    //         )
-    //     ).never();
-    // });
-    // it("add appointment not passed inspection throws error", async () => {
-    //     const watcher = new Watcher(responderInstance, reorgEmitterInstance, appointmentSubscriber, store);
+        verify(mockedStore.addOrUpdateByStateLocator(appointmentNotUpdated)).once();
+    });
+    it("add appointment not passed inspection throws error", async () => {
+        const watcher = new Watcher(responderInstance, blockProcessor, store, 0);
 
-    //     try {
-    //         await watcher.addAppointment(appointmentNotInspected);
-    //         assert(false);
-    //     } catch (doh) {
-    //         verify(mockedStore.addOrUpdateByStateLocator(appointmentNotInspected)).never();
-    //         verify(mockedAppointmentSubscriber.unsubscribeAll(appointmentNotInspected.getEventFilter())).never();
-    //         verify(
-    //             mockedAppointmentSubscriber.subscribe(
-    //                 appointmentNotInspected.id,
-    //                 appointmentNotInspected.getEventFilter(),
-    //                 anything()
-    //             )
-    //         ).never();
-    //     }
-    // });
-    // it("add appointment throws error when update store throws error", async () => {
-    //     const watcher = new Watcher(responderInstance, reorgEmitterInstance, appointmentSubscriber, store);
+        try {
+            await watcher.addAppointment(appointmentNotInspected);
+            assert(false);
+        } catch (doh) {
+            verify(mockedStore.addOrUpdateByStateLocator(appointmentNotInspected)).never();
+        }
+    });
+    it("add appointment throws error when update store throws error", async () => {
+        const watcher = new Watcher(responderInstance, blockProcessor, store, 0);
 
-    //     try {
-    //         await watcher.addAppointment(appointmentErrorUpdate);
-    //         assert(false);
-    //     } catch (doh) {
-    //         verify(mockedStore.addOrUpdateByStateLocator(appointmentErrorUpdate)).once();
-    //         verify(mockedAppointmentSubscriber.unsubscribeAll(appointmentErrorUpdate.getEventFilter())).never();
-    //         verify(
-    //             mockedAppointmentSubscriber.subscribe(
-    //                 appointmentErrorUpdate.id,
-    //                 appointmentErrorUpdate.getEventFilter(),
-    //                 anything()
-    //             )
-    //         ).never();
-    //     }
-    // });
-    // it("add appointment throws error when subscribe unsubscribeall throws error", async () => {
-    //     const watcher = new Watcher(responderInstance, reorgEmitterInstance, appointmentSubscriber, store);
+        try {
+            await watcher.addAppointment(appointmentErrorUpdate);
+            assert(false);
+        } catch (doh) {
+            verify(mockedStore.addOrUpdateByStateLocator(appointmentErrorUpdate)).once();
+        }
+    });
+    it("add appointment throws error when subscribe unsubscribeall throws error", async () => {
+        const watcher = new Watcher(responderInstance, blockProcessor, store, 0);
 
-    //     try {
-    //         await watcher.addAppointment(appointmentErrorUnsubscribe);
-    //         assert(false);
-    //     } catch (doh) {
-    //         verify(mockedStore.addOrUpdateByStateLocator(appointmentErrorUnsubscribe)).once();
-    //         verify(mockedAppointmentSubscriber.unsubscribeAll(appointmentErrorUnsubscribe.getEventFilter())).once();
-    //         verify(
-    //             mockedAppointmentSubscriber.subscribe(
-    //                 appointmentErrorUnsubscribe.id,
-    //                 appointmentErrorUnsubscribe.getEventFilter(),
-    //                 anything()
-    //             )
-    //         ).never();
-    //     }
-    // });
-    // it("add appointment throws error when subscriber once throw error", async () => {
-    //     const watcher = new Watcher(responderInstance, reorgEmitterInstance, appointmentSubscriber, store);
+        try {
+            await watcher.addAppointment(appointmentErrorUnsubscribe);
+            assert(false);
+        } catch (doh) {
+            verify(mockedStore.addOrUpdateByStateLocator(appointmentErrorUnsubscribe)).once();
+        }
+    });
+    it("add appointment throws error when subscriber once throw error", async () => {
+        const watcher = new Watcher(responderInstance, blockProcessor, store, 0);
 
-    //     try {
-    //         await watcher.addAppointment(appointmentErrorSubscribeOnce);
-    //         assert(false);
-    //     } catch (doh) {
-    //         verify(mockedStore.addOrUpdateByStateLocator(appointmentErrorSubscribeOnce)).once();
-    //         verify(mockedAppointmentSubscriber.unsubscribeAll(appointmentErrorSubscribeOnce.getEventFilter())).once();
-    //         verify(
-    //             mockedAppointmentSubscriber.subscribe(
-    //                 appointmentErrorSubscribeOnce.id,
-    //                 appointmentErrorSubscribeOnce.getEventFilter(),
-    //                 anything()
-    //             )
-    //         ).once();
-    //     }
-    // });
+        try {
+            await watcher.addAppointment(appointmentErrorSubscribeOnce);
+            assert(false);
+        } catch (doh) {
+            verify(mockedStore.addOrUpdateByStateLocator(appointmentErrorSubscribeOnce)).once();
+        }
+    });
 
     // it("observe successfully responds and updates store", async () => {
-    //     const watcher = new Watcher(responderInstance, reorgEmitterInstance, appointmentSubscriber, store);
+    //     const watcher = new Watcher(responderInstance, blockProcessor, store, 0);
 
     //     await watcher.observe(appointmentCanBeUpdated, event);
 
@@ -256,8 +212,10 @@ describe("Watcher", () => {
     // });
 
     // it("start correctly adds existing appointments to subscriber", async () => {
-    //     const watcher = new Watcher(responderInstance, reorgEmitterInstance, appointmentSubscriber, storeInstanceThrow);
+    //     const watcher = new Watcher(responderInstance, blockProcessor, storeInstanceThrow, 0);
     //     await watcher.start();
+
+    //     storeInstanceThrow.getAll()
 
     //     verify(
     //         mockedAppointmentSubscriber.subscribe(
