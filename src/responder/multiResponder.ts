@@ -11,7 +11,10 @@ import { QueueConsistencyError, ArgumentError } from "../dataEntities/errors";
 import { Block } from "../dataEntities/block";
 
 export class MultiResponder extends EthereumResponder {
-    private queue: GasQueue;
+    public get queue() {
+        return this.mQueue;
+    }
+    private mQueue: GasQueue;
     private chainId: number;
 
     /**
@@ -45,27 +48,30 @@ export class MultiResponder extends EthereumResponder {
         super(signer);
         if (replacementRate < 0) throw new ArgumentError("Cannot have negative replacement rate.", replacementRate);
         if (maxConcurrentResponses < 1) {
-            throw new ArgumentError("Maximum concurrent requests cannot be negative.", maxConcurrentResponses);
+            throw new ArgumentError("Maximum concurrent requests must be greater than 0.", maxConcurrentResponses);
         }
+        this.setup = this.setup.bind(this);
         this.txMined = this.txMined.bind(this);
         this.broadcast = this.broadcast.bind(this);
     }
 
     // we do some async setup
     private async setup() {
-        if (!this.queue) {
+        if (!this.mQueue) {
             const address = await this.signer.getAddress();
             const nonce = await this.provider.getTransactionCount(address);
             this.chainId = (await this.provider.getNetwork()).chainId;
-            this.queue = new GasQueue([], nonce, this.replacementRate, this.maxConcurrentResponses);
+            this.mQueue = new GasQueue([], nonce, this.replacementRate, this.maxConcurrentResponses);
         }
     }
 
     public async startResponse(appointmentId: string, responseData: IEthereumResponseData) {
         try {
             await this.setup();
-            if (this.queue.depthReached()) {
-                throw new Error(`Cannot add to queue. Max queue depth ${this.queue.maxQueueDepth} reached.`);
+            if (this.mQueue.depthReached()) {
+                throw new QueueConsistencyError(
+                    `Cannot add to queue. Max queue depth ${this.mQueue.maxQueueDepth} reached.`
+                );
             }
 
             // form a queue item request
@@ -84,9 +90,9 @@ export class MultiResponder extends EthereumResponder {
             // add the queue item to the queue, since the queue is ordered this may mean
             // that we need to replace some transactions on the network. Find those and
             // broadcast them
-            const replacedQueue = this.queue.add(request);
-            const replacedTransactions = replacedQueue.queueItems.filter(tx => !this.queue.queueItems.includes(tx));
-            this.queue = replacedQueue;
+            const replacedQueue = this.mQueue.add(request);
+            const replacedTransactions = replacedQueue.queueItems.filter(tx => !this.mQueue.queueItems.includes(tx));
+            this.mQueue = replacedQueue;
 
             await Promise.all(replacedTransactions.map(this.broadcast));
         } catch (doh) {
@@ -115,15 +121,15 @@ export class MultiResponder extends EthereumResponder {
             // since we've made this method available publicly we need to ensure that the class has been initialised
             await this.setup();
 
-            if (this.queue.queueItems.length === 0) {
+            if (this.mQueue.queueItems.length === 0) {
                 throw new QueueConsistencyError(
                     `Transaction mined for empty queue at nonce ${nonce}. ${inspect(txIdentifier)}`
                 );
             }
-            if (this.queue.queueItems.findIndex(i => i.request.identifier.equals(txIdentifier)) !== -1) {
+            if (this.mQueue.queueItems.findIndex(i => i.request.identifier.equals(txIdentifier)) === -1) {
                 throw new QueueConsistencyError(`Transaction identifier not found in queue. ${inspect(txIdentifier)}`);
             }
-            const frontItem = this.queue.queueItems[0];
+            const frontItem = this.mQueue.queueItems[0];
             if (frontItem.nonce !== nonce) {
                 throw new QueueConsistencyError(
                     `Front of queue nonce ${frontItem.nonce} does not correspond to nonce ${nonce}. ${inspect(
@@ -135,7 +141,7 @@ export class MultiResponder extends EthereumResponder {
             if (txIdentifier.equals(frontItem.request.identifier)) {
                 // the mined transaction was the one at the front of the current queue
                 // this is what we hoped for, simply dequeue the transaction
-                this.queue = this.queue.dequeue();
+                this.mQueue = this.mQueue.dequeue();
             } else {
                 // the mined transaction was not the one at the front of the current queue
                 // - it was at the front of a past queue. This means that the transaction
@@ -144,9 +150,9 @@ export class MultiResponder extends EthereumResponder {
                 // the mined tx and remove it. In doing so free up a later nonce.
                 // and bump up all transactions with a lower nonce so that the tx that is
                 // at the front of the current queue - but was not mined - remains there
-                const reducedQueue = this.queue.consume(txIdentifier);
-                const replacedTransactions = reducedQueue.queueItems.filter(tx => !this.queue.queueItems.includes(tx));
-                this.queue = reducedQueue;
+                const reducedQueue = this.mQueue.consume(txIdentifier);
+                const replacedTransactions = reducedQueue.queueItems.filter(tx => !this.mQueue.queueItems.includes(tx));
+                this.mQueue = reducedQueue;
 
                 // since we had to bump up some transactions - change their nonces
                 // we'll have to issue new transactions to the network
@@ -208,7 +214,7 @@ export class TransactionTracker extends StartStopService {
         return this.txCallbacks.has(identifier);
     }
 
-    public checkTxs(blockNumber: number, blockHash: string) {
+    private checkTxs(blockNumber: number, blockHash: string) {
         let blockStub = this.blockProcessor.blockCache.getBlockStub(blockHash);
 
         for (let index = blockNumber; index > this.lastBlockNumber; index--) {

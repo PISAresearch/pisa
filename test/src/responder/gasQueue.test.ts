@@ -37,6 +37,16 @@ const createGasQueueItem = (
     );
 };
 
+const checkClone = (queue: GasQueue, newQueue: GasQueue) => {
+    expect(queue).to.not.equal(newQueue);
+    expect(queue.queueItems).to.not.equal(newQueue.queueItems);
+};
+
+const replacedGasPrice = (rate: number, currentGasPrice: BigNumber) => {
+    const rRate = new BigNumber(rate).add(100);
+    return currentGasPrice.mul(rRate).div(100);
+};
+
 describe("GasQueueItem", () => {
     it("constructor", () => {
         createGasQueueItem(1, new BigNumber(10), new BigNumber(10), createIdentifier("data", "to"));
@@ -168,17 +178,6 @@ describe("GasQueue", () => {
         checkClone(queue, appendedQueue);
     });
 
-    // TODO:174: tidy up the function order in this file
-    const checkClone = (queue: GasQueue, newQueue: GasQueue) => {
-        expect(queue).to.not.equal(newQueue);
-        expect(queue.queueItems).to.not.equal(newQueue.queueItems);
-    };
-
-    const replacedGasPrice = (rate: number, currentGasPrice: BigNumber) => {
-        const rRate = new BigNumber(rate).add(100);
-        return currentGasPrice.mul(rRate).div(100);
-    };
-
     it("add does replace for middle gas", () => {
         const emptyNonce = 4;
         const maxQueueDepth = 5;
@@ -302,16 +301,16 @@ describe("GasQueue", () => {
         ];
 
         const queue = new GasQueue(items, emptyNonce, replacementRate, maxQueueDepth);
-        const dequeuedQueue = queue.dequeue()
+        const dequeuedQueue = queue.dequeue();
 
         expect(dequeuedQueue.emptyNonce).to.equal(emptyNonce);
         expect(dequeuedQueue.maxQueueDepth).to.equal(maxQueueDepth);
         expect(dequeuedQueue.replacementRate).to.equal(replacementRate);
-        
-        expect(dequeuedQueue.queueItems.length).to.equal(2)
-        expect(dequeuedQueue.queueItems[0]).to.equal(queue.queueItems[1])
-        expect(dequeuedQueue.queueItems[1]).to.equal(queue.queueItems[2])
 
-        checkClone(queue, dequeuedQueue)
-    })
+        expect(dequeuedQueue.queueItems.length).to.equal(2);
+        expect(dequeuedQueue.queueItems[0]).to.equal(queue.queueItems[1]);
+        expect(dequeuedQueue.queueItems[1]).to.equal(queue.queueItems[2]);
+
+        checkClone(queue, dequeuedQueue);
+    });
 });
