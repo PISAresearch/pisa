@@ -82,7 +82,7 @@ describe("Watcher", () => {
     });
 
     it("add appointment updates store and subscriptions", async () => {
-        const watcher = new Watcher(responderInstance, blockProcessor, store, 0);
+        const watcher = new Watcher(responderInstance, blockProcessor, store, 0, 20);
 
         assert.strictEqual(await watcher.addAppointment(appointmentCanBeUpdated), true);
 
@@ -90,14 +90,14 @@ describe("Watcher", () => {
     });
 
     it("add appointment without update does not update subscriptions and returns false", async () => {
-        const watcher = new Watcher(responderInstance, blockProcessor, store, 0);
+        const watcher = new Watcher(responderInstance, blockProcessor, store, 0, 20);
 
         assert.strictEqual(await watcher.addAppointment(appointmentNotUpdated), false);
 
         verify(mockedStore.addOrUpdateByStateLocator(appointmentNotUpdated)).once();
     });
     it("add appointment not passed inspection throws error", async () => {
-        const watcher = new Watcher(responderInstance, blockProcessor, store, 0);
+        const watcher = new Watcher(responderInstance, blockProcessor, store, 0, 20);
 
         try {
             await watcher.addAppointment(appointmentNotInspected);
@@ -107,7 +107,7 @@ describe("Watcher", () => {
         }
     });
     it("add appointment throws error when update store throws error", async () => {
-        const watcher = new Watcher(responderInstance, blockProcessor, store, 0);
+        const watcher = new Watcher(responderInstance, blockProcessor, store, 0, 20);
 
         try {
             await watcher.addAppointment(appointmentErrorUpdate);
@@ -117,7 +117,7 @@ describe("Watcher", () => {
         }
     });
     it("add appointment throws error when subscribe unsubscribeall throws error", async () => {
-        const watcher = new Watcher(responderInstance, blockProcessor, store, 0);
+        const watcher = new Watcher(responderInstance, blockProcessor, store, 0, 20);
 
         try {
             await watcher.addAppointment(appointmentErrorUnsubscribe);
@@ -127,7 +127,7 @@ describe("Watcher", () => {
         }
     });
     it("add appointment throws error when subscriber once throw error", async () => {
-        const watcher = new Watcher(responderInstance, blockProcessor, store, 0);
+        const watcher = new Watcher(responderInstance, blockProcessor, store, 0, 20);
 
         try {
             await watcher.addAppointment(appointmentErrorSubscribeOnce);
@@ -138,7 +138,7 @@ describe("Watcher", () => {
     });
 
     // it("observe successfully responds and updates store", async () => {
-    //     const watcher = new Watcher(responderInstance, blockProcessor, store, 0);
+    //     const watcher = new Watcher(responderInstance, blockProcessor, store, 0, 20);
 
     //     await watcher.observe(appointmentCanBeUpdated, event);
 

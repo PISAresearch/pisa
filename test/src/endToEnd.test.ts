@@ -102,7 +102,7 @@ describe("End to end", () => {
             new Map([[ChannelType.Kitsune, (obj: any) => new KitsuneAppointment(obj)]])
         );
         await store.start();
-        const watcher = new Watcher(responderManager, blockProcessor, store, 0);
+        const watcher = new Watcher(responderManager, blockProcessor, store, 0, 20);
         await watcher.start();
         const player0Contract = channelContract.connect(provider.getSigner(player0));
 

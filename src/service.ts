@@ -47,7 +47,8 @@ export class PisaService extends StartStopService {
      * @param wallet A signing authority for submitting transactions
      * @param receiptSigner A signing authority for receipts returned from Pisa
      * @param db The instance of the database
-     * @param watcherResponseDelay The number of blocks the watcher should wait before starting a response
+     * @param watcherResponseConfirmations The number of confirmations the watcher should wait before starting a response
+     * @param watcherRemovalConfirmations The number of confirmations the watcher should wait before removing an appointment
      */
     constructor(
         config: IArgConfig,
@@ -55,7 +56,8 @@ export class PisaService extends StartStopService {
         wallet: ethers.Wallet,
         receiptSigner: ethers.Signer,
         db: LevelUp<encodingDown<string, any>>,
-        watcherResponseDelay: number
+        watcherResponseConfirmations: number,
+        watcherRemovalConfirmations: number
     ) {
         super("pisa");
         const app = express();
@@ -89,7 +91,8 @@ export class PisaService extends StartStopService {
             this.ethereumResponderManager,
             this.blockProcessor,
             this.appointmentStore,
-            watcherResponseDelay
+            watcherResponseConfirmations,
+            watcherRemovalConfirmations
         );
 
         // gc

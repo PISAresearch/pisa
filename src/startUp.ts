@@ -56,7 +56,7 @@ async function startUp() {
     const db = levelup(encodingDown(leveldown(config.dbDir), { valueEncoding: "json" }));
 
     // start the pisa service
-    const service = new PisaService(config, provider, watcherWallet, receiptSigner, db, 2);
+    const service = new PisaService(config, provider, watcherWallet, receiptSigner, db, 2, 20);
     service.start();
 
     // listen for stop events

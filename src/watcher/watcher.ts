@@ -1,5 +1,5 @@
 import { IEthereumAppointment, StartStopService } from "../dataEntities";
-import { ConfigurationError, ApplicationError } from "../dataEntities/errors";
+import { ConfigurationError, ApplicationError, ArgumentError } from "../dataEntities/errors";
 import { EthereumResponderManager } from "../responder";
 import { AppointmentStore } from "./store";
 import { BlockProcessor } from "../blockMonitor";
@@ -45,9 +45,18 @@ export class Watcher extends StartStopService {
         private readonly responder: EthereumResponderManager,
         private readonly blockProcessor: BlockProcessor<Block>,
         private readonly store: AppointmentStore,
-        private readonly blocksDelay: number
+        private readonly confirmationsBeforeResponse: number,
+        private readonly confirmationsBeforeRemoval: number
     ) {
         super("watcher");
+
+        if (confirmationsBeforeResponse > confirmationsBeforeRemoval) {
+            throw new ArgumentError(
+                `confirmationsBeforeResponse must be less than or equal to confirmationsBeforeRemoval.`,
+                confirmationsBeforeResponse,
+                confirmationsBeforeRemoval
+            );
+        }
 
         this.blockchainMachine = new BlockchainMachine<AppointmentsState, Block>(blockProcessor, {}, this.reducer);
 
@@ -98,7 +107,15 @@ export class Watcher extends StartStopService {
             st: AppointmentState | null | undefined
         ): boolean => {
             if (!st) return false;
-            return st.state === "observed" && block!.number >= st.blockObserved + this.blocksDelay;
+            return st.state === "observed" && block!.number - st.blockObserved + 1 >= this.confirmationsBeforeResponse;
+        };
+
+        const shouldRemoveAppointment = (
+            block: Block | null | undefined,
+            st: AppointmentState | null | undefined
+        ): boolean => {
+            if (!st) return false;
+            return st.state === "observed" && block!.number - st.blockObserved + 1 >= this.confirmationsBeforeRemoval;
         };
 
         for (const appointment of this.store.getAll()) {
@@ -119,9 +136,6 @@ export class Watcher extends StartStopService {
                     // pass the appointment to the responder to complete. At this point the job has completed as far as
                     // the watcher is concerned, therefore although respond is an async function we do not need to await it for a result
                     this.responder.respond(appointment);
-
-                    // after firing a response we can remove the appointment from the store
-                    await this.store.removeById(appointment.id);
                 } catch (doh) {
                     // an error occured whilst responding to the callback - this is serious and the problem needs to be correctly diagnosed
                     this.logger.error(
@@ -131,6 +145,11 @@ export class Watcher extends StartStopService {
                     );
                     this.logger.error(appointment.formatLog(doh));
                 }
+            }
+
+            if (shouldRemoveAppointment(head, appState) && !shouldRemoveAppointment(prevHead, prevAppState)) {
+                // after enough confirmations (thus after the responder was hired) we can remove the appointment from the store
+                await this.store.removeById(appointment.id);
             }
         }
     }
