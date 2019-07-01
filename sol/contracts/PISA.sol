@@ -8,7 +8,7 @@ contract DataRegistryInterface {
      * It will record disputes from channels (used as evidence) and PISA will store its job there.
      */
     function getTotalShards() public returns (uint);
-    function setData(uint _appointmentid, bytes memory _data) public returns(uint _datashard, uint _index);
+    function setRecord(uint _appointmentid, bytes memory _data) public returns(uint _datashard, uint _index);
     function fetchRecord(uint _datashard, address _sc,  uint _appointmentid, uint _index) public returns (bytes memory);
     function fetchRecords(uint _datashard, address _sc, uint _appointmentid) public returns (bytes[] memory);
 
@@ -114,7 +114,7 @@ contract PISA {
         // It will "append" this entry to the list. So if we handle the job for multiple customers,
         // it'll be appended to the list.
         uint pisaid = uint(keccak256(abi.encode(appointment.sc, appointment.cus, appointment.appointmentid)));
-        DataRegistryInterface(dataregistry).setData(pisaid, callLog);
+        DataRegistryInterface(dataregistry).setRecord(pisaid, callLog);
 
         // ALL GOOD! Looks like we should call the function and then store it.
         // By the way, _callData should be formatted as abi.encodeWithSignature("cool(uint256)", inputdata).

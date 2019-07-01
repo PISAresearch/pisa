@@ -4,7 +4,7 @@ pragma experimental ABIEncoderV2;
 contract DataRegistryInterface {
 
     // Log all challenges (and resolving it) via the data registry
-    function setData(uint _appointmentid, bytes memory _data) public returns(uint _datashard, uint _index);
+    function setRecord(uint _appointmentid, bytes memory _data) public returns(uint _datashard, uint _index);
 }
 
 contract ChallengeCommandContract {
@@ -22,7 +22,7 @@ contract ChallengeCommandContract {
 
     // Data Registry logging information
     address dataregistry;
-    bytes32 id;
+    uint id;
 
     event ChallengeEvent(uint shard, address addr, uint id, uint index, bytes data);
     event ResolveEvent(uint shard, address addr, uint id, uint index, bytes data);
@@ -30,7 +30,7 @@ contract ChallengeCommandContract {
     // Install data registry upon startup.
     constructor(address _registry) public {
         dataregistry = _registry;
-        id = 0;
+        id = 0; // We are just using the default
         challengePeriod = 50; // hard-coded, 50 blocks.
     }
 
@@ -45,20 +45,19 @@ contract ChallengeCommandContract {
         bytes memory encoded = abi.encode(0, block.number, challengePeriod, v);
         uint datashard;
         uint index;
-        (datashard, index) = DataRegistryInterface(dataregistry).setData(uint(id), encoded);
-
+        (datashard, index) = DataRegistryInterface(dataregistry).setRecord(uint(id), encoded);
         emit ChallengeEvent(datashard, address(this), uint(id), index, encoded);
     }
 
     // Evidence for the challenge period
     // PISA is expected to call it.
-    function evidence(bytes memory action) public {
+    function evidence() public {
         require(flag == Flag.CHALLENGE);
 
-        // we just ignore the action here...
-        // dont care we are just mocking up example
-        // just extend deadline
-        // this is what counterfactual does.
+        // Ideally some "action" or "evidence" is sent here
+        // And potentially processed via the blockchain.
+        // We ignore it... because it doesn't matter for us.
+        
         challengeExpiry = challengeExpiry + challengePeriod;
     }
 
@@ -86,9 +85,8 @@ contract ChallengeCommandContract {
         bytes memory encoded = abi.encode(1, block.number, v);
         uint datashard;
         uint index;
-        (datashard, index) = DataRegistryInterface(dataregistry).setData(uint(id), encoded);
-
-        emit ResolveEvent(datashard, address(this), uint(id), index, encoded);
+        (datashard, index) = DataRegistryInterface(dataregistry).setRecord(uint(id), encoded);
+        emit ResolveEvent(datashard, address(this), id, index, encoded);
     }
 
     // Helper function for unit-testing

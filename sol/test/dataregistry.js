@@ -83,7 +83,7 @@ contract('DataRegistry', (accounts) => {
     let encoded = web3.eth.abi.encodeParameters(['uint','uint','uint'], [1,2,3]);
 
     // Store the data
-    await registryInstance.setData(123, encoded, {from: accounts[7]});
+    await registryInstance.setRecord(123, encoded, {from: accounts[7]});
     let shard = await registryInstance.getDataShardIndex.call(timenow);
     let data = await registryInstance.fetchRecord.call(shard, accounts[7], 123, 0);
     assert.equal(encoded,data, "Encoded data should be stored in the data registry");
@@ -105,8 +105,8 @@ contract('DataRegistry', (accounts) => {
     let encoded1 = web3.eth.abi.encodeParameters(['uint','uint'], [6787891,1231232]);
 
     // Store the data
-    await registryInstance.setData(123, encoded0, {from: accounts[6]});
-    await registryInstance.setData(123, encoded1, {from: accounts[6]});
+    await registryInstance.setRecord(123, encoded0, {from: accounts[6]});
+    await registryInstance.setRecord(123, encoded1, {from: accounts[6]});
     let shard = await registryInstance.getDataShardIndex.call(timenow);
     let data = await registryInstance.fetchRecords.call(shard, accounts[6], 123);
 
@@ -144,12 +144,12 @@ contract('DataRegistry', (accounts) => {
         let encoded2 = web3.eth.abi.encodeParameters(['uint','uint','uint'], [oldtimestamp-10,oldtimestamp+10,5]);
 
         // Store encoded data from an account
-        let result = await registryInstance.setData(123, encoded, {from: accounts[9]});
+        let result = await registryInstance.setRecord(123, encoded, {from: accounts[9]});
         let datashard =  await registryInstance.getDataShardIndex.call(oldtimestamp);
         let addr = await registryInstance.getDataShardAddress.call(oldtimestamp);
 
         // Store different encoded data from another account
-        result = await registryInstance.setData(123, encoded2, {from: accounts[6]});
+        result = await registryInstance.setRecord(123, encoded2, {from: accounts[6]});
         let samedatashard =  await registryInstance.getDataShardIndex.call(oldtimestamp);
         let sameaddr = await registryInstance.getDataShardAddress.call(oldtimestamp);
 

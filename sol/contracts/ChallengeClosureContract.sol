@@ -4,7 +4,7 @@ pragma experimental ABIEncoderV2;
 contract DataRegistryInterface {
 
     // Log all challenges (and resolving it) via the data registry
-    function setData(uint _appointmentid, bytes memory _data) public returns(uint _datashard, uint _index);
+    function setRecord(uint _appointmentid, bytes memory _data) public returns(uint _datashard, uint _index);
 }
 
 contract ChallengeClosureContract {
@@ -45,7 +45,7 @@ contract ChallengeClosureContract {
         bytes memory encoded = abi.encode(0, block.number, challengePeriod, v);
         uint datashard;
         uint index;
-        (datashard, index) = DataRegistryInterface(dataregistry).setData(uint(id), encoded);
+        (datashard, index) = DataRegistryInterface(dataregistry).setRecord(uint(id), encoded);
 
         emit ChallengeEvent(datashard, address(this), uint(id), index, encoded);
     }
@@ -77,7 +77,7 @@ contract ChallengeClosureContract {
         bytes memory encoded = abi.encode(1, block.number, v);
         uint datashard;
         uint index;
-        (datashard, index) = DataRegistryInterface(dataregistry).setData(uint(id), encoded);
+        (datashard, index) = DataRegistryInterface(dataregistry).setRecord(uint(id), encoded);
 
         emit ResolveEvent(datashard, address(this), uint(id), index, encoded);
     }
