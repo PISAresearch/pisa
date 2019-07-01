@@ -164,7 +164,15 @@ describe("GasQueue", () => {
         expect(appendedQueue.queueItems[2].request).to.equal(request);
         expect(appendedQueue.queueItems[2].idealGasPrice).to.equal(request.idealGasPrice);
         expect(appendedQueue.queueItems[2].currentGasPrice).to.equal(request.idealGasPrice);
+
+        checkClone(queue, appendedQueue);
     });
+
+    // TODO:174: tidy up the function order in this file
+    const checkClone = (queue: GasQueue, newQueue: GasQueue) => {
+        expect(queue).to.not.equal(newQueue);
+        expect(queue.queueItems).to.not.equal(newQueue.queueItems);
+    };
 
     const replacedGasPrice = (rate: number, currentGasPrice: BigNumber) => {
         const rRate = new BigNumber(rate).add(100);
@@ -213,5 +221,97 @@ describe("GasQueue", () => {
         expect(appendedQueue.queueItems[3].currentGasPrice.toNumber()).to.equal(
             queue.queueItems[2].currentGasPrice.toNumber()
         );
+
+        checkClone(queue, appendedQueue);
     });
+
+    it("add throws expection if depth reached", () => {
+        const items = [
+            createGasQueueItem(1, new BigNumber(150), new BigNumber(150), createIdentifier("data", "to")),
+            createGasQueueItem(2, new BigNumber(100), new BigNumber(100), createIdentifier("data1", "to1")),
+            createGasQueueItem(3, new BigNumber(80), new BigNumber(80), createIdentifier("data2", "to2"))
+        ];
+        const request = new GasQueueItemRequest(
+            createIdentifier("data3", "to3"),
+            new BigNumber(110),
+            createResponseData()
+        );
+
+        const queue = new GasQueue(items, 4, 15, 3);
+        expect(() => queue.add(request)).to.throw(ArgumentError);
+    });
+
+    it("consume to remove queue item", () => {
+        const emptyNonce = 4;
+        const replacementRate = 15;
+        const maxQueueDepth = 5;
+        const consumedIdentifier = createIdentifier("data1", "to1");
+        const items = [
+            createGasQueueItem(1, new BigNumber(110), new BigNumber(110), createIdentifier("data", "to")),
+            createGasQueueItem(2, new BigNumber(100), new BigNumber(100), consumedIdentifier),
+            createGasQueueItem(3, new BigNumber(80), new BigNumber(80), createIdentifier("data2", "to2"))
+        ];
+
+        const queue = new GasQueue(items, emptyNonce, replacementRate, maxQueueDepth);
+        const consumedQueue = queue.consume(consumedIdentifier);
+
+        // item 2 has been removed - and item 1 takes it's position (bumped nonce + gasPrice)
+        expect(consumedQueue.emptyNonce).to.equal(emptyNonce);
+        expect(consumedQueue.maxQueueDepth).to.equal(maxQueueDepth);
+        expect(consumedQueue.replacementRate).to.equal(replacementRate);
+
+        expect(consumedQueue.queueItems[0].nonce).to.equal(2);
+        expect(consumedQueue.queueItems[0].request).to.equal(items[0].request);
+        expect(consumedQueue.queueItems[0].idealGasPrice).to.equal(items[0].request.idealGasPrice);
+        expect(consumedQueue.queueItems[0].currentGasPrice.toNumber()).to.equal(115);
+
+        // // unchanged next item
+        expect(consumedQueue.queueItems[1].nonce).to.equal(queue.queueItems[2].nonce);
+        expect(consumedQueue.queueItems[1].request).to.equal(queue.queueItems[2].request);
+        expect(consumedQueue.queueItems[1].idealGasPrice).to.equal(queue.queueItems[2].idealGasPrice);
+        expect(consumedQueue.queueItems[1].currentGasPrice).to.equal(queue.queueItems[2].currentGasPrice);
+
+        expect(consumedQueue.queueItems.length).to.equal(queue.queueItems.length - 1);
+
+        checkClone(queue, consumedQueue);
+    });
+
+    it("consume to throw for unknown identifier", () => {
+        const emptyNonce = 4;
+        const replacementRate = 15;
+        const maxQueueDepth = 5;
+        const consumedIdentifier = createIdentifier("data1", "to1");
+        const items = [
+            createGasQueueItem(1, new BigNumber(110), new BigNumber(110), createIdentifier("data", "to")),
+            createGasQueueItem(2, new BigNumber(100), new BigNumber(100), consumedIdentifier),
+            createGasQueueItem(3, new BigNumber(80), new BigNumber(80), createIdentifier("data2", "to2"))
+        ];
+
+        const queue = new GasQueue(items, emptyNonce, replacementRate, maxQueueDepth);
+        expect(() => queue.consume(createIdentifier("data3", "to3"))).to.throw(ArgumentError);
+    });
+
+    it("dequeue to remove first element only", () => {
+        const emptyNonce = 4;
+        const replacementRate = 15;
+        const maxQueueDepth = 5;
+        const items = [
+            createGasQueueItem(1, new BigNumber(110), new BigNumber(110), createIdentifier("data", "to")),
+            createGasQueueItem(2, new BigNumber(100), new BigNumber(100), createIdentifier("data1", "to1")),
+            createGasQueueItem(3, new BigNumber(80), new BigNumber(80), createIdentifier("data2", "to2"))
+        ];
+
+        const queue = new GasQueue(items, emptyNonce, replacementRate, maxQueueDepth);
+        const dequeuedQueue = queue.dequeue()
+
+        expect(dequeuedQueue.emptyNonce).to.equal(emptyNonce);
+        expect(dequeuedQueue.maxQueueDepth).to.equal(maxQueueDepth);
+        expect(dequeuedQueue.replacementRate).to.equal(replacementRate);
+        
+        expect(dequeuedQueue.queueItems.length).to.equal(2)
+        expect(dequeuedQueue.queueItems[0]).to.equal(queue.queueItems[1])
+        expect(dequeuedQueue.queueItems[1]).to.equal(queue.queueItems[2])
+
+        checkClone(queue, dequeuedQueue)
+    })
 });

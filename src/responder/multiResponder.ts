@@ -85,7 +85,7 @@ export class MultiResponder extends EthereumResponder {
             // that we need to replace some transactions on the network. Find those and
             // broadcast them
             const replacedQueue = this.queue.add(request);
-            const replacedTransactions = replacedQueue.difference(this.queue);
+            const replacedTransactions = replacedQueue.queueItems.filter(tx => !this.queue.queueItems.includes(tx));
             this.queue = replacedQueue;
 
             await Promise.all(replacedTransactions.map(this.broadcast));
@@ -103,7 +103,7 @@ export class MultiResponder extends EthereumResponder {
      * A newly mined transaction requires updating the local representation of the
      * transaction pool. If a transaction has been mined, but was already replaced
      * then more transactions may need to be re-issued.
-     * @param txIdentifier  
+     * @param txIdentifier
      * Identifier of the mined transaction
      * @param nonce
      * Nonce of the mined transaction. Should always correspond to the nonce at the
@@ -120,7 +120,7 @@ export class MultiResponder extends EthereumResponder {
                     `Transaction mined for empty queue at nonce ${nonce}. ${inspect(txIdentifier)}`
                 );
             }
-            if (!this.queue.contains(txIdentifier)) {
+            if (this.queue.queueItems.findIndex(i => i.request.identifier.equals(txIdentifier)) !== -1) {
                 throw new QueueConsistencyError(`Transaction identifier not found in queue. ${inspect(txIdentifier)}`);
             }
             const frontItem = this.queue.queueItems[0];
@@ -145,7 +145,7 @@ export class MultiResponder extends EthereumResponder {
                 // and bump up all transactions with a lower nonce so that the tx that is
                 // at the front of the current queue - but was not mined - remains there
                 const reducedQueue = this.queue.consume(txIdentifier);
-                const replacedTransactions = reducedQueue.difference(this.queue);
+                const replacedTransactions = reducedQueue.queueItems.filter(tx => !this.queue.queueItems.includes(tx));
                 this.queue = reducedQueue;
 
                 // since we had to bump up some transactions - change their nonces
