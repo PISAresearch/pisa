@@ -1,5 +1,4 @@
 import { IAppointmentStore } from "./store";
-import { AppointmentSubscriber } from "./appointmentSubscriber";
 import { ethers } from "ethers";
 import { StartStopService } from "../dataEntities";
 

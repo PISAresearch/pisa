@@ -1,11 +1,12 @@
-import { IEthereumAppointment, StartStopService } from "../dataEntities";
-import { ConfigurationError, ApplicationError, ArgumentError } from "../dataEntities/errors";
+import { IEthereumAppointment } from "../dataEntities";
+import { ApplicationError, ArgumentError } from "../dataEntities/errors";
 import { EthereumResponderManager } from "../responder";
 import { AppointmentStore } from "./store";
 import { BlockProcessor } from "../blockMonitor";
 import { Block } from "../dataEntities/block";
 import { EventFilter } from "ethers";
-import { BlockchainMachine } from "../blockMonitor/blockchainMachine";
+import { Component } from "../blockMonitor/component";
+import logger from "../logger";
 
 /** Portion of the anchor state for a single appointment */
 type AppointmentState =
@@ -34,8 +35,7 @@ const hasLogMatchingEvent = (block: Block, filter: EventFilter): boolean => {
  * observe method to complete the task. The watcher is not responsible for ensuring that observed events are properly
  * acted upon, that is the responsibility of the responder.
  */
-export class Watcher extends StartStopService {
-    private blockchainMachine: BlockchainMachine<AppointmentsState, Block>;
+export class Watcher extends Component<AppointmentsState, Block> {
     private appointmentsState: AppointmentsState = {};
 
     /**
@@ -50,8 +50,7 @@ export class Watcher extends StartStopService {
         private readonly confirmationsBeforeResponse: number,
         private readonly confirmationsBeforeRemoval: number
     ) {
-        super("watcher");
-
+        super();
         if (confirmationsBeforeResponse > confirmationsBeforeRemoval) {
             throw new ArgumentError(
                 `confirmationsBeforeResponse must be less than or equal to confirmationsBeforeRemoval.`,
@@ -60,9 +59,10 @@ export class Watcher extends StartStopService {
             );
         }
 
-        this.blockchainMachine = new BlockchainMachine<AppointmentsState, Block>(blockProcessor, {}, this.reducer);
-
-        this.handleNewStateEvent = this.handleNewStateEvent.bind(this);
+        // Get the initial appointment states
+        for (const appointment of this.store.getAll()) {
+            this.appointmentsState[appointment.id] = this.getAppointmentState(appointment, this.blockProcessor.head);
+        }
     }
 
     // Computes the update of the state of a specific appointment
@@ -87,7 +87,7 @@ export class Watcher extends StartStopService {
     }
 
     // Reducer for the whole anchor state
-    private reducer = (prevAppointmentsState: AppointmentsState, block: Block): AppointmentsState => {
+    public reduce(prevAppointmentsState: AppointmentsState, block: Block): AppointmentsState {
         const result: AppointmentsState = {};
         const appointments = this.store.getAll();
         for (const appointment of appointments) {
@@ -98,26 +98,20 @@ export class Watcher extends StartStopService {
             );
         }
         return result;
-    };
+    }
 
-    private async handleNewStateEvent(
+    public async handleNewStateEvent(
+        prevHead: Block,
+        prevState: AppointmentsState,
         head: Block,
-        state: AppointmentsState,
-        prevHead: Block | null,
-        prevState: AppointmentsState | null
+        state: AppointmentsState
     ) {
-        const shouldHaveStartedResponder = (
-            block: Block | null | undefined,
-            st: AppointmentState | null | undefined
-        ): boolean => {
+        const shouldHaveStartedResponder = (block: Block, st: AppointmentState | undefined): boolean => {
             if (!st) return false;
             return st.state === "observed" && block!.number - st.blockObserved + 1 >= this.confirmationsBeforeResponse;
         };
 
-        const shouldRemoveAppointment = (
-            block: Block | null | undefined,
-            st: AppointmentState | null | undefined
-        ): boolean => {
+        const shouldRemoveAppointment = (block: Block, st: AppointmentState | undefined): boolean => {
             if (!st) return false;
             return st.state === "observed" && block!.number - st.blockObserved + 1 >= this.confirmationsBeforeRemoval;
         };
@@ -128,7 +122,7 @@ export class Watcher extends StartStopService {
             if (shouldHaveStartedResponder(head, appState) && !shouldHaveStartedResponder(prevHead, prevAppState)) {
                 // start the responder
                 try {
-                    this.logger.info(
+                    logger.info(
                         appointment.formatLog(
                             `Observed event ${appointment.getEventName()} in contract ${appointment.getContractAddress()}.`
                         )
@@ -142,12 +136,12 @@ export class Watcher extends StartStopService {
                     this.responder.respond(appointment);
                 } catch (doh) {
                     // an error occured whilst responding to the callback - this is serious and the problem needs to be correctly diagnosed
-                    this.logger.error(
+                    logger.error(
                         appointment.formatLog(
                             `An unexpected error occured whilst responding to event ${appointment.getEventName()} in contract ${appointment.getContractAddress()}.`
                         )
                     );
-                    this.logger.error(appointment.formatLog(doh));
+                    logger.error(appointment.formatLog(doh));
                 }
             }
 
@@ -156,18 +150,6 @@ export class Watcher extends StartStopService {
                 await this.store.removeById(appointment.id);
             }
         }
-    }
-
-    protected async startInternal() {
-        this.blockchainMachine.on(BlockchainMachine.NEW_STATE_EVENT, this.handleNewStateEvent);
-
-        // Get the initial appointment states
-        for (const appointment of this.store.getAll()) {
-            this.appointmentsState[appointment.id] = this.getAppointmentState(appointment, this.blockProcessor.head);
-        }
-    }
-    protected async stopInternal() {
-        this.blockchainMachine.off(BlockchainMachine.NEW_STATE_EVENT, this.handleNewStateEvent);
     }
 
     // Gets the appointment state based on the whole history
@@ -189,17 +171,5 @@ export class Watcher extends StartStopService {
                 blockObserved: eventAncestor.number
             };
         }
-    }
-
-    /**
-     * Starts watching for an event specified by the appointment, and respond if the event is raised.
-     * Returns `true` if the supplied appointment was added or updated by the store, `false` otherwise.
-     * @param appointment Contains information about where to watch for events, and what information to supply as part of a response
-     */
-    public async addAppointment(appointment: IEthereumAppointment): Promise<boolean> {
-        if (!appointment.passedInspection) throw new ConfigurationError(`Inspection not passed.`);
-
-        // update this appointment in the store, return true on success
-        return await this.store.addOrUpdateByStateLocator(appointment);
     }
 }

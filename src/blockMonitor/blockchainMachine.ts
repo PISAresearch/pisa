@@ -1,20 +1,16 @@
-import { EventEmitter } from "events";
 import { BlockProcessor } from "./blockProcessor";
-import { IBlockStub, ApplicationError } from "../dataEntities";
+import { IBlockStub } from "../dataEntities";
+import { Component } from "./component";
 
 // Generic class to handle the anchor statee of a blockchain state machine
-export class BlockchainMachine<TAnchorState extends object, TBlock extends IBlockStub> extends EventEmitter {
-    public static NEW_STATE_EVENT = "new_state";
-
+export class BlockchainMachine<TAnchorState extends object, TBlock extends IBlockStub> {
     private blockStates = new WeakMap<TBlock, TAnchorState>();
 
     constructor(
         private blockProcessor: BlockProcessor<TBlock>,
         private initialAnchorState: TAnchorState,
-        private reducer: (prevAnchorState: TAnchorState, block: TBlock) => TAnchorState
+        private component: Component<TAnchorState, TBlock>
     ) {
-        super();
-
         this.processNewHead = this.processNewHead.bind(this);
 
         blockProcessor.on(BlockProcessor.NEW_HEAD_EVENT, this.processNewHead);
@@ -38,7 +34,7 @@ export class BlockchainMachine<TAnchorState extends object, TBlock extends IBloc
             // the previous state is the state of the parent block if available, or the initial state otherwise
             const prevAnchorState = parentBlock ? this.blockStates.get(parentBlock)! : this.initialAnchorState;
 
-            state = this.reducer(prevAnchorState, block);
+            state = this.component.reduce(prevAnchorState, block);
             this.blockStates.set(block, state);
         }
 
@@ -46,6 +42,6 @@ export class BlockchainMachine<TAnchorState extends object, TBlock extends IBloc
 
         // TODO: should we (deeply) compare old state and new state and only emit if different?
         // Probably not, it might be expensive/inefficient depending on what is in TAnchorState
-        this.emit(BlockchainMachine.NEW_STATE_EVENT, head, state, prevHead, prevState);
+        if (prevHead && prevState && state) this.component.handleNewStateEvent(prevHead, prevState, head, state);
     }
 }

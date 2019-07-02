@@ -24,6 +24,8 @@ import { LevelUp } from "levelup";
 import encodingDown from "encoding-down";
 import { blockFactory } from "./blockMonitor";
 import { Block } from "./dataEntities/block";
+import { BlockchainMachine } from "./blockMonitor/blockchainMachine";
+import { AppointmentsState } from "./watcher/watcher";
 
 /**
  * Hosts a PISA service at the endpoint.
@@ -35,7 +37,6 @@ export class PisaService extends StartStopService {
     private readonly blockTimeoutDetector: BlockTimeoutDetector;
     private readonly confirmationObserver: ConfirmationObserver;
     private readonly ethereumResponderManager: EthereumResponderManager;
-    private readonly watcher: Watcher;
     private readonly appointmentStore: AppointmentStore;
     private readonly transactionTracker: TransactionTracker;
 
@@ -87,13 +88,17 @@ export class PisaService extends StartStopService {
             new GasPriceEstimator(wallet.provider, this.blockProcessor),
             this.transactionTracker
         );
-        this.watcher = new Watcher(
+
+        const watcher = new Watcher(
             this.ethereumResponderManager,
             this.blockProcessor,
             this.appointmentStore,
             watcherResponseConfirmations,
             watcherRemovalConfirmations
         );
+
+        // TODO:198: stop this elegantly?
+        new BlockchainMachine<AppointmentsState, Block>(this.blockProcessor, {}, watcher);
 
         // gc
         this.garbageCollector = new AppointmentStoreGarbageCollector(provider, 10, this.appointmentStore);
@@ -102,7 +107,7 @@ export class PisaService extends StartStopService {
         const appointmentSigner = new HotEthereumAppointmentSigner(receiptSigner);
 
         // tower
-        const tower = new PisaTower(provider, this.watcher, appointmentSigner, configs);
+        const tower = new PisaTower(provider, this.appointmentStore, appointmentSigner, configs);
 
         app.post("/appointment", this.appointment(tower));
 
@@ -118,12 +123,9 @@ export class PisaService extends StartStopService {
         await this.confirmationObserver.start();
         await this.garbageCollector.start();
         await this.appointmentStore.start();
-        await this.watcher.start();
     }
 
     protected async stopInternal() {
-        // stop in reverse order
-        await this.watcher.stop();
         await this.appointmentStore.stop();
         await this.garbageCollector.stop();
         await this.confirmationObserver.stop();
