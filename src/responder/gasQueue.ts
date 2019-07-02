@@ -61,7 +61,7 @@ export class GasQueueItem {
     ) {
         if (currentGasPrice.lt(idealGasPrice)) {
             throw new ArgumentError(
-                "Current gas price must be greater than ideal gas price",
+                "Current gas price cannot be less than ideal gas price",
                 currentGasPrice,
                 idealGasPrice
             );
