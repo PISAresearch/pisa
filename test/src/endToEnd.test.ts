@@ -1,5 +1,5 @@
 import "mocha";
-import { Watcher } from "../../src/watcher/watcher";
+import { Watcher, AppointmentsState } from "../../src/watcher/watcher";
 import { KitsuneInspector, KitsuneAppointment, KitsuneTools } from "../../src/integrations/kitsune";
 import { ethers } from "ethers";
 import Ganache from "ganache-core";
@@ -16,6 +16,7 @@ import {
 } from "../../src/blockMonitor";
 import levelup from "levelup";
 import MemDown from "memdown";
+import { BlockchainMachine } from "../../src/blockMonitor/blockchainMachine";
 
 const ganache = Ganache.provider({
     mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect"
@@ -102,17 +103,16 @@ describe("End to end", () => {
             new Map([[ChannelType.Kitsune, (obj: any) => new KitsuneAppointment(obj)]])
         );
         await store.start();
+        await store.addOrUpdateByStateLocator(appointment);
         const watcher = new Watcher(responderManager, blockProcessor, store, 0, 20);
-        await watcher.start();
         const player0Contract = channelContract.connect(provider.getSigner(player0));
 
-        await watcher.addAppointment(appointment);
+        new BlockchainMachine<AppointmentsState, Block>(blockProcessor, {}, watcher);
 
         // 3. Trigger a dispute
         const tx = await player0Contract.triggerDispute();
         await tx.wait();
 
-        await watcher.stop();
         await store.stop();
         await transactionTracker.stop();
         await confirmationObserver.stop();
