@@ -7,15 +7,17 @@ import { Block } from "../dataEntities/block";
 import { EventFilter } from "ethers";
 import { BlockchainMachine } from "../blockMonitor/blockchainMachine";
 
+/** Portion of the anchor state for a single appointment */
 type AppointmentState =
     | {
           state: "watching";
       }
     | {
           state: "observed";
-          blockObserved: number;
+          blockObserved: number; // block number in which the event was observed
       };
 
+/** Anchor state for all appointments, indexed by appointment id */
 export type AppointmentsState = {
     [appointmentId: string]: Readonly<AppointmentState> | undefined;
 };
@@ -63,6 +65,7 @@ export class Watcher extends StartStopService {
         this.handleNewStateEvent = this.handleNewStateEvent.bind(this);
     }
 
+    // Computes the update of the state of a specific appointment
     private reduceAppointmentState(
         appointment: IEthereumAppointment,
         prevAppointmentState: AppointmentState | undefined,
@@ -83,6 +86,7 @@ export class Watcher extends StartStopService {
         }
     }
 
+    // Reducer for the whole anchor state
     private reducer = (prevAppointmentsState: AppointmentsState, block: Block): AppointmentsState => {
         const result: AppointmentsState = {};
         const appointments = this.store.getAll();
