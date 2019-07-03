@@ -8,19 +8,24 @@ import { EventFilter } from "ethers";
 import { Component } from "../blockMonitor/component";
 import logger from "../logger";
 
+enum AppointmentState {
+    WATCHING,
+    OBSERVED
+}
+
 /** Portion of the anchor state for a single appointment */
-type AppointmentState =
+type WatcherAppointmentState =
     | {
-          state: "watching";
+          state: AppointmentState.WATCHING;
       }
     | {
-          state: "observed";
+          state: AppointmentState.OBSERVED;
           blockObserved: number; // block number in which the event was observed
       };
 
 /** Anchor state for all appointments, indexed by appointment id */
-export type AppointmentsState = {
-    [appointmentId: string]: Readonly<AppointmentState> | undefined;
+export type WatcherAnchorState = {
+    [appointmentId: string]: Readonly<WatcherAppointmentState> | undefined;
 };
 
 // TODO: move this to a utility function somewhere
@@ -35,8 +40,8 @@ const hasLogMatchingEvent = (block: Block, filter: EventFilter): boolean => {
  * observe method to complete the task. The watcher is not responsible for ensuring that observed events are properly
  * acted upon, that is the responsibility of the responder.
  */
-export class Watcher extends Component<AppointmentsState, Block> {
-    private appointmentsState: AppointmentsState = {};
+export class Watcher extends Component<WatcherAnchorState, Block> {
+    private appointmentsState: WatcherAnchorState = {};
 
     /**
      * Watches the chain for events related to the supplied appointments. When an event is noticed data is forwarded to the
@@ -61,39 +66,45 @@ export class Watcher extends Component<AppointmentsState, Block> {
 
         // Get the initial appointment states
         for (const appointment of this.store.getAll()) {
-            this.appointmentsState[appointment.id] = this.getAppointmentState(appointment, this.blockProcessor.head);
+            this.appointmentsState[appointment.id] = this.getWatcherAppointmentState(
+                appointment,
+                this.blockProcessor.head
+            );
         }
     }
 
     // Computes the update of the state of a specific appointment
-    private reduceAppointmentState(
+    private reduceWatcherAppointmentState(
         appointment: IEthereumAppointment,
-        prevAppointmentState: AppointmentState | undefined,
+        prevWatcherAppointmentState: WatcherAppointmentState | undefined,
         block: Block
-    ): AppointmentState {
-        if (!prevAppointmentState) {
+    ): WatcherAppointmentState {
+        if (!prevWatcherAppointmentState) {
             // Compute from the cache
-            return this.getAppointmentState(appointment, block);
+            return this.getWatcherAppointmentState(appointment, block);
         } else {
-            if (prevAppointmentState.state === "watching" && hasLogMatchingEvent(block, appointment.getEventFilter())) {
+            if (
+                prevWatcherAppointmentState.state === AppointmentState.WATCHING &&
+                hasLogMatchingEvent(block, appointment.getEventFilter())
+            ) {
                 return {
-                    state: "observed",
+                    state: AppointmentState.OBSERVED,
                     blockObserved: block.number
                 };
             } else {
-                return prevAppointmentState;
+                return prevWatcherAppointmentState;
             }
         }
     }
 
     // Reducer for the whole anchor state
-    public reduce(prevAppointmentsState: AppointmentsState, block: Block): AppointmentsState {
-        const result: AppointmentsState = {};
+    public reduce(prevWatcherAnchorState: WatcherAnchorState, block: Block): WatcherAnchorState {
+        const result: WatcherAnchorState = {};
         const appointments = this.store.getAll();
         for (const appointment of appointments) {
-            result[appointment.id] = this.reduceAppointmentState(
+            result[appointment.id] = this.reduceWatcherAppointmentState(
                 appointment,
-                prevAppointmentsState[appointment.id],
+                prevWatcherAnchorState[appointment.id],
                 block
             );
         }
@@ -102,18 +113,24 @@ export class Watcher extends Component<AppointmentsState, Block> {
 
     public async handleNewStateEvent(
         prevHead: Block,
-        prevState: AppointmentsState,
+        prevState: WatcherAnchorState,
         head: Block,
-        state: AppointmentsState
+        state: WatcherAnchorState
     ) {
-        const shouldHaveStartedResponder = (block: Block, st: AppointmentState | undefined): boolean => {
+        const shouldHaveStartedResponder = (block: Block, st: WatcherAppointmentState | undefined): boolean => {
             if (!st) return false;
-            return st.state === "observed" && block!.number - st.blockObserved + 1 >= this.confirmationsBeforeResponse;
+            return (
+                st.state === AppointmentState.OBSERVED &&
+                block!.number - st.blockObserved + 1 >= this.confirmationsBeforeResponse
+            );
         };
 
-        const shouldRemoveAppointment = (block: Block, st: AppointmentState | undefined): boolean => {
+        const shouldRemoveAppointment = (block: Block, st: WatcherAppointmentState | undefined): boolean => {
             if (!st) return false;
-            return st.state === "observed" && block!.number - st.blockObserved + 1 >= this.confirmationsBeforeRemoval;
+            return (
+                st.state === AppointmentState.OBSERVED &&
+                block!.number - st.blockObserved + 1 >= this.confirmationsBeforeRemoval
+            );
         };
 
         for (const appointment of this.store.getAll()) {
@@ -153,7 +170,7 @@ export class Watcher extends Component<AppointmentsState, Block> {
     }
 
     // Gets the appointment state based on the whole history
-    private getAppointmentState(appointment: IEthereumAppointment, head: Block): AppointmentState {
+    private getWatcherAppointmentState(appointment: IEthereumAppointment, head: Block): WatcherAppointmentState {
         const filter = appointment.getEventFilter();
         if (!filter.topics) throw new ApplicationError(`topics should not be undefined`);
 
@@ -163,11 +180,11 @@ export class Watcher extends Component<AppointmentsState, Block> {
 
         if (!eventAncestor) {
             return {
-                state: "watching"
+                state: AppointmentState.WATCHING
             };
         } else {
             return {
-                state: "observed",
+                state: AppointmentState.OBSERVED,
                 blockObserved: eventAncestor.number
             };
         }
