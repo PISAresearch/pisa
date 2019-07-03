@@ -72,7 +72,7 @@ contract('DataRegistry', (accounts) => {
 
   });
 
-  it('Set item', async () => {
+  it('Set record', async () => {
     var registryInstance = await DataRegistry.deployed();
     var accounts =  await web3.eth.getAccounts();
 
@@ -117,6 +117,55 @@ contract('DataRegistry', (accounts) => {
 
     // No records should exist. So return should be false.
     data = await registryInstance.fetchRecords.call(shard, accounts[5], 123);
+    assert.equal(data.length, 0);
+  });
+
+  it('Set hash', async () => {
+    var registryInstance = await DataRegistry.deployed();
+    var accounts =  await web3.eth.getAccounts();
+
+    // Current time (latest block)
+    let timenow = await getCurrentTime();
+
+    // Store a dispute
+    let encoded = web3.eth.abi.encodeParameters(['uint','uint','uint'], [3,2,1]);
+    let hash =  web3.utils.keccak256(encoded);
+
+    // Store the data
+    await registryInstance.setHash(111111, encoded, {from: accounts[7]});
+    let shard = await registryInstance.getDataShardIndex.call(timenow);
+    let h = await registryInstance.fetchHash.call(shard, accounts[7], 111111, 0);
+    assert.equal(h, hash, "Hash should be stored in the data registry");
+
+    // Confirm there is no "out of bound" exception thrown
+    h = await registryInstance.fetchHash.call(shard, accounts[7], 111111, 2);
+    assert.notEqual(hash,h, "No hash should be stored!");
+  });
+
+  it('Set hashes', async () => {
+    var registryInstance = await DataRegistry.deployed();
+    var accounts =  await web3.eth.getAccounts();
+
+    // Current time (latest block)
+    let timenow = await getCurrentTime();
+
+    // Store a dispute
+    let encoded0 = web3.eth.abi.encodeParameters(['uint','uint','uint'], [312809,312789,903812]);
+    let encoded1 = web3.eth.abi.encodeParameters(['uint','uint'], [42373248,1917239]);
+
+    // Store the data
+    await registryInstance.setHash(999, encoded0, {from: accounts[6]});
+    await registryInstance.setHash(999, encoded1, {from: accounts[6]});
+    let shard = await registryInstance.getDataShardIndex.call(timenow);
+    let data = await registryInstance.fetchHashes.call(shard, accounts[6], 999);
+
+    // Check the fetch was successful and then check what we fetched
+    assert.equal(web3.utils.keccak256(encoded0),data[0]);
+    assert.equal(web3.utils.keccak256(encoded1),data[1]);
+    assert.notEqual(web3.utils.keccak256(encoded1), data[0]);
+
+    // No records should exist. So return should be false.
+    data = await registryInstance.fetchRecords.call(shard, accounts[5], 999);
     assert.equal(data.length, 0);
   });
 
