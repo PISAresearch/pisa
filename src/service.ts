@@ -24,8 +24,6 @@ import { LevelUp } from "levelup";
 import encodingDown from "encoding-down";
 import { blockFactory } from "./blockMonitor";
 import { Block } from "./dataEntities/block";
-import { BlockchainMachine } from "./blockMonitor/blockchainMachine";
-import { AppointmentsState } from "./watcher/watcher";
 
 /**
  * Hosts a PISA service at the endpoint.
@@ -96,9 +94,6 @@ export class PisaService extends StartStopService {
             watcherResponseConfirmations,
             watcherRemovalConfirmations
         );
-
-        // TODO:198: stop this elegantly?
-        new BlockchainMachine<AppointmentsState, Block>(this.blockProcessor, {}, watcher);
 
         // gc
         this.garbageCollector = new AppointmentStoreGarbageCollector(provider, 10, this.appointmentStore);
