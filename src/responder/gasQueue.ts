@@ -1,5 +1,5 @@
 import { IEthereumResponseData, ArgumentError } from "../dataEntities";
-import { BigNumber, formatUnits } from "ethers/utils";
+import { BigNumber } from "ethers/utils";
 import { ethers } from "ethers";
 
 export class PisaTransactionIdentifier {
@@ -61,7 +61,7 @@ export class GasQueueItem {
     ) {
         if (currentGasPrice.lt(idealGasPrice)) {
             throw new ArgumentError(
-                "Current gas price must be greater than ideal gas price",
+                "Current gas price cannot be less than ideal gas price",
                 currentGasPrice,
                 idealGasPrice
             );
@@ -241,9 +241,6 @@ export class GasQueue {
         if (this.depthReached()) {
             throw new ArgumentError(`Cannot add item. Max queue depth reached.`, this.maxQueueDepth);
         }
-        if (this.queueItems.find(q => q.request.identifier.equals(request.identifier))) {
-            throw new ArgumentError("Cannot add item. Item already exists in queue.", request.identifier);
-        }
 
         // starting from the highest gas price, look for the first tx
         // with ideal gas price less than the supplied one
@@ -274,8 +271,8 @@ export class GasQueue {
         if (index === -1) throw new ArgumentError("Identifier not found in queue.", identifier);
         const clonedArray = this.cloneQueueItems();
         // shift right the range to consume the item at the index
-        // the remove the front of the queue
-        this.shiftRight(clonedArray, 0, index);
+        // then remove the front of the queue
+        this.shiftRight(clonedArray, 0, index - 1);
         clonedArray.shift();
         return new GasQueue(clonedArray, this.emptyNonce, this.replacementRate, this.maxQueueDepth);
     }
@@ -287,21 +284,5 @@ export class GasQueue {
         const clonedArray = this.cloneQueueItems();
         clonedArray.shift();
         return new GasQueue(clonedArray, this.emptyNonce, this.replacementRate, this.maxQueueDepth);
-    }
-
-    /**
-     * The items in this queue that are not in the provided queue
-     * @param queue
-     */
-    public difference(queue: GasQueue) {
-        return this.queueItems.filter(tx => !queue.queueItems.includes(tx));
-    }
-
-    /**
-     * Returns true if a queue item with this identifier exists in this queue
-     * @param identifier
-     */
-    public contains(identifier: PisaTransactionIdentifier) {
-        return this.queueItems.findIndex(i => i.request.identifier.equals(identifier)) !== -1;
     }
 }
