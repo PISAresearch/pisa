@@ -147,7 +147,6 @@ export class MultiResponder extends EthereumResponder implements Component<Respo
                     });
                 }
             } else if (val.state === ResponderState.Pending) {
-                let txMined: boolean = false;
                 const transaction = this.blockContainsTransaction(block, val.queueItem.identifier);
                 if (transaction) {
                     result.set(key, {
@@ -156,35 +155,7 @@ export class MultiResponder extends EthereumResponder implements Component<Respo
                         nonce: this.minedByThisResponder(transaction.from) ? transaction.nonce : null,
                         state: ResponderState.Mined
                     });
-                    txMined = true;
-                }
-
-                for (const tx of block.transactions) {
-                    // a contract creation - cant be of interest
-                    if (!tx.to) continue;
-
-                    // look for matching transactions
-                    const txIdentifier = new PisaTransactionIdentifier(
-                        tx.chainId,
-                        tx.data,
-                        tx.to,
-                        tx.value,
-                        tx.gasLimit
-                    );
-                    if (txIdentifier.equals(val.queueItem.identifier)) {
-                        // found a transaction with this identifier - therefore block is observed
-                        result.set(key, {
-                            identifier: txIdentifier,
-                            blockMined: block.number,
-                            nonce: tx.nonce,
-                            state: ResponderState.Mined
-                        });
-                        txMined = true;
-                        break;
-                    }
-                }
-
-                if (!txMined) {
+                } else {
                     result.set(key, {
                         state: ResponderState.Pending,
                         queueItem: val.queueItem
