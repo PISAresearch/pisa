@@ -70,7 +70,6 @@ export class MultiResponder extends EthereumResponder implements Component<Respo
         signer: ethers.Signer,
         private readonly blockProcessor: BlockProcessor<Block>,
         private readonly gasEstimator: GasPriceEstimator,
-        private readonly transactionTracker: TransactionTracker,
         public readonly maxConcurrentResponses: number = 12,
         public readonly replacementRate: number = 13
     ) {
@@ -164,6 +163,12 @@ export class MultiResponder extends EthereumResponder implements Component<Respo
             }
         }
 
+        // what do we need to store in order to recover?
+
+        // a) we need to store a list of all the things we want to respond to
+        // - then query the node for pending transactions related to this address
+
+
         // do nothing for mined items
 
         return result;
@@ -189,7 +194,7 @@ export class MultiResponder extends EthereumResponder implements Component<Respo
             if (
                 transactionState.state === ResponderState.Pending &&
                 // TODO:198: add back the contains and difference functions
-                this.queue.queueItems.findIndex(i =>
+                this.mQueue.queueItems.findIndex(i =>
                     i.request.identifier.equals(transactionState.queueItem.identifier)
                 ) === -1
             ) {
@@ -200,7 +205,7 @@ export class MultiResponder extends EthereumResponder implements Component<Respo
         if (missingQueueItems.length !== 0) {
             // TODO:198: remoe this if above - also fill in the unlock of course
             // also, what if this is called before setup - should we setup in here?
-            const unlockedQueue = this.queue.unlock(missingQueueItems);
+            const unlockedQueue = this.mQueue.unlock(missingQueueItems);
             const replacedTransactions = unlockedQueue.queueItems.filter(tx => !this.mQueue.queueItems.includes(tx));
             this.mQueue = unlockedQueue;
             // broadcast these transactions
@@ -362,7 +367,6 @@ export class MultiResponder extends EthereumResponder implements Component<Respo
 
     private async broadcast(queueItem: GasQueueItem) {
         try {
-            this.transactionTracker.addTx(queueItem.request.identifier, this.txMined);
             await this.signer.sendTransaction(queueItem.toTransactionRequest());
         } catch (doh) {
             // we've failed to broadcast a transaction however this isn't a fatal
@@ -372,69 +376,5 @@ export class MultiResponder extends EthereumResponder implements Component<Respo
             if (doh.stack) logger.error(doh.stack);
             else logger.error(doh);
         }
-    }
-}
-
-export class TransactionTracker extends StartStopService {
-    constructor(private readonly blockProcessor: BlockProcessor<Block>) {
-        super("transaction-tracker");
-        this.checkTxs = this.checkTxs.bind(this);
-    }
-    private lastBlockNumber: number;
-    private readonly txCallbacks: Map<
-        PisaTransactionIdentifier,
-        (txIdentifier: PisaTransactionIdentifier, nonce: number) => {}
-    > = new Map();
-
-    protected async startInternal() {
-        this.lastBlockNumber = this.blockProcessor.head.number;
-        this.blockProcessor.on(BlockProcessor.NEW_HEAD_EVENT, this.checkTxs);
-    }
-
-    protected async stopInternal() {
-        this.blockProcessor.off(BlockProcessor.NEW_HEAD_EVENT, this.checkTxs);
-    }
-
-    public addTx(
-        identifier: PisaTransactionIdentifier,
-        callback: (txIdentifier: PisaTransactionIdentifier, nonce: number) => {}
-    ) {
-        this.txCallbacks.set(identifier, callback);
-    }
-
-    public hasTx(identifier: PisaTransactionIdentifier) {
-        return this.txCallbacks.has(identifier);
-    }
-
-    private checkTxs(blockNumber: number, blockHash: string) {
-        let blockStub = this.blockProcessor.blockCache.getBlockStub(blockHash);
-
-        for (let index = blockNumber; index > this.lastBlockNumber; index--) {
-            if (!blockStub) continue;
-            // check all the transactions in that block
-            const txs = this.blockProcessor.blockCache.getBlockStub(blockStub.hash)!.transactions;
-            if (!txs) continue;
-
-            for (const tx of txs) {
-                // if the transaction doesn't have a to field populated it is a contract creation tx
-                // which means it cant be a transaction to a PISA contract
-                if (!tx.to) continue;
-
-                // look for matching transactions
-                const txIdentifier = new PisaTransactionIdentifier(tx.chainId, tx.data, tx.to, tx.value, tx.gasLimit);
-                for (const callbackKey of this.txCallbacks.keys()) {
-                    if (callbackKey.equals(txIdentifier)) {
-                        const callback = this.txCallbacks.get(callbackKey);
-                        this.txCallbacks.delete(callbackKey);
-                        callback!(txIdentifier, tx.nonce);
-                    }
-                }
-            }
-
-            // move on to the next block
-            blockStub = this.blockProcessor.blockCache.getBlockStub(blockStub.parentHash);
-        }
-
-        this.lastBlockNumber = blockNumber;
     }
 }

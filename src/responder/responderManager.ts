@@ -1,6 +1,6 @@
 import { ethers } from "ethers";
 import { GasPriceEstimator } from "./gasPriceEstimator";
-import { TransactionTracker, MultiResponder, ResponderAnchorState } from "./multiResponder";
+import { MultiResponder, ResponderAnchorState } from "./multiResponder";
 import { ConfirmationObserver, BlockTimeoutDetector, BlockProcessor } from "../blockMonitor";
 import {
     DoublingGasPolicy,
@@ -30,12 +30,11 @@ export class EthereumResponderManager {
         private readonly confirmationObserver: ConfirmationObserver,
         blockProcessor: BlockProcessor<Block>,
         gasPriceEstimator: GasPriceEstimator,
-        transactionTracker: TransactionTracker
     ) {
         if (!signer.provider) throw new ArgumentError("The given signer is not connected to a provider");
         this.provider = signer.provider;
         this.gasPolicy = new DoublingGasPolicy(this.provider);
-        this.multiResponder = new MultiResponder(signer, blockProcessor, gasPriceEstimator, transactionTracker);
+        this.multiResponder = new MultiResponder(signer, blockProcessor, gasPriceEstimator);
         new BlockchainMachine<ResponderAnchorState, Block>(blockProcessor, new Map(), this.multiResponder)
     }
 
