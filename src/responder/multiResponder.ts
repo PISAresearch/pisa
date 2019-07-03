@@ -9,10 +9,37 @@ import { inspect } from "util";
 import logger from "../logger";
 import { QueueConsistencyError, ArgumentError } from "../dataEntities/errors";
 import { Block } from "../dataEntities/block";
+import { Component } from "../blockMonitor/component";
 
-export class MultiResponder extends EthereumResponder {
+enum ResponderState {
+    Pending = 1,
+    Mined = 2
+}
+type ResponderAppointmentAnchorState =
+    | {
+          state: ResponderState.Pending;
+          identifier: PisaTransactionIdentifier;
+      }
+    | {
+          state: ResponderState.Mined;
+          identifier: PisaTransactionIdentifier;
+          blockNumber: number;
+          nonce: number;
+      };
+
+export type ResponderAnchorState = Map<PisaTransactionIdentifier, ResponderAppointmentAnchorState>;
+
+export class MultiResponder extends EthereumResponder implements Component<ResponderAnchorState, Block> {
     private queue: GasQueue;
     private chainId: number;
+    // private minedTransactions: WeakMap<Block, GasQueueItem> = new Map();
+    private respondedTransactions: Set<PisaTransactionIdentifier> = new Set();
+
+    // every time a new response arrives, I record it
+    // then we add it to the anchor state
+    // when it's mined we update the anchor state
+    // of course, eventually it is removed
+    // if a reorg happens the state is reverted
 
     /**
      * Can handle multiple response for a given signer. This responder requires exclusive
@@ -37,6 +64,7 @@ export class MultiResponder extends EthereumResponder {
      */
     constructor(
         signer: ethers.Signer,
+        private readonly blockProcessor: BlockProcessor<Block>,
         private readonly gasEstimator: GasPriceEstimator,
         private readonly transactionTracker: TransactionTracker,
         public readonly maxConcurrentResponses: number = 12,
@@ -49,6 +77,87 @@ export class MultiResponder extends EthereumResponder {
         }
         this.txMined = this.txMined.bind(this);
         this.broadcast = this.broadcast.bind(this);
+    }
+
+    public reduce(prevState: ResponderAnchorState, block: Block): ResponderAnchorState {
+        const result: ResponderAnchorState = new Map();
+
+        // check the block for each of the current items in the queue
+        for (const state of prevState.keys()) {
+            // for each item there should be somthing in the responder state
+            let stateFound: boolean = false;
+            for (const tx of block.transactions) {
+                // a contract creation - cant be of interest
+                if (!tx.to) continue;
+
+                // look for matching transactions
+                const txIdentifier = new PisaTransactionIdentifier(tx.chainId, tx.data, tx.to, tx.value, tx.gasLimit);
+                if (txIdentifier.equals(state)) {
+                    // found a transaction with this identifier - therefore block is observed
+                    result.set(state, {
+                        identifier: txIdentifier,
+                        blockNumber: block.number,
+                        nonce: tx.nonce,
+                        state: ResponderState.Mined
+                    });
+                    stateFound = true;
+                    break;
+                }
+            }
+
+            if (!stateFound) {
+                result.set(state, {
+                    state: ResponderState.Pending,
+                    identifier: state
+                });
+            }
+        }
+
+        return result;
+    }
+
+    public handleNewStateEvent(
+        prevHead: Block,
+        prevState: ResponderAnchorState,
+        head: Block,
+        state: ResponderAnchorState
+    ) {
+        // after a reorg occurs - or any new head block, we need to check all the unmined transactions
+        // are they in the gas queue, if a transaction is not mined, but is not
+        // in the gas queue then we need to unlock some nonces and we need to add
+        // the item to the queue - and potentially issue more transactions
+
+        const missingTransactions = []
+
+        for (const transaction of state.values()) {
+            switch (transaction.state) {
+                case ResponderState.Pending: {
+                    // check that this is in the gas queue
+                    if (
+                        this.queue.queueItems.findIndex(i => i.request.identifier.equals(transaction.identifier)) === -1
+                    ) {
+                        // this item is in pending state -- but not in the queue we need to add it back in
+                        missingTransactions.push(transaction);
+                    }
+                }
+            }
+        }
+
+        const txMined = (block: Block, st: ResponderAppointmentAnchorState): boolean => {
+            return st.state === ResponderState.Mined;
+        };
+
+        const txConfirmed = () => {};
+
+        // on reorg we need to check which of the mined transactions have still been mined
+        // we could check this on each new head state - we have to unless we
+        // know that there's been a reorg - we could check all the transactions
+        // that are not in the chain at the point of the previous stste
+
+        for (const block of this.blockProcessor.blockCache.ancestry(head.hash)) {
+            // go back through the ancestory, getting any transactions that are in the set
+            this.minedTransactions.get(block);
+        }
     }
 
     // we do some async setup
@@ -87,6 +196,8 @@ export class MultiResponder extends EthereumResponder {
             const replacedQueue = this.queue.add(request);
             const replacedTransactions = replacedQueue.difference(this.queue);
             this.queue = replacedQueue;
+            // and update the local list of tx identifiers
+            this.respondedTransactions.add(txIdentifier);
 
             await Promise.all(replacedTransactions.map(this.broadcast));
         } catch (doh) {
@@ -103,7 +214,7 @@ export class MultiResponder extends EthereumResponder {
      * A newly mined transaction requires updating the local representation of the
      * transaction pool. If a transaction has been mined, but was already replaced
      * then more transactions may need to be re-issued.
-     * @param txIdentifier  
+     * @param txIdentifier
      * Identifier of the mined transaction
      * @param nonce
      * Nonce of the mined transaction. Should always correspond to the nonce at the

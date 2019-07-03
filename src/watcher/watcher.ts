@@ -35,7 +35,7 @@ const hasLogMatchingEvent = (block: Block, filter: EventFilter): boolean => {
  * observe method to complete the task. The watcher is not responsible for ensuring that observed events are properly
  * acted upon, that is the responsibility of the responder.
  */
-export class Watcher extends Component<AppointmentsState, Block> {
+export class Watcher implements Component<AppointmentsState, Block> {
     private appointmentsState: AppointmentsState = {};
 
     /**
@@ -50,7 +50,6 @@ export class Watcher extends Component<AppointmentsState, Block> {
         private readonly confirmationsBeforeResponse: number,
         private readonly confirmationsBeforeRemoval: number
     ) {
-        super();
         if (confirmationsBeforeResponse > confirmationsBeforeRemoval) {
             throw new ArgumentError(
                 `confirmationsBeforeResponse must be less than or equal to confirmationsBeforeRemoval.`,

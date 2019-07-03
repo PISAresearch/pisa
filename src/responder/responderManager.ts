@@ -1,7 +1,7 @@
 import { ethers } from "ethers";
 import { GasPriceEstimator } from "./gasPriceEstimator";
-import { TransactionTracker, MultiResponder } from "./multiResponder";
-import { ConfirmationObserver, BlockTimeoutDetector } from "../blockMonitor";
+import { TransactionTracker, MultiResponder, ResponderAnchorState } from "./multiResponder";
+import { ConfirmationObserver, BlockTimeoutDetector, BlockProcessor } from "../blockMonitor";
 import {
     DoublingGasPolicy,
     EthereumDedicatedResponder,
@@ -10,9 +10,10 @@ import {
     ResponderEvent,
     IGasPolicy
 } from "./responder";
-import { ArgumentError, IEthereumAppointment } from "../dataEntities";
+import { ArgumentError, IEthereumAppointment, Block } from "../dataEntities";
 import logger from "../logger";
 import { plural } from "../utils";
+import { BlockchainMachine } from "../blockMonitor/blockchainMachine";
 
 /**
  * Responsible for handling the business logic of the Responders.
@@ -27,6 +28,7 @@ export class EthereumResponderManager {
         private readonly signer: ethers.Signer,
         private readonly blockTimeoutDetector: BlockTimeoutDetector,
         private readonly confirmationObserver: ConfirmationObserver,
+        blockProcessor: BlockProcessor<Block>,
         gasPriceEstimator: GasPriceEstimator,
         transactionTracker: TransactionTracker
     ) {
@@ -34,6 +36,7 @@ export class EthereumResponderManager {
         this.provider = signer.provider;
         this.gasPolicy = new DoublingGasPolicy(this.provider);
         this.multiResponder = new MultiResponder(signer, gasPriceEstimator, transactionTracker);
+        new BlockchainMachine<ResponderAnchorState, Block>(blockProcessor, new Map(), this.multiResponder)
     }
 
     public async respond(appointment: IEthereumAppointment) {
@@ -44,6 +47,7 @@ export class EthereumResponderManager {
     private async respondMulti(appointment: IEthereumAppointment) {
         const ethereumResponseData = appointment.getResponseData();
         await this.multiResponder.startResponse(appointment.id, ethereumResponseData);
+
     }
 
     private async respondDedicated(appointment: IEthereumAppointment) {
