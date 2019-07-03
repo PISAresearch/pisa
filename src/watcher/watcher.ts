@@ -107,12 +107,12 @@ export class Watcher implements Component<AppointmentsState, Block> {
     ) {
         const shouldHaveStartedResponder = (block: Block, st: AppointmentState | undefined): boolean => {
             if (!st) return false;
-            return st.state === "observed" && block!.number - st.blockObserved + 1 >= this.confirmationsBeforeResponse;
+            return st.state === "observed" && block.number - st.blockObserved + 1 >= this.confirmationsBeforeResponse;
         };
 
         const shouldRemoveAppointment = (block: Block, st: AppointmentState | undefined): boolean => {
             if (!st) return false;
-            return st.state === "observed" && block!.number - st.blockObserved + 1 >= this.confirmationsBeforeRemoval;
+            return st.state === "observed" && block.number - st.blockObserved + 1 >= this.confirmationsBeforeRemoval;
         };
 
         for (const appointment of this.store.getAll()) {
@@ -156,6 +156,7 @@ export class Watcher implements Component<AppointmentsState, Block> {
         const filter = appointment.getEventFilter();
         if (!filter.topics) throw new ApplicationError(`topics should not be undefined`);
 
+        // TODO:198: only need to go back as far as the start of the appointment
         const eventAncestor = this.blockProcessor.blockCache.findAncestor(head.hash, block =>
             hasLogMatchingEvent(block, filter)
         );

@@ -35,7 +35,7 @@ export class EthereumResponderManager {
         if (!signer.provider) throw new ArgumentError("The given signer is not connected to a provider");
         this.provider = signer.provider;
         this.gasPolicy = new DoublingGasPolicy(this.provider);
-        this.multiResponder = new MultiResponder(signer, gasPriceEstimator, transactionTracker);
+        this.multiResponder = new MultiResponder(signer, blockProcessor, gasPriceEstimator, transactionTracker);
         new BlockchainMachine<ResponderAnchorState, Block>(blockProcessor, new Map(), this.multiResponder)
     }
 

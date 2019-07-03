@@ -1,4 +1,4 @@
-import { IEthereumResponseData, ArgumentError } from "../dataEntities";
+import { IEthereumResponseData, ArgumentError, ApplicationError } from "../dataEntities";
 import { BigNumber } from "ethers/utils";
 import { ethers } from "ethers";
 
@@ -284,5 +284,16 @@ export class GasQueue {
         const clonedArray = this.cloneQueueItems();
         clonedArray.shift();
         return new GasQueue(clonedArray, this.emptyNonce, this.replacementRate, this.maxQueueDepth);
+    }
+
+    //TODO:198: documentation and tests
+    public unlock(requests: GasQueueItemRequest[]): GasQueue {
+        // we need to keep track of the max gas price used at a given nonce
+        // since we need to go at least higher than this
+
+        // we also need to unlock the specified number of nonces
+        // classify those nonces as empty, and re-arrange
+
+        throw new ApplicationError("Not implemented");
     }
 }

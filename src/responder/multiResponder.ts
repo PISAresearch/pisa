@@ -7,7 +7,7 @@ import { BlockProcessor } from "../blockMonitor";
 import { BigNumber } from "ethers/utils";
 import { inspect } from "util";
 import logger from "../logger";
-import { QueueConsistencyError, ArgumentError } from "../dataEntities/errors";
+import { QueueConsistencyError, ArgumentError, ApplicationError } from "../dataEntities/errors";
 import { Block } from "../dataEntities/block";
 import { Component } from "../blockMonitor/component";
 
@@ -15,19 +15,19 @@ enum ResponderState {
     Pending = 1,
     Mined = 2
 }
-type ResponderAppointmentAnchorState =
-    | {
-          state: ResponderState.Pending;
-          identifier: PisaTransactionIdentifier;
-      }
-    | {
-          state: ResponderState.Mined;
-          identifier: PisaTransactionIdentifier;
-          blockNumber: number;
-          nonce: number;
-      };
+type PendingResponseState = {
+    state: ResponderState.Pending;
+    queueItem: GasQueueItemRequest;
+};
+type MinedResponseState = {
+    state: ResponderState.Mined;
+    identifier: PisaTransactionIdentifier;
+    blockMined: number;
+    nonce: number | null;
+};
+type ResponderAppointmentAnchorState = PendingResponseState | MinedResponseState;
 
-export type ResponderAnchorState = Map<PisaTransactionIdentifier, ResponderAppointmentAnchorState>;
+export type ResponderAnchorState = Map<string, ResponderAppointmentAnchorState>;
 
 export class MultiResponder extends EthereumResponder implements Component<ResponderAnchorState, Block> {
     public get queue() {
@@ -35,8 +35,9 @@ export class MultiResponder extends EthereumResponder implements Component<Respo
     }
     private mQueue: GasQueue;
     private chainId: number;
+    private address: string;
     // private minedTransactions: WeakMap<Block, GasQueueItem> = new Map();
-    private respondedTransactions: Set<PisaTransactionIdentifier> = new Set();
+    private respondedTransactions: Map<string, GasQueueItemRequest> = new Map();
 
     // every time a new response arrives, I record it
     // then we add it to the anchor state
@@ -83,92 +84,193 @@ export class MultiResponder extends EthereumResponder implements Component<Respo
         this.broadcast = this.broadcast.bind(this);
     }
 
-    public reduce(prevState: ResponderAnchorState, block: Block): ResponderAnchorState {
-        const result: ResponderAnchorState = new Map();
+    private blockContainsTransaction(
+        block: Block,
+        identifier: PisaTransactionIdentifier
+    ): { blockNumber: number; nonce: number; from: string } | null {
+        for (const tx of block.transactions) {
+            // a contract creation - cant be of interest
+            if (!tx.to) continue;
 
-        // check the block for each of the current items in the queue
-        for (const state of prevState.keys()) {
-            // for each item there should be somthing in the responder state
-            let stateFound: boolean = false;
-            for (const tx of block.transactions) {
-                // a contract creation - cant be of interest
-                if (!tx.to) continue;
-
-                // look for matching transactions
-                const txIdentifier = new PisaTransactionIdentifier(tx.chainId, tx.data, tx.to, tx.value, tx.gasLimit);
-                if (txIdentifier.equals(state)) {
-                    // found a transaction with this identifier - therefore block is observed
-                    result.set(state, {
-                        identifier: txIdentifier,
-                        blockNumber: block.number,
-                        nonce: tx.nonce,
-                        state: ResponderState.Mined
-                    });
-                    stateFound = true;
-                    break;
-                }
-            }
-
-            if (!stateFound) {
-                result.set(state, {
-                    state: ResponderState.Pending,
-                    identifier: state
-                });
+            // look for matching transactions
+            const txIdentifier = new PisaTransactionIdentifier(tx.chainId, tx.data, tx.to, tx.value, tx.gasLimit);
+            if (txIdentifier.equals(identifier)) {
+                return {
+                    blockNumber: tx.blockNumber!,
+                    nonce: tx.nonce,
+                    from: tx.from
+                };
             }
         }
+
+        return null;
+    }
+
+    private getMinedTransaction(identifier: PisaTransactionIdentifier) {
+        for (const block of this.blockProcessor.blockCache.ancestry(this.blockProcessor.head.hash)) {
+            const txInfo = this.blockContainsTransaction(block, identifier);
+            if (txInfo) return txInfo;
+        }
+        return null;
+    }
+
+    private minedByThisResponder(address: string) {
+        return address.toLocaleLowerCase() === this.address.toLocaleLowerCase();
+    }
+
+    public reduce(prevState: ResponderAnchorState, block: Block): ResponderAnchorState {
+        // make sure the anchor state is full
+
+        const result: ResponderAnchorState = new Map();
+
+        // check the block for each of the current pending items
+        for (const key of this.respondedTransactions.keys()) {
+            // for each item there should be somthing in the responder state
+            const queueItemRequest = this.respondedTransactions.get(key)!;
+            const val = prevState.get(key);
+
+            if (!val) {
+                // has this transaction been mined?
+                const minedTx = this.getMinedTransaction(queueItemRequest.identifier);
+
+                if (minedTx === null) {
+                    result.set(key, {
+                        state: ResponderState.Pending,
+                        queueItem: queueItemRequest
+                    });
+                } else {
+                    result.set(key, {
+                        state: ResponderState.Mined,
+                        blockMined: minedTx.blockNumber,
+                        identifier: queueItemRequest.identifier,
+                        nonce: this.minedByThisResponder(minedTx.from) ? minedTx.nonce : null
+                    });
+                }
+            } else if (val.state === ResponderState.Pending) {
+                let txMined: boolean = false;
+                const transaction = this.blockContainsTransaction(block, val.queueItem.identifier);
+                if (transaction) {
+                    result.set(key, {
+                        identifier: val.queueItem.identifier,
+                        blockMined: block.number,
+                        nonce: this.minedByThisResponder(transaction.from) ? transaction.nonce : null,
+                        state: ResponderState.Mined
+                    });
+                    txMined = true;
+                }
+
+                for (const tx of block.transactions) {
+                    // a contract creation - cant be of interest
+                    if (!tx.to) continue;
+
+                    // look for matching transactions
+                    const txIdentifier = new PisaTransactionIdentifier(
+                        tx.chainId,
+                        tx.data,
+                        tx.to,
+                        tx.value,
+                        tx.gasLimit
+                    );
+                    if (txIdentifier.equals(val.queueItem.identifier)) {
+                        // found a transaction with this identifier - therefore block is observed
+                        result.set(key, {
+                            identifier: txIdentifier,
+                            blockMined: block.number,
+                            nonce: tx.nonce,
+                            state: ResponderState.Mined
+                        });
+                        txMined = true;
+                        break;
+                    }
+                }
+
+                if (!txMined) {
+                    result.set(key, {
+                        state: ResponderState.Pending,
+                        queueItem: val.queueItem
+                    });
+                }
+            }
+        }
+
+        // do nothing for mined items
 
         return result;
     }
 
-    public handleNewStateEvent(
+    public async handleNewStateEvent(
         prevHead: Block,
         prevState: ResponderAnchorState,
         head: Block,
         state: ResponderAnchorState
     ) {
-        // after a reorg occurs - or any new head block, we need to check all the unmined transactions
-        // are they in the gas queue, if a transaction is not mined, but is not
-        // in the gas queue then we need to unlock some nonces and we need to add
-        // the item to the queue - and potentially issue more transactions
+        // TODO:198: what happens to errors in here? what should we do about them
 
-        const missingTransactions = []
+        // a reorg may have occurred, if this is the case then we need to check whether
+        // then some transactions that we had previously considered mined may no longer
+        // be. We can find these transactions by comparing the current gas queue to the
+        // transactions that we currently observe in pending. Transactions in pending
+        // but not in the gas queue need to be added there.
 
-        for (const transaction of state.values()) {
-            switch (transaction.state) {
-                case ResponderState.Pending: {
-                    // check that this is in the gas queue
-                    if (
-                        this.queue.queueItems.findIndex(i => i.request.identifier.equals(transaction.identifier)) === -1
-                    ) {
-                        // this item is in pending state -- but not in the queue we need to add it back in
-                        missingTransactions.push(transaction);
-                    }
-                }
+        const missingQueueItems: GasQueueItemRequest[] = [];
+
+        for (const transactionState of state.values()) {
+            if (
+                transactionState.state === ResponderState.Pending &&
+                // TODO:198: add back the contains and difference functions
+                this.queue.queueItems.findIndex(i =>
+                    i.request.identifier.equals(transactionState.queueItem.identifier)
+                ) === -1
+            ) {
+                missingQueueItems.push(transactionState.queueItem);
             }
         }
 
-        const txMined = (block: Block, st: ResponderAppointmentAnchorState): boolean => {
+        if (missingQueueItems.length !== 0) {
+            // TODO:198: remoe this if above - also fill in the unlock of course
+            // also, what if this is called before setup - should we setup in here?
+            const unlockedQueue = this.queue.unlock(missingQueueItems);
+            const replacedTransactions = unlockedQueue.queueItems.filter(tx => !this.mQueue.queueItems.includes(tx));
+            this.mQueue = unlockedQueue;
+            // broadcast these transactions
+            await Promise.all(replacedTransactions.map(this.broadcast));
+        }
+
+        // now check to see if any transactions have been mined
+        const txMined = (st: ResponderAppointmentAnchorState | undefined): st is MinedResponseState => {
+            if (!st) return false;
             return st.state === ResponderState.Mined;
         };
 
-        const txConfirmed = () => {};
+        // TODO:198: sort out the names in the responder - sometimes we refer to the
+        // response, sometimes tx, but we key it all by appointment id
+        const shouldRemoveTx = (block: Block, st: ResponderAppointmentAnchorState | undefined): boolean => {
+            if (!st) return false;
+            return (
+                st.state === ResponderState.Mined &&
+                block.number - st.blockMined > this.blockProcessor.blockCache.maxDepth - 1
+            );
+        };
 
-        // on reorg we need to check which of the mined transactions have still been mined
-        // we could check this on each new head state - we have to unless we
-        // know that there's been a reorg - we could check all the transactions
-        // that are not in the chain at the point of the previous stste
+        for (const appointmentId of state.keys()) {
+            const prevItem = prevState.get(appointmentId);
+            const currentItem = state.get(appointmentId);
 
-        for (const block of this.blockProcessor.blockCache.ancestry(head.hash)) {
-            // go back through the ancestory, getting any transactions that are in the set
-            this.minedTransactions.get(block);
+            if (!txMined(prevItem) && txMined(currentItem)) {
+                await this.txMined(currentItem.identifier, currentItem.nonce);
+            }
+
+            if (!shouldRemoveTx(prevHead, prevItem) && shouldRemoveTx(head, currentItem)) {
+                this.respondedTransactions.delete(appointmentId);
+            }
         }
     }
 
     // we do some async setup
     private async setup() {
         if (!this.mQueue) {
-            const address = await this.signer.getAddress();
-            const nonce = await this.provider.getTransactionCount(address);
+            this.address = await this.signer.getAddress();
+            const nonce = await this.provider.getTransactionCount(this.address);
             this.chainId = (await this.provider.getNetwork()).chainId;
             this.mQueue = new GasQueue([], nonce, this.replacementRate, this.maxConcurrentResponses);
         }
@@ -176,6 +278,8 @@ export class MultiResponder extends EthereumResponder implements Component<Respo
 
     public async startResponse(appointmentId: string, responseData: IEthereumResponseData) {
         try {
+            // TODO:198: somewhere we should also check if we actually need to respond to this
+
             await this.setup();
             if (this.mQueue.depthReached()) {
                 throw new QueueConsistencyError(
@@ -203,7 +307,7 @@ export class MultiResponder extends EthereumResponder implements Component<Respo
             const replacedTransactions = replacedQueue.queueItems.filter(tx => !this.mQueue.queueItems.includes(tx));
             this.mQueue = replacedQueue;
             // and update the local list of tx identifiers
-            this.respondedTransactions.add(txIdentifier);
+            this.respondedTransactions.set(appointmentId, request);
 
             await Promise.all(replacedTransactions.map(this.broadcast));
         } catch (doh) {
@@ -227,7 +331,7 @@ export class MultiResponder extends EthereumResponder implements Component<Respo
      * front of the current transaction queue. Will throw QueueConsistencyError otherwise.
      * This enforces that this method is called in the same order that transactions are mined
      */
-    public async txMined(txIdentifier: PisaTransactionIdentifier, nonce: number) {
+    public async txMined(txIdentifier: PisaTransactionIdentifier, nonce: number | null) {
         try {
             // since we've made this method available publicly we need to ensure that the class has been initialised
             await this.setup();
@@ -247,6 +351,12 @@ export class MultiResponder extends EthereumResponder implements Component<Respo
                         txIdentifier
                     )}`
                 );
+            }
+
+            if (!nonce) {
+                // TODO:198: nonce can be null if we didnt mine this tx - in this case we
+                // dequeue and cancel
+                throw new ApplicationError("Not implemented.");
             }
 
             if (txIdentifier.equals(frontItem.request.identifier)) {

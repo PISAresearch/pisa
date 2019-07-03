@@ -5,8 +5,9 @@ import { ethers } from "ethers";
 import { mock, when, anything, instance, verify } from "ts-mockito";
 import { BigNumber } from "ethers/utils";
 import { expect } from "chai";
-import { ArgumentError, IEthereumResponseData } from "../../../src/dataEntities";
+import { ArgumentError, IEthereumResponseData, IBlockStub, Block } from "../../../src/dataEntities";
 import { PisaTransactionIdentifier } from "../../../src/responder/gasQueue";
+import { BlockProcessor } from "../../../src/blockMonitor";
 
 const ganache = Ganache.provider({
     mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect"
@@ -33,7 +34,8 @@ describe("MultiResponder", () => {
         errorGasPriceEstimator: GasPriceEstimator,
         errorGasEstimatorMock: GasPriceEstimator,
         transactionTracker: TransactionTracker,
-        transactionTrackerMock: TransactionTracker;
+        transactionTrackerMock: TransactionTracker,
+        blockProcessor: BlockProcessor<Block>
     const maxConcurrentResponses = 3;
     const replacementRate = 15;
 
@@ -62,18 +64,22 @@ describe("MultiResponder", () => {
         transactionTrackerMock = mock(TransactionTracker);
         when(transactionTrackerMock.addTx(anything(), anything())).thenReturn();
         transactionTracker = instance(transactionTrackerMock);
+
+        // TODO: decide what to do here
+        const mockedBlockProcessor = mock(BlockProcessor);
+        blockProcessor = instance(mockedBlockProcessor);
     });
 
     it("constructor throws for negative replacement rate", async () => {
         expect(
             () =>
-                new MultiResponder(signer, increasingGasPriceEstimator, transactionTracker, maxConcurrentResponses, -1)
+                new MultiResponder(signer, blockProcessor, increasingGasPriceEstimator, transactionTracker, maxConcurrentResponses, -1)
         ).to.throw(ArgumentError);
     });
 
     it("constructor throws for zero max concurrency", async () => {
         expect(
-            () => new MultiResponder(signer, increasingGasPriceEstimator, transactionTracker, 0, replacementRate)
+            () => new MultiResponder(signer, blockProcessor, increasingGasPriceEstimator, transactionTracker, 0, replacementRate)
         ).to.throw(ArgumentError);
     });
 
@@ -83,6 +89,7 @@ describe("MultiResponder", () => {
 
         const responder = new MultiResponder(
             signer,
+            blockProcessor,
             increasingGasPriceEstimator,
             transactionTracker,
             maxConcurrentResponses,
@@ -102,6 +109,7 @@ describe("MultiResponder", () => {
 
         const responder = new MultiResponder(
             signer,
+            blockProcessor,
             increasingGasPriceEstimator,
             transactionTracker,
             maxConcurrentResponses,
@@ -124,6 +132,7 @@ describe("MultiResponder", () => {
 
         const responder = new MultiResponder(
             signer,
+            blockProcessor,
             decreasingGasPriceEstimator,
             transactionTracker,
             maxConcurrentResponses,
@@ -144,6 +153,7 @@ describe("MultiResponder", () => {
 
         const responder = new MultiResponder(
             signer,
+            blockProcessor,
             errorGasPriceEstimator,
             transactionTracker,
             maxConcurrentResponses,
@@ -165,6 +175,7 @@ describe("MultiResponder", () => {
 
         const responder = new MultiResponder(
             signer,
+            blockProcessor,
             decreasingGasPriceEstimator,
             transactionTracker,
             2,
@@ -184,6 +195,7 @@ describe("MultiResponder", () => {
         const responseData = createResponseData("app1");
         const responder = new MultiResponder(
             signer,
+            blockProcessor,
             increasingGasPriceEstimator,
             transactionTracker,
             maxConcurrentResponses,
@@ -203,6 +215,7 @@ describe("MultiResponder", () => {
         const responseData2 = createResponseData("app2");
         const responder = new MultiResponder(
             signer,
+            blockProcessor,
             increasingGasPriceEstimator,
             transactionTracker,
             maxConcurrentResponses,
@@ -227,6 +240,7 @@ describe("MultiResponder", () => {
     it("txMined does nothing when queue is empty", async () => {
         const responder = new MultiResponder(
             signer,
+            blockProcessor,
             increasingGasPriceEstimator,
             transactionTracker,
             maxConcurrentResponses,
@@ -243,6 +257,7 @@ describe("MultiResponder", () => {
         const responseData = createResponseData("app1");
         const responder = new MultiResponder(
             signer,
+            blockProcessor,
             increasingGasPriceEstimator,
             transactionTracker,
             maxConcurrentResponses,
@@ -261,6 +276,7 @@ describe("MultiResponder", () => {
         const responseData = createResponseData("app1");
         const responder = new MultiResponder(
             signer,
+            blockProcessor,
             increasingGasPriceEstimator,
             transactionTracker,
             maxConcurrentResponses,

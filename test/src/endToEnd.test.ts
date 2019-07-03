@@ -93,6 +93,7 @@ describe("End to end", () => {
             provider.getSigner(pisaAccount),
             blockTimeoutDetector,
             confirmationObserver,
+            blockProcessor,
             gasPriceEstimator,
             transactionTracker
         );
