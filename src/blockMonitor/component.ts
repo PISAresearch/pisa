@@ -1,24 +1,22 @@
 import { IBlockStub } from "../dataEntities";
 import { BlockProcessor } from "./blockProcessor";
 
-export abstract class StateReducer<TState extends object, TBlock extends IBlockStub> {
-    public abstract getInitialState(block: TBlock): TState;
-    public abstract reduce(prevState: TState, block: TBlock): TState;
+/**
+ * A base class for defining the anchor state and
+ */
+export interface StateReducer<TState extends object, TBlock extends IBlockStub> {
+    getInitialState(block: TBlock): TState;
+    reduce(prevState: TState, block: TBlock): TState;
 }
 
 export type MappedState<TState extends object> = Map<string, TState>;
 
-export class MappedStateReducer<
-    TState extends object,
-    TBlock extends IBlockStub,
-    TMappedType extends { id: string }
-> extends StateReducer<MappedState<TState>, TBlock> {
+export class MappedStateReducer<TState extends object, TBlock extends IBlockStub, TMappedType extends { id: string }>
+    implements StateReducer<MappedState<TState>, TBlock> {
     constructor(
         public getItems: () => TMappedType[],
         public getBaseReducer: (obj: TMappedType) => StateReducer<TState, TBlock>
-    ) {
-        super();
-    }
+    ) {}
 
     public getInitialState(block: TBlock): MappedState<TState> {
         const result: MappedState<TState> = new Map();

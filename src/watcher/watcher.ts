@@ -30,10 +30,8 @@ const hasLogMatchingEvent = (block: Block, filter: EventFilter): boolean => {
     );
 };
 
-class AppointmentStateReducer extends StateReducer<WatcherAppointmentState, Block> {
-    constructor(private cache: ReadOnlyBlockCache<Block>, private appointment: IEthereumAppointment) {
-        super();
-    }
+class AppointmentStateReducer implements StateReducer<WatcherAppointmentState, Block> {
+    constructor(private cache: ReadOnlyBlockCache<Block>, private appointment: IEthereumAppointment) {}
     public getInitialState(block: Block): WatcherAppointmentState {
         const filter = this.appointment.getEventFilter();
         if (!filter.topics) throw new ApplicationError(`topics should not be undefined`);
