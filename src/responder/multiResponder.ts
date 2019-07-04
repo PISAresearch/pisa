@@ -1,4 +1,4 @@
-import { IEthereumResponseData, StartStopService } from "../dataEntities";
+import { IEthereumResponseData } from "../dataEntities";
 import { EthereumResponder } from "./responder";
 import { GasQueue, PisaTransactionIdentifier, GasQueueItem, GasQueueItemRequest } from "./gasQueue";
 import { GasPriceEstimator } from "./gasPriceEstimator";
@@ -11,71 +11,157 @@ import { QueueConsistencyError, ArgumentError, ApplicationError } from "../dataE
 import { Block } from "../dataEntities/block";
 import { Component } from "../blockMonitor/component";
 
-enum ResponderState {
+enum ResponderStateKind {
     Pending = 1,
     Mined = 2
 }
 type PendingResponseState = {
-    kind: ResponderState.Pending;
+    appointmentId: string;
+    kind: ResponderStateKind.Pending;
     queueItem: GasQueueItemRequest;
 };
 type MinedResponseState = {
-    kind: ResponderState.Mined;
+    appointmentId: string;
+    kind: ResponderStateKind.Mined;
     identifier: PisaTransactionIdentifier;
     blockMined: number;
-    nonce: number | null;
+    nonce: number;
+    from: string;
 };
 type ResponderAppointmentAnchorState = PendingResponseState | MinedResponseState;
 
 export type ResponderAnchorState = Map<string, ResponderAppointmentAnchorState>;
 
-export class MultiResponder extends EthereumResponder implements Component<ResponderAnchorState, Block> {
-    public get queue() {
-        return this.mQueue;
-    }
-    private mQueue: GasQueue;
-    private chainId: number;
-    private address: string;
-    private respondedTransactions: Map<string, GasQueueItemRequest> = new Map();
+export class MultiResponderComponent implements Component<ResponderAnchorState, Block> {
+    private readonly confirmationsRequired: number;
 
-    /**
-     * Can handle multiple response for a given signer. This responder requires exclusive
-     * use of the signer, as it carefully manages the nonces of the transactions created by
-     * the signer. Can handle a concurrent number of responses up to maxQueueDepth
-     * @param signer
-     *   The signer used to sign transaction created by this responder. This responder
-     *   requires exclusive use of this signer.
-     * @param gasEstimator
-     * @param transactionTracker
-     * @param maxConcurrentResponses
-     *   Parity and Geth set maximums on the number of pending transactions in the
-     *   pool that can emanate from a single account. Current defaults:
-     *   Parity: max(16, 1% of the pool): https://wiki.parity.io/Configuring-Parity-Ethereum --tx-queue-per-sender
-     *   Geth: 64: https://github.com/ethereum/go-ethereum/wiki/Command-Line-Options --txpool.accountqueue
-     * @param replacementRate
-     *   This responder replaces existing transactions on the network.
-     *   This replacement rate is set by the nodes. The value should be the percentage increase
-     *   eg. 13. Must be positive.
-     *   Parity: 12.5%: https://github.com/paritytech/parity-ethereum/blob/master/miner/src/pool/scoring.rs#L38
-     *   Geth: 10% default : https://github.com/ethereum/go-ethereum/wiki/Command-Line-Options --txpool.pricebump
-     */
-    constructor(
-        signer: ethers.Signer,
-        private readonly blockProcessor: BlockProcessor<Block>,
-        private readonly gasEstimator: GasPriceEstimator,
-        public readonly maxConcurrentResponses: number = 12,
-        public readonly replacementRate: number = 13
-    ) {
-        super(signer);
-        if (replacementRate < 0) throw new ArgumentError("Cannot have negative replacement rate.", replacementRate);
-        if (maxConcurrentResponses < 1) {
-            throw new ArgumentError("Maximum concurrent requests must be greater than 0.", maxConcurrentResponses);
+    // TODO:198: what do we need to store for recover - maybe only respondedTransactions
+    // TODO:198: as in theory we can recover the current pending transactions by querying
+    // TODO:198: the node
+
+    constructor(public readonly blockProcessor: BlockProcessor<Block>, public readonly responder: MultiResponder) {
+        this.confirmationsRequired = blockProcessor.blockCache.maxDepth - 1;
+    }
+
+    public reduce(prevState: ResponderAnchorState, block: Block): ResponderAnchorState {
+        // make sure the anchor state is full
+        const initialisationReducer = new ResponderInitialisationReducer(this.blockProcessor);
+        const responderReducer = new ResponderReducer();
+        const result: ResponderAnchorState = new Map();
+
+        // check the block for each of the current pending items
+        for (const key of this.responder.respondedTransactions.keys()) {
+            // for each item there should be somthing in the responder state
+            const queueItemRequest = this.responder.respondedTransactions.get(key)!;
+            const val = prevState.get(key);
+
+            if (!val) {
+                const state = initialisationReducer.reduce({
+                    appointmentId: key,
+                    queueItemRequest
+                });
+                result.set(key, state);
+            } else if (val.kind === ResponderStateKind.Pending) {
+                const state = responderReducer.reduce(val, block);
+                result.set(state.appointmentId, state);
+            }
         }
-        this.setup = this.setup.bind(this);
-        this.txMined = this.txMined.bind(this);
-        this.broadcast = this.broadcast.bind(this);
+        return result;
     }
 
+    public async handleNewStateEvent(
+        prevHead: Block,
+        prevState: ResponderAnchorState,
+        head: Block,
+        state: ResponderAnchorState
+    ) {
+        // TODO:198: sort out the names in the responder - sometimes we refer to the
+
+        // TODO:198: what happens to errors in here? what should we do about them
+        const isPending = (state: ResponderAppointmentAnchorState): state is PendingResponseState => {
+            return state.kind === ResponderStateKind.Pending;
+        };
+        const hasBeenMined = (state: ResponderAppointmentAnchorState | undefined): state is MinedResponseState => {
+            if (!state) return false;
+            return state.kind === ResponderStateKind.Mined;
+        };
+        const shouldBeRemoved = (
+            state: ResponderAppointmentAnchorState | undefined,
+            block: Block
+        ): state is MinedResponseState => {
+            if (!state) return false;
+            return (
+                state.kind === ResponderStateKind.Mined && block.number - state.blockMined > this.confirmationsRequired
+            );
+        };
+
+        this.responder.reEnqueueMissingItems([...state.values()].filter(isPending).map(q => q.queueItem));
+
+        for (const appointmentId of state.keys()) {
+            const prevItem = prevState.get(appointmentId);
+            const currentItem = state.get(appointmentId);
+
+            if (!hasBeenMined(prevItem) && hasBeenMined(currentItem)) {
+                await this.responder.txMined(currentItem.identifier, currentItem.nonce, currentItem.from);
+            }
+
+            if (!shouldBeRemoved(prevItem, prevHead) && shouldBeRemoved(currentItem, head)) {
+                await this.responder.endResponse(currentItem.appointmentId);
+            }
+        }
+    }
+}
+
+class ResponderReducer {
+    public constructor() {}
+
+    private blockContainsTransaction(
+        block: Block,
+        identifier: PisaTransactionIdentifier
+    ): { blockNumber: number; nonce: number; from: string } | null {
+        for (const tx of block.transactions) {
+            // a contract creation - cant be of interest
+            if (!tx.to) continue;
+
+            // look for matching transactions
+            const txIdentifier = new PisaTransactionIdentifier(tx.chainId, tx.data, tx.to, tx.value, tx.gasLimit);
+            if (txIdentifier.equals(identifier)) {
+                return {
+                    blockNumber: tx.blockNumber!,
+                    nonce: tx.nonce,
+                    from: tx.from
+                };
+            }
+        }
+
+        return null;
+    }
+
+    public reduce(prevState: PendingResponseState, block: Block): ResponderAppointmentAnchorState {
+        const transaction = this.blockContainsTransaction(block, prevState.queueItem.identifier);
+        if (transaction) {
+            return {
+                appointmentId: prevState.appointmentId,
+                identifier: prevState.queueItem.identifier,
+                blockMined: block.number,
+                nonce: transaction.nonce,
+                kind: ResponderStateKind.Mined,
+                from: transaction.from
+            };
+        } else {
+            return {
+                appointmentId: prevState.appointmentId,
+                kind: ResponderStateKind.Pending,
+                queueItem: prevState.queueItem
+            };
+        }
+    }
+}
+
+class ResponderInitialisationReducer {
+    public constructor(private readonly blockProcessor: BlockProcessor<Block>) {}
+
+    // TODO:198: duplicated code in this and the responder reducer
     private blockContainsTransaction(
         block: Block,
         identifier: PisaTransactionIdentifier
@@ -106,149 +192,82 @@ export class MultiResponder extends EthereumResponder implements Component<Respo
         return null;
     }
 
-    private minedByThisResponder(address: string) {
-        return address.toLocaleLowerCase() === this.address.toLocaleLowerCase();
-    }
+    public reduce(prevState: {
+        appointmentId: string;
+        queueItemRequest: GasQueueItemRequest;
+    }): ResponderAppointmentAnchorState {
+        // has this transaction been mined?
+        const minedTx = this.getMinedTransaction(prevState.queueItemRequest.identifier);
 
-    public reduce(prevState: ResponderAnchorState, block: Block): ResponderAnchorState {
-        // make sure the anchor state is full
-
-        const result: ResponderAnchorState = new Map();
-
-        // check the block for each of the current pending items
-        for (const key of this.respondedTransactions.keys()) {
-            // for each item there should be somthing in the responder state
-            const queueItemRequest = this.respondedTransactions.get(key)!;
-            const val = prevState.get(key);
-
-            if (!val) {
-                // has this transaction been mined?
-                const minedTx = this.getMinedTransaction(queueItemRequest.identifier);
-
-                if (minedTx === null) {
-                    result.set(key, {
-                        kind: ResponderState.Pending,
-                        queueItem: queueItemRequest
-                    });
-                } else {
-                    result.set(key, {
-                        kind: ResponderState.Mined,
-                        blockMined: minedTx.blockNumber,
-                        identifier: queueItemRequest.identifier,
-                        nonce: this.minedByThisResponder(minedTx.from) ? minedTx.nonce : null
-                    });
-                }
-            } else if (val.kind === ResponderState.Pending) {
-                const transaction = this.blockContainsTransaction(block, val.queueItem.identifier);
-                if (transaction) {
-                    result.set(key, {
-                        identifier: val.queueItem.identifier,
-                        blockMined: block.number,
-                        nonce: this.minedByThisResponder(transaction.from) ? transaction.nonce : null,
-                        kind: ResponderState.Mined
-                    });
-                } else {
-                    result.set(key, {
-                        kind: ResponderState.Pending,
-                        queueItem: val.queueItem
-                    });
-                }
-            }
+        if (minedTx === null) {
+            return {
+                appointmentId: prevState.appointmentId,
+                kind: ResponderStateKind.Pending,
+                queueItem: prevState.queueItemRequest
+            };
+        } else {
+            return {
+                appointmentId: prevState.appointmentId,
+                kind: ResponderStateKind.Mined,
+                blockMined: minedTx.blockNumber,
+                identifier: prevState.queueItemRequest.identifier,
+                nonce: minedTx.nonce,
+                from: minedTx.from
+            };
         }
-
-        // what do we need to store in order to recover?
-
-        // a) we need to store a list of all the things we want to respond to
-        // - then query the node for pending transactions related to this address
-
-        // do nothing for mined items
-
-        return result;
     }
+}
 
-    public async handleNewStateEvent(
-        prevHead: Block,
-        prevState: ResponderAnchorState,
-        head: Block,
-        state: ResponderAnchorState
+export class MultiResponder extends EthereumResponder {
+    public get queue() {
+        return this.mQueue;
+    }
+    private mQueue: GasQueue;
+    public readonly respondedTransactions: Map<string, GasQueueItemRequest> = new Map();
+
+    /**
+     * Can handle multiple response for a given signer. This responder requires exclusive
+     * use of the signer, as it carefully manages the nonces of the transactions created by
+     * the signer. Can handle a concurrent number of responses up to maxQueueDepth
+     * @param signer
+     *   The signer used to sign transaction created by this responder. This responder
+     *   requires exclusive use of this signer.
+     * @param gasEstimator
+     * @param transactionTracker
+     * @param maxConcurrentResponses
+     *   Parity and Geth set maximums on the number of pending transactions in the
+     *   pool that can emanate from a single account. Current defaults:
+     *   Parity: max(16, 1% of the pool): https://wiki.parity.io/Configuring-Parity-Ethereum --tx-queue-per-sender
+     *   Geth: 64: https://github.com/ethereum/go-ethereum/wiki/Command-Line-Options --txpool.accountqueue
+     * @param replacementRate
+     *   This responder replaces existing transactions on the network.
+     *   This replacement rate is set by the nodes. The value should be the percentage increase
+     *   eg. 13. Must be positive.
+     *   Parity: 12.5%: https://github.com/paritytech/parity-ethereum/blob/master/miner/src/pool/scoring.rs#L38
+     *   Geth: 10% default : https://github.com/ethereum/go-ethereum/wiki/Command-Line-Options --txpool.pricebump
+     */
+    //TODO:198: documentation out of date - check everywhere in this file
+    public constructor(
+        public readonly address: string,
+        public readonly startingNonce: number,
+        public readonly signer: ethers.Signer,
+        public readonly gasEstimator: GasPriceEstimator,
+        public readonly chainId: number,
+        maxConcurrentResponses: number = 12,
+        replacementRate: number = 13
     ) {
-        // TODO:198: what happens to errors in here? what should we do about them
-
-        // a reorg may have occurred, if this is the case then we need to check whether
-        // then some transactions that we had previously considered mined may no longer
-        // be. We can find these transactions by comparing the current gas queue to the
-        // transactions that we currently observe in pending. Transactions in pending
-        // but not in the gas queue need to be added there.
-
-        const missingQueueItems: GasQueueItemRequest[] = [];
-
-        for (const transactionState of state.values()) {
-            if (
-                transactionState.kind === ResponderState.Pending &&
-                // TODO:198: add back the contains and difference functions
-                this.mQueue.queueItems.findIndex(i =>
-                    i.request.identifier.equals(transactionState.queueItem.identifier)
-                ) === -1
-            ) {
-                missingQueueItems.push(transactionState.queueItem);
-            }
+        super(signer);
+        if (replacementRate < 0) throw new ArgumentError("Cannot have negative replacement rate.", replacementRate);
+        if (maxConcurrentResponses < 1) {
+            throw new ArgumentError("Maximum concurrent requests must be greater than 0.", maxConcurrentResponses);
         }
-
-        if (missingQueueItems.length !== 0) {
-            // TODO:198: remoe this if above - also fill in the unlock of course
-            // also, what if this is called before setup - should we setup in here?
-            const unlockedQueue = this.mQueue.unlock(missingQueueItems);
-            const replacedTransactions = unlockedQueue.queueItems.filter(tx => !this.mQueue.queueItems.includes(tx));
-            this.mQueue = unlockedQueue;
-            // broadcast these transactions
-            await Promise.all(replacedTransactions.map(this.broadcast));
-        }
-
-        // now check to see if any transactions have been mined
-        const txMined = (st: ResponderAppointmentAnchorState | undefined): st is MinedResponseState => {
-            if (!st) return false;
-            return st.kind === ResponderState.Mined;
-        };
-
-        // TODO:198: sort out the names in the responder - sometimes we refer to the
-        // response, sometimes tx, but we key it all by appointment id
-        const shouldRemoveTx = (block: Block, st: ResponderAppointmentAnchorState | undefined): boolean => {
-            if (!st) return false;
-            return (
-                st.kind === ResponderState.Mined &&
-                block.number - st.blockMined > this.blockProcessor.blockCache.maxDepth - 1
-            );
-        };
-
-        for (const appointmentId of state.keys()) {
-            const prevItem = prevState.get(appointmentId);
-            const currentItem = state.get(appointmentId);
-
-            if (!txMined(prevItem) && txMined(currentItem)) {
-                await this.txMined(currentItem.identifier, currentItem.nonce);
-            }
-
-            if (!shouldRemoveTx(prevHead, prevItem) && shouldRemoveTx(head, currentItem)) {
-                this.respondedTransactions.delete(appointmentId);
-            }
-        }
-    }
-
-    // we do some async setup
-    private async setup() {
-        if (!this.mQueue) {
-            this.address = await this.signer.getAddress();
-            const nonce = await this.provider.getTransactionCount(this.address);
-            this.chainId = (await this.provider.getNetwork()).chainId;
-            this.mQueue = new GasQueue([], nonce, this.replacementRate, this.maxConcurrentResponses);
-        }
+        this.mQueue = new GasQueue([], startingNonce, replacementRate, maxConcurrentResponses);
+        this.broadcast = this.broadcast.bind(this);
     }
 
     public async startResponse(appointmentId: string, responseData: IEthereumResponseData) {
         try {
             // TODO:198: somewhere we should also check if we actually need to respond to this
-
-            await this.setup();
             if (this.mQueue.depthReached()) {
                 throw new QueueConsistencyError(
                     `Cannot add to queue. Max queue depth ${this.mQueue.maxQueueDepth} reached.`
@@ -299,11 +318,8 @@ export class MultiResponder extends EthereumResponder implements Component<Respo
      * front of the current transaction queue. Will throw QueueConsistencyError otherwise.
      * This enforces that this method is called in the same order that transactions are mined
      */
-    public async txMined(txIdentifier: PisaTransactionIdentifier, nonce: number | null) {
+    public async txMined(txIdentifier: PisaTransactionIdentifier, nonce: number, from: string) {
         try {
-            // since we've made this method available publicly we need to ensure that the class has been initialised
-            await this.setup();
-
             if (this.mQueue.queueItems.length === 0) {
                 throw new QueueConsistencyError(
                     `Transaction mined for empty queue at nonce ${nonce}. ${inspect(txIdentifier)}`
@@ -321,7 +337,7 @@ export class MultiResponder extends EthereumResponder implements Component<Respo
                 );
             }
 
-            if (!nonce) {
+            if (from.toLocaleLowerCase() !== this.address.toLocaleLowerCase()) {
                 // TODO:198: nonce can be null if we didnt mine this tx - in this case we
                 // dequeue and cancel the relevant transactions
                 throw new ApplicationError("Not implemented.");
@@ -357,107 +373,35 @@ export class MultiResponder extends EthereumResponder implements Component<Respo
         }
     }
 
-    private async broadcast(queueItem: GasQueueItem) {
-        try {
-            await this.signer.sendTransaction(queueItem.toTransactionRequest());
-        } catch (doh) {
-            // we've failed to broadcast a transaction however this isn't a fatal
-            // error. Periodically, we look to see if a transaction has been mined
-            // for whatever reason if not then we'll need to re-issue the transaction
-            // anyway
-            if (doh.stack) logger.error(doh.stack);
-            else logger.error(doh);
-        }
-    }
-}
+    public async reEnqueueMissingItems(queueItems: GasQueueItemRequest[]) {
+        // a reorg may have occurred, if this is the case then we need to check whether
+        // then some transactions that we had previously considered mined may no longer
+        // be. We can find these transactions by comparing the current gas queue to the
+        // transactions that we currently observe in pending. Transactions in pending
+        // but not in the gas queue need to be added there.
 
-class GasQueueBox {
-    constructor(public queue: GasQueue) {}
-}
+        const missingQueueItems: GasQueueItemRequest[] = [];
 
-class TransactionMinedSideEffect {
-    public constructor(public readonly gasQueueBox: GasQueueBox, public readonly signer: ethers.Signer) {}
-
-    private condition(state: ResponderAppointmentAnchorState | undefined) {
-        if (!state) return false;
-        return state.kind === ResponderState.Mined;
-    }
-
-    public shouldExecute(
-        previousState: ResponderAppointmentAnchorState | undefined,
-        currentState: ResponderAppointmentAnchorState | undefined
-    ) {
-        return !this.condition(previousState) && this.condition(currentState);
-    }
-
-    public execute(state: MinedResponseState) {
-        this.txMined(state.identifier, state.nonce);
-    }
-
-    /**
-     * A newly mined transaction requires updating the local representation of the
-     * transaction pool. If a transaction has been mined, but was already replaced
-     * then more transactions may need to be re-issued.
-     * @param txIdentifier
-     * Identifier of the mined transaction
-     * @param nonce
-     * Nonce of the mined transaction. Should always correspond to the nonce at the
-     * front of the current transaction queue. Will throw QueueConsistencyError otherwise.
-     * This enforces that this method is called in the same order that transactions are mined
-     */
-    public async txMined(txIdentifier: PisaTransactionIdentifier, nonce: number | null) {
-        try {
-            if (this.gasQueueBox.queue.queueItems.length === 0) {
-                throw new QueueConsistencyError(
-                    `Transaction mined for empty queue at nonce ${nonce}. ${inspect(txIdentifier)}`
-                );
-            }
-            if (this.gasQueueBox.queue.queueItems.findIndex(i => i.request.identifier.equals(txIdentifier)) === -1) {
-                throw new QueueConsistencyError(`Transaction identifier not found in queue. ${inspect(txIdentifier)}`);
-            }
-            const frontItem = this.gasQueueBox.queue.queueItems[0];
-            if (frontItem.nonce !== nonce) {
-                throw new QueueConsistencyError(
-                    `Front of queue nonce ${frontItem.nonce} does not correspond to nonce ${nonce}. ${inspect(
-                        txIdentifier
-                    )}`
-                );
-            }
-
-            if (!nonce) {
-                // TODO:198: nonce can be null if we didnt mine this tx - in this case we
-                // dequeue and cancel the relevant transactions
-                throw new ApplicationError("Not implemented.");
-            }
-
-            if (txIdentifier.equals(frontItem.request.identifier)) {
-                // the mined transaction was the one at the front of the current queue
-                // this is what we hoped for, simply dequeue the transaction
-                this.gasQueueBox.queue = this.gasQueueBox.queue.dequeue();
-            } else {
-                // the mined transaction was not the one at the front of the current queue
-                // - it was at the front of a past queue. This means that the transaction
-                // at the front of the current queue can no longer be mined as it shares the same
-                // nonce. We need to find the transaction in the current queue that corresponds to
-                // the mined tx and remove it. In doing so free up a later nonce.
-                // and bump up all transactions with a lower nonce so that the tx that is
-                // at the front of the current queue - but was not mined - remains there
-                const reducedQueue = this.gasQueueBox.queue.consume(txIdentifier);
-                const replacedTransactions = reducedQueue.queueItems.filter(tx => !this.mQueue.queueItems.includes(tx));
-                this.gasQueueBox.queue = reducedQueue;
-
-                // since we had to bump up some transactions - change their nonces
-                // we'll have to issue new transactions to the network
-                await Promise.all(replacedTransactions.map(this.broadcast));
-            }
-        } catch (doh) {
-            if (doh instanceof QueueConsistencyError) logger.error(doh.stack!);
-            else {
-                logger.error(`Unexpected error after mining transaction. ${txIdentifier}.`);
-                if (doh.stack) logger.error(doh.stack);
-                else logger.error(doh);
+        for (const item of queueItems) {
+            // TODO:198: add back the contains and difference functions
+            if (this.mQueue.queueItems.findIndex(i => i.request.identifier.equals(item.identifier)) === -1) {
+                missingQueueItems.push(item);
             }
         }
+
+        if (missingQueueItems.length !== 0) {
+            // TODO:198: remoe this if above - also fill in the unlock of course
+            // also, what if this is called before setup - should we setup in here?
+            const unlockedQueue = this.mQueue.unlock(missingQueueItems);
+            const replacedTransactions = unlockedQueue.queueItems.filter(tx => !this.mQueue.queueItems.includes(tx));
+            this.mQueue = unlockedQueue;
+            // broadcast these transactions
+            await Promise.all(replacedTransactions.map(this.broadcast));
+        }
+    }
+
+    public endResponse(appointmentId: string) {
+        this.respondedTransactions.delete(appointmentId);
     }
 
     private async broadcast(queueItem: GasQueueItem) {
@@ -473,8 +417,3 @@ class TransactionMinedSideEffect {
         }
     }
 }
-
-// the reason so much of this is in the same class is because of shared state
-// the shared state in question is:
-// a) the queue
-// b) the list of responses

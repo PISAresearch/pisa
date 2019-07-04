@@ -7,4 +7,4 @@ export {
     EthereumTransactionMiner
 } from "./responder";
 export { GasPriceEstimator, ExponentialCurve, ExponentialGasCurve } from "./gasPriceEstimator";
-export { MultiResponder } from "./multiResponderPOC";
+export { MultiResponder } from "./multiResponder";

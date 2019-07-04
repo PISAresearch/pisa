@@ -1,6 +1,6 @@
 import { ethers } from "ethers";
 import { GasPriceEstimator } from "./gasPriceEstimator";
-import { MultiResponderComponent, ResponderAnchorState, MultiResponder } from "./multiResponderPOC";
+import { MultiResponderComponent, ResponderAnchorState, MultiResponder } from "./multiResponder";
 import { ConfirmationObserver, BlockTimeoutDetector, BlockProcessor } from "../blockMonitor";
 import {
     DoublingGasPolicy,
@@ -46,7 +46,7 @@ export class EthereumResponderManager {
     private async respondMulti(appointment: IEthereumAppointment) {
         // start a mult responder if one exists
         const ethereumResponseData = appointment.getResponseData();
-        this.lockManager.withLock(LockManager.MultiResponderLock, async () => {
+        await this.lockManager.withLock(LockManager.MultiResponderLock, async () => {
             if (!this.multiResponder) {
                 const address = await this.signer.getAddress();
                 const nonce = await this.provider.getTransactionCount(address);

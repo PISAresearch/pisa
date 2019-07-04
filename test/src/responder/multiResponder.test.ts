@@ -72,22 +72,48 @@ describe("MultiResponder", () => {
     });
 
     it("constructor throws for negative replacement rate", async () => {
-        expect(() => new MultiResponder(address, 0, signer, increasingGasPriceEstimator, chainId)).to.throw(
-            ArgumentError
-        );
+        expect(
+            () =>
+                new MultiResponder(
+                    address,
+                    0,
+                    signer,
+                    increasingGasPriceEstimator,
+                    chainId,
+                    maxConcurrentResponses,
+                    -1
+                )
+        ).to.throw(ArgumentError);
     });
 
     it("constructor throws for zero max concurrency", async () => {
-        expect(() => new MultiResponder(address, 0, signer, increasingGasPriceEstimator, chainId)).to.throw(
-            ArgumentError
-        );
+        expect(
+            () =>
+                new MultiResponder(
+                    address,
+                    0,
+                    signer,
+                    increasingGasPriceEstimator,
+                    chainId,
+                    0,
+                    replacementRate
+                )
+        ).to.throw(ArgumentError);
     });
 
     it("startResponse can issue transaction", async () => {
         const appointmentId = "app1";
         const responseData = createResponseData("app1");
 
-        const responder = new MultiResponder(address, 0, signer, increasingGasPriceEstimator, chainId);
+        const responder = new MultiResponder(
+            address,
+            0,
+            signer,
+            increasingGasPriceEstimator,
+            chainId,
+            maxConcurrentResponses,
+            replacementRate
+        );
 
         await responder.startResponse(appointmentId, responseData);
 
@@ -101,7 +127,15 @@ describe("MultiResponder", () => {
         const appointmentId2 = "app2";
         const responseData2 = createResponseData("app2");
 
-        const responder = new MultiResponder(address, 0, signer, increasingGasPriceEstimator, chainId);
+        const responder = new MultiResponder(
+            address,
+            0,
+            signer,
+            increasingGasPriceEstimator,
+            chainId,
+            maxConcurrentResponses,
+            replacementRate
+        );
 
         await responder.startResponse(appointmentId, responseData);
         // TODO:198: success conditions?
@@ -123,8 +157,8 @@ describe("MultiResponder", () => {
             address,
             0,
             signer,
-            blockProcessor,
             decreasingGasPriceEstimator,
+            chainId,
             maxConcurrentResponses,
             replacementRate
         );
@@ -144,9 +178,11 @@ describe("MultiResponder", () => {
         const responseData = createResponseData("app1");
 
         const responder = new MultiResponder(
+            address,
+            0,
             signer,
-            blockProcessor,
             errorGasPriceEstimator,
+            chainId,
             maxConcurrentResponses,
             replacementRate
         );
@@ -164,7 +200,15 @@ describe("MultiResponder", () => {
         const appointmentId3 = "app3";
         const responseData3 = createResponseData("app3");
 
-        const responder = new MultiResponder(signer, blockProcessor, decreasingGasPriceEstimator, 2, replacementRate);
+        const responder = new MultiResponder(
+            address,
+            0,
+            signer,
+            decreasingGasPriceEstimator,
+            chainId,
+            2,
+            replacementRate
+        );
 
         await responder.startResponse(appointmentId, responseData);
         await responder.startResponse(appointmentId2, responseData2);
@@ -180,16 +224,20 @@ describe("MultiResponder", () => {
         const appointmentId = "app1";
         const responseData = createResponseData("app1");
         const responder = new MultiResponder(
+            address,
+            0,
             signer,
-            blockProcessor,
             increasingGasPriceEstimator,
+            chainId,
             maxConcurrentResponses,
             replacementRate
         );
 
         await responder.startResponse(appointmentId, responseData);
         const item = responder.queue.queueItems[0];
-        await responder.txMined(item.request.identifier, item.nonce);
+
+        // TODO:198: we need to test txMined for different 'from' variants - in all places for txMined
+        await responder.txMined(item.request.identifier, item.nonce, address);
         expect(responder.queue.queueItems.length).to.equal(0);
     });
 
@@ -199,8 +247,9 @@ describe("MultiResponder", () => {
         const appointmentId2 = "app2";
         const responseData2 = createResponseData("app2");
         const responder = new MultiResponder(
+            address,
+            0,
             signer,
-            blockProcessor,
             increasingGasPriceEstimator,
             maxConcurrentResponses,
             replacementRate
@@ -212,7 +261,7 @@ describe("MultiResponder", () => {
         await responder.startResponse(appointmentId2, responseData2);
         const itemAfterReplace = responder.queue.queueItems[0];
 
-        await responder.txMined(item.request.identifier, item.nonce);
+        await responder.txMined(item.request.identifier, item.nonce, address);
         const itemAfterMined = responder.queue.queueItems[0];
 
         expect(responder.queue.queueItems.length).to.equal(1);
@@ -224,14 +273,19 @@ describe("MultiResponder", () => {
 
     it("txMined does nothing when queue is empty", async () => {
         const responder = new MultiResponder(
+            address,
+            0,
             signer,
-            blockProcessor,
             increasingGasPriceEstimator,
             maxConcurrentResponses,
             replacementRate
         );
 
-        await responder.txMined(new PisaTransactionIdentifier(1, "data", "to", new BigNumber(0), new BigNumber(10)), 1);
+        await responder.txMined(
+            new PisaTransactionIdentifier(1, "data", "to", new BigNumber(0), new BigNumber(10)),
+            1,
+            address
+        );
         expect(responder.queue.queueItems.length).to.equal(0);
         // TODO:198: success conditions?
         // verify(transactionTrackerMock.addTx(anything(), anything())).never();
@@ -241,15 +295,20 @@ describe("MultiResponder", () => {
         const appointmentId = "app1";
         const responseData = createResponseData("app1");
         const responder = new MultiResponder(
+            address,
+            0,
             signer,
-            blockProcessor,
             increasingGasPriceEstimator,
             maxConcurrentResponses,
             replacementRate
         );
         await responder.startResponse(appointmentId, responseData);
         const queueBefore = responder.queue;
-        await responder.txMined(new PisaTransactionIdentifier(1, "data", "to", new BigNumber(0), new BigNumber(10)), 1);
+        await responder.txMined(
+            new PisaTransactionIdentifier(1, "data", "to", new BigNumber(0), new BigNumber(10)),
+            1,
+            address
+        );
 
         expect(responder.queue).to.equal(queueBefore);
         // TODO:198: success conditions?
@@ -260,8 +319,9 @@ describe("MultiResponder", () => {
         const appointmentId = "app1";
         const responseData = createResponseData("app1");
         const responder = new MultiResponder(
+            address,
+            0,
             signer,
-            blockProcessor,
             increasingGasPriceEstimator,
             maxConcurrentResponses,
             replacementRate
@@ -269,7 +329,7 @@ describe("MultiResponder", () => {
         await responder.startResponse(appointmentId, responseData);
         const queueBefore = responder.queue;
         const item = responder.queue.queueItems[0];
-        await responder.txMined(item.request.identifier, item.nonce + 1);
+        await responder.txMined(item.request.identifier, item.nonce + 1, address);
 
         expect(responder.queue).to.equal(queueBefore);
         // TODO:198: success conditions?
