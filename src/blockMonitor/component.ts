@@ -6,10 +6,7 @@ export abstract class StateReducer<TState extends object, TBlock extends IBlockS
     public abstract reduce(prevState: TState, block: TBlock): TState;
 }
 
-// TODO:198: use Map<> instead
-export type MappedState<TState extends object> = {
-    [id: string]: TState;
-};
+export type MappedState<TState extends object> = Map<string, TState>;
 
 export class MappedStateReducer<
     TState extends object,
@@ -24,21 +21,24 @@ export class MappedStateReducer<
     }
 
     public getInitialState(block: TBlock): MappedState<TState> {
-        const result: MappedState<TState> = {};
+        const result: MappedState<TState> = new Map();
         for (const obj of this.getItems()) {
             const baseReducer = this.getBaseReducer(obj);
-            result[obj.id] = baseReducer.getInitialState(block);
+            result.set(obj.id, baseReducer.getInitialState(block));
         }
         return result;
     }
     public reduce(prevState: MappedState<TState>, block: TBlock): MappedState<TState> {
-        const result: MappedState<TState> = {};
+        const result: MappedState<TState> = new Map();
         for (const obj of this.getItems()) {
             const baseReducer = this.getBaseReducer(obj);
-            const prevObjState = prevState[obj.id];
-            result[obj.id] = prevObjState
-                ? baseReducer.reduce(prevObjState, block) // reduce from previous state
-                : baseReducer.getInitialState(block); // no previous state
+            const prevObjState = prevState.get(obj.id);
+            result.set(
+                obj.id,
+                prevObjState
+                    ? baseReducer.reduce(prevObjState, block) // reduce from previous state
+                    : baseReducer.getInitialState(block) // no previous state
+            );
         }
         return result;
     }
@@ -83,34 +83,11 @@ export abstract class Component<TState extends object, TBlock extends IBlockStub
             this.blockStates.set(block, state);
         }
 
-        const prevState = prevHead && this.blockStates.get(prevHead)!;
-
-        // TODO:198: should we (deeply) compare old state and new state and only emit if different?
-        // Probably not, it might be expensive/inefficient depending on what is in TState
-        if (prevHead && prevState && state) this.handleNewStateEvent(prevHead, prevState, head, state);
-    }
-}
-
-type TriggerAndAction<TState extends object, TBlock extends IBlockStub> = {
-    condition: (state: TState, block: TBlock) => boolean;
-    action: () => void;
-};
-
-export abstract class StandardComponent<TState extends object, TBlock extends IBlockStub> extends Component<
-    TState,
-    TBlock
-> {
-    constructor(blockProcessor: BlockProcessor<TBlock>, stateReducer: StateReducer<TState, TBlock>) {
-        super(blockProcessor, stateReducer);
-    }
-
-    protected abstract getActions(): TriggerAndAction<TState, TBlock>[];
-
-    public handleNewStateEvent(prevHead: TBlock, prevState: TState, head: TBlock, state: TState) {
-        for (const { condition, action } of this.getActions()) {
-            if (condition(state, head) && !condition(prevState, prevHead)) {
-                action();
-            }
+        if (state && prevHead) {
+            const prevState = prevHead && this.blockStates.get(prevHead)!;
+            // TODO:198: should we (deeply) compare old state and new state and only emit if different?
+            // Probably not, it might be expensive/inefficient depending on what is in TState
+            this.handleNewStateEvent(prevHead, prevState, head, state);
         }
     }
 }
@@ -136,9 +113,9 @@ export abstract class StandardMappedComponent<TState extends object, TBlock exte
         head: TBlock,
         state: MappedState<TState>
     ) {
-        for (const [objId, objState] of Object.entries(state)) {
+        for (const [objId, objState] of state.entries()) {
             for (const { condition, action } of this.getActions()) {
-                const prevObjState = prevState[objId] as (TState | undefined);
+                const prevObjState = prevState.get(objId);
                 if (condition(objState, head) && (!prevObjState || !condition(prevObjState, prevHead))) {
                     action(objId);
                 }
