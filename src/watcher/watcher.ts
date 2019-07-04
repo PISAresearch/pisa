@@ -5,7 +5,7 @@ import { AppointmentStore } from "./store";
 import { BlockProcessor, ReadOnlyBlockCache } from "../blockMonitor";
 import { Block } from "../dataEntities/block";
 import { EventFilter } from "ethers";
-import { StandardMappedComponent, StateReducer, mappedStateReducer, MappedState } from "../blockMonitor/component";
+import { StandardMappedComponent, StateReducer, MappedStateReducer, MappedState } from "../blockMonitor/component";
 import logger from "../logger";
 
 enum AppointmentState {
@@ -72,8 +72,6 @@ class AppointmentStateReducer extends StateReducer<WatcherAppointmentState, Bloc
  * acted upon, that is the responsibility of the responder.
  */
 export class Watcher extends StandardMappedComponent<WatcherAppointmentState, Block> {
-    protected stateReducer: StateReducer<MappedState<WatcherAppointmentState>, Block>;
-
     /**
      * Watches the chain for events related to the supplied appointments. When an event is noticed data is forwarded to the
      * observe method to complete the task. The watcher is not responsible for ensuring that observed events are properly
@@ -86,7 +84,15 @@ export class Watcher extends StandardMappedComponent<WatcherAppointmentState, Bl
         private readonly confirmationsBeforeResponse: number,
         private readonly confirmationsBeforeRemoval: number
     ) {
-        super(blockProcessor);
+        super(
+            blockProcessor,
+            new MappedStateReducer<WatcherAppointmentState, Block, IEthereumAppointment>(
+                () => this.store.getAll(),
+                (appointment: IEthereumAppointment) =>
+                    new AppointmentStateReducer(blockProcessor.blockCache, appointment)
+            )
+        );
+
         if (confirmationsBeforeResponse > confirmationsBeforeRemoval) {
             throw new ArgumentError(
                 `confirmationsBeforeResponse must be less than or equal to confirmationsBeforeRemoval.`,
@@ -94,10 +100,6 @@ export class Watcher extends StandardMappedComponent<WatcherAppointmentState, Bl
                 confirmationsBeforeRemoval
             );
         }
-        this.stateReducer = mappedStateReducer<WatcherAppointmentState, Block, IEthereumAppointment>(
-            () => this.store.getAll(),
-            (appointment: IEthereumAppointment) => new AppointmentStateReducer(blockProcessor.blockCache, appointment)
-        );
     }
 
     protected getActions() {

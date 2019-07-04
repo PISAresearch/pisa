@@ -6,49 +6,53 @@ export abstract class StateReducer<TState extends object, TBlock extends IBlockS
     public abstract reduce(prevState: TState, block: TBlock): TState;
 }
 
+// TODO:198: use Map<> instead
 export type MappedState<TState extends object> = {
     [id: string]: TState;
 };
 
-export function mappedStateReducer<
+export class MappedStateReducer<
     TState extends object,
     TBlock extends IBlockStub,
     TMappedType extends { id: string }
->(
-    getItems: () => TMappedType[],
-    getBaseReducer: (obj: TMappedType) => StateReducer<TState, TBlock>
-): StateReducer<MappedState<TState>, TBlock> {
-    class MappedStateReducer extends StateReducer<MappedState<TState>, TBlock> {
-        public getInitialState(block: TBlock): MappedState<TState> {
-            const result: MappedState<TState> = {};
-            for (const obj of getItems()) {
-                const baseReducer = getBaseReducer(obj);
-                result[obj.id] = baseReducer.getInitialState(block);
-            }
-            return result;
-        }
-        public reduce(prevState: MappedState<TState>, block: TBlock): MappedState<TState> {
-            const result: MappedState<TState> = {};
-            for (const obj of getItems()) {
-                const baseReducer = getBaseReducer(obj);
-                const prevObjState = prevState[obj.id];
-                result[obj.id] = prevObjState
-                    ? baseReducer.reduce(prevObjState, block) // reduce from previous state
-                    : baseReducer.getInitialState(block); // no previous state
-            }
-            return result;
-        }
+> extends StateReducer<MappedState<TState>, TBlock> {
+    constructor(
+        public getItems: () => TMappedType[],
+        public getBaseReducer: (obj: TMappedType) => StateReducer<TState, TBlock>
+    ) {
+        super();
     }
-    return new MappedStateReducer();
+
+    public getInitialState(block: TBlock): MappedState<TState> {
+        const result: MappedState<TState> = {};
+        for (const obj of this.getItems()) {
+            const baseReducer = this.getBaseReducer(obj);
+            result[obj.id] = baseReducer.getInitialState(block);
+        }
+        return result;
+    }
+    public reduce(prevState: MappedState<TState>, block: TBlock): MappedState<TState> {
+        const result: MappedState<TState> = {};
+        for (const obj of this.getItems()) {
+            const baseReducer = this.getBaseReducer(obj);
+            const prevObjState = prevState[obj.id];
+            result[obj.id] = prevObjState
+                ? baseReducer.reduce(prevObjState, block) // reduce from previous state
+                : baseReducer.getInitialState(block); // no previous state
+        }
+        return result;
+    }
 }
 
 export abstract class Component<TState extends object, TBlock extends IBlockStub> {
-    protected abstract stateReducer: StateReducer<TState, TBlock>;
     protected abstract handleNewStateEvent(prevHead: TBlock, prevState: TState, head: TBlock, state: TState): void;
 
     protected blockStates = new WeakMap<TBlock, TState>();
 
-    constructor(protected readonly blockProcessor: BlockProcessor<TBlock>) {
+    constructor(
+        protected readonly blockProcessor: BlockProcessor<TBlock>,
+        protected readonly stateReducer: StateReducer<TState, TBlock>
+    ) {
         this.processNewHead = this.processNewHead.bind(this);
 
         // TODO:198: off the event somewhere
@@ -96,8 +100,8 @@ export abstract class StandardComponent<TState extends object, TBlock extends IB
     TState,
     TBlock
 > {
-    constructor(blockProcessor: BlockProcessor<TBlock>) {
-        super(blockProcessor);
+    constructor(blockProcessor: BlockProcessor<TBlock>, stateReducer: StateReducer<TState, TBlock>) {
+        super(blockProcessor, stateReducer);
     }
 
     protected abstract getActions(): TriggerAndAction<TState, TBlock>[];
@@ -120,8 +124,8 @@ export abstract class StandardMappedComponent<TState extends object, TBlock exte
     MappedState<TState>,
     TBlock
 > {
-    constructor(blockProcessor: BlockProcessor<TBlock>) {
-        super(blockProcessor);
+    constructor(blockProcessor: BlockProcessor<TBlock>, stateReducer: StateReducer<MappedState<TState>, TBlock>) {
+        super(blockProcessor, stateReducer);
     }
 
     protected abstract getActions(): TriggerAndActionWithId<TState, TBlock>[];
