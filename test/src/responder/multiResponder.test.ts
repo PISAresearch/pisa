@@ -33,9 +33,16 @@ describe("MultiResponder", () => {
         decreasingGasEstimatorMock: GasPriceEstimator,
         errorGasPriceEstimator: GasPriceEstimator,
         errorGasEstimatorMock: GasPriceEstimator,
-        blockProcessor: BlockProcessor<Block>
+        blockProcessor: BlockProcessor<Block>;
     const maxConcurrentResponses = 3;
     const replacementRate = 15;
+
+    let address: string, chainId: number;
+
+    before(async () => {
+        address = await signer.getAddress();
+        chainId = signer.provider.network.chainId;
+    });
 
     beforeEach(() => {
         // set up the mocks each time so that we can check the verifies
@@ -65,29 +72,22 @@ describe("MultiResponder", () => {
     });
 
     it("constructor throws for negative replacement rate", async () => {
-        expect(
-            () =>
-                new MultiResponder(signer, blockProcessor, increasingGasPriceEstimator, maxConcurrentResponses, -1)
-        ).to.throw(ArgumentError);
+        expect(() => new MultiResponder(address, 0, signer, increasingGasPriceEstimator, chainId)).to.throw(
+            ArgumentError
+        );
     });
 
     it("constructor throws for zero max concurrency", async () => {
-        expect(
-            () => new MultiResponder(signer, blockProcessor, increasingGasPriceEstimator, 0, replacementRate)
-        ).to.throw(ArgumentError);
+        expect(() => new MultiResponder(address, 0, signer, increasingGasPriceEstimator, chainId)).to.throw(
+            ArgumentError
+        );
     });
 
     it("startResponse can issue transaction", async () => {
         const appointmentId = "app1";
         const responseData = createResponseData("app1");
 
-        const responder = new MultiResponder(
-            signer,
-            blockProcessor,
-            increasingGasPriceEstimator,
-            maxConcurrentResponses,
-            replacementRate
-        );
+        const responder = new MultiResponder(address, 0, signer, increasingGasPriceEstimator, chainId);
 
         await responder.startResponse(appointmentId, responseData);
 
@@ -101,13 +101,7 @@ describe("MultiResponder", () => {
         const appointmentId2 = "app2";
         const responseData2 = createResponseData("app2");
 
-        const responder = new MultiResponder(
-            signer,
-            blockProcessor,
-            increasingGasPriceEstimator,
-            maxConcurrentResponses,
-            replacementRate
-        );
+        const responder = new MultiResponder(address, 0, signer, increasingGasPriceEstimator, chainId);
 
         await responder.startResponse(appointmentId, responseData);
         // TODO:198: success conditions?
@@ -126,6 +120,8 @@ describe("MultiResponder", () => {
         const responseData2 = createResponseData("app2");
 
         const responder = new MultiResponder(
+            address,
+            0,
             signer,
             blockProcessor,
             decreasingGasPriceEstimator,
@@ -156,7 +152,7 @@ describe("MultiResponder", () => {
         );
 
         await responder.startResponse(appointmentId, responseData);
-// TODO:198: success conditions?
+        // TODO:198: success conditions?
         // verify(transactionTrackerMock.addTx(anything(), anything())).never();
     });
 
@@ -168,13 +164,7 @@ describe("MultiResponder", () => {
         const appointmentId3 = "app3";
         const responseData3 = createResponseData("app3");
 
-        const responder = new MultiResponder(
-            signer,
-            blockProcessor,
-            decreasingGasPriceEstimator,
-            2,
-            replacementRate
-        );
+        const responder = new MultiResponder(signer, blockProcessor, decreasingGasPriceEstimator, 2, replacementRate);
 
         await responder.startResponse(appointmentId, responseData);
         await responder.startResponse(appointmentId2, responseData2);

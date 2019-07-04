@@ -1,6 +1,6 @@
 import { ethers } from "ethers";
 import { GasPriceEstimator } from "./gasPriceEstimator";
-import { MultiResponder, ResponderAnchorState } from "./multiResponder";
+import { MultiResponderComponent, ResponderAnchorState, MultiResponder } from "./multiResponderPOC";
 import { ConfirmationObserver, BlockTimeoutDetector, BlockProcessor } from "../blockMonitor";
 import {
     DoublingGasPolicy,
@@ -14,6 +14,7 @@ import { ArgumentError, IEthereumAppointment, Block } from "../dataEntities";
 import logger from "../logger";
 import { plural } from "../utils";
 import { BlockchainMachine } from "../blockMonitor/blockchainMachine";
+import { LockManager } from "../utils/lock";
 
 /**
  * Responsible for handling the business logic of the Responders.
@@ -21,21 +22,20 @@ import { BlockchainMachine } from "../blockMonitor/blockchainMachine";
 export class EthereumResponderManager {
     private provider: ethers.providers.Provider;
     private gasPolicy: IGasPolicy;
-    private readonly multiResponder: MultiResponder;
+    private multiResponder: MultiResponder | null;
+    private readonly lockManager = new LockManager();
 
     constructor(
         private readonly dedicated: boolean,
         private readonly signer: ethers.Signer,
         private readonly blockTimeoutDetector: BlockTimeoutDetector,
         private readonly confirmationObserver: ConfirmationObserver,
-        blockProcessor: BlockProcessor<Block>,
-        gasPriceEstimator: GasPriceEstimator,
+        private readonly blockProcessor: BlockProcessor<Block>,
+        private readonly gasPriceEstimator: GasPriceEstimator
     ) {
         if (!signer.provider) throw new ArgumentError("The given signer is not connected to a provider");
         this.provider = signer.provider;
         this.gasPolicy = new DoublingGasPolicy(this.provider);
-        this.multiResponder = new MultiResponder(signer, blockProcessor, gasPriceEstimator);
-        new BlockchainMachine<ResponderAnchorState, Block>(blockProcessor, new Map(), this.multiResponder)
     }
 
     public async respond(appointment: IEthereumAppointment) {
@@ -44,9 +44,21 @@ export class EthereumResponderManager {
     }
 
     private async respondMulti(appointment: IEthereumAppointment) {
+        // start a mult responder if one exists
         const ethereumResponseData = appointment.getResponseData();
-        await this.multiResponder.startResponse(appointment.id, ethereumResponseData);
+        this.lockManager.withLock(LockManager.MultiResponderLock, async () => {
+            if (!this.multiResponder) {
+                const address = await this.signer.getAddress();
+                const nonce = await this.provider.getTransactionCount(address);
+                const chainId = (await this.provider.getNetwork()).chainId;
 
+                this.multiResponder = new MultiResponder(address, nonce, this.signer, this.gasPriceEstimator, chainId);
+
+                const responderComponent = new MultiResponderComponent(this.blockProcessor, this.multiResponder);
+                new BlockchainMachine<ResponderAnchorState, Block>(this.blockProcessor, new Map(), responderComponent);
+            }
+        });
+        await this.multiResponder!.startResponse(appointment.id, ethereumResponseData);
     }
 
     private async respondDedicated(appointment: IEthereumAppointment) {
