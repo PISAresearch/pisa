@@ -51,6 +51,7 @@ export abstract class Component<TState extends object, TBlock extends IBlockStub
     constructor(protected readonly blockProcessor: BlockProcessor<TBlock>) {
         this.processNewHead = this.processNewHead.bind(this);
 
+        // TODO:198: off the event somewhere
         blockProcessor.on(BlockProcessor.NEW_HEAD_EVENT, this.processNewHead);
     }
 
@@ -80,7 +81,7 @@ export abstract class Component<TState extends object, TBlock extends IBlockStub
 
         const prevState = prevHead && this.blockStates.get(prevHead)!;
 
-        // TODO: should we (deeply) compare old state and new state and only emit if different?
+        // TODO:198: should we (deeply) compare old state and new state and only emit if different?
         // Probably not, it might be expensive/inefficient depending on what is in TState
         if (prevHead && prevState && state) this.handleNewStateEvent(prevHead, prevState, head, state);
     }
@@ -133,7 +134,7 @@ export abstract class StandardMappedComponent<TState extends object, TBlock exte
     ) {
         for (const [objId, objState] of Object.entries(state)) {
             for (const { condition, action } of this.getActions()) {
-                const prevObjState = prevState[objId]; // TODO-198: this could be undefined, but the type system doesn't know!
+                const prevObjState = prevState[objId] as (TState | undefined);
                 if (condition(objState, head) && (!prevObjState || !condition(prevObjState, prevHead))) {
                     action(objId);
                 }
