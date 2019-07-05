@@ -83,7 +83,6 @@ export class Watcher extends StandardMappedComponent<WatcherAppointmentState, Bl
         private readonly confirmationsBeforeRemoval: number
     ) {
         super(
-            blockProcessor,
             new MappedStateReducer<WatcherAppointmentState, Block, IEthereumAppointment>(
                 () => this.store.getAll(),
                 (appointment: IEthereumAppointment) =>

@@ -53,55 +53,9 @@ export class MappedStateReducer<TState extends object, TBlock extends IBlockStub
     }
 }
 
-/**
- * Represents an object that processes state changes through a reducer, and handles any appropriate side effect.
- */
-export abstract class Component<TState extends object, TBlock extends IBlockStub> {
-    protected abstract handleNewStateEvent(prevHead: TBlock, prevState: TState, head: TBlock, state: TState): void;
-
-    protected blockStates = new WeakMap<TBlock, TState>();
-
-    constructor(
-        protected readonly blockProcessor: BlockProcessor<TBlock>,
-        protected readonly stateReducer: StateReducer<TState, TBlock>
-    ) {
-        this.processNewHead = this.processNewHead.bind(this);
-
-        // TODO:198: off the event somewhere
-        blockProcessor.on(BlockProcessor.NEW_HEAD_EVENT, this.processNewHead);
-    }
-
-    private processNewHead(head: Readonly<TBlock>, prevHead: Readonly<TBlock> | null) {
-        // Make the list of ancestors up to (and excluding) prevHead;
-        // put all the ancestry if prevHead is null
-        const ancestorsToAdd: Readonly<TBlock>[] = [];
-        for (const block of this.blockProcessor.blockCache.ancestry(head.hash)) {
-            if (prevHead && block.hash === prevHead.hash) break;
-            ancestorsToAdd.push(block);
-        }
-
-        // start from the oldest, compute each block's state
-        ancestorsToAdd.reverse();
-        let state: TState | null = null;
-        for (const block of ancestorsToAdd) {
-            const parentBlock = this.blockProcessor.blockCache.getBlockStub(block.parentHash);
-
-            // the previous state is the state of the parent block if available, or the initial state otherwise
-            const prevAnchorState = parentBlock
-                ? this.blockStates.get(parentBlock)!
-                : this.stateReducer.getInitialState(block);
-
-            state = this.stateReducer.reduce(prevAnchorState, block);
-            this.blockStates.set(block, state);
-        }
-
-        if (state && prevHead) {
-            const prevState = prevHead && this.blockStates.get(prevHead)!;
-            // TODO:198: should we (deeply) compare old state and new state and only emit if different?
-            // Probably not, it might be expensive/inefficient depending on what is in TState
-            this.handleNewStateEvent(prevHead, prevState, head, state);
-        }
-    }
+export interface Component<TState extends object, TBlock extends IBlockStub> {
+    reducer: StateReducer<TState, TBlock>;
+    handleNewStateEvent(prevHead: TBlock, prevState: TState, head: TBlock, state: TState): void;
 }
 
 type TriggerAndActionWithId<TState extends object, TBlock extends IBlockStub> = {
@@ -113,13 +67,9 @@ type TriggerAndActionWithId<TState extends object, TBlock extends IBlockStub> = 
  * A commodity class that generates a mapped anchor state and generates side effects independently for each mapped item.
  * TODO:198: add more documentation.
  */
-export abstract class StandardMappedComponent<TState extends object, TBlock extends IBlockStub> extends Component<
-    MappedState<TState>,
-    TBlock
-> {
-    constructor(blockProcessor: BlockProcessor<TBlock>, stateReducer: StateReducer<MappedState<TState>, TBlock>) {
-        super(blockProcessor, stateReducer);
-    }
+export abstract class StandardMappedComponent<TState extends object, TBlock extends IBlockStub>
+    implements Component<MappedState<TState>, TBlock> {
+    constructor(readonly reducer: StateReducer<MappedState<TState>, TBlock>) {}
 
     protected abstract getActions(): TriggerAndActionWithId<TState, TBlock>[];
 

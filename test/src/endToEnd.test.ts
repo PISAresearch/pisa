@@ -16,6 +16,7 @@ import {
 } from "../../src/blockMonitor";
 import levelup from "levelup";
 import MemDown from "memdown";
+import { BlockchainMachine } from "../../src/blockMonitor/blockchainMachine";
 
 const ganache = Ganache.provider({
     mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect"
@@ -106,10 +107,16 @@ describe("End to end", () => {
         const watcher = new Watcher(responderManager, blockProcessor, store, 0, 20);
         const player0Contract = channelContract.connect(provider.getSigner(player0));
 
+        const blockchainMachine = new BlockchainMachine<Block>(blockProcessor);
+
+        blockchainMachine.addComponent(watcher);
+        await blockchainMachine.start();
+
         // 3. Trigger a dispute
         const tx = await player0Contract.triggerDispute();
         await tx.wait();
 
+        await blockchainMachine.stop();
         await store.stop();
         await transactionTracker.stop();
         await confirmationObserver.stop();

@@ -24,6 +24,7 @@ import { LevelUp } from "levelup";
 import encodingDown from "encoding-down";
 import { blockFactory } from "./blockMonitor";
 import { Block } from "./dataEntities/block";
+import { BlockchainMachine } from "./blockMonitor/blockchainMachine";
 
 /**
  * Hosts a PISA service at the endpoint.
@@ -37,6 +38,7 @@ export class PisaService extends StartStopService {
     private readonly ethereumResponderManager: EthereumResponderManager;
     private readonly appointmentStore: AppointmentStore;
     private readonly transactionTracker: TransactionTracker;
+    private readonly blockchainMachine: BlockchainMachine<Block>;
 
     /**
      *
@@ -95,6 +97,9 @@ export class PisaService extends StartStopService {
             watcherRemovalConfirmations
         );
 
+        this.blockchainMachine = new BlockchainMachine<Block>(this.blockProcessor);
+        this.blockchainMachine.addComponent(watcher);
+
         // gc
         this.garbageCollector = new AppointmentStoreGarbageCollector(provider, 10, this.appointmentStore);
 
@@ -112,6 +117,7 @@ export class PisaService extends StartStopService {
     }
 
     protected async startInternal() {
+        await this.blockchainMachine.start();
         await this.blockProcessor.start();
         await this.transactionTracker.start();
         await this.blockTimeoutDetector.start();
@@ -127,6 +133,8 @@ export class PisaService extends StartStopService {
         await this.blockTimeoutDetector.stop();
         await this.transactionTracker.stop();
         await this.blockProcessor.stop();
+        await this.blockchainMachine.stop();
+
         this.server.close(error => {
             if (error) this.logger.error(error.stack!);
             this.logger.info(`Shutdown.`);
