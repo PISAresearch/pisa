@@ -1,5 +1,5 @@
 import "mocha";
-import { Watcher, AppointmentsState } from "../../src/watcher/watcher";
+import { Watcher } from "../../src/watcher/watcher";
 import { KitsuneInspector, KitsuneAppointment, KitsuneTools } from "../../src/integrations/kitsune";
 import { ethers } from "ethers";
 import Ganache from "ganache-core";
@@ -105,12 +105,16 @@ describe("End to end", () => {
         const watcher = new Watcher(responderManager, blockProcessor, store, 0, 20);
         const player0Contract = channelContract.connect(provider.getSigner(player0));
 
-        new BlockchainMachine<AppointmentsState, Block>(blockProcessor, {}, watcher);
+        const blockchainMachine = new BlockchainMachine<Block>(blockProcessor);
+
+        blockchainMachine.addComponent(watcher);
+        await blockchainMachine.start();
 
         // 3. Trigger a dispute
         const tx = await player0Contract.triggerDispute();
         await tx.wait();
 
+        await blockchainMachine.stop();
         await store.stop();
         await confirmationObserver.stop();
         await blockTimeoutDetector.stop();

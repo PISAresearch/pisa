@@ -1,6 +1,6 @@
 import { ethers } from "ethers";
 import { GasPriceEstimator } from "./gasPriceEstimator";
-import { MultiResponderComponent, ResponderAnchorState, MultiResponder } from "./multiResponder";
+import { MultiResponder } from "./multiResponder";
 import { ConfirmationObserver, BlockTimeoutDetector, BlockProcessor } from "../blockMonitor";
 import {
     DoublingGasPolicy,
@@ -52,10 +52,18 @@ export class EthereumResponderManager {
                 const nonce = await this.provider.getTransactionCount(address);
                 const chainId = (await this.provider.getNetwork()).chainId;
 
-                this.multiResponder = new MultiResponder(address, nonce, this.signer, this.gasPriceEstimator, chainId);
+                this.multiResponder = new MultiResponder(
+                    this.blockProcessor,
+                    address,
+                    nonce,
+                    this.signer,
+                    this.gasPriceEstimator,
+                    chainId
+                );
 
-                const responderComponent = new MultiResponderComponent(this.blockProcessor, this.multiResponder);
-                new BlockchainMachine<ResponderAnchorState, Block>(this.blockProcessor, new Map(), responderComponent);
+                const blockchainMachine = new BlockchainMachine<Block>(this.blockProcessor);
+                blockchainMachine.addComponent(this.multiResponder);
+                await blockchainMachine.start(); // TODO:198: when do we stop it?
             }
         });
         await this.multiResponder!.startResponse(appointment.id, ethereumResponseData);

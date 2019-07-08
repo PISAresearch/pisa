@@ -7,7 +7,7 @@ import { BigNumber } from "ethers/utils";
 import { expect } from "chai";
 import { ArgumentError, IEthereumResponseData, Block } from "../../../src/dataEntities";
 import { PisaTransactionIdentifier } from "../../../src/responder/gasQueue";
-import { BlockProcessor } from "../../../src/blockMonitor";
+import { BlockProcessor, BlockCache, ReadOnlyBlockCache } from "../../../src/blockMonitor";
 
 const ganache = Ganache.provider({
     mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect"
@@ -67,7 +67,10 @@ describe("MultiResponder", () => {
         errorGasPriceEstimator = instance(errorGasEstimatorMock);
 
         // TODO:198: decide what to do here
+
         const mockedBlockProcessor = mock(BlockProcessor);
+        // TODO:198: it is expected to read the maxDepth from the blockCach; but this is ugly
+        when(mockedBlockProcessor.blockCache).thenReturn({ maxDepth: 10 } as ReadOnlyBlockCache<Block>);
         blockProcessor = instance(mockedBlockProcessor);
     });
 
@@ -75,6 +78,7 @@ describe("MultiResponder", () => {
         expect(
             () =>
                 new MultiResponder(
+                    blockProcessor,
                     address,
                     0,
                     signer,
@@ -90,6 +94,7 @@ describe("MultiResponder", () => {
         expect(
             () =>
                 new MultiResponder(
+                    blockProcessor,
                     address,
                     0,
                     signer,
@@ -106,6 +111,7 @@ describe("MultiResponder", () => {
         const responseData = createResponseData("app1");
 
         const responder = new MultiResponder(
+            blockProcessor,
             address,
             0,
             signer,
@@ -128,6 +134,7 @@ describe("MultiResponder", () => {
         const responseData2 = createResponseData("app2");
 
         const responder = new MultiResponder(
+            blockProcessor,
             address,
             0,
             signer,
@@ -154,6 +161,7 @@ describe("MultiResponder", () => {
         const responseData2 = createResponseData("app2");
 
         const responder = new MultiResponder(
+            blockProcessor,
             address,
             0,
             signer,
@@ -178,6 +186,7 @@ describe("MultiResponder", () => {
         const responseData = createResponseData("app1");
 
         const responder = new MultiResponder(
+            blockProcessor,
             address,
             0,
             signer,
@@ -201,6 +210,7 @@ describe("MultiResponder", () => {
         const responseData3 = createResponseData("app3");
 
         const responder = new MultiResponder(
+            blockProcessor,
             address,
             0,
             signer,
@@ -224,6 +234,7 @@ describe("MultiResponder", () => {
         const appointmentId = "app1";
         const responseData = createResponseData("app1");
         const responder = new MultiResponder(
+            blockProcessor,
             address,
             0,
             signer,
@@ -247,6 +258,7 @@ describe("MultiResponder", () => {
         const appointmentId2 = "app2";
         const responseData2 = createResponseData("app2");
         const responder = new MultiResponder(
+            blockProcessor,
             address,
             0,
             signer,
@@ -273,6 +285,7 @@ describe("MultiResponder", () => {
 
     it("txMined does nothing when queue is empty", async () => {
         const responder = new MultiResponder(
+            blockProcessor,
             address,
             0,
             signer,
@@ -295,6 +308,7 @@ describe("MultiResponder", () => {
         const appointmentId = "app1";
         const responseData = createResponseData("app1");
         const responder = new MultiResponder(
+            blockProcessor,
             address,
             0,
             signer,
@@ -319,6 +333,7 @@ describe("MultiResponder", () => {
         const appointmentId = "app1";
         const responseData = createResponseData("app1");
         const responder = new MultiResponder(
+            blockProcessor,
             address,
             0,
             signer,

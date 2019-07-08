@@ -53,7 +53,7 @@
         "express": "^4.16.4",
         "express-http-context": "^1.2.0",
         "express-rate-limit": "^3.5.0",
-        "ganache-core": "^2.5.5",
+        "ganache-core": "^2.5.6",
         "leveldown": "^5.0.3",
         "levelup": "^4.0.1",
         "memdown": "^4.0.0",

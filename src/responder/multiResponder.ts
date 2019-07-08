@@ -9,7 +9,7 @@ import { inspect } from "util";
 import logger from "../logger";
 import { QueueConsistencyError, ArgumentError, ApplicationError } from "../dataEntities/errors";
 import { Block } from "../dataEntities/block";
-import { Component } from "../blockMonitor/component";
+import { Component, StateReducer } from "../blockMonitor/component";
 
 enum ResponderStateKind {
     Pending = 1,
@@ -32,21 +32,60 @@ type ResponderAppointmentAnchorState = PendingResponseState | MinedResponseState
 
 export type ResponderAnchorState = Map<string, ResponderAppointmentAnchorState>;
 
-export class MultiResponderComponent implements Component<ResponderAnchorState, Block> {
-    private readonly confirmationsRequired: number;
+class Reducer implements StateReducer<ResponderAnchorState, Block> {
+    public constructor(
+        private readonly blockProcessor: BlockProcessor<Block>,
+        private readonly responder: MultiResponder
+    ) {}
 
-    // TODO:198: what do we need to store for recover - maybe only respondedTransactions
-    // TODO:198: as in theory we can recover the current pending transactions by querying
-    // TODO:198: the node
+    private blockContainsTransaction(
+        block: Block,
+        identifier: PisaTransactionIdentifier
+    ): { blockNumber: number; nonce: number; from: string } | null {
+        for (const tx of block.transactions) {
+            // a contract creation - cant be of interest
+            if (!tx.to) continue;
 
-    constructor(public readonly blockProcessor: BlockProcessor<Block>, public readonly responder: MultiResponder) {
-        this.confirmationsRequired = blockProcessor.blockCache.maxDepth - 1;
+            // look for matching transactions
+            const txIdentifier = new PisaTransactionIdentifier(tx.chainId, tx.data, tx.to, tx.value, tx.gasLimit);
+            if (txIdentifier.equals(identifier)) {
+                return {
+                    blockNumber: tx.blockNumber!,
+                    nonce: tx.nonce,
+                    from: tx.from
+                };
+            }
+        }
+
+        return null;
+    }
+    private getMinedTransaction(identifier: PisaTransactionIdentifier) {
+        for (const block of this.blockProcessor.blockCache.ancestry(this.blockProcessor.head.hash)) {
+            const txInfo = this.blockContainsTransaction(block, identifier);
+            if (txInfo) return txInfo;
+        }
+        return null;
+    }
+
+    // TODO:198: check this, as it wasn't in the original implementation from Chris
+    public getInitialState(block: Block): Map<string, ResponderAppointmentAnchorState> {
+        // make sure the anchor state is full
+        const result: ResponderAnchorState = new Map();
+
+        // check the block for each of the current pending items
+        for (const key of this.responder.respondedTransactions.keys()) {
+            const queueItemRequest = this.responder.respondedTransactions.get(key)!;
+            const state = this.getInitialAppointmentState({
+                appointmentId: key,
+                queueItemRequest
+            });
+            result.set(key, state);
+        }
+        return result;
     }
 
     public reduce(prevState: ResponderAnchorState, block: Block): ResponderAnchorState {
         // make sure the anchor state is full
-        const initialisationReducer = new ResponderInitialisationReducer(this.blockProcessor);
-        const responderReducer = new ResponderReducer();
         const result: ResponderAnchorState = new Map();
 
         // check the block for each of the current pending items
@@ -56,17 +95,122 @@ export class MultiResponderComponent implements Component<ResponderAnchorState, 
             const val = prevState.get(key);
 
             if (!val) {
-                const state = initialisationReducer.reduce({
+                const state = this.getInitialAppointmentState({
                     appointmentId: key,
                     queueItemRequest
                 });
                 result.set(key, state);
             } else if (val.kind === ResponderStateKind.Pending) {
-                const state = responderReducer.reduce(val, block);
+                const state = this.reduceAppointment(val, block);
                 result.set(state.appointmentId, state);
             }
         }
         return result;
+    }
+
+    private reduceAppointment(
+        prevAppointmentState: PendingResponseState,
+        block: Block
+    ): ResponderAppointmentAnchorState {
+        const transaction = this.blockContainsTransaction(block, prevAppointmentState.queueItem.identifier);
+        if (transaction) {
+            return {
+                appointmentId: prevAppointmentState.appointmentId,
+                identifier: prevAppointmentState.queueItem.identifier,
+                blockMined: block.number,
+                nonce: transaction.nonce,
+                kind: ResponderStateKind.Mined,
+                from: transaction.from
+            };
+        } else {
+            return {
+                appointmentId: prevAppointmentState.appointmentId,
+                kind: ResponderStateKind.Pending,
+                queueItem: prevAppointmentState.queueItem
+            };
+        }
+    }
+
+    private getInitialAppointmentState(prevState: {
+        appointmentId: string;
+        queueItemRequest: GasQueueItemRequest;
+    }): ResponderAppointmentAnchorState {
+        // has this transaction been mined?
+        const minedTx = this.getMinedTransaction(prevState.queueItemRequest.identifier);
+
+        if (minedTx === null) {
+            return {
+                appointmentId: prevState.appointmentId,
+                kind: ResponderStateKind.Pending,
+                queueItem: prevState.queueItemRequest
+            };
+        } else {
+            return {
+                appointmentId: prevState.appointmentId,
+                kind: ResponderStateKind.Mined,
+                blockMined: minedTx.blockNumber,
+                identifier: prevState.queueItemRequest.identifier,
+                nonce: minedTx.nonce,
+                from: minedTx.from
+            };
+        }
+    }
+}
+
+export class MultiResponder extends EthereumResponder implements Component<ResponderAnchorState, Block> {
+    private readonly confirmationsRequired: number;
+    public readonly reducer: StateReducer<ResponderAnchorState, Block>;
+
+    public get queue() {
+        return this.mQueue;
+    }
+    private mQueue: GasQueue;
+    public readonly respondedTransactions: Map<string, GasQueueItemRequest> = new Map();
+
+    /**
+     * Can handle multiple response for a given signer. This responder requires exclusive
+     * use of the signer, as it carefully manages the nonces of the transactions created by
+     * the signer. Can handle a concurrent number of responses up to maxQueueDepth
+     * @param blockProcessor TODO:198: document this
+     * @param signer
+     *   The signer used to sign transaction created by this responder. This responder
+     *   requires exclusive use of this signer.
+     * @param gasEstimator
+     * @param transactionTracker
+     * @param maxConcurrentResponses
+     *   Parity and Geth set maximums on the number of pending transactions in the
+     *   pool that can emanate from a single account. Current defaults:
+     *   Parity: max(16, 1% of the pool): https://wiki.parity.io/Configuring-Parity-Ethereum --tx-queue-per-sender
+     *   Geth: 64: https://github.com/ethereum/go-ethereum/wiki/Command-Line-Options --txpool.accountqueue
+     * @param replacementRate
+     *   This responder replaces existing transactions on the network.
+     *   This replacement rate is set by the nodes. The value should be the percentage increase
+     *   eg. 13. Must be positive.
+     *   Parity: 12.5%: https://github.com/paritytech/parity-ethereum/blob/master/miner/src/pool/scoring.rs#L38
+     *   Geth: 10% default : https://github.com/ethereum/go-ethereum/wiki/Command-Line-Options --txpool.pricebump
+     */
+    //TODO:198: documentation out of date - check everywhere in this file
+    public constructor(
+        readonly blockProcessor: BlockProcessor<Block>,
+        public readonly address: string,
+        public readonly startingNonce: number,
+        public readonly signer: ethers.Signer,
+        public readonly gasEstimator: GasPriceEstimator,
+        public readonly chainId: number,
+        maxConcurrentResponses: number = 12,
+        replacementRate: number = 13
+    ) {
+        super(signer);
+        if (replacementRate < 0) throw new ArgumentError("Cannot have negative replacement rate.", replacementRate);
+        if (maxConcurrentResponses < 1) {
+            throw new ArgumentError("Maximum concurrent requests must be greater than 0.", maxConcurrentResponses);
+        }
+        this.mQueue = new GasQueue([], startingNonce, replacementRate, maxConcurrentResponses);
+        this.broadcast = this.broadcast.bind(this);
+
+        this.confirmationsRequired = blockProcessor.blockCache.maxDepth - 1;
+
+        this.reducer = new Reducer(blockProcessor, this);
     }
 
     public async handleNewStateEvent(
@@ -95,174 +239,20 @@ export class MultiResponderComponent implements Component<ResponderAnchorState, 
             );
         };
 
-        this.responder.reEnqueueMissingItems([...state.values()].filter(isPending).map(q => q.queueItem));
+        this.reEnqueueMissingItems([...state.values()].filter(isPending).map(q => q.queueItem));
 
         for (const appointmentId of state.keys()) {
             const prevItem = prevState.get(appointmentId);
             const currentItem = state.get(appointmentId);
 
             if (!hasBeenMined(prevItem) && hasBeenMined(currentItem)) {
-                await this.responder.txMined(currentItem.identifier, currentItem.nonce, currentItem.from);
+                await this.txMined(currentItem.identifier, currentItem.nonce, currentItem.from);
             }
 
             if (!shouldBeRemoved(prevItem, prevHead) && shouldBeRemoved(currentItem, head)) {
-                await this.responder.endResponse(currentItem.appointmentId);
+                await this.endResponse(currentItem.appointmentId);
             }
         }
-    }
-}
-
-class ResponderReducer {
-    public constructor() {}
-
-    private blockContainsTransaction(
-        block: Block,
-        identifier: PisaTransactionIdentifier
-    ): { blockNumber: number; nonce: number; from: string } | null {
-        for (const tx of block.transactions) {
-            // a contract creation - cant be of interest
-            if (!tx.to) continue;
-
-            // look for matching transactions
-            const txIdentifier = new PisaTransactionIdentifier(tx.chainId, tx.data, tx.to, tx.value, tx.gasLimit);
-            if (txIdentifier.equals(identifier)) {
-                return {
-                    blockNumber: tx.blockNumber!,
-                    nonce: tx.nonce,
-                    from: tx.from
-                };
-            }
-        }
-
-        return null;
-    }
-
-    public reduce(prevState: PendingResponseState, block: Block): ResponderAppointmentAnchorState {
-        const transaction = this.blockContainsTransaction(block, prevState.queueItem.identifier);
-        if (transaction) {
-            return {
-                appointmentId: prevState.appointmentId,
-                identifier: prevState.queueItem.identifier,
-                blockMined: block.number,
-                nonce: transaction.nonce,
-                kind: ResponderStateKind.Mined,
-                from: transaction.from
-            };
-        } else {
-            return {
-                appointmentId: prevState.appointmentId,
-                kind: ResponderStateKind.Pending,
-                queueItem: prevState.queueItem
-            };
-        }
-    }
-}
-
-class ResponderInitialisationReducer {
-    public constructor(private readonly blockProcessor: BlockProcessor<Block>) {}
-
-    // TODO:198: duplicated code in this and the responder reducer
-    private blockContainsTransaction(
-        block: Block,
-        identifier: PisaTransactionIdentifier
-    ): { blockNumber: number; nonce: number; from: string } | null {
-        for (const tx of block.transactions) {
-            // a contract creation - cant be of interest
-            if (!tx.to) continue;
-
-            // look for matching transactions
-            const txIdentifier = new PisaTransactionIdentifier(tx.chainId, tx.data, tx.to, tx.value, tx.gasLimit);
-            if (txIdentifier.equals(identifier)) {
-                return {
-                    blockNumber: tx.blockNumber!,
-                    nonce: tx.nonce,
-                    from: tx.from
-                };
-            }
-        }
-
-        return null;
-    }
-
-    private getMinedTransaction(identifier: PisaTransactionIdentifier) {
-        for (const block of this.blockProcessor.blockCache.ancestry(this.blockProcessor.head.hash)) {
-            const txInfo = this.blockContainsTransaction(block, identifier);
-            if (txInfo) return txInfo;
-        }
-        return null;
-    }
-
-    public reduce(prevState: {
-        appointmentId: string;
-        queueItemRequest: GasQueueItemRequest;
-    }): ResponderAppointmentAnchorState {
-        // has this transaction been mined?
-        const minedTx = this.getMinedTransaction(prevState.queueItemRequest.identifier);
-
-        if (minedTx === null) {
-            return {
-                appointmentId: prevState.appointmentId,
-                kind: ResponderStateKind.Pending,
-                queueItem: prevState.queueItemRequest
-            };
-        } else {
-            return {
-                appointmentId: prevState.appointmentId,
-                kind: ResponderStateKind.Mined,
-                blockMined: minedTx.blockNumber,
-                identifier: prevState.queueItemRequest.identifier,
-                nonce: minedTx.nonce,
-                from: minedTx.from
-            };
-        }
-    }
-}
-
-export class MultiResponder extends EthereumResponder {
-    public get queue() {
-        return this.mQueue;
-    }
-    private mQueue: GasQueue;
-    public readonly respondedTransactions: Map<string, GasQueueItemRequest> = new Map();
-
-    /**
-     * Can handle multiple response for a given signer. This responder requires exclusive
-     * use of the signer, as it carefully manages the nonces of the transactions created by
-     * the signer. Can handle a concurrent number of responses up to maxQueueDepth
-     * @param signer
-     *   The signer used to sign transaction created by this responder. This responder
-     *   requires exclusive use of this signer.
-     * @param gasEstimator
-     * @param transactionTracker
-     * @param maxConcurrentResponses
-     *   Parity and Geth set maximums on the number of pending transactions in the
-     *   pool that can emanate from a single account. Current defaults:
-     *   Parity: max(16, 1% of the pool): https://wiki.parity.io/Configuring-Parity-Ethereum --tx-queue-per-sender
-     *   Geth: 64: https://github.com/ethereum/go-ethereum/wiki/Command-Line-Options --txpool.accountqueue
-     * @param replacementRate
-     *   This responder replaces existing transactions on the network.
-     *   This replacement rate is set by the nodes. The value should be the percentage increase
-     *   eg. 13. Must be positive.
-     *   Parity: 12.5%: https://github.com/paritytech/parity-ethereum/blob/master/miner/src/pool/scoring.rs#L38
-     *   Geth: 10% default : https://github.com/ethereum/go-ethereum/wiki/Command-Line-Options --txpool.pricebump
-     */
-    //TODO:198: documentation out of date - check everywhere in this file
-    public constructor(
-        public readonly address: string,
-        public readonly startingNonce: number,
-        public readonly signer: ethers.Signer,
-        public readonly gasEstimator: GasPriceEstimator,
-        public readonly chainId: number,
-        maxConcurrentResponses: number = 12,
-        replacementRate: number = 13
-    ) {
-        super(signer);
-        if (replacementRate < 0) throw new ArgumentError("Cannot have negative replacement rate.", replacementRate);
-        if (maxConcurrentResponses < 1) {
-            throw new ArgumentError("Maximum concurrent requests must be greater than 0.", maxConcurrentResponses);
-        }
-        this.mQueue = new GasQueue([], startingNonce, replacementRate, maxConcurrentResponses);
-        this.broadcast = this.broadcast.bind(this);
     }
 
     public async startResponse(appointmentId: string, responseData: IEthereumResponseData) {

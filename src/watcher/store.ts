@@ -143,6 +143,10 @@ export class AppointmentStore extends StartStopService implements IAppointmentSt
         return false;
     }
 
+    public getById(id: string) {
+        return this.appointmentsById[id];
+    }
+
     /**
      * Find all appointments that have an end block less than the supplied block.
      *
