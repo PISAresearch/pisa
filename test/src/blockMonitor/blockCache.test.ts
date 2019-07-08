@@ -2,7 +2,7 @@ import "mocha";
 import { expect } from "chai";
 import { BlockCache, getConfirmations } from "../../../src/blockMonitor";
 import { ethers } from "ethers";
-import { ArgumentError, IBlockStub, TransactionHashes } from "../../../src/dataEntities";
+import { ArgumentError, IBlockStub, TransactionHashes, ApplicationError } from "../../../src/dataEntities";
 import {} from "../../../src/dataEntities/block";
 
 function generateBlocks(
@@ -191,6 +191,27 @@ describe("BlockCache", () => {
 
         expect(() => bc.getOldestAncestorInCache("notExistingHash")).to.throw(ArgumentError);
     });
+
+    it("setHead correctly sets new head", () => {
+        const  bc = new BlockCache(maxDepth);
+        const blocks = generateBlocks(1, 0, "main");
+
+        bc.addBlock(blocks[0]);
+        bc.setHead(blocks[0].hash);
+        expect(bc.head).to.deep.equal(blocks[0]);
+    })
+
+    it("setHead throws for head not in cache", () => {
+        const  bc = new BlockCache(maxDepth);
+        const blocks = generateBlocks(1, 0, "main");
+
+        expect(() => bc.setHead(blocks[0].hash)).to.throw(ArgumentError);
+    })
+
+    it("head throws if setHead never called", () => {
+        const  bc = new BlockCache(maxDepth);
+        expect(() => bc.head).to.throw(ApplicationError);
+    })
 });
 
 describe("getConfirmations", () => {

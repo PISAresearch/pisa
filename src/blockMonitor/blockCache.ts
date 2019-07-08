@@ -227,7 +227,11 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
         return result;
     }
 
-    // TODO:191: tests + docs
+    /**
+     * Sets the head block in the cache. AddBlock must be called before setHead can be
+     * called for that hash.
+     * @param blockHash 
+     */
     public setHead(blockHash: string) {
         if (!this.hasBlock(blockHash)) {
             throw new ArgumentError("Cannot set the head for a block that isnt in the cash.", blockHash);
@@ -235,15 +239,13 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
         this.headHash = blockHash;
     }
 
-    // TODO:191: test the 
-        /**
+    /**
      * Returns the latest known head block.
      *
      * @throws ApplicationError if the block is not found in the cache. This should never happen, unless
-     *         `head` is read before the service is started.
+     *         `head` is read before being set.
      */
     public get head(): TBlock {
-        // TODO:191: check all these errors
         if (this.headHash == null) {
             throw new ApplicationError("Head used before the BlockCache is initialized.");
         }
