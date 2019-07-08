@@ -9,7 +9,7 @@ export interface ReadOnlyBlockCache<TBlock extends IBlockStub> {
     readonly maxHeight: number;
     readonly minHeight: number;
     canAddBlock(block: TBlock): boolean;
-    getBlockStub(blockHash: string): TBlock | null;
+    getBlockStub(blockHash: string): TBlock;
     hasBlock(blockHash: string): boolean;
     findAncestor(initialBlockHash: string, predicate: (block: TBlock) => boolean): TBlock | null;
     getOldestAncestorInCache(blockHash: string): TBlock;
@@ -167,11 +167,13 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
     }
 
     /**
-     * Returns the `IBlockStub` for the block with hash `blockHash`, or `null` if the block is not in cache.
+     * Returns the `IBlockStub` for the block with hash `blockHash`, or throws exception if the block is not in cache.
      * @param blockHash
      */
-    public getBlockStub(blockHash: string): TBlock | null {
-        return this.blockStubsByHash.get(blockHash) || null;
+    public getBlockStub(blockHash: string): TBlock {
+        const blockStub = this.blockStubsByHash.get(blockHash);
+        if (!blockStub) throw new ApplicationError(`Block not found for hash: ${blockHash}.`);
+        return blockStub;
     }
 
     /**
@@ -187,9 +189,11 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
      */
     private *ancestry(initialBlockHash: string): IterableIterator<TBlock> {
         let curBlock = this.getBlockStub(initialBlockHash);
-        while (curBlock !== null) {
+        while (true) {
             yield curBlock;
-            curBlock = this.getBlockStub(curBlock.parentHash);
+            if (this.hasBlock(curBlock.parentHash)) {
+                curBlock = this.getBlockStub(curBlock.parentHash);
+            } else break;
         }
     }
 
@@ -230,7 +234,7 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
     /**
      * Sets the head block in the cache. AddBlock must be called before setHead can be
      * called for that hash.
-     * @param blockHash 
+     * @param blockHash
      */
     public setHead(blockHash: string) {
         if (!this.hasBlock(blockHash)) {
@@ -249,12 +253,7 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
         if (this.headHash == null) {
             throw new ApplicationError("Head used before the BlockCache is initialized.");
         }
-
-        const blockStub = this.getBlockStub(this.headHash);
-        if (!blockStub) {
-            throw new ApplicationError(`Head block ${this.headHash} not found in the BlockCache, but should be there.`);
-        }
-        return blockStub;
+        return this.getBlockStub(this.headHash);
     }
 }
 
@@ -273,8 +272,6 @@ export function getConfirmations<T extends IBlockStub & TransactionHashes>(
     txHash: string
 ): number {
     const headBlock = cache.getBlockStub(headHash);
-    if (!headBlock) throw new ArgumentError(`The block with hash ${headHash} was not found`);
-
     const blockTxIsMinedIn = cache.findAncestor(headHash, block => block.transactionHashes.includes(txHash));
     if (!blockTxIsMinedIn) return 0;
     else return headBlock.number - blockTxIsMinedIn.number + 1;

@@ -74,7 +74,7 @@ export class BlockProcessor<T extends IBlockStub> extends StartStopService {
      * Event emitted when a new block is mined that does not seem to be part of the chain the current head is part of.
      * It is emitted before the corresponding NEW_HEAD_EVENT.
      * Emits the hash of the common ancestor block (or null if the reorg is deeper than maxDepth), the hash of the current new head,
-     * and the hash of the previous head block.
+     * and the hash of the previous head block (null if never previously set).
      */
     public static readonly REORG_EVENT = "reorg";
 
@@ -151,7 +151,9 @@ export class BlockProcessor<T extends IBlockStub> extends StartStopService {
             blocksToAdd.reverse(); // add blocks from the oldest
 
             // Last block in cache in the same chain as the new head
-            const commonAncestorBlock = this.blockCache.getBlockStub(blocksToAdd[0].parentHash);
+            const commonAncestorBlock = !this.blockCache.hasBlock(blocksToAdd[0].parentHash)
+                ? null
+                : this.blockCache.getBlockStub(blocksToAdd[0].parentHash);
 
             // populate fetched blocks into cache, starting from the deepest
             for (const block of blocksToAdd) {
