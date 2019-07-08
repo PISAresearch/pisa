@@ -195,7 +195,7 @@ export class TransactionTracker extends StartStopService {
     > = new Map();
 
     protected async startInternal() {
-        this.lastBlockNumber = this.blockProcessor.head.number;
+        this.lastBlockNumber = this.blockProcessor.blockCache.head.number;
         this.blockProcessor.on(BlockProcessor.NEW_HEAD_EVENT, this.checkTxs);
     }
 

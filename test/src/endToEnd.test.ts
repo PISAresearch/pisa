@@ -93,7 +93,7 @@ describe("End to end", () => {
         const confirmationObserver = new ConfirmationObserver(blockProcessor);
         await confirmationObserver.start();
 
-        const gasPriceEstimator = new GasPriceEstimator(provider, blockProcessor);
+        const gasPriceEstimator = new GasPriceEstimator(provider, blockProcessor.blockCache);
         const transactionTracker = new TransactionTracker(blockProcessor);
         await transactionTracker.start();
 

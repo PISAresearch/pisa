@@ -49,7 +49,7 @@ export class BlockProcessor<T extends IBlockStub> extends StartStopService {
     // keeps track of the last block hash received, in order to correctly emit NEW_HEAD_EVENT; null on startup
     private lastBlockHashReceived: string | null;
 
-    // keeps track of the latest known head received
+    // // keeps track of the latest known head received
     private headHash: string | null = null;
 
     private mBlockCache: BlockCache<T>;
@@ -77,24 +77,6 @@ export class BlockProcessor<T extends IBlockStub> extends StartStopService {
      * and the hash of the previous head block.
      */
     public static readonly REORG_EVENT = "reorg";
-
-    /**
-     * Returns the latest known head block.
-     *
-     * @throws ApplicationError if the block is not found in the cache. This should never happen, unless
-     *         `head` is read before the service is started.
-     */
-    public get head(): T {
-        if (this.headHash == null) {
-            throw new ApplicationError("head used before the BlockProcessor is initialized.");
-        }
-
-        const blockStub = this.blockCache.getBlockStub(this.headHash);
-        if (!blockStub) {
-            throw new ApplicationError(`Head block ${this.headHash} not found in the BlockCache, but should be there`);
-        }
-        return blockStub;
-    }
 
     constructor(
         private provider: ethers.providers.BaseProvider,
@@ -132,17 +114,21 @@ export class BlockProcessor<T extends IBlockStub> extends StartStopService {
         const oldHeadHash = this.headHash; // we need to remember the old head for proper Reorg event handling
         this.headHash = headBlock.hash;
 
-        // Emit the appropriate events, but only if the service is already started
-        if (this.isBlockHashLastReceived(this.headHash) && this.started) {
-            if (!commonAncestorBlock) {
-                // reorg beyond the depth of the cache; no common ancestor found
-                this.emit(BlockProcessor.REORG_EVENT, null, this.headHash, oldHeadHash);
-            } else if (oldHeadHash !== commonAncestorBlock.hash) {
-                // reorg with a known common ancestor in cache
-                this.emit(BlockProcessor.REORG_EVENT, commonAncestorBlock.hash, this.headHash, oldHeadHash);
-            }
+        if (this.isBlockHashLastReceived(this.headHash)) {
+            this.mBlockCache.setHead(headBlock.hash);
 
-            this.emit(BlockProcessor.NEW_HEAD_EVENT, headBlock.number, headBlock.hash);
+            // Emit the appropriate events, but only if the service is already started
+            if (this.started) {
+                if (!commonAncestorBlock) {
+                    // reorg beyond the depth of the cache; no common ancestor found
+                    this.emit(BlockProcessor.REORG_EVENT, null, this.headHash, oldHeadHash);
+                } else if (oldHeadHash !== commonAncestorBlock.hash) {
+                    // reorg with a known common ancestor in cache
+                    this.emit(BlockProcessor.REORG_EVENT, commonAncestorBlock.hash, this.headHash, oldHeadHash);
+                }
+
+                this.emit(BlockProcessor.NEW_HEAD_EVENT, headBlock.number, headBlock.hash);
+            }
         }
     }
 

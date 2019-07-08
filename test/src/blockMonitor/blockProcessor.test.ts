@@ -103,7 +103,7 @@ describe("BlockProcessor", () => {
         blockProcessor = new BlockProcessor(provider, blockStubAndTxFactory, blockCache);
         await blockProcessor.start();
 
-        expect(blockProcessor.head.hash).to.equal("a1");
+        expect(blockProcessor.blockCache.head.hash).to.equal("a1");
     });
 
     it("adds the first block received to the cache and emits a new head event", async () => {
