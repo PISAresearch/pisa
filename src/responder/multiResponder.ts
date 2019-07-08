@@ -1,4 +1,4 @@
-import { IEthereumResponseData } from "../dataEntities";
+import { IEthereumResponseData, IEthereumAppointment } from "../dataEntities";
 import { EthereumResponder } from "./responder";
 import { GasQueue, PisaTransactionIdentifier, GasQueueItem, GasQueueItemRequest } from "./gasQueue";
 import { GasPriceEstimator } from "./gasPriceEstimator";
@@ -9,7 +9,7 @@ import { inspect } from "util";
 import logger from "../logger";
 import { QueueConsistencyError, ArgumentError, ApplicationError } from "../dataEntities/errors";
 import { Block } from "../dataEntities/block";
-import { Component, StateReducer } from "../blockMonitor/component";
+import { Component, StateReducer, MappedStateReducer } from "../blockMonitor/component";
 
 enum ResponderStateKind {
     Pending = 1,
@@ -32,13 +32,14 @@ type ResponderAppointmentAnchorState = PendingResponseState | MinedResponseState
 
 export type ResponderAnchorState = Map<string, ResponderAppointmentAnchorState>;
 
-class Reducer implements StateReducer<ResponderAnchorState, Block> {
+class ResponderReducer implements StateReducer<ResponderAppointmentAnchorState, Block> {
     public constructor(
         private readonly blockProcessor: BlockProcessor<Block>,
-        private readonly responder: MultiResponder
+        private readonly queueItemRequest: GasQueueItemRequest,
+        private readonly appointmentId: string
     ) {}
 
-    private blockContainsTransaction(
+    private txIdentifierInBlock(
         block: Block,
         identifier: PisaTransactionIdentifier
     ): { blockNumber: number; nonce: number; from: string } | null {
@@ -59,113 +60,129 @@ class Reducer implements StateReducer<ResponderAnchorState, Block> {
 
         return null;
     }
-    private getMinedTransaction(identifier: PisaTransactionIdentifier) {
-        for (const block of this.blockProcessor.blockCache.ancestry(this.blockProcessor.head.hash)) {
-            const txInfo = this.blockContainsTransaction(block, identifier);
+    private getMinedTransaction(headHash: string, identifier: PisaTransactionIdentifier) {
+        for (const block of this.blockProcessor.blockCache.ancestry(headHash)) {
+            const txInfo = this.txIdentifierInBlock(block, identifier);
             if (txInfo) return txInfo;
         }
         return null;
     }
 
     // TODO:198: check this, as it wasn't in the original implementation from Chris
-    public getInitialState(block: Block): Map<string, ResponderAppointmentAnchorState> {
-        // make sure the anchor state is full
-        const result: ResponderAnchorState = new Map();
-
-        // check the block for each of the current pending items
-        for (const key of this.responder.respondedTransactions.keys()) {
-            const queueItemRequest = this.responder.respondedTransactions.get(key)!;
-            const state = this.getInitialAppointmentState({
-                appointmentId: key,
-                queueItemRequest
-            });
-            result.set(key, state);
-        }
-        return result;
-    }
-
-    public reduce(prevState: ResponderAnchorState, block: Block): ResponderAnchorState {
-        // make sure the anchor state is full
-        const result: ResponderAnchorState = new Map();
-
-        // check the block for each of the current pending items
-        for (const key of this.responder.respondedTransactions.keys()) {
-            // for each item there should be somthing in the responder state
-            const queueItemRequest = this.responder.respondedTransactions.get(key)!;
-            const val = prevState.get(key);
-
-            if (!val) {
-                const state = this.getInitialAppointmentState({
-                    appointmentId: key,
-                    queueItemRequest
-                });
-                result.set(key, state);
-            } else if (val.kind === ResponderStateKind.Pending) {
-                const state = this.reduceAppointment(val, block);
-                result.set(state.appointmentId, state);
-            }
-        }
-        return result;
-    }
-
-    private reduceAppointment(
-        prevAppointmentState: PendingResponseState,
-        block: Block
-    ): ResponderAppointmentAnchorState {
-        const transaction = this.blockContainsTransaction(block, prevAppointmentState.queueItem.identifier);
-        if (transaction) {
-            return {
-                appointmentId: prevAppointmentState.appointmentId,
-                identifier: prevAppointmentState.queueItem.identifier,
-                blockMined: block.number,
-                nonce: transaction.nonce,
-                kind: ResponderStateKind.Mined,
-                from: transaction.from
-            };
-        } else {
-            return {
-                appointmentId: prevAppointmentState.appointmentId,
-                kind: ResponderStateKind.Pending,
-                queueItem: prevAppointmentState.queueItem
-            };
-        }
-    }
-
-    private getInitialAppointmentState(prevState: {
-        appointmentId: string;
-        queueItemRequest: GasQueueItemRequest;
-    }): ResponderAppointmentAnchorState {
+    public getInitialState(block: Block): ResponderAppointmentAnchorState {
         // has this transaction been mined?
-        const minedTx = this.getMinedTransaction(prevState.queueItemRequest.identifier);
+        const minedTx = this.getMinedTransaction(block.hash, this.queueItemRequest.identifier);
 
         if (minedTx === null) {
             return {
-                appointmentId: prevState.appointmentId,
+                appointmentId: this.appointmentId,
                 kind: ResponderStateKind.Pending,
-                queueItem: prevState.queueItemRequest
+                queueItem: this.queueItemRequest
             };
         } else {
             return {
-                appointmentId: prevState.appointmentId,
+                appointmentId: this.appointmentId,
                 kind: ResponderStateKind.Mined,
                 blockMined: minedTx.blockNumber,
-                identifier: prevState.queueItemRequest.identifier,
+                identifier: this.queueItemRequest.identifier,
                 nonce: minedTx.nonce,
                 from: minedTx.from
             };
         }
     }
+
+    public reduce(prevState: ResponderAppointmentAnchorState, block: Block): ResponderAppointmentAnchorState {
+        if (prevState.kind === ResponderStateKind.Pending) {
+            const transaction = this.txIdentifierInBlock(block, prevState.queueItem.identifier);
+            if (transaction) {
+                return {
+                    appointmentId: prevState.appointmentId,
+                    identifier: prevState.queueItem.identifier,
+                    blockMined: block.number,
+                    nonce: transaction.nonce,
+                    kind: ResponderStateKind.Mined,
+                    from: transaction.from
+                };
+            } else {
+                return {
+                    appointmentId: prevState.appointmentId,
+                    kind: ResponderStateKind.Pending,
+                    queueItem: prevState.queueItem
+                };
+            }
+        } else {
+            return prevState;
+        }
+    }
 }
 
-export class MultiResponder extends EthereumResponder implements Component<ResponderAnchorState, Block> {
-    private readonly confirmationsRequired: number;
-    public readonly reducer: StateReducer<ResponderAnchorState, Block>;
+export class MultiResponderComponent extends Component<ResponderAnchorState, Block> {
+    public constructor(
+        private readonly responder: MultiResponder,
+        blockProcessor: BlockProcessor<Block>,
+        private readonly confirmationsRequired: number
+    ) {
+        super(
+            new MappedStateReducer<
+                ResponderAppointmentAnchorState,
+                Block,
+                { id: string; queueItem: GasQueueItemRequest }
+            >(
+                () => [...this.responder.respondedTransactions.values()],
+                item => new ResponderReducer(blockProcessor, item.queueItem, item.id)
+            )
+        );
+    }
 
+    public async handleNewStateEvent(
+        prevHead: Block,
+        prevState: ResponderAnchorState,
+        head: Block,
+        state: ResponderAnchorState
+    ) {
+        // TODO:198: sort out the names in the responder - sometimes we refer to the
+
+        // TODO:198: what happens to errors in here? what should we do about them
+        const isPending = (state: ResponderAppointmentAnchorState): state is PendingResponseState => {
+            return state.kind === ResponderStateKind.Pending;
+        };
+        const hasBeenMined = (state: ResponderAppointmentAnchorState | undefined): state is MinedResponseState => {
+            if (!state) return false;
+            return state.kind === ResponderStateKind.Mined;
+        };
+        const shouldBeRemoved = (
+            state: ResponderAppointmentAnchorState | undefined,
+            block: Block
+        ): state is MinedResponseState => {
+            if (!state) return false;
+            return (
+                state.kind === ResponderStateKind.Mined && block.number - state.blockMined > this.confirmationsRequired
+            );
+        };
+
+        this.responder.reEnqueueMissingItems([...state.values()].filter(isPending).map(q => q.queueItem));
+
+        for (const appointmentId of state.keys()) {
+            const prevItem = prevState.get(appointmentId);
+            const currentItem = state.get(appointmentId);
+
+            if (!hasBeenMined(prevItem) && hasBeenMined(currentItem)) {
+                await this.responder.txMined(currentItem.identifier, currentItem.nonce, currentItem.from);
+            }
+
+            if (!shouldBeRemoved(prevItem, prevHead) && shouldBeRemoved(currentItem, head)) {
+                await this.responder.endResponse(currentItem.appointmentId);
+            }
+        }
+    }
+}
+
+export class MultiResponder extends EthereumResponder {
     public get queue() {
         return this.mQueue;
     }
     private mQueue: GasQueue;
-    public readonly respondedTransactions: Map<string, GasQueueItemRequest> = new Map();
+    public readonly respondedTransactions: Map<string, { id: string; queueItem: GasQueueItemRequest }> = new Map();
 
     /**
      * Can handle multiple response for a given signer. This responder requires exclusive
@@ -207,52 +224,6 @@ export class MultiResponder extends EthereumResponder implements Component<Respo
         }
         this.mQueue = new GasQueue([], startingNonce, replacementRate, maxConcurrentResponses);
         this.broadcast = this.broadcast.bind(this);
-
-        this.confirmationsRequired = blockProcessor.blockCache.maxDepth - 1;
-
-        this.reducer = new Reducer(blockProcessor, this);
-    }
-
-    public async handleNewStateEvent(
-        prevHead: Block,
-        prevState: ResponderAnchorState,
-        head: Block,
-        state: ResponderAnchorState
-    ) {
-        // TODO:198: sort out the names in the responder - sometimes we refer to the
-
-        // TODO:198: what happens to errors in here? what should we do about them
-        const isPending = (state: ResponderAppointmentAnchorState): state is PendingResponseState => {
-            return state.kind === ResponderStateKind.Pending;
-        };
-        const hasBeenMined = (state: ResponderAppointmentAnchorState | undefined): state is MinedResponseState => {
-            if (!state) return false;
-            return state.kind === ResponderStateKind.Mined;
-        };
-        const shouldBeRemoved = (
-            state: ResponderAppointmentAnchorState | undefined,
-            block: Block
-        ): state is MinedResponseState => {
-            if (!state) return false;
-            return (
-                state.kind === ResponderStateKind.Mined && block.number - state.blockMined > this.confirmationsRequired
-            );
-        };
-
-        this.reEnqueueMissingItems([...state.values()].filter(isPending).map(q => q.queueItem));
-
-        for (const appointmentId of state.keys()) {
-            const prevItem = prevState.get(appointmentId);
-            const currentItem = state.get(appointmentId);
-
-            if (!hasBeenMined(prevItem) && hasBeenMined(currentItem)) {
-                await this.txMined(currentItem.identifier, currentItem.nonce, currentItem.from);
-            }
-
-            if (!shouldBeRemoved(prevItem, prevHead) && shouldBeRemoved(currentItem, head)) {
-                await this.endResponse(currentItem.appointmentId);
-            }
-        }
     }
 
     public async startResponse(appointmentId: string, responseData: IEthereumResponseData) {
@@ -284,7 +255,7 @@ export class MultiResponder extends EthereumResponder implements Component<Respo
             const replacedTransactions = replacedQueue.queueItems.filter(tx => !this.mQueue.queueItems.includes(tx));
             this.mQueue = replacedQueue;
             // and update the local list of tx identifiers
-            this.respondedTransactions.set(appointmentId, request);
+            this.respondedTransactions.set(appointmentId, { id: appointmentId, queueItem: request });
 
             await Promise.all(replacedTransactions.map(this.broadcast));
         } catch (doh) {

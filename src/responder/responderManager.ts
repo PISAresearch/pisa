@@ -1,6 +1,6 @@
 import { ethers } from "ethers";
 import { GasPriceEstimator } from "./gasPriceEstimator";
-import { MultiResponder } from "./multiResponder";
+import { MultiResponder, MultiResponderComponent } from "./multiResponder";
 import { ConfirmationObserver, BlockTimeoutDetector, BlockProcessor } from "../blockMonitor";
 import {
     DoublingGasPolicy,
@@ -62,7 +62,13 @@ export class EthereumResponderManager {
                 );
 
                 const blockchainMachine = new BlockchainMachine<Block>(this.blockProcessor);
-                blockchainMachine.addComponent(this.multiResponder);
+                blockchainMachine.addComponent(
+                    new MultiResponderComponent(
+                        this.multiResponder,
+                        this.blockProcessor,
+                        this.blockProcessor.blockCache.maxDepth - 1
+                    )
+                );
                 await blockchainMachine.start(); // TODO:198: when do we stop it?
             }
         });
