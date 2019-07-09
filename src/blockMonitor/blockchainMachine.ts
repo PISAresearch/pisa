@@ -52,25 +52,33 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
 
         // for each component, compute the new states and emit a "new state" event if necessary
         for (const { component, states } of this.componentsAndStates) {
+            // For each block in the list of ancestors to add (starting from the oldest), we need to compute a reasonable state.
+            // If the parent is available and its anchor state is known, the state can be computed with the reducer.
+            // If the parent is available but its anchor state is not known, first compute its parent's initial state, then apply the reducer.
+            // Finally, if the parent is not available at all in the block cache, compute the initial state based on the current block.
+
             let state: object | null = null;
             for (const block of ancestorsToAdd) {
-                const parentBlock = this.blockProcessor.blockCache.getBlockStub(block.parentHash);
+                let prevAnchorState: object | undefined;
+                if (this.blockProcessor.blockCache.hasBlock(block.parentHash)) {
+                    const parentBlock = this.blockProcessor.blockCache.getBlockStub(block.parentHash);
+                    prevAnchorState = states.get(parentBlock) || component.reducer.getInitialState(parentBlock);
 
-                // the previous state is the state of the parent block if available, or the initial state otherwise
-                const prevAnchorState = parentBlock
-                    ? states.get(parentBlock)!
-                    : component.reducer.getInitialState(block);
-
-                state = component.reducer.reduce(prevAnchorState, block);
+                    state = component.reducer.reduce(prevAnchorState, block);
+                } else {
+                    state = component.reducer.getInitialState(block);
+                }
 
                 states.set(block, state);
             }
 
             if (state && prevHead) {
-                const prevState = prevHead && states.get(prevHead)!;
-                // TODO:198: should we (deeply) compare old state and new state and only emit if different?
-                // Probably not, it might be expensive/inefficient depending on what is in TState
-                component.handleNewStateEvent(prevHead, prevState, head, state);
+                const prevState = states.get(prevHead);
+                if (prevState) {
+                    // TODO:198: should we (deeply) compare old state and new state and only emit if different?
+                    // Probably not, it might be expensive/inefficient depending on what is in TState
+                    component.handleNewStateEvent(prevHead, prevState, head, state);
+                }
             }
         }
     }

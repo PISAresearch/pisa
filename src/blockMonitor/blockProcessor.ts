@@ -112,29 +112,28 @@ export class BlockProcessor<T extends IBlockStub> extends StartStopService {
         return this.lastBlockHashReceived === blockHash;
     }
 
-    // update the new headHash if needed, and emit the appropriate events
+    // update the new headHash and emit the appropriate events
     private processNewHead(headBlock: Readonly<T>, commonAncestorBlock: T | null) {
         const oldHeadHash = this.headHash; // we need to remember the old head for proper Reorg event handling
         this.headHash = headBlock.hash;
 
-        if (this.isBlockHashLastReceived(this.headHash)) {
-            this.mBlockCache.setHead(headBlock.hash);
+        this.mBlockCache.setHead(headBlock.hash);
 
-            // Emit the appropriate events, but only if the service is already started
-            if (!commonAncestorBlock) {
-                // reorg beyond the depth of the cache; no common ancestor found
-                this.emit(BlockProcessor.REORG_EVENT, null, this.headHash, oldHeadHash);
-            } else if (oldHeadHash !== commonAncestorBlock.hash) {
-                // reorg with a known common ancestor in cache
-                this.emit(BlockProcessor.REORG_EVENT, commonAncestorBlock.hash, this.headHash, oldHeadHash);
-            }
-
-            const nearestEmittedBlockInAncestry = this.blockCache.findAncestor(headBlock.hash, block =>
-                this.emittedBlocks.has(block)
-            );
-            this.emit(BlockProcessor.NEW_HEAD_EVENT, headBlock, nearestEmittedBlockInAncestry);
-            this.emittedBlocks.add(headBlock);
+        // Emit the appropriate events, but only if the service is already started
+        if (!commonAncestorBlock) {
+            // reorg beyond the depth of the cache; no common ancestor found
+            this.emit(BlockProcessor.REORG_EVENT, null, this.headHash, oldHeadHash);
+        } else if (oldHeadHash !== commonAncestorBlock.hash) {
+            // reorg with a known common ancestor in cache
+            this.emit(BlockProcessor.REORG_EVENT, commonAncestorBlock.hash, this.headHash, oldHeadHash);
         }
+
+        const nearestEmittedBlockInAncestry = this.blockCache.findAncestor(headBlock.hash, block =>
+            this.emittedBlocks.has(block)
+        );
+
+        this.emit(BlockProcessor.NEW_HEAD_EVENT, headBlock, nearestEmittedBlockInAncestry);
+        this.emittedBlocks.add(headBlock);
     }
 
     // Processes a new block, adding it to the cache and emitting the appropriate events

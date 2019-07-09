@@ -128,23 +128,23 @@ export class PisaService extends StartStopService {
     }
 
     protected async startInternal() {
+        await this.blockchainMachine.start();
         await this.blockProcessor.start();
         await this.blockTimeoutDetector.start();
         await this.confirmationObserver.start();
         await this.garbageCollector.start();
         await this.appointmentStore.start();
         await this.multiResponder.start();
-        await this.blockchainMachine.start();
     }
 
     protected async stopInternal() {
-        await this.blockchainMachine.stop();
         await this.multiResponder.stop();
         await this.appointmentStore.stop();
         await this.garbageCollector.stop();
         await this.confirmationObserver.stop();
         await this.blockTimeoutDetector.stop();
         await this.blockProcessor.stop();
+        await this.blockchainMachine.stop();
 
         this.server.close(error => {
             if (error) this.logger.error(error.stack!);
