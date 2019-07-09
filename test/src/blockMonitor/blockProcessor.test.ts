@@ -50,6 +50,20 @@ describe("BlockProcessor", () => {
     let mockProvider: ethers.providers.BaseProvider;
     let provider: ethers.providers.BaseProvider;
 
+    const createNewBlockSubscriber = (
+        bp: BlockProcessor<IBlockStub>,
+        bc: BlockCache<IBlockStub>,
+        blockHash: string
+    ) => {
+        return new Promise(resolve => {
+            bp.on(BlockProcessor.NEW_BLOCK_EVENT, (head: IBlockStub) => {
+                expect(bc.hasBlock(blockHash)).to.be.true;
+
+                resolve({ number: head.number, hash: head.hash });
+            });
+        });
+    };
+
     // Instructs the mock provider to switch to the chain given by block `hash` (and its ancestors),
     // then emits the block number corresponding to `hash`.
     function emitBlockHash(hash: string) {
@@ -118,42 +132,84 @@ describe("BlockProcessor", () => {
             });
         });
 
+        const newBlock = new Promise(resolve => {
+            blockProcessor.on(BlockProcessor.NEW_BLOCK_EVENT, (head: IBlockStub) => {
+                expect(blockCache.hasBlock("a5")).to.be.true;
+
+                resolve({ number: head.number, hash: head.hash });
+            });
+        });
+
         emitBlockHash("a5");
 
         expect(res).to.eventually.equal({ number: 5, hash: "a5" });
+        expect(newBlock).to.eventually.equal({ number: 5, hash: "a5" });
     });
 
     it("adds to the blockCache all ancestors until a known block", async () => {
         blockProcessor = new BlockProcessor(provider, blockStubAndTxFactory, blockCache);
+
+        const subscribers = [];
+        for (let i = 1; i <= 5; i++) {
+            subscribers.push(createNewBlockSubscriber(blockProcessor, blockCache, `a${i}`));
+        }
+
         await blockProcessor.start();
 
         emitBlockHash("a1");
 
         emitBlockHash("a5");
 
-        for (let i = 1; i <= 5; i++) {
-            expect(blockCache.hasBlock(`a${i}`));
-        }
+        subscribers.forEach((s, index) => {
+            expect(blockCache.hasBlock(`a${index}`));
+            expect(s).to.eventually.equal({ number: 5, hash: `a${index}` });
+        });
     });
 
     it("adds both chain until the common ancestor if there is a fork", async () => {
         blockProcessor = new BlockProcessor(provider, blockStubAndTxFactory, blockCache);
+
+        const subscribersA = [];
+        for (let i = 1; i <= 6; i++) {
+            subscribersA.push(createNewBlockSubscriber(blockProcessor, blockCache, `a${i}`));
+        }
+        const subscribersB = [];
+        for (let i = 3; i <= 6; i++) {
+            subscribersB.push(createNewBlockSubscriber(blockProcessor, blockCache, `b${i}`));
+        }
+
         await blockProcessor.start();
 
         emitBlockHash("a1");
         emitBlockHash("a6");
         emitBlockHash("b6");
 
-        for (let i = 1; i <= 6; i++) {
-            expect(blockCache.hasBlock(`a${6}`));
-        }
-        for (let i = 3; i <= 6; i++) {
-            expect(blockCache.hasBlock(`b${6}`));
-        }
+        subscribersA.forEach((s, index) => {
+            expect(blockCache.hasBlock(`a${index}`));
+            expect(s).to.eventually.equal({ number: 5, hash: `a${index}` });
+        });
+        subscribersB.forEach((s, index) => {
+            expect(blockCache.hasBlock(`b${index}`));
+            expect(s).to.eventually.equal({ number: 5, hash: `b${index}` });
+        });
     });
 
     it("adds both chain until the common ancestor if there is a fork", async () => {
         blockProcessor = new BlockProcessor(provider, blockStubAndTxFactory, blockCache);
+
+        const subscribersA = [];
+        for (let i = 1; i <= 10; i++) {
+            subscribersA.push(createNewBlockSubscriber(blockProcessor, blockCache, `a${i}`));
+        }
+        const subscribersB = [];
+        for (let i = 1; i <= 6; i++) {
+            subscribersB.push(createNewBlockSubscriber(blockProcessor, blockCache, `b${i}`));
+        }
+        const subscribersC = [];
+        for (let i = 1; i <= 10; i++) {
+            subscribersC.push(createNewBlockSubscriber(blockProcessor, blockCache, `c${i}`));
+        }
+
         await blockProcessor.start();
 
         emitBlockHash("a1");
@@ -161,10 +217,17 @@ describe("BlockProcessor", () => {
         emitBlockHash("b10");
         emitBlockHash("c10");
 
-        for (let i = 5; i <= 10; i++) {
-            expect(blockCache.hasBlock(`a${i}`));
-            expect(blockCache.hasBlock(`b${i}`));
-            expect(blockCache.hasBlock(`c${i}`));
-        }
+        subscribersA.forEach((s, index) => {
+            expect(blockCache.hasBlock(`a${index}`));
+            expect(s).to.eventually.equal({ number: 5, hash: `a${index}` });
+        });
+        subscribersB.forEach((s, index) => {
+            expect(blockCache.hasBlock(`b${index}`));
+            expect(s).to.eventually.equal({ number: 5, hash: `b${index}` });
+        });
+        subscribersC.forEach((s, index) => {
+            expect(blockCache.hasBlock(`c${index}`));
+            expect(s).to.eventually.equal({ number: 5, hash: `c${index}` });
+        });
     });
 });
