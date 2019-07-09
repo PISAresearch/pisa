@@ -38,7 +38,7 @@ export class PisaService extends StartStopService {
     private readonly confirmationObserver: ConfirmationObserver;
     private readonly multiResponder: MultiResponder;
     private readonly appointmentStore: AppointmentStore;
-    private blockchainMachine: BlockchainMachine<Block>;
+    private readonly blockchainMachine: BlockchainMachine<Block>;
 
     /**
      *
