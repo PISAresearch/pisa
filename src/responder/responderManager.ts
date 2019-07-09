@@ -43,34 +43,7 @@ export class EthereumResponderManager {
     }
 
     private async respondMulti(appointment: IEthereumAppointment) {
-        // start a mult responder if one exists
         const ethereumResponseData = appointment.getResponseData();
-        // await this.lockManager.withLock(LockManager.MultiResponderLock, async () => {
-        //     if (!this.multiResponder) {
-        //         const address = await this.signer.getAddress();
-        //         const nonce = await this.provider.getTransactionCount(address);
-        //         const chainId = (await this.provider.getNetwork()).chainId;
-
-        //         this.multiResponder = new MultiResponder(
-        //             this.blockProcessor,
-        //             address,
-        //             nonce,
-        //             this.signer,
-        //             this.gasPriceEstimator,
-        //             chainId
-        //         );
-
-        //         const blockchainMachine = new BlockchainMachine<Block>(this.blockProcessor);
-        //         blockchainMachine.addComponent(
-        //             new MultiResponderComponent(
-        //                 this.multiResponder,
-        //                 this.blockProcessor,
-        //                 this.blockProcessor.blockCache.maxDepth - 1
-        //             )
-        //         );
-        //         await blockchainMachine.start(); // TODO:198: when do we stop it?
-        //     }
-        // });
         await this.multiResponder.startResponse(appointment.id, ethereumResponseData);
     }
 
