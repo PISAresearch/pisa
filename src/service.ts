@@ -25,6 +25,7 @@ import encodingDown from "encoding-down";
 import { blockFactory } from "./blockMonitor";
 import { Block } from "./dataEntities/block";
 import { BlockchainMachine } from "./blockMonitor/blockchainMachine";
+import { MultiResponderComponent, MultiResponder } from "./responder/multiResponder";
 
 /**
  * Hosts a PISA service at the endpoint.
@@ -35,9 +36,9 @@ export class PisaService extends StartStopService {
     private readonly blockProcessor: BlockProcessor<Block>;
     private readonly blockTimeoutDetector: BlockTimeoutDetector;
     private readonly confirmationObserver: ConfirmationObserver;
-    private readonly ethereumResponderManager: EthereumResponderManager;
+    private readonly multiResponder: MultiResponder;
     private readonly appointmentStore: AppointmentStore;
-    private readonly blockchainMachine: BlockchainMachine<Block>;
+    private blockchainMachine: BlockchainMachine<Block>;
 
     /**
      *
@@ -53,11 +54,11 @@ export class PisaService extends StartStopService {
     constructor(
         config: IArgConfig,
         provider: ethers.providers.BaseProvider,
-        wallet: ethers.Wallet,
+        private readonly wallet: ethers.Wallet,
         receiptSigner: ethers.Signer,
         db: LevelUp<encodingDown<string, any>>,
-        watcherResponseConfirmations: number,
-        watcherRemovalConfirmations: number
+        private readonly watcherResponseConfirmations: number,
+        private readonly watcherRemovalConfirmations: number
     ) {
         super("pisa");
         const app = express();
@@ -78,25 +79,38 @@ export class PisaService extends StartStopService {
         );
         this.blockTimeoutDetector = new BlockTimeoutDetector(this.blockProcessor, 120 * 1000);
         this.confirmationObserver = new ConfirmationObserver(this.blockProcessor);
-        this.ethereumResponderManager = new EthereumResponderManager(
+
+        this.multiResponder = new MultiResponder(
+            this.blockProcessor,
+            this.wallet,
+            new GasPriceEstimator(this.wallet.provider, this.blockProcessor)
+        );
+
+        const ethereumResponderManager = new EthereumResponderManager(
             false,
-            wallet,
+            this.wallet,
             this.blockTimeoutDetector,
             this.confirmationObserver,
-            this.blockProcessor,
-            new GasPriceEstimator(wallet.provider, this.blockProcessor)
+            this.multiResponder
         );
 
         const watcher = new Watcher(
-            this.ethereumResponderManager,
+            ethereumResponderManager,
             this.blockProcessor,
             this.appointmentStore,
-            watcherResponseConfirmations,
-            watcherRemovalConfirmations
+            this.watcherResponseConfirmations,
+            this.watcherRemovalConfirmations
         );
 
         this.blockchainMachine = new BlockchainMachine<Block>(this.blockProcessor);
         this.blockchainMachine.addComponent(watcher);
+        this.blockchainMachine.addComponent(
+            new MultiResponderComponent(
+                this.multiResponder,
+                this.blockProcessor,
+                this.blockProcessor.blockCache.maxDepth - 1
+            )
+        );
 
         // gc
         this.garbageCollector = new AppointmentStoreGarbageCollector(provider, 10, this.appointmentStore);
@@ -115,21 +129,23 @@ export class PisaService extends StartStopService {
     }
 
     protected async startInternal() {
-        await this.blockchainMachine.start();
         await this.blockProcessor.start();
         await this.blockTimeoutDetector.start();
         await this.confirmationObserver.start();
         await this.garbageCollector.start();
         await this.appointmentStore.start();
+        await this.multiResponder.start();
+        await this.blockchainMachine.start();
     }
 
     protected async stopInternal() {
+        await this.blockchainMachine.stop();
+        await this.multiResponder.stop();
         await this.appointmentStore.stop();
         await this.garbageCollector.stop();
         await this.confirmationObserver.stop();
         await this.blockTimeoutDetector.stop();
         await this.blockProcessor.stop();
-        await this.blockchainMachine.stop();
 
         this.server.close(error => {
             if (error) this.logger.error(error.stack!);

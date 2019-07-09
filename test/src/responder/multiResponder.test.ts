@@ -7,7 +7,7 @@ import { BigNumber } from "ethers/utils";
 import { expect } from "chai";
 import { ArgumentError, IEthereumResponseData, Block } from "../../../src/dataEntities";
 import { PisaTransactionIdentifier } from "../../../src/responder/gasQueue";
-import { BlockProcessor, BlockCache, ReadOnlyBlockCache } from "../../../src/blockMonitor";
+import { BlockProcessor, ReadOnlyBlockCache } from "../../../src/blockMonitor";
 
 const ganache = Ganache.provider({
     mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect"
@@ -76,33 +76,13 @@ describe("MultiResponder", () => {
 
     it("constructor throws for negative replacement rate", async () => {
         expect(
-            () =>
-                new MultiResponder(
-                    blockProcessor,
-                    address,
-                    0,
-                    signer,
-                    increasingGasPriceEstimator,
-                    chainId,
-                    maxConcurrentResponses,
-                    -1
-                )
+            () => new MultiResponder(blockProcessor, signer, increasingGasPriceEstimator, maxConcurrentResponses, -1)
         ).to.throw(ArgumentError);
     });
 
     it("constructor throws for zero max concurrency", async () => {
         expect(
-            () =>
-                new MultiResponder(
-                    blockProcessor,
-                    address,
-                    0,
-                    signer,
-                    increasingGasPriceEstimator,
-                    chainId,
-                    0,
-                    replacementRate
-                )
+            () => new MultiResponder(blockProcessor, signer, increasingGasPriceEstimator, 0, replacementRate)
         ).to.throw(ArgumentError);
     });
 
@@ -112,16 +92,16 @@ describe("MultiResponder", () => {
 
         const responder = new MultiResponder(
             blockProcessor,
-            address,
-            0,
             signer,
             increasingGasPriceEstimator,
-            chainId,
             maxConcurrentResponses,
             replacementRate
         );
+        await responder.start();
 
         await responder.startResponse(appointmentId, responseData);
+
+        await responder.stop();
 
         // TODO:198: success conditions?
         // verify(transactionTrackerMock.addTx(anything(), anything())).once();
@@ -135,14 +115,13 @@ describe("MultiResponder", () => {
 
         const responder = new MultiResponder(
             blockProcessor,
-            address,
-            0,
             signer,
             increasingGasPriceEstimator,
-            chainId,
             maxConcurrentResponses,
             replacementRate
         );
+
+        await responder.start();
 
         await responder.startResponse(appointmentId, responseData);
         // TODO:198: success conditions?
@@ -152,6 +131,8 @@ describe("MultiResponder", () => {
         await responder.startResponse(appointmentId2, responseData2);
         // TODO:198: success conditions?
         // verify(transactionTrackerMock.addTx(anything(), anything())).times(3);
+
+        await responder.stop();
     });
 
     it("startResponse can issue two transactions but not replace", async () => {
@@ -162,14 +143,14 @@ describe("MultiResponder", () => {
 
         const responder = new MultiResponder(
             blockProcessor,
-            address,
-            0,
             signer,
+            // decreasing
             decreasingGasPriceEstimator,
-            chainId,
             maxConcurrentResponses,
             replacementRate
         );
+
+        await responder.start();
 
         await responder.startResponse(appointmentId, responseData);
         // TODO:198: success conditions?
@@ -179,6 +160,8 @@ describe("MultiResponder", () => {
         await responder.startResponse(appointmentId2, responseData2);
         // TODO:198: success conditions?
         // verify(transactionTrackerMock.addTx(anything(), anything())).times(2);
+
+        await responder.stop();
     });
 
     it("startResponse swallows error", async () => {
@@ -187,18 +170,18 @@ describe("MultiResponder", () => {
 
         const responder = new MultiResponder(
             blockProcessor,
-            address,
-            0,
             signer,
             errorGasPriceEstimator,
-            chainId,
             maxConcurrentResponses,
             replacementRate
         );
 
+        await responder.start()
+
         await responder.startResponse(appointmentId, responseData);
         // TODO:198: success conditions?
         // verify(transactionTrackerMock.addTx(anything(), anything())).never();
+        await responder.stop()
     });
 
     it("startResponse doesnt queue beyond max depth", async () => {
@@ -211,14 +194,13 @@ describe("MultiResponder", () => {
 
         const responder = new MultiResponder(
             blockProcessor,
-            address,
-            0,
             signer,
             decreasingGasPriceEstimator,
-            chainId,
             2,
             replacementRate
         );
+
+        await responder.start();
 
         await responder.startResponse(appointmentId, responseData);
         await responder.startResponse(appointmentId2, responseData2);
@@ -228,6 +210,8 @@ describe("MultiResponder", () => {
         await responder.startResponse(appointmentId3, responseData3);
         // TODO:198: success conditions?
         // verify(transactionTrackerMock.addTx(anything(), anything())).times(2);
+
+        await responder.stop();
     });
 
     it("txMined does dequeue", async () => {
@@ -235,14 +219,13 @@ describe("MultiResponder", () => {
         const responseData = createResponseData("app1");
         const responder = new MultiResponder(
             blockProcessor,
-            address,
-            0,
             signer,
             increasingGasPriceEstimator,
-            chainId,
             maxConcurrentResponses,
             replacementRate
         );
+
+        await responder.start();
 
         await responder.startResponse(appointmentId, responseData);
         const item = responder.queue.queueItems[0];
@@ -250,6 +233,8 @@ describe("MultiResponder", () => {
         // TODO:198: we need to test txMined for different 'from' variants - in all places for txMined
         await responder.txMined(item.request.identifier, item.nonce, address);
         expect(responder.queue.queueItems.length).to.equal(0);
+
+        await responder.stop();
     });
 
     it("txMined does replace", async () => {
@@ -259,13 +244,13 @@ describe("MultiResponder", () => {
         const responseData2 = createResponseData("app2");
         const responder = new MultiResponder(
             blockProcessor,
-            address,
-            0,
             signer,
             increasingGasPriceEstimator,
             maxConcurrentResponses,
             replacementRate
         );
+
+        await responder.start();
 
         await responder.startResponse(appointmentId, responseData);
         const item = responder.queue.queueItems[0];
@@ -281,25 +266,28 @@ describe("MultiResponder", () => {
         expect(itemAfterMined.nonce).to.equal(itemAfterReplace.nonce + 1);
         // TODO:198: success conditions?
         // verify(transactionTrackerMock.addTx(anything(), anything())).times(4);
+
+        await responder.stop();
     });
 
     it("txMined does nothing when queue is empty", async () => {
         const responder = new MultiResponder(
             blockProcessor,
-            address,
-            0,
             signer,
             increasingGasPriceEstimator,
             maxConcurrentResponses,
             replacementRate
         );
 
+        await responder.start();
         await responder.txMined(
             new PisaTransactionIdentifier(1, "data", "to", new BigNumber(0), new BigNumber(10)),
             1,
             address
         );
         expect(responder.queue.queueItems.length).to.equal(0);
+
+        await responder.stop();
         // TODO:198: success conditions?
         // verify(transactionTrackerMock.addTx(anything(), anything())).never();
     });
@@ -309,13 +297,12 @@ describe("MultiResponder", () => {
         const responseData = createResponseData("app1");
         const responder = new MultiResponder(
             blockProcessor,
-            address,
-            0,
             signer,
             increasingGasPriceEstimator,
             maxConcurrentResponses,
             replacementRate
         );
+        await responder.start();
         await responder.startResponse(appointmentId, responseData);
         const queueBefore = responder.queue;
         await responder.txMined(
@@ -325,6 +312,8 @@ describe("MultiResponder", () => {
         );
 
         expect(responder.queue).to.equal(queueBefore);
+
+        await responder.stop();
         // TODO:198: success conditions?
         // verify(transactionTrackerMock.addTx(anything(), anything())).once();
     });
@@ -334,19 +323,21 @@ describe("MultiResponder", () => {
         const responseData = createResponseData("app1");
         const responder = new MultiResponder(
             blockProcessor,
-            address,
-            0,
             signer,
             increasingGasPriceEstimator,
             maxConcurrentResponses,
             replacementRate
         );
+
+        await responder.start();
         await responder.startResponse(appointmentId, responseData);
         const queueBefore = responder.queue;
         const item = responder.queue.queueItems[0];
         await responder.txMined(item.request.identifier, item.nonce + 1, address);
 
         expect(responder.queue).to.equal(queueBefore);
+
+        await responder.stop();
         // TODO:198: success conditions?
         // verify(transactionTrackerMock.addTx(anything(), anything())).once();
     });
