@@ -1,11 +1,11 @@
 import "mocha";
 import { expect } from "chai";
 import { ExponentialCurve, ExponentialGasCurve, GasPriceEstimator } from "../../../src/responder/gasPriceEstimator";
-import { ArgumentError } from "../../../src/dataEntities";
+import { ArgumentError, IBlockStub } from "../../../src/dataEntities";
 import { BigNumber } from "ethers/utils";
 import { mock, when, instance } from "ts-mockito";
 import { ethers } from "ethers";
-import { BlockProcessor } from "../../../src/blockMonitor";
+import { BlockCache } from "../../../src/blockMonitor";
 
 describe("ExponentialCurve", () => {
     it("ka constructs for (0, 1), (1, e)", () => {
@@ -109,24 +109,28 @@ describe("ExponentialGasCurve", () => {
 
 describe("GasPriceEstimator", () => {
     it("estimate", async () => {
-        const currentGasPrice =new BigNumber(21000000000)
+        const currentGasPrice = new BigNumber(21000000000);
         const currentBlock = 1;
         const endBlock = 3;
-        
+
         const mockedProvider = mock(ethers.providers.JsonRpcProvider);
         when(mockedProvider.getGasPrice()).thenResolve(currentGasPrice);
         const provider = instance(mockedProvider);
 
-        const mockedBlockProcessor = mock(BlockProcessor);
-        when(mockedBlockProcessor.head).thenReturn({ hash: "hash1", parentHash: "hash2", number: 1 });
-        const blockProcessor = instance(mockedBlockProcessor);
+        const mockedBlockCache: BlockCache<IBlockStub> = mock(BlockCache);
+        when(mockedBlockCache.head).thenReturn({ hash: "hash1", parentHash: "hash2", number: 1 });
+        const blockCache = instance(mockedBlockCache);
 
-        const gasPriceEstimator = new GasPriceEstimator(provider, blockProcessor);
+        const gasPriceEstimator = new GasPriceEstimator(provider, blockCache);
         const estimate = await gasPriceEstimator.estimate({
-            contractAbi: "contract", contractAddress: "address", endBlock: 3, functionArgs: [], functionName: "fn" 
-        })
-        const expectedValue = (new ExponentialGasCurve(currentGasPrice)).getGasPrice(endBlock - currentBlock);
+            contractAbi: "contract",
+            contractAddress: "address",
+            endBlock: 3,
+            functionArgs: [],
+            functionName: "fn"
+        });
+        const expectedValue = new ExponentialGasCurve(currentGasPrice).getGasPrice(endBlock - currentBlock);
 
-        expect(estimate.toNumber()).to.equal(expectedValue.toNumber())
+        expect(estimate.toNumber()).to.equal(expectedValue.toNumber());
     });
 });

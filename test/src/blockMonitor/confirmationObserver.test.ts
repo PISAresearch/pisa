@@ -75,9 +75,7 @@ describe("ConfirmationObserver", () => {
         if (!(hash in blocksByHash)) {
             throw new ApplicationError(`Hash ${hash} does not exist in blocksByHash`);
         }
-
-        (mockBlockProcessor as any).head = blocksByHash[hash]; // set this block as head for the blockProcessor
-
+        blockCache.setHead(hash);
         mockBlockProcessor.emit(BlockProcessor.NEW_HEAD_EVENT, { number: blocksByHash[hash].number, hash: hash }); // emit new head event
 
         await Promise.resolve(); // Make sure events are processed

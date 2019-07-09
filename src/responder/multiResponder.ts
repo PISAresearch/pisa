@@ -3,7 +3,7 @@ import { EthereumResponder } from "./responder";
 import { GasQueue, PisaTransactionIdentifier, GasQueueItem, GasQueueItemRequest } from "./gasQueue";
 import { GasPriceEstimator } from "./gasPriceEstimator";
 import { ethers } from "ethers";
-import { BlockProcessor } from "../blockMonitor";
+import { BlockProcessor, BlockCache, ReadOnlyBlockCache } from "../blockMonitor";
 import { BigNumber } from "ethers/utils";
 import { inspect } from "util";
 import logger from "../logger";
@@ -34,7 +34,7 @@ export type ResponderAnchorState = Map<string, ResponderAppointmentAnchorState>;
 
 class ResponderReducer implements StateReducer<ResponderAppointmentAnchorState, Block> {
     public constructor(
-        private readonly blockProcessor: BlockProcessor<Block>,
+        private readonly blockCache: ReadOnlyBlockCache<Block>,
         private readonly queueItemRequest: GasQueueItemRequest,
         private readonly appointmentId: string
     ) {}
@@ -62,7 +62,7 @@ class ResponderReducer implements StateReducer<ResponderAppointmentAnchorState, 
     }
 
     private getMinedTransaction(headHash: string, identifier: PisaTransactionIdentifier) {
-        for (const block of this.blockProcessor.blockCache.ancestry(headHash)) {
+        for (const block of this.blockCache.ancestry(headHash)) {
             const txInfo = this.txIdentifierInBlock(block, identifier);
             if (txInfo) return txInfo;
         }
@@ -120,7 +120,7 @@ class ResponderReducer implements StateReducer<ResponderAppointmentAnchorState, 
 export class MultiResponderComponent extends Component<ResponderAnchorState, Block> {
     public constructor(
         private readonly responder: MultiResponder,
-        blockProcessor: BlockProcessor<Block>,
+        blockCache: ReadOnlyBlockCache<Block>,
         private readonly confirmationsRequired: number
     ) {
         super(
@@ -130,7 +130,7 @@ export class MultiResponderComponent extends Component<ResponderAnchorState, Blo
                 { id: string; queueItem: GasQueueItemRequest }
             >(
                 () => [...this.responder.respondedTransactions.values()],
-                item => new ResponderReducer(blockProcessor, item.queueItem, item.id)
+                item => new ResponderReducer(blockCache, item.queueItem, item.id)
             )
         );
     }
@@ -192,7 +192,6 @@ export class MultiResponder extends StartStopService {
      * Can handle multiple response for a given signer. This responder requires exclusive
      * use of the signer, as it carefully manages the nonces of the transactions created by
      * the signer. Can handle a concurrent number of responses up to maxQueueDepth
-     * @param blockProcessor TODO:198: document this
      * @param signer
      *   The signer used to sign transaction created by this responder. This responder
      *   requires exclusive use of this signer.
@@ -212,7 +211,6 @@ export class MultiResponder extends StartStopService {
      */
     //TODO:198: documentation out of date - check everywhere in this file
     public constructor(
-        public readonly blockProcessor: BlockProcessor<Block>,
         public readonly signer: ethers.Signer,
         public readonly gasEstimator: GasPriceEstimator,
         public readonly maxConcurrentResponses: number = 12,

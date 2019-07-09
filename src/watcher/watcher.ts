@@ -2,10 +2,10 @@ import { IEthereumAppointment } from "../dataEntities";
 import { ApplicationError, ArgumentError } from "../dataEntities/errors";
 import { EthereumResponderManager } from "../responder";
 import { AppointmentStore } from "./store";
-import { BlockProcessor, ReadOnlyBlockCache } from "../blockMonitor";
+import { ReadOnlyBlockCache } from "../blockMonitor";
 import { Block } from "../dataEntities/block";
 import { EventFilter } from "ethers";
-import { StandardMappedComponent, StateReducer, MappedStateReducer, MappedState } from "../blockMonitor/component";
+import { StandardMappedComponent, StateReducer, MappedStateReducer } from "../blockMonitor/component";
 import logger from "../logger";
 
 enum AppointmentState {
@@ -77,7 +77,7 @@ export class Watcher extends StandardMappedComponent<WatcherAppointmentState, Bl
      */
     constructor(
         private readonly responder: EthereumResponderManager,
-        blockProcessor: BlockProcessor<Block>,
+        blockCache: ReadOnlyBlockCache<Block>,
         private readonly store: AppointmentStore,
         private readonly confirmationsBeforeResponse: number,
         private readonly confirmationsBeforeRemoval: number
@@ -85,8 +85,7 @@ export class Watcher extends StandardMappedComponent<WatcherAppointmentState, Bl
         super(
             new MappedStateReducer<WatcherAppointmentState, Block, IEthereumAppointment>(
                 () => this.store.getAll(),
-                (appointment: IEthereumAppointment) =>
-                    new AppointmentStateReducer(blockProcessor.blockCache, appointment)
+                (appointment: IEthereumAppointment) => new AppointmentStateReducer(blockCache, appointment)
             )
         );
 

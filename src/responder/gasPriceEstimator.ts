@@ -1,5 +1,5 @@
 import { IEthereumResponseData, ArgumentError, IBlockStub } from "../dataEntities";
-import { BlockProcessor } from "../blockMonitor";
+import { BlockProcessor, BlockCache, ReadOnlyBlockCache } from "../blockMonitor";
 import { BigNumber } from "ethers/utils";
 import { ethers } from "ethers";
 
@@ -7,12 +7,12 @@ export class GasPriceEstimator {
     /**
      * Estimates gas prices for provided appointment data
      * @param provider
-     * @param blockProcessor
+     * @param blockCache
      * @param gasCurveFactory A factory for generating curves from which to estimate gas prices.
      */
     public constructor(
         private readonly provider: ethers.providers.Provider,
-        private readonly blockProcessor: BlockProcessor<IBlockStub>,
+        private readonly blockCache: ReadOnlyBlockCache<IBlockStub>,
     ) {}
 
     /**
@@ -22,7 +22,7 @@ export class GasPriceEstimator {
      */
     public async estimate(responseData: IEthereumResponseData): Promise<BigNumber> {
         const currentPrice = await this.provider.getGasPrice();
-        const currentHead = this.blockProcessor.head;
+        const currentHead = this.blockCache.head;
         const timeLeft = responseData.endBlock - currentHead.number;
 
         const curve = new ExponentialGasCurve(currentPrice);

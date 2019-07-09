@@ -1,7 +1,7 @@
 import "mocha";
 import { expect } from "chai";
 import { BlockCache, getConfirmations } from "../../../src/blockMonitor";
-import { ArgumentError, IBlockStub, TransactionHashes } from "../../../src/dataEntities";
+import { ArgumentError, IBlockStub, TransactionHashes, ApplicationError } from "../../../src/dataEntities";
 
 function generateBlocks(
     nBlocks: number,
@@ -37,7 +37,7 @@ describe("BlockCache", () => {
         const blocks = generateBlocks(1, 0, "main");
 
         bc.addBlock(blocks[0]);
-        expect(blocks[0]).to.deep.include(bc.getBlockStub(blocks[0].hash)!);
+        expect(blocks[0]).to.deep.include(bc.getBlockStub(blocks[0].hash));
     });
 
     it("minHeight is equal to the initial block height if less then maxDepth blocks are added", () => {
@@ -129,7 +129,7 @@ describe("BlockCache", () => {
         const blocks = generateBlocks(maxDepth, 0, "main");
         blocks.forEach(block => bc.addBlock(block));
 
-        expect(blocks[0]).to.deep.include(bc.getBlockStub(blocks[0].hash)!);
+        expect(blocks[0]).to.deep.include(bc.getBlockStub(blocks[0].hash));
     });
 
     it("forgets blocks past the maximum depth", () => {
@@ -137,7 +137,7 @@ describe("BlockCache", () => {
         const blocks = generateBlocks(maxDepth + 2, 0, "main"); // head is depth 0, so first pruned is maxDepth + 2
         blocks.forEach(block => bc.addBlock(block));
 
-        expect(bc.getBlockStub(blocks[0].hash)).to.equal(null);
+        expect(() => bc.getBlockStub(blocks[0].hash)).to.throw(ApplicationError);
     });
 
     it("ancestry iterates over all the ancestors", () => {
@@ -204,6 +204,27 @@ describe("BlockCache", () => {
 
         expect(() => bc.getOldestAncestorInCache("notExistingHash")).to.throw(ArgumentError);
     });
+
+    it("setHead correctly sets new head", () => {
+        const bc = new BlockCache(maxDepth);
+        const blocks = generateBlocks(1, 0, "main");
+
+        bc.addBlock(blocks[0]);
+        bc.setHead(blocks[0].hash);
+        expect(bc.head).to.deep.equal(blocks[0]);
+    });
+
+    it("setHead throws for head not in cache", () => {
+        const bc = new BlockCache(maxDepth);
+        const blocks = generateBlocks(1, 0, "main");
+
+        expect(() => bc.setHead(blocks[0].hash)).to.throw(ArgumentError);
+    });
+
+    it("head throws if setHead never called", () => {
+        const bc = new BlockCache(maxDepth);
+        expect(() => bc.head).to.throw(ApplicationError);
+    });
 });
 
 describe("getConfirmations", () => {
@@ -234,7 +255,7 @@ describe("getConfirmations", () => {
 
         const headBlock = blocks[blocks.length - 1];
         expect(() => getConfirmations(bc, "nonExistingBlockHash", headBlock.transactionHashes[0])).to.throw(
-            ArgumentError
+            ApplicationError
         );
     });
 });

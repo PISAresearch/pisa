@@ -84,9 +84,9 @@ describe("End to end", () => {
         const confirmationObserver = new ConfirmationObserver(blockProcessor);
         await confirmationObserver.start();
 
-        const gasPriceEstimator = new GasPriceEstimator(provider, blockProcessor);
+        const gasPriceEstimator = new GasPriceEstimator(provider, blockProcessor.blockCache);
 
-        const multiResponder = new MultiResponder(blockProcessor, provider.getSigner(pisaAccount), gasPriceEstimator);
+        const multiResponder = new MultiResponder(provider.getSigner(pisaAccount), gasPriceEstimator);
 
         const responderManager = new EthereumResponderManager(
             false,
@@ -103,7 +103,7 @@ describe("End to end", () => {
         );
         await store.start();
         await store.addOrUpdateByStateLocator(appointment);
-        const watcher = new Watcher(responderManager, blockProcessor, store, 0, 20);
+        const watcher = new Watcher(responderManager, blockProcessor.blockCache, store, 0, 20);
         const player0Contract = channelContract.connect(provider.getSigner(player0));
 
         const blockchainMachine = new BlockchainMachine<Block>(blockProcessor);

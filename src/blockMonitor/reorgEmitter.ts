@@ -73,8 +73,6 @@ export class ReorgEmitter extends StartStopService {
 
     private setNewHead(newHeadHash: string) {
         const newHeadBlock = this.blockProcessor.blockCache.getBlockStub(newHeadHash);
-        if (!newHeadBlock) throw new ApplicationError(`Block with hash ${newHeadHash} not found`);
-
         this.headBlock = newHeadBlock;
     }
 
@@ -94,15 +92,15 @@ export class ReorgEmitter extends StartStopService {
      * Detect a reorg if a new block is observed
      * @param blockNumber
      */
-    private async handleReorgEvent(commonAncestorHash: string | null, newHeadHash: string, oldHeadHash: string) {
+    private async handleReorgEvent(commonAncestorHash: string | null, newHeadHash: string, oldHeadHash: string | null) {
         // We enqueue the processing if there is a re-org in process
         await this.processingEventLock.acquire();
 
         try {
             if (commonAncestorHash === null) {
                 // if we couldn't find a common ancestor the reorg must be too deep
-                const oldHeadBlock = this.blockProcessor.blockCache.getBlockStub(oldHeadHash)!;
-                const newHeadBlock = this.blockProcessor.blockCache.getBlockStub(newHeadHash)!;
+                const oldHeadBlock = !oldHeadHash ? null : this.blockProcessor.blockCache.getBlockStub(oldHeadHash);
+                const newHeadBlock = this.blockProcessor.blockCache.getBlockStub(newHeadHash);
                 this.emit(ReorgEmitter.REORG_BEYOND_DEPTH_EVENT, oldHeadBlock, newHeadBlock);
 
                 // find the oldest ancestor of the new head which is still in cache
@@ -114,7 +112,7 @@ export class ReorgEmitter extends StartStopService {
                 // indirect ancestor found - conduct reorg
 
                 // Start a reorg (asynchronous process)
-                await this.conductReorg(this.blockProcessor.blockCache.getBlockStub(commonAncestorHash)!);
+                await this.conductReorg(this.blockProcessor.blockCache.getBlockStub(commonAncestorHash));
             }
             // prune events past the max depth after each event
             this.prune();

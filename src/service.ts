@@ -81,9 +81,8 @@ export class PisaService extends StartStopService {
         this.confirmationObserver = new ConfirmationObserver(this.blockProcessor);
 
         this.multiResponder = new MultiResponder(
-            this.blockProcessor,
             wallet,
-            new GasPriceEstimator(wallet.provider, this.blockProcessor)
+            new GasPriceEstimator(wallet.provider, this.blockProcessor.blockCache)
         );
 
         const ethereumResponderManager = new EthereumResponderManager(
@@ -96,7 +95,7 @@ export class PisaService extends StartStopService {
 
         const watcher = new Watcher(
             ethereumResponderManager,
-            this.blockProcessor,
+            this.blockProcessor.blockCache,
             this.appointmentStore,
             watcherResponseConfirmations,
             watcherRemovalConfirmations
@@ -107,7 +106,7 @@ export class PisaService extends StartStopService {
         this.blockchainMachine.addComponent(
             new MultiResponderComponent(
                 this.multiResponder,
-                this.blockProcessor,
+                this.blockProcessor.blockCache,
                 this.blockProcessor.blockCache.maxDepth - 1
             )
         );

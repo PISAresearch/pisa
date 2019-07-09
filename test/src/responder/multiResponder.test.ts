@@ -7,7 +7,6 @@ import { BigNumber } from "ethers/utils";
 import { expect } from "chai";
 import { ArgumentError, IEthereumResponseData, Block } from "../../../src/dataEntities";
 import { PisaTransactionIdentifier } from "../../../src/responder/gasQueue";
-import { BlockProcessor, ReadOnlyBlockCache } from "../../../src/blockMonitor";
 
 const ganache = Ganache.provider({
     mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect"
@@ -32,16 +31,14 @@ describe("MultiResponder", () => {
         decreasingGasPriceEstimator: GasPriceEstimator,
         decreasingGasEstimatorMock: GasPriceEstimator,
         errorGasPriceEstimator: GasPriceEstimator,
-        errorGasEstimatorMock: GasPriceEstimator,
-        blockProcessor: BlockProcessor<Block>;
+        errorGasEstimatorMock: GasPriceEstimator;
     const maxConcurrentResponses = 3;
     const replacementRate = 15;
 
-    let address: string, chainId: number;
+    let address: string;
 
     before(async () => {
         address = await signer.getAddress();
-        chainId = signer.provider.network.chainId;
     });
 
     beforeEach(() => {
@@ -65,23 +62,18 @@ describe("MultiResponder", () => {
         errorGasEstimatorMock = mock(GasPriceEstimator);
         when(errorGasEstimatorMock.estimate(anything())).thenThrow(new Error("Gas test error"));
         errorGasPriceEstimator = instance(errorGasEstimatorMock);
-
-        // TODO:198: decide what to do here
-
-        const mockedBlockProcessor = mock(BlockProcessor);
-        blockProcessor = instance(mockedBlockProcessor);
     });
 
     it("constructor throws for negative replacement rate", async () => {
-        expect(
-            () => new MultiResponder(blockProcessor, signer, increasingGasPriceEstimator, maxConcurrentResponses, -1)
-        ).to.throw(ArgumentError);
+        expect(() => new MultiResponder(signer, increasingGasPriceEstimator, maxConcurrentResponses, -1)).to.throw(
+            ArgumentError
+        );
     });
 
     it("constructor throws for zero max concurrency", async () => {
-        expect(
-            () => new MultiResponder(blockProcessor, signer, increasingGasPriceEstimator, 0, replacementRate)
-        ).to.throw(ArgumentError);
+        expect(() => new MultiResponder(signer, increasingGasPriceEstimator, 0, replacementRate)).to.throw(
+            ArgumentError
+        );
     });
 
     it("startResponse can issue transaction", async () => {
@@ -89,7 +81,6 @@ describe("MultiResponder", () => {
         const responseData = createResponseData("app1");
 
         const responder = new MultiResponder(
-            blockProcessor,
             signer,
             increasingGasPriceEstimator,
             maxConcurrentResponses,
@@ -112,7 +103,6 @@ describe("MultiResponder", () => {
         const responseData2 = createResponseData("app2");
 
         const responder = new MultiResponder(
-            blockProcessor,
             signer,
             increasingGasPriceEstimator,
             maxConcurrentResponses,
@@ -140,7 +130,6 @@ describe("MultiResponder", () => {
         const responseData2 = createResponseData("app2");
 
         const responder = new MultiResponder(
-            blockProcessor,
             signer,
             // decreasing
             decreasingGasPriceEstimator,
@@ -165,21 +154,13 @@ describe("MultiResponder", () => {
     it("startResponse swallows error", async () => {
         const appointmentId = "app1";
         const responseData = createResponseData("app1");
-
-        const responder = new MultiResponder(
-            blockProcessor,
-            signer,
-            errorGasPriceEstimator,
-            maxConcurrentResponses,
-            replacementRate
-        );
-
-        await responder.start()
+        const responder = new MultiResponder(signer, errorGasPriceEstimator, maxConcurrentResponses, replacementRate);
+        await responder.start();
 
         await responder.startResponse(appointmentId, responseData);
         // TODO:198: success conditions?
         // verify(transactionTrackerMock.addTx(anything(), anything())).never();
-        await responder.stop()
+        await responder.stop();
     });
 
     it("startResponse doesnt queue beyond max depth", async () => {
@@ -190,13 +171,7 @@ describe("MultiResponder", () => {
         const appointmentId3 = "app3";
         const responseData3 = createResponseData("app3");
 
-        const responder = new MultiResponder(
-            blockProcessor,
-            signer,
-            decreasingGasPriceEstimator,
-            2,
-            replacementRate
-        );
+        const responder = new MultiResponder(signer, decreasingGasPriceEstimator, 2, replacementRate);
 
         await responder.start();
 
@@ -216,7 +191,6 @@ describe("MultiResponder", () => {
         const appointmentId = "app1";
         const responseData = createResponseData("app1");
         const responder = new MultiResponder(
-            blockProcessor,
             signer,
             increasingGasPriceEstimator,
             maxConcurrentResponses,
@@ -241,7 +215,6 @@ describe("MultiResponder", () => {
         const appointmentId2 = "app2";
         const responseData2 = createResponseData("app2");
         const responder = new MultiResponder(
-            blockProcessor,
             signer,
             increasingGasPriceEstimator,
             maxConcurrentResponses,
@@ -270,7 +243,6 @@ describe("MultiResponder", () => {
 
     it("txMined does nothing when queue is empty", async () => {
         const responder = new MultiResponder(
-            blockProcessor,
             signer,
             increasingGasPriceEstimator,
             maxConcurrentResponses,
@@ -294,7 +266,6 @@ describe("MultiResponder", () => {
         const appointmentId = "app1";
         const responseData = createResponseData("app1");
         const responder = new MultiResponder(
-            blockProcessor,
             signer,
             increasingGasPriceEstimator,
             maxConcurrentResponses,
@@ -320,7 +291,6 @@ describe("MultiResponder", () => {
         const appointmentId = "app1";
         const responseData = createResponseData("app1");
         const responder = new MultiResponder(
-            blockProcessor,
             signer,
             increasingGasPriceEstimator,
             maxConcurrentResponses,
