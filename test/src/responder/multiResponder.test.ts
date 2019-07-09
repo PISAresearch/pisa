@@ -1,12 +1,13 @@
 import "mocha";
-import { MultiResponder, GasPriceEstimator, TransactionTracker } from "../../../src/responder";
+import { MultiResponder, GasPriceEstimator } from "../../../src/responder";
 import Ganache from "ganache-core";
 import { ethers } from "ethers";
-import { mock, when, anything, instance, verify } from "ts-mockito";
+import { mock, when, anything, instance } from "ts-mockito";
 import { BigNumber } from "ethers/utils";
 import { expect } from "chai";
-import { ArgumentError, IEthereumResponseData } from "../../../src/dataEntities";
+import { ArgumentError, IEthereumResponseData, Block } from "../../../src/dataEntities";
 import { PisaTransactionIdentifier } from "../../../src/responder/gasQueue";
+import { BlockProcessor, BlockCache, ReadOnlyBlockCache } from "../../../src/blockMonitor";
 
 const ganache = Ganache.provider({
     mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect"
@@ -32,10 +33,16 @@ describe("MultiResponder", () => {
         decreasingGasEstimatorMock: GasPriceEstimator,
         errorGasPriceEstimator: GasPriceEstimator,
         errorGasEstimatorMock: GasPriceEstimator,
-        transactionTracker: TransactionTracker,
-        transactionTrackerMock: TransactionTracker;
+        blockProcessor: BlockProcessor<Block>;
     const maxConcurrentResponses = 3;
     const replacementRate = 15;
+
+    let address: string, chainId: number;
+
+    before(async () => {
+        address = await signer.getAddress();
+        chainId = signer.provider.network.chainId;
+    });
 
     beforeEach(() => {
         // set up the mocks each time so that we can check the verifies
@@ -59,21 +66,43 @@ describe("MultiResponder", () => {
         when(errorGasEstimatorMock.estimate(anything())).thenThrow(new Error("Gas test error"));
         errorGasPriceEstimator = instance(errorGasEstimatorMock);
 
-        transactionTrackerMock = mock(TransactionTracker);
-        when(transactionTrackerMock.addTx(anything(), anything())).thenReturn();
-        transactionTracker = instance(transactionTrackerMock);
+        // TODO:198: decide what to do here
+
+        const mockedBlockProcessor = mock(BlockProcessor);
+        // TODO:198: it is expected to read the maxDepth from the blockCach; but this is ugly
+        when(mockedBlockProcessor.blockCache).thenReturn({ maxDepth: 10 } as ReadOnlyBlockCache<Block>);
+        blockProcessor = instance(mockedBlockProcessor);
     });
 
     it("constructor throws for negative replacement rate", async () => {
         expect(
             () =>
-                new MultiResponder(signer, increasingGasPriceEstimator, transactionTracker, maxConcurrentResponses, -1)
+                new MultiResponder(
+                    blockProcessor,
+                    address,
+                    0,
+                    signer,
+                    increasingGasPriceEstimator,
+                    chainId,
+                    maxConcurrentResponses,
+                    -1
+                )
         ).to.throw(ArgumentError);
     });
 
     it("constructor throws for zero max concurrency", async () => {
         expect(
-            () => new MultiResponder(signer, increasingGasPriceEstimator, transactionTracker, 0, replacementRate)
+            () =>
+                new MultiResponder(
+                    blockProcessor,
+                    address,
+                    0,
+                    signer,
+                    increasingGasPriceEstimator,
+                    chainId,
+                    0,
+                    replacementRate
+                )
         ).to.throw(ArgumentError);
     });
 
@@ -82,16 +111,20 @@ describe("MultiResponder", () => {
         const responseData = createResponseData("app1");
 
         const responder = new MultiResponder(
+            blockProcessor,
+            address,
+            0,
             signer,
             increasingGasPriceEstimator,
-            transactionTracker,
+            chainId,
             maxConcurrentResponses,
             replacementRate
         );
 
         await responder.startResponse(appointmentId, responseData);
 
-        verify(transactionTrackerMock.addTx(anything(), anything())).once();
+        // TODO:198: success conditions?
+        // verify(transactionTrackerMock.addTx(anything(), anything())).once();
     });
 
     it("startResponse can issue two transactions and replace", async () => {
@@ -101,19 +134,24 @@ describe("MultiResponder", () => {
         const responseData2 = createResponseData("app2");
 
         const responder = new MultiResponder(
+            blockProcessor,
+            address,
+            0,
             signer,
             increasingGasPriceEstimator,
-            transactionTracker,
+            chainId,
             maxConcurrentResponses,
             replacementRate
         );
 
         await responder.startResponse(appointmentId, responseData);
-        verify(transactionTrackerMock.addTx(anything(), anything())).once();
+        // TODO:198: success conditions?
+        // verify(transactionTrackerMock.addTx(anything(), anything())).once();
         // because the gas price is increasing this should result in a replacement
         // therefor two additional transactions are issued, rather than just one
         await responder.startResponse(appointmentId2, responseData2);
-        verify(transactionTrackerMock.addTx(anything(), anything())).times(3);
+        // TODO:198: success conditions?
+        // verify(transactionTrackerMock.addTx(anything(), anything())).times(3);
     });
 
     it("startResponse can issue two transactions but not replace", async () => {
@@ -123,19 +161,24 @@ describe("MultiResponder", () => {
         const responseData2 = createResponseData("app2");
 
         const responder = new MultiResponder(
+            blockProcessor,
+            address,
+            0,
             signer,
             decreasingGasPriceEstimator,
-            transactionTracker,
+            chainId,
             maxConcurrentResponses,
             replacementRate
         );
 
         await responder.startResponse(appointmentId, responseData);
-        verify(transactionTrackerMock.addTx(anything(), anything())).once();
+        // TODO:198: success conditions?
+        // verify(transactionTrackerMock.addTx(anything(), anything())).once();
         // because the gas price is decreasing this should result not result in a replacement
         // therefore only one new transaction should be issued
         await responder.startResponse(appointmentId2, responseData2);
-        verify(transactionTrackerMock.addTx(anything(), anything())).times(2);
+        // TODO:198: success conditions?
+        // verify(transactionTrackerMock.addTx(anything(), anything())).times(2);
     });
 
     it("startResponse swallows error", async () => {
@@ -143,16 +186,19 @@ describe("MultiResponder", () => {
         const responseData = createResponseData("app1");
 
         const responder = new MultiResponder(
+            blockProcessor,
+            address,
+            0,
             signer,
             errorGasPriceEstimator,
-            transactionTracker,
+            chainId,
             maxConcurrentResponses,
             replacementRate
         );
 
         await responder.startResponse(appointmentId, responseData);
-
-        verify(transactionTrackerMock.addTx(anything(), anything())).never();
+        // TODO:198: success conditions?
+        // verify(transactionTrackerMock.addTx(anything(), anything())).never();
     });
 
     it("startResponse doesnt queue beyond max depth", async () => {
@@ -164,35 +210,45 @@ describe("MultiResponder", () => {
         const responseData3 = createResponseData("app3");
 
         const responder = new MultiResponder(
+            blockProcessor,
+            address,
+            0,
             signer,
             decreasingGasPriceEstimator,
-            transactionTracker,
+            chainId,
             2,
             replacementRate
         );
 
         await responder.startResponse(appointmentId, responseData);
         await responder.startResponse(appointmentId2, responseData2);
-        verify(transactionTrackerMock.addTx(anything(), anything())).times(2);
+        // TODO:198: success conditions?
+        // verify(transactionTrackerMock.addTx(anything(), anything())).times(2);
         // adding again should do nothing
         await responder.startResponse(appointmentId3, responseData3);
-        verify(transactionTrackerMock.addTx(anything(), anything())).times(2);
+        // TODO:198: success conditions?
+        // verify(transactionTrackerMock.addTx(anything(), anything())).times(2);
     });
 
     it("txMined does dequeue", async () => {
         const appointmentId = "app1";
         const responseData = createResponseData("app1");
         const responder = new MultiResponder(
+            blockProcessor,
+            address,
+            0,
             signer,
             increasingGasPriceEstimator,
-            transactionTracker,
+            chainId,
             maxConcurrentResponses,
             replacementRate
         );
 
         await responder.startResponse(appointmentId, responseData);
         const item = responder.queue.queueItems[0];
-        await responder.txMined(item.request.identifier, item.nonce);
+
+        // TODO:198: we need to test txMined for different 'from' variants - in all places for txMined
+        await responder.txMined(item.request.identifier, item.nonce, address);
         expect(responder.queue.queueItems.length).to.equal(0);
     });
 
@@ -202,9 +258,11 @@ describe("MultiResponder", () => {
         const appointmentId2 = "app2";
         const responseData2 = createResponseData("app2");
         const responder = new MultiResponder(
+            blockProcessor,
+            address,
+            0,
             signer,
             increasingGasPriceEstimator,
-            transactionTracker,
             maxConcurrentResponses,
             replacementRate
         );
@@ -215,63 +273,81 @@ describe("MultiResponder", () => {
         await responder.startResponse(appointmentId2, responseData2);
         const itemAfterReplace = responder.queue.queueItems[0];
 
-        await responder.txMined(item.request.identifier, item.nonce);
+        await responder.txMined(item.request.identifier, item.nonce, address);
         const itemAfterMined = responder.queue.queueItems[0];
 
         expect(responder.queue.queueItems.length).to.equal(1);
         expect(itemAfterMined.request.identifier).to.deep.equal(itemAfterReplace.request.identifier);
         expect(itemAfterMined.nonce).to.equal(itemAfterReplace.nonce + 1);
-        verify(transactionTrackerMock.addTx(anything(), anything())).times(4);
+        // TODO:198: success conditions?
+        // verify(transactionTrackerMock.addTx(anything(), anything())).times(4);
     });
 
     it("txMined does nothing when queue is empty", async () => {
         const responder = new MultiResponder(
+            blockProcessor,
+            address,
+            0,
             signer,
             increasingGasPriceEstimator,
-            transactionTracker,
             maxConcurrentResponses,
             replacementRate
         );
 
-        await responder.txMined(new PisaTransactionIdentifier(1, "data", "to", new BigNumber(0), new BigNumber(10)), 1);
+        await responder.txMined(
+            new PisaTransactionIdentifier(1, "data", "to", new BigNumber(0), new BigNumber(10)),
+            1,
+            address
+        );
         expect(responder.queue.queueItems.length).to.equal(0);
-        verify(transactionTrackerMock.addTx(anything(), anything())).never();
+        // TODO:198: success conditions?
+        // verify(transactionTrackerMock.addTx(anything(), anything())).never();
     });
 
     it("txMined does nothing when item not in queue", async () => {
         const appointmentId = "app1";
         const responseData = createResponseData("app1");
         const responder = new MultiResponder(
+            blockProcessor,
+            address,
+            0,
             signer,
             increasingGasPriceEstimator,
-            transactionTracker,
             maxConcurrentResponses,
             replacementRate
         );
         await responder.startResponse(appointmentId, responseData);
         const queueBefore = responder.queue;
-        await responder.txMined(new PisaTransactionIdentifier(1, "data", "to", new BigNumber(0), new BigNumber(10)), 1);
+        await responder.txMined(
+            new PisaTransactionIdentifier(1, "data", "to", new BigNumber(0), new BigNumber(10)),
+            1,
+            address
+        );
 
         expect(responder.queue).to.equal(queueBefore);
-        verify(transactionTrackerMock.addTx(anything(), anything())).once();
+        // TODO:198: success conditions?
+        // verify(transactionTrackerMock.addTx(anything(), anything())).once();
     });
 
     it("txMined does nothing nonce is not front of queue", async () => {
         const appointmentId = "app1";
         const responseData = createResponseData("app1");
         const responder = new MultiResponder(
+            blockProcessor,
+            address,
+            0,
             signer,
             increasingGasPriceEstimator,
-            transactionTracker,
             maxConcurrentResponses,
             replacementRate
         );
         await responder.startResponse(appointmentId, responseData);
         const queueBefore = responder.queue;
         const item = responder.queue.queueItems[0];
-        await responder.txMined(item.request.identifier, item.nonce + 1);
+        await responder.txMined(item.request.identifier, item.nonce + 1, address);
 
         expect(responder.queue).to.equal(queueBefore);
-        verify(transactionTrackerMock.addTx(anything(), anything())).once();
+        // TODO:198: success conditions?
+        // verify(transactionTrackerMock.addTx(anything(), anything())).once();
     });
 });

@@ -53,6 +53,8 @@ export class Lock {
  * number of currently locked locks.
  */
 export class LockManager {
+    public static MultiResponderLock = "multi-responder";
+
     private locks: {
         [key: string]: Lock;
     } = {};

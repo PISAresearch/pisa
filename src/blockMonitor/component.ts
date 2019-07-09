@@ -53,9 +53,9 @@ export class MappedStateReducer<TState extends object, TBlock extends IBlockStub
     }
 }
 
-export interface Component<TState extends object, TBlock extends IBlockStub> {
-    reducer: StateReducer<TState, TBlock>;
-    handleNewStateEvent(prevHead: TBlock, prevState: TState, head: TBlock, state: TState): void;
+export abstract class Component<TState extends object, TBlock extends IBlockStub> {
+    public constructor(public readonly reducer: StateReducer<TState, TBlock>) {}
+    abstract handleNewStateEvent(prevHead: TBlock, prevState: TState, head: TBlock, state: TState): void;
 }
 
 type TriggerAndActionWithId<TState extends object, TBlock extends IBlockStub> = {
@@ -67,9 +67,13 @@ type TriggerAndActionWithId<TState extends object, TBlock extends IBlockStub> = 
  * A commodity class that generates a mapped anchor state and generates side effects independently for each mapped item.
  * TODO:198: add more documentation.
  */
-export abstract class StandardMappedComponent<TState extends object, TBlock extends IBlockStub>
-    implements Component<MappedState<TState>, TBlock> {
-    constructor(readonly reducer: StateReducer<MappedState<TState>, TBlock>) {}
+export abstract class StandardMappedComponent<TState extends object, TBlock extends IBlockStub> extends Component<
+    MappedState<TState>,
+    TBlock
+> {
+    constructor(reducer: StateReducer<MappedState<TState>, TBlock>) {
+        super(reducer);
+    }
 
     protected abstract getActions(): TriggerAndActionWithId<TState, TBlock>[];
 
