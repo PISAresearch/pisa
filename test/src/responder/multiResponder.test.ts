@@ -69,8 +69,6 @@ describe("MultiResponder", () => {
         // TODO:198: decide what to do here
 
         const mockedBlockProcessor = mock(BlockProcessor);
-        // TODO:198: it is expected to read the maxDepth from the blockCach; but this is ugly
-        when(mockedBlockProcessor.blockCache).thenReturn({ maxDepth: 10 } as ReadOnlyBlockCache<Block>);
         blockProcessor = instance(mockedBlockProcessor);
     });
 
