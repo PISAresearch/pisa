@@ -54,23 +54,26 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
         for (const { component, states } of this.componentsAndStates) {
             let state: object | null = null;
             for (const block of ancestorsToAdd) {
-                const parentBlock = this.blockProcessor.blockCache.getBlockStub(block.parentHash);
+                let prevAnchorState: object | undefined;
+                if (this.blockProcessor.blockCache.hasBlock(block.parentHash)) {
+                    const parentBlock = this.blockProcessor.blockCache.getBlockStub(block.parentHash);
+                    prevAnchorState = states.get(parentBlock) || component.reducer.getInitialState(parentBlock);
 
-                // the previous state is the state of the parent block if available, or the initial state otherwise
-                const prevAnchorState = parentBlock
-                    ? states.get(parentBlock)!
-                    : component.reducer.getInitialState(block);
-
-                state = component.reducer.reduce(prevAnchorState, block);
+                    state = component.reducer.reduce(prevAnchorState, block);
+                } else {
+                    state = component.reducer.getInitialState(block);
+                }
 
                 states.set(block, state);
             }
 
             if (state && prevHead) {
-                const prevState = prevHead && states.get(prevHead)!;
-                // TODO:198: should we (deeply) compare old state and new state and only emit if different?
-                // Probably not, it might be expensive/inefficient depending on what is in TState
-                component.handleNewStateEvent(prevHead, prevState, head, state);
+                const prevState = prevHead && states.get(prevHead);
+                if (prevState != null) {
+                    // TODO:198: should we (deeply) compare old state and new state and only emit if different?
+                    // Probably not, it might be expensive/inefficient depending on what is in TState
+                    component.handleNewStateEvent(prevHead, prevState, head, state);
+                }
             }
         }
     }

@@ -118,11 +118,13 @@ export class Watcher extends Component<MappedState<WatcherAppointmentState>, Blo
         head: Block,
         state: MappedState<WatcherAppointmentState>
     ) {
-        const shouldHaveStartedResponder = (st: WatcherAppointmentState, block: Block): boolean =>
+        const shouldHaveStartedResponder = (st: WatcherAppointmentState | undefined, block: Block): boolean =>
+            st != undefined &&
             st.state === AppointmentState.OBSERVED &&
             block!.number - st.blockObserved + 1 >= this.confirmationsBeforeResponse;
 
-        const shouldRemoveAppointment = (st: WatcherAppointmentState, block: Block): boolean =>
+        const shouldRemoveAppointment = (st: WatcherAppointmentState | undefined, block: Block): boolean =>
+            st != undefined &&
             st.state === AppointmentState.OBSERVED &&
             block!.number - st.blockObserved + 1 >= this.confirmationsBeforeRemoval;
 
