@@ -52,6 +52,11 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
 
         // for each component, compute the new states and emit a "new state" event if necessary
         for (const { component, states } of this.componentsAndStates) {
+            // For each block in the list of ancestors to add (starting from the oldest), we need to compute a reasonable state.
+            // If the parent is available and its anchor state is known, the state can be computed with the reducer.
+            // If the parent is available but its anchor state is not known, first compute its parent's initial state, then apply the reducer.
+            // Finally, if the parent is not available at all in the block cache, compute the initial state based on the current block.
+
             let state: object | null = null;
             for (const block of ancestorsToAdd) {
                 let prevAnchorState: object | undefined;
@@ -68,8 +73,8 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
             }
 
             if (state && prevHead) {
-                const prevState = prevHead && states.get(prevHead);
-                if (prevState != null) {
+                const prevState = states.get(prevHead);
+                if (prevState) {
                     // TODO:198: should we (deeply) compare old state and new state and only emit if different?
                     // Probably not, it might be expensive/inefficient depending on what is in TState
                     component.handleNewStateEvent(prevHead, prevState, head, state);
