@@ -195,7 +195,7 @@ export class TransactionTracker extends StartStopService {
     > = new Map();
 
     protected async startInternal() {
-        this.lastBlockNumber = this.blockProcessor.head.number;
+        this.lastBlockNumber = this.blockProcessor.blockCache.head.number;
         this.blockProcessor.on(BlockProcessor.NEW_HEAD_EVENT, this.checkTxs);
     }
 
@@ -218,9 +218,8 @@ export class TransactionTracker extends StartStopService {
         let blockStub = this.blockProcessor.blockCache.getBlockStub(blockHash);
 
         for (let index = blockNumber; index > this.lastBlockNumber; index--) {
-            if (!blockStub) continue;
             // check all the transactions in that block
-            const txs = this.blockProcessor.blockCache.getBlockStub(blockStub.hash)!.transactions;
+            const txs = this.blockProcessor.blockCache.getBlockStub(blockStub.hash).transactions;
             if (!txs) continue;
 
             for (const tx of txs) {
