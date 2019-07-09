@@ -1,7 +1,6 @@
 import { ethers } from "ethers";
-import { GasPriceEstimator } from "./gasPriceEstimator";
-import { MultiResponder, MultiResponderComponent } from "./multiResponder";
-import { ConfirmationObserver, BlockTimeoutDetector, BlockProcessor } from "../blockMonitor";
+import { MultiResponder } from "./multiResponder";
+import { ConfirmationObserver, BlockTimeoutDetector } from "../blockMonitor";
 import {
     DoublingGasPolicy,
     EthereumDedicatedResponder,
@@ -10,11 +9,9 @@ import {
     ResponderEvent,
     IGasPolicy
 } from "./responder";
-import { ArgumentError, IEthereumAppointment, Block } from "../dataEntities";
+import { ArgumentError, IEthereumAppointment } from "../dataEntities";
 import logger from "../logger";
 import { plural } from "../utils";
-import { BlockchainMachine } from "../blockMonitor/blockchainMachine";
-import { LockManager } from "../utils/lock";
 
 /**
  * Responsible for handling the business logic of the Responders.
@@ -22,8 +19,6 @@ import { LockManager } from "../utils/lock";
 export class EthereumResponderManager {
     private provider: ethers.providers.Provider;
     private gasPolicy: IGasPolicy;
-    //private multiResponder: MultiResponder | null;
-    // private readonly lockManager = new LockManager();
 
     constructor(
         private readonly dedicated: boolean,
