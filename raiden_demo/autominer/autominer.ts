@@ -1,5 +1,5 @@
 import { ethers } from "ethers";
-let privateKey = "0xc364a5ea32a4c267263e99ddda36e05bcb0e5724601c57d6504cccb68e1fe6ae";
+let privateKey = "0x3ebe90153ac377735aacad7d95b0a37809dad3dc0c5e49752b67eb61298c3114";
 
 const argv = require('yargs')
     .scriptName("autominer")

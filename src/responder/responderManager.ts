@@ -1,7 +1,6 @@
 import { ethers } from "ethers";
-import { GasPriceEstimator } from "./gasPriceEstimator";
-import { MultiResponder, MultiResponderComponent } from "./multiResponder";
-import { ConfirmationObserver, BlockTimeoutDetector, BlockProcessor } from "../blockMonitor";
+import { MultiResponder } from "./multiResponder";
+import { ConfirmationObserver, BlockTimeoutDetector } from "../blockMonitor";
 import {
     DoublingGasPolicy,
     EthereumDedicatedResponder,
@@ -10,11 +9,9 @@ import {
     ResponderEvent,
     IGasPolicy
 } from "./responder";
-import { ArgumentError, IEthereumAppointment, Block } from "../dataEntities";
+import { ArgumentError, IEthereumAppointment } from "../dataEntities";
 import logger from "../logger";
 import { plural } from "../utils";
-import { BlockchainMachine } from "../blockMonitor/blockchainMachine";
-import { LockManager } from "../utils/lock";
 
 /**
  * Responsible for handling the business logic of the Responders.
@@ -22,16 +19,13 @@ import { LockManager } from "../utils/lock";
 export class EthereumResponderManager {
     private provider: ethers.providers.Provider;
     private gasPolicy: IGasPolicy;
-    private multiResponder: MultiResponder | null;
-    private readonly lockManager = new LockManager();
 
     constructor(
         private readonly dedicated: boolean,
         private readonly signer: ethers.Signer,
         private readonly blockTimeoutDetector: BlockTimeoutDetector,
         private readonly confirmationObserver: ConfirmationObserver,
-        private readonly blockProcessor: BlockProcessor<Block>,
-        private readonly gasPriceEstimator: GasPriceEstimator
+        private readonly multiResponder: MultiResponder
     ) {
         if (!signer.provider) throw new ArgumentError("The given signer is not connected to a provider");
         this.provider = signer.provider;
@@ -44,35 +38,8 @@ export class EthereumResponderManager {
     }
 
     private async respondMulti(appointment: IEthereumAppointment) {
-        // start a mult responder if one exists
         const ethereumResponseData = appointment.getResponseData();
-        await this.lockManager.withLock(LockManager.MultiResponderLock, async () => {
-            if (!this.multiResponder) {
-                const address = await this.signer.getAddress();
-                const nonce = await this.provider.getTransactionCount(address);
-                const chainId = (await this.provider.getNetwork()).chainId;
-
-                this.multiResponder = new MultiResponder(
-                    this.blockProcessor,
-                    address,
-                    nonce,
-                    this.signer,
-                    this.gasPriceEstimator,
-                    chainId
-                );
-
-                const blockchainMachine = new BlockchainMachine<Block>(this.blockProcessor);
-                blockchainMachine.addComponent(
-                    new MultiResponderComponent(
-                        this.multiResponder,
-                        this.blockProcessor,
-                        this.blockProcessor.blockCache.maxDepth - 1
-                    )
-                );
-                await blockchainMachine.start(); // TODO:198: when do we stop it?
-            }
-        });
-        await this.multiResponder!.startResponse(appointment.id, ethereumResponseData);
+        await this.multiResponder.startResponse(appointment.id, ethereumResponseData);
     }
 
     private async respondDedicated(appointment: IEthereumAppointment) {

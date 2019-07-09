@@ -1,4 +1,4 @@
-import { IEthereumResponseData, IEthereumAppointment } from "../dataEntities";
+import { IEthereumResponseData, IEthereumAppointment, StartStopService } from "../dataEntities";
 import { EthereumResponder } from "./responder";
 import { GasQueue, PisaTransactionIdentifier, GasQueueItem, GasQueueItemRequest } from "./gasQueue";
 import { GasPriceEstimator } from "./gasPriceEstimator";
@@ -60,6 +60,7 @@ class ResponderReducer implements StateReducer<ResponderAppointmentAnchorState, 
 
         return null;
     }
+
     private getMinedTransaction(headHash: string, identifier: PisaTransactionIdentifier) {
         for (const block of this.blockProcessor.blockCache.ancestry(headHash)) {
             const txInfo = this.txIdentifierInBlock(block, identifier);
@@ -140,7 +141,7 @@ export class MultiResponderComponent extends Component<ResponderAnchorState, Blo
         head: Block,
         state: ResponderAnchorState
     ) {
-        // TODO:198: sort out the names in the responder - sometimes we refer to the
+        // TODO:198: sort out the names in the responder - sometimes we refer to the tx, sometimes
 
         // TODO:198: what happens to errors in here? what should we do about them
         const isPending = (state: ResponderAppointmentAnchorState): state is PendingResponseState => {
@@ -177,12 +178,15 @@ export class MultiResponderComponent extends Component<ResponderAnchorState, Blo
     }
 }
 
-export class MultiResponder extends EthereumResponder {
+export class MultiResponder extends StartStopService {
+    private readonly provider: ethers.providers.Provider;
     public get queue() {
         return this.mQueue;
     }
     private mQueue: GasQueue;
     public readonly respondedTransactions: Map<string, { id: string; queueItem: GasQueueItemRequest }> = new Map();
+    private chainId: number;
+    private address: string;
 
     /**
      * Can handle multiple response for a given signer. This responder requires exclusive
@@ -208,22 +212,30 @@ export class MultiResponder extends EthereumResponder {
      */
     //TODO:198: documentation out of date - check everywhere in this file
     public constructor(
-        readonly blockProcessor: BlockProcessor<Block>,
-        public readonly address: string,
-        public readonly startingNonce: number,
+        public readonly blockProcessor: BlockProcessor<Block>,
         public readonly signer: ethers.Signer,
         public readonly gasEstimator: GasPriceEstimator,
-        public readonly chainId: number,
-        maxConcurrentResponses: number = 12,
-        replacementRate: number = 13
+        public readonly maxConcurrentResponses: number = 12,
+        public readonly replacementRate: number = 13
     ) {
-        super(signer);
+        super("multi-responder");
+        this.provider = signer.provider!;
         if (replacementRate < 0) throw new ArgumentError("Cannot have negative replacement rate.", replacementRate);
         if (maxConcurrentResponses < 1) {
             throw new ArgumentError("Maximum concurrent requests must be greater than 0.", maxConcurrentResponses);
         }
-        this.mQueue = new GasQueue([], startingNonce, replacementRate, maxConcurrentResponses);
         this.broadcast = this.broadcast.bind(this);
+    }
+
+    protected async startInternal() {
+        this.address = await this.signer.getAddress();
+        const nonce = await this.provider.getTransactionCount(this.address);
+        this.chainId = (await this.provider.getNetwork()).chainId;
+        this.mQueue = new GasQueue([], nonce, this.replacementRate, this.maxConcurrentResponses);
+    }
+
+    protected async stopInternal() {
+        // do nothing
     }
 
     public async startResponse(appointmentId: string, responseData: IEthereumResponseData) {

@@ -1,5 +1,4 @@
 import { IBlockStub } from "../dataEntities";
-import { BlockProcessor } from "./blockProcessor";
 
 /**
  * A base for object that define the initial anchor state and the changes in state when a new block is processed.
