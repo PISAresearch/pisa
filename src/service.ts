@@ -54,11 +54,11 @@ export class PisaService extends StartStopService {
     constructor(
         config: IArgConfig,
         provider: ethers.providers.BaseProvider,
-        private readonly wallet: ethers.Wallet,
+        wallet: ethers.Wallet,
         receiptSigner: ethers.Signer,
         db: LevelUp<encodingDown<string, any>>,
-        private readonly watcherResponseConfirmations: number,
-        private readonly watcherRemovalConfirmations: number
+        watcherResponseConfirmations: number,
+        watcherRemovalConfirmations: number
     ) {
         super("pisa");
         const app = express();
@@ -82,13 +82,13 @@ export class PisaService extends StartStopService {
 
         this.multiResponder = new MultiResponder(
             this.blockProcessor,
-            this.wallet,
-            new GasPriceEstimator(this.wallet.provider, this.blockProcessor)
+            wallet,
+            new GasPriceEstimator(wallet.provider, this.blockProcessor)
         );
 
         const ethereumResponderManager = new EthereumResponderManager(
             false,
-            this.wallet,
+            wallet,
             this.blockTimeoutDetector,
             this.confirmationObserver,
             this.multiResponder
@@ -98,8 +98,8 @@ export class PisaService extends StartStopService {
             ethereumResponderManager,
             this.blockProcessor,
             this.appointmentStore,
-            this.watcherResponseConfirmations,
-            this.watcherRemovalConfirmations
+            watcherResponseConfirmations,
+            watcherRemovalConfirmations
         );
 
         this.blockchainMachine = new BlockchainMachine<Block>(this.blockProcessor);
