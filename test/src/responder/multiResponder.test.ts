@@ -88,12 +88,14 @@ describe("MultiResponder", () => {
         );
         await responder.start();
 
+        const queueBefore = responder.queue;
         await responder.startResponse(appointmentId, responseData);
+        const issuedTransactions = responder.queue.difference(queueBefore);
+
+        expect(responder.respondedTransactions.get(appointmentId)).to.not.be.empty;
+        expect(issuedTransactions.length).to.equal(1);
 
         await responder.stop();
-
-        // TODO:198: success conditions?
-        // verify(transactionTrackerMock.addTx(anything(), anything())).once();
     });
 
     it("startResponse can issue two transactions and replace", async () => {
@@ -111,14 +113,19 @@ describe("MultiResponder", () => {
 
         await responder.start();
 
+        const queueBefore = responder.queue;
         await responder.startResponse(appointmentId, responseData);
-        // TODO:198: success conditions?
-        // verify(transactionTrackerMock.addTx(anything(), anything())).once();
+        const issuedTransactions = responder.queue.difference(queueBefore);
+        expect(responder.respondedTransactions.get(appointmentId)).to.not.be.empty;
+        expect(issuedTransactions.length).to.equal(1);
         // because the gas price is increasing this should result in a replacement
         // therefor two additional transactions are issued, rather than just one
+        const queueBefore2 = responder.queue;
         await responder.startResponse(appointmentId2, responseData2);
-        // TODO:198: success conditions?
-        // verify(transactionTrackerMock.addTx(anything(), anything())).times(3);
+        const issuedTransactions2 = responder.queue.difference(queueBefore2);
+        expect(responder.respondedTransactions.get(appointmentId)).to.not.be.empty;
+        expect(responder.respondedTransactions.get(appointmentId2)).to.not.be.empty;
+        expect(issuedTransactions2.length).to.equal(2);
 
         await responder.stop();
     });
@@ -139,14 +146,20 @@ describe("MultiResponder", () => {
 
         await responder.start();
 
+        const queueBefore = responder.queue;
         await responder.startResponse(appointmentId, responseData);
-        // TODO:198: success conditions?
-        // verify(transactionTrackerMock.addTx(anything(), anything())).once();
+        const issuedTransactions = responder.queue.difference(queueBefore);
+        expect(responder.respondedTransactions.get(appointmentId)).to.not.be.empty;
+        expect(issuedTransactions.length).to.equal(1);
+
         // because the gas price is decreasing this should result not result in a replacement
         // therefore only one new transaction should be issued
+        const queueBefore2 = responder.queue;
         await responder.startResponse(appointmentId2, responseData2);
-        // TODO:198: success conditions?
-        // verify(transactionTrackerMock.addTx(anything(), anything())).times(2);
+        const issuedTransactions2 = responder.queue.difference(queueBefore2);
+        expect(responder.respondedTransactions.get(appointmentId)).to.not.be.empty;
+        expect(responder.respondedTransactions.get(appointmentId2)).to.not.be.empty;
+        expect(issuedTransactions2.length).to.equal(1);
 
         await responder.stop();
     });
@@ -158,8 +171,8 @@ describe("MultiResponder", () => {
         await responder.start();
 
         await responder.startResponse(appointmentId, responseData);
-        // TODO:198: success conditions?
-        // verify(transactionTrackerMock.addTx(anything(), anything())).never();
+        expect(responder.respondedTransactions.size).to.be.equal(0);
+
         await responder.stop();
     });
 
@@ -175,14 +188,19 @@ describe("MultiResponder", () => {
 
         await responder.start();
 
+        const queueBefore = responder.queue;
         await responder.startResponse(appointmentId, responseData);
         await responder.startResponse(appointmentId2, responseData2);
-        // TODO:198: success conditions?
-        // verify(transactionTrackerMock.addTx(anything(), anything())).times(2);
+        const issuedTransactions = responder.queue.difference(queueBefore);
+        expect(responder.respondedTransactions.size).to.equal(2);
+        expect(issuedTransactions.length).to.equal(2);
+
         // adding again should do nothing
+        const queueBefore2 = responder.queue;
         await responder.startResponse(appointmentId3, responseData3);
-        // TODO:198: success conditions?
-        // verify(transactionTrackerMock.addTx(anything(), anything())).times(2);
+        const issuedTransactions2 = responder.queue.difference(queueBefore2);
+        expect(responder.respondedTransactions.size).to.equal(2);
+        expect(issuedTransactions2.length).to.equal(0);
 
         await responder.stop();
     });
@@ -229,15 +247,16 @@ describe("MultiResponder", () => {
         await responder.startResponse(appointmentId2, responseData2);
         const itemAfterReplace = responder.queue.queueItems[0];
 
+        const queueBefore = responder.queue;
         await responder.txMined(item.request.identifier, item.nonce, address);
+        const issuedTransactions = responder.queue.difference(queueBefore);
+        expect(responder.respondedTransactions.size).to.equal(2);
+        expect(issuedTransactions.length).to.equal(1);
         const itemAfterMined = responder.queue.queueItems[0];
 
         expect(responder.queue.queueItems.length).to.equal(1);
         expect(itemAfterMined.request.identifier).to.deep.equal(itemAfterReplace.request.identifier);
         expect(itemAfterMined.nonce).to.equal(itemAfterReplace.nonce + 1);
-        // TODO:198: success conditions?
-        // verify(transactionTrackerMock.addTx(anything(), anything())).times(4);
-
         await responder.stop();
     });
 
@@ -250,16 +269,16 @@ describe("MultiResponder", () => {
         );
 
         await responder.start();
+
+        const queueBefore = responder.queue;
         await responder.txMined(
             new PisaTransactionIdentifier(1, "data", "to", new BigNumber(0), new BigNumber(10)),
             1,
             address
         );
-        expect(responder.queue.queueItems.length).to.equal(0);
+        expect(responder.queue).to.equal(queueBefore);
 
         await responder.stop();
-        // TODO:198: success conditions?
-        // verify(transactionTrackerMock.addTx(anything(), anything())).never();
     });
 
     it("txMined does nothing when item not in queue", async () => {
@@ -279,12 +298,9 @@ describe("MultiResponder", () => {
             1,
             address
         );
-
         expect(responder.queue).to.equal(queueBefore);
 
         await responder.stop();
-        // TODO:198: success conditions?
-        // verify(transactionTrackerMock.addTx(anything(), anything())).once();
     });
 
     it("txMined does nothing nonce is not front of queue", async () => {
@@ -306,7 +322,5 @@ describe("MultiResponder", () => {
         expect(responder.queue).to.equal(queueBefore);
 
         await responder.stop();
-        // TODO:198: success conditions?
-        // verify(transactionTrackerMock.addTx(anything(), anything())).once();
     });
 });

@@ -286,6 +286,23 @@ export class GasQueue {
         return new GasQueue(clonedArray, this.emptyNonce, this.replacementRate, this.maxQueueDepth);
     }
 
+    /**
+     * Returns all queue items that are in this queue but not in the supplied queue
+     * @param otherQueue
+     */
+    public difference(otherQueue: GasQueue): GasQueueItem[] {
+        // TODO:198: tests for here and contains
+        return this.queueItems.filter(tx => !otherQueue.queueItems.includes(tx));
+    }
+
+    /**
+     * Checks to see if this queue contains an item with the supplied identifier
+     * @param queueItem
+     */
+    public contains(identifier: PisaTransactionIdentifier): boolean {
+        return this.queueItems.findIndex(i => i.request.identifier.equals(identifier)) !== -1;
+    }
+
     //TODO:198: documentation and tests
     public unlock(requests: GasQueueItemRequest[]): GasQueue {
         // we need to keep track of the max gas price used at a given nonce

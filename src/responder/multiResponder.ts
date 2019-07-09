@@ -282,7 +282,7 @@ export class MultiResponder extends StartStopService {
             // that we need to replace some transactions on the network. Find those and
             // broadcast them
             const replacedQueue = this.mQueue.add(request);
-            const replacedTransactions = replacedQueue.queueItems.filter(tx => !this.mQueue.queueItems.includes(tx));
+            const replacedTransactions = replacedQueue.difference(this.mQueue);
             this.mQueue = replacedQueue;
             // and update the local list of tx identifiers
             this.respondedTransactions.set(appointmentId, { id: appointmentId, queueItem: request });
@@ -347,7 +347,7 @@ export class MultiResponder extends StartStopService {
                 // and bump up all transactions with a lower nonce so that the tx that is
                 // at the front of the current queue - but was not mined - remains there
                 const reducedQueue = this.mQueue.consume(txIdentifier);
-                const replacedTransactions = reducedQueue.queueItems.filter(tx => !this.mQueue.queueItems.includes(tx));
+                const replacedTransactions = reducedQueue.difference(this.mQueue);
                 this.mQueue = reducedQueue;
 
                 // since we had to bump up some transactions - change their nonces
@@ -376,8 +376,6 @@ export class MultiResponder extends StartStopService {
         // be. We can find these transactions by comparing the current gas queue to the
         // transactions that we currently observe in pending. Transactions in pending
         // but not in the gas queue need to be added there.
-
-        const missingQueueItems: GasQueueItemRequest[] = [];
         const queueItems: GasQueueItemRequest[] = [];
         appointmentIds.forEach(a => {
             const record = this.respondedTransactions.get(a);
@@ -385,18 +383,12 @@ export class MultiResponder extends StartStopService {
             else throw new ArgumentError("No record of transaction in responder.", a);
         });
 
-        for (const item of queueItems) {
-            // TODO:198: add back the contains and difference functions
-            if (this.mQueue.queueItems.findIndex(i => i.request.identifier.equals(item.identifier)) === -1) {
-                missingQueueItems.push(item);
-            }
-        }
-
+        const missingQueueItems = queueItems.filter(i => !this.mQueue.contains(i.identifier));
         if (missingQueueItems.length !== 0) {
             // TODO:198: remoe this if above - also fill in the unlock of course
             // also, what if this is called before setup - should we setup in here?
             const unlockedQueue = this.mQueue.unlock(missingQueueItems);
-            const replacedTransactions = unlockedQueue.queueItems.filter(tx => !this.mQueue.queueItems.includes(tx));
+            const replacedTransactions = unlockedQueue.difference(this.mQueue);
             this.mQueue = unlockedQueue;
             // broadcast these transactions
             await Promise.all(replacedTransactions.map(this.broadcast));
