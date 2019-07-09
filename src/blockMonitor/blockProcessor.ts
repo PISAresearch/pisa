@@ -81,6 +81,15 @@ export class BlockProcessor<T extends IBlockStub> extends StartStopService {
      */
     public static readonly REORG_EVENT = "reorg";
 
+    /**
+     * Event that is emitted for all blocks that have not previously been observed. If
+     * a block is the new head it will also be emitted via the NEW_HEAD_EVENT, however
+     * NEW_BLOCK_EVENT is guaranteed to emit first. Since this event emits for all new
+     * blocks it does not guarantee that an emitted block will be in the ancestry of the next
+     * emitted NEW_HEAD_EVENT.
+     */
+    public static readonly NEW_BLOCK_EVENT = "new_block";
+
     constructor(
         private provider: ethers.providers.BaseProvider,
         blockFactory: BlockFactory<T>,
@@ -162,6 +171,10 @@ export class BlockProcessor<T extends IBlockStub> extends StartStopService {
             // populate fetched blocks into cache, starting from the deepest
             for (const block of blocksToAdd) {
                 this.mBlockCache.addBlock(block);
+
+                // we've added this block and it's ancestors
+                // to the cache, so we we're safe to inform subscribers
+                this.emit(BlockProcessor.NEW_BLOCK_EVENT, block);
             }
 
             // is the observed block still the last block received (or the first block during startup)?
