@@ -5,7 +5,7 @@ import { AppointmentStore } from "./store";
 import { ReadOnlyBlockCache } from "../blockMonitor";
 import { Block } from "../dataEntities/block";
 import { EventFilter } from "ethers";
-import { StandardMappedComponent, StateReducer, MappedStateReducer } from "../blockMonitor/component";
+import { StateReducer, MappedStateReducer, MappedState, Component } from "../blockMonitor/component";
 import logger from "../logger";
 
 enum AppointmentState {
@@ -65,11 +65,25 @@ class AppointmentStateReducer implements StateReducer<WatcherAppointmentState, B
 }
 
 /**
+ * Returns true if and only if the given predicate is true on `(state, block)` and false on `(oldState, oldBlock)`.
+ * TODO:198: could simplify this by removing the block parameter, and changing anchor states accordingly
+ */
+function predicateBecameTrue<TState, TBlock>(
+    pred: (state: TState, block: TBlock) => boolean,
+    state: TState,
+    block: TBlock,
+    oldState: TState,
+    oldBlock: TBlock
+) {
+    return pred(state, block) && !pred(oldState, oldBlock);
+}
+
+/**
  * Watches the chain for events related to the supplied appointments. When an event is noticed data is forwarded to the
  * observe method to complete the task. The watcher is not responsible for ensuring that observed events are properly
  * acted upon, that is the responsibility of the responder.
  */
-export class Watcher extends StandardMappedComponent<WatcherAppointmentState, Block> {
+export class Watcher extends Component<MappedState<WatcherAppointmentState>, Block> {
     /**
      * Watches the chain for events related to the supplied appointments. When an event is noticed data is forwarded to the
      * observe method to complete the task. The watcher is not responsible for ensuring that observed events are properly
@@ -98,59 +112,53 @@ export class Watcher extends StandardMappedComponent<WatcherAppointmentState, Bl
         }
     }
 
-    protected getActions() {
-        const shouldHaveStartedResponder = (st: WatcherAppointmentState | undefined, block: Block): boolean => {
-            if (!st) return false;
-            return (
-                st.state === AppointmentState.OBSERVED &&
-                block!.number - st.blockObserved + 1 >= this.confirmationsBeforeResponse
-            );
-        };
+    public async handleNewStateEvent(
+        prevHead: Block,
+        prevState: MappedState<WatcherAppointmentState>,
+        head: Block,
+        state: MappedState<WatcherAppointmentState>
+    ) {
+        const shouldHaveStartedResponder = (st: WatcherAppointmentState, block: Block): boolean =>
+            st.state === AppointmentState.OBSERVED &&
+            block!.number - st.blockObserved + 1 >= this.confirmationsBeforeResponse;
 
-        const shouldRemoveAppointment = (st: WatcherAppointmentState | undefined, block: Block): boolean => {
-            if (!st) return false;
-            return (
-                st.state === AppointmentState.OBSERVED &&
-                block!.number - st.blockObserved + 1 >= this.confirmationsBeforeRemoval
-            );
-        };
+        const shouldRemoveAppointment = (st: WatcherAppointmentState, block: Block): boolean =>
+            st.state === AppointmentState.OBSERVED &&
+            block!.number - st.blockObserved + 1 >= this.confirmationsBeforeRemoval;
 
-        return [
-            {
-                condition: shouldHaveStartedResponder,
-                action: async (id: string) => {
-                    const appointment = this.store.getById(id);
-                    // start the responder
-                    try {
-                        logger.info(
-                            appointment.formatLog(
-                                `Observed event ${appointment.getEventName()} in contract ${appointment.getContractAddress()}.`
-                            )
-                        );
+        for (const [objId, objState] of state.entries()) {
+            const prevObjState = prevState.get(objId);
 
-                        // TODO: add some logging to replace this
-                        // this.logger.debug(appointment.formatLog(`Event info: ${inspect(event)}`));
+            if (predicateBecameTrue(shouldHaveStartedResponder, objState, head, prevObjState, prevHead)) {
+                const appointment = this.store.getById(objId);
+                // start the responder
+                try {
+                    logger.info(
+                        appointment.formatLog(
+                            `Observed event ${appointment.getEventName()} in contract ${appointment.getContractAddress()}.`
+                        )
+                    );
 
-                        // pass the appointment to the responder to complete. At this point the job has completed as far as
-                        // the watcher is concerned, therefore although respond is an async function we do not need to await it for a result
-                        await this.responder.respond(appointment);
-                    } catch (doh) {
-                        // an error occured whilst responding to the callback - this is serious and the problem needs to be correctly diagnosed
-                        logger.error(
-                            appointment.formatLog(
-                                `An unexpected error occured whilst responding to event ${appointment.getEventName()} in contract ${appointment.getContractAddress()}.`
-                            )
-                        );
-                        logger.error(appointment.formatLog(doh));
-                    }
-                }
-            },
-            {
-                condition: shouldRemoveAppointment,
-                action: async (id: string) => {
-                    await this.store.removeById(id);
+                    // TODO: add some logging to replace this
+                    // this.logger.debug(appointment.formatLog(`Event info: ${inspect(event)}`));
+
+                    // pass the appointment to the responder to complete. At this point the job has completed as far as
+                    // the watcher is concerned, therefore although respond is an async function we do not need to await it for a result
+                    await this.responder.respond(appointment);
+                } catch (doh) {
+                    // an error occured whilst responding to the callback - this is serious and the problem needs to be correctly diagnosed
+                    logger.error(
+                        appointment.formatLog(
+                            `An unexpected error occured whilst responding to event ${appointment.getEventName()} in contract ${appointment.getContractAddress()}.`
+                        )
+                    );
+                    logger.error(appointment.formatLog(doh));
                 }
             }
-        ];
+
+            if (predicateBecameTrue(shouldRemoveAppointment, objState, head, prevObjState, prevHead)) {
+                await this.store.removeById(objId);
+            }
+        }
     }
 }
