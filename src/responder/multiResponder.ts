@@ -1,4 +1,4 @@
-import { IEthereumResponseData, StartStopService } from "../dataEntities";
+import { IEthereumResponseData, StartStopService, IEthereumAppointment } from "../dataEntities";
 import { EthereumResponder } from "./responder";
 import { GasQueue, PisaTransactionIdentifier, GasQueueItem, GasQueueItemRequest } from "./gasQueue";
 import { GasPriceEstimator } from "./gasPriceEstimator";
@@ -9,7 +9,7 @@ import { inspect } from "util";
 import logger from "../logger";
 import { QueueConsistencyError, ArgumentError, ApplicationError } from "../dataEntities/errors";
 import { Block } from "../dataEntities/block";
-import { Component, StateReducer, MappedStateReducer } from "../blockMonitor/component";
+import { Component, StateReducer, MappedStateReducer, MappedState } from "../blockMonitor/component";
 
 enum ResponderStateKind {
     Pending = 1,
@@ -30,9 +30,11 @@ type MinedResponseState = {
 };
 type ResponderAppointmentAnchorState = PendingResponseState | MinedResponseState;
 
-export type ResponderAnchorState = Map<string, ResponderAppointmentAnchorState>;
+export interface ResponderAnchorState extends MappedState<ResponderAppointmentAnchorState> {
+    blockNumber: number;
+}
 
-class ResponderReducer implements StateReducer<ResponderAppointmentAnchorState, Block> {
+class ResponderAppointmentReducer implements StateReducer<ResponderAppointmentAnchorState, Block> {
     public constructor(
         private readonly blockCache: ReadOnlyBlockCache<Block>,
         private readonly queueItemRequest: GasQueueItemRequest,
@@ -113,6 +115,31 @@ class ResponderReducer implements StateReducer<ResponderAppointmentAnchorState, 
     }
 }
 
+class ResponderReducer
+    extends MappedStateReducer<ResponderAppointmentAnchorState, Block, { id: string; queueItem: GasQueueItemRequest }>
+    implements StateReducer<ResponderAnchorState, Block> {
+    constructor(responder: MultiResponder, blockCache: ReadOnlyBlockCache<Block>) {
+        super(
+            () => [...responder.respondedTransactions.values()],
+            item => new ResponderAppointmentReducer(blockCache, item.queueItem, item.id)
+        );
+    }
+
+    public getInitialState(block: Block) {
+        return {
+            ...super.getInitialState(block),
+            blockNumber: block.number
+        };
+    }
+
+    public reduce(prevState: ResponderAnchorState, block: Block) {
+        return {
+            ...super.reduce(prevState, block),
+            blockNumber: block.number
+        };
+    }
+}
+
 export class MultiResponderComponent extends Component<ResponderAnchorState, Block> {
     public constructor(
         private readonly responder: MultiResponder,
@@ -121,50 +148,40 @@ export class MultiResponderComponent extends Component<ResponderAnchorState, Blo
     ) {
         // the responder tracks a list of items that it's currently responding
         // to in the respondedTransactions map. We need to examine each of these.
-        super(
-            new MappedStateReducer<
-                ResponderAppointmentAnchorState,
-                Block,
-                { id: string; queueItem: GasQueueItemRequest }
-            >(
-                () => [...this.responder.respondedTransactions.values()],
-                item => new ResponderReducer(blockCache, item.queueItem, item.id)
-            )
-        );
+        super(new ResponderReducer(responder, blockCache));
     }
 
-    public async handleNewStateEvent(
-        prevHead: Block,
-        prevState: ResponderAnchorState,
-        head: Block,
-        state: ResponderAnchorState
-    ) {
+    public async handleNewStateEvent(prevState: ResponderAnchorState, state: ResponderAnchorState) {
         // TODO:198: what happens to errors in here? what should we do about them
-        const isPending = (state: ResponderAppointmentAnchorState): state is PendingResponseState => {
-            return state.kind === ResponderStateKind.Pending;
+        const isPending = (
+            appointmentState: ResponderAppointmentAnchorState
+        ): appointmentState is PendingResponseState => {
+            return appointmentState.kind === ResponderStateKind.Pending;
         };
-        const hasBeenMined = (state: ResponderAppointmentAnchorState | undefined): state is MinedResponseState => {
-            if (!state) return false;
-            return state.kind === ResponderStateKind.Mined;
+        const hasBeenMined = (
+            appointmentState: ResponderAppointmentAnchorState | undefined
+        ): appointmentState is MinedResponseState => {
+            if (!appointmentState) return false;
+            return appointmentState.kind === ResponderStateKind.Mined;
         };
         const shouldBeRemoved = (
-            state: ResponderAppointmentAnchorState | undefined,
-            block: Block
-        ): state is MinedResponseState => {
-            if (!state) return false;
+            appointmentState: ResponderAppointmentAnchorState | undefined
+        ): appointmentState is MinedResponseState => {
+            if (!appointmentState) return false;
             return (
-                state.kind === ResponderStateKind.Mined && block.number - state.blockMined > this.confirmationsRequired
+                appointmentState.kind === ResponderStateKind.Mined &&
+                state.blockNumber - appointmentState.blockMined > this.confirmationsRequired
             );
         };
 
         // every time the we handle a new head event there could potentially have been
         // a reorg, which in turn may have caused some items to be lost from the pending pool.
         // Therefor we check all of the missing items and re-enqueue them if necessary
-        this.responder.reEnqueueMissingItems([...state.values()].filter(isPending).map(q => q.appointmentId));
+        this.responder.reEnqueueMissingItems([...state.items.values()].filter(isPending).map(q => q.appointmentId));
 
-        for (const appointmentId of state.keys()) {
-            const prevItem = prevState.get(appointmentId);
-            const currentItem = state.get(appointmentId);
+        for (const appointmentId of state.items.keys()) {
+            const prevItem = prevState.items.get(appointmentId);
+            const currentItem = state.items.get(appointmentId);
 
             // if a transaction has been mined we need to inform the responder
             if (!hasBeenMined(prevItem) && hasBeenMined(currentItem)) {
@@ -172,7 +189,7 @@ export class MultiResponderComponent extends Component<ResponderAnchorState, Blo
             }
 
             // after a certain number of confirmations we can stop tracking a transaction
-            if (!shouldBeRemoved(prevItem, prevHead) && shouldBeRemoved(currentItem, head)) {
+            if (!shouldBeRemoved(prevItem) && shouldBeRemoved(currentItem)) {
                 await this.responder.endResponse(currentItem.appointmentId);
             }
         }

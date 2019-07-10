@@ -23,6 +23,11 @@ type WatcherAppointmentState =
           blockObserved: number; // block number in which the event was observed
       };
 
+/** The complete anchor state for the watcher, that also includes the block number */
+interface WatcherAnchorState extends MappedState<WatcherAppointmentState> {
+    blockNumber: number;
+}
+
 // TODO: move this to a utility function somewhere
 const hasLogMatchingEvent = (block: Block, filter: EventFilter): boolean => {
     return block.logs.some(
@@ -64,18 +69,36 @@ class AppointmentStateReducer implements StateReducer<WatcherAppointmentState, B
     }
 }
 
+export class WatcherStateReducer extends MappedStateReducer<WatcherAppointmentState, Block, IEthereumAppointment>
+    implements StateReducer<WatcherAnchorState, Block> {
+    constructor(store: AppointmentStore, blockCache: ReadOnlyBlockCache<Block>) {
+        super(
+            () => store.getAll(),
+            (appointment: IEthereumAppointment) => new AppointmentStateReducer(blockCache, appointment)
+        );
+    }
+
+    public getInitialState(block: Block) {
+        return {
+            ...super.getInitialState(block),
+            blockNumber: block.number
+        };
+    }
+
+    public reduce(prevState: WatcherAnchorState, block: Block) {
+        return {
+            ...super.reduce(prevState, block),
+            blockNumber: block.number
+        };
+    }
+}
+
 /**
  * Returns true if and only if the given predicate is true on `(state, block)` and false on `(oldState, oldBlock)`.
  * TODO:198: could simplify this by removing the block parameter, and changing anchor states accordingly
  */
-function predicateBecameTrue<TState, TBlock>(
-    pred: (state: TState, block: TBlock) => boolean,
-    state: TState,
-    block: TBlock,
-    oldState: TState,
-    oldBlock: TBlock
-) {
-    return pred(state, block) && !pred(oldState, oldBlock);
+function predicateBecameTrue<TState>(pred: (state: TState) => boolean, state: TState, oldState: TState) {
+    return pred(state) && !pred(oldState);
 }
 
 /**
@@ -83,7 +106,7 @@ function predicateBecameTrue<TState, TBlock>(
  * observe method to complete the task. The watcher is not responsible for ensuring that observed events are properly
  * acted upon, that is the responsibility of the responder.
  */
-export class Watcher extends Component<MappedState<WatcherAppointmentState>, Block> {
+export class Watcher extends Component<WatcherAnchorState, Block> {
     /**
      * Watches the chain for events related to the supplied appointments. When an event is noticed data is forwarded to the
      * observe method to complete the task. The watcher is not responsible for ensuring that observed events are properly
@@ -96,12 +119,7 @@ export class Watcher extends Component<MappedState<WatcherAppointmentState>, Blo
         private readonly confirmationsBeforeResponse: number,
         private readonly confirmationsBeforeRemoval: number
     ) {
-        super(
-            new MappedStateReducer<WatcherAppointmentState, Block, IEthereumAppointment>(
-                () => this.store.getAll(),
-                (appointment: IEthereumAppointment) => new AppointmentStateReducer(blockCache, appointment)
-            )
-        );
+        super(new WatcherStateReducer(store, blockCache));
 
         if (confirmationsBeforeResponse > confirmationsBeforeRemoval) {
             throw new ArgumentError(
@@ -112,26 +130,21 @@ export class Watcher extends Component<MappedState<WatcherAppointmentState>, Blo
         }
     }
 
-    public async handleNewStateEvent(
-        prevHead: Block,
-        prevState: MappedState<WatcherAppointmentState>,
-        head: Block,
-        state: MappedState<WatcherAppointmentState>
-    ) {
-        const shouldHaveStartedResponder = (st: WatcherAppointmentState | undefined, block: Block): boolean =>
-            st != undefined &&
-            st.state === AppointmentState.OBSERVED &&
-            block!.number - st.blockObserved + 1 >= this.confirmationsBeforeResponse;
+    public async handleNewStateEvent(prevState: WatcherAnchorState, state: WatcherAnchorState) {
+        const shouldHaveStartedResponder = (appointmentState: WatcherAppointmentState | undefined): boolean =>
+            appointmentState != undefined &&
+            appointmentState.state === AppointmentState.OBSERVED &&
+            state.blockNumber - appointmentState.blockObserved + 1 >= this.confirmationsBeforeResponse;
 
-        const shouldRemoveAppointment = (st: WatcherAppointmentState | undefined, block: Block): boolean =>
-            st != undefined &&
-            st.state === AppointmentState.OBSERVED &&
-            block!.number - st.blockObserved + 1 >= this.confirmationsBeforeRemoval;
+        const shouldRemoveAppointment = (appointmentState: WatcherAppointmentState | undefined): boolean =>
+            appointmentState != undefined &&
+            appointmentState.state === AppointmentState.OBSERVED &&
+            state.blockNumber - appointmentState.blockObserved + 1 >= this.confirmationsBeforeRemoval;
 
-        for (const [objId, objState] of state.entries()) {
-            const prevObjState = prevState.get(objId);
+        for (const [objId, objState] of state.items.entries()) {
+            const prevObjState = prevState.items.get(objId);
 
-            if (predicateBecameTrue(shouldHaveStartedResponder, objState, head, prevObjState, prevHead)) {
+            if (predicateBecameTrue(shouldHaveStartedResponder, objState, prevObjState)) {
                 const appointment = this.store.getById(objId);
                 // start the responder
                 try {
@@ -158,7 +171,7 @@ export class Watcher extends Component<MappedState<WatcherAppointmentState>, Blo
                 }
             }
 
-            if (predicateBecameTrue(shouldRemoveAppointment, objState, head, prevObjState, prevHead)) {
+            if (predicateBecameTrue(shouldRemoveAppointment, objState, prevObjState)) {
                 await this.store.removeById(objId);
             }
         }
