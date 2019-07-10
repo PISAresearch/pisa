@@ -78,14 +78,14 @@ export class WatcherStateReducer extends MappedStateReducer<WatcherAppointmentAn
         );
     }
 
-    public getInitialState(block: Block) {
+    public getInitialState(block: Block): WatcherAnchorState {
         return {
             ...super.getInitialState(block),
             blockNumber: block.number
         };
     }
 
-    public reduce(prevState: WatcherAnchorState, block: Block) {
+    public reduce(prevState: WatcherAnchorState, block: Block): WatcherAnchorState {
         return {
             ...super.reduce(prevState, block),
             blockNumber: block.number
@@ -122,7 +122,7 @@ export class Watcher extends Component<WatcherAnchorState, Block> {
         }
     }
 
-    public shouldHaveStartedResponder = (
+    private shouldHaveStartedResponder = (
         state: WatcherAnchorState,
         appointmentState: WatcherAppointmentAnchorState | undefined
     ): boolean =>
@@ -130,7 +130,7 @@ export class Watcher extends Component<WatcherAnchorState, Block> {
         appointmentState.state === AppointmentState.OBSERVED &&
         state.blockNumber - appointmentState.blockObserved + 1 >= this.confirmationsBeforeResponse;
 
-    public shouldRemoveAppointment = (
+    private shouldRemoveAppointment = (
         state: WatcherAnchorState,
         appointmentState: WatcherAppointmentAnchorState | undefined
     ): boolean =>
