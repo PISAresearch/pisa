@@ -313,4 +313,63 @@ describe("GasQueue", () => {
 
         checkClone(queue, dequeuedQueue);
     });
+
+    it("difference correctly returns missing items", () => {
+        const items = [
+            createGasQueueItem(1, new BigNumber(110), new BigNumber(110), createIdentifier("data", "to")),
+            createGasQueueItem(2, new BigNumber(100), new BigNumber(100), createIdentifier("data1", "to1"))
+        ];
+
+        const addItem1 = createGasQueueItem(3, new BigNumber(80), new BigNumber(80), createIdentifier("data2", "to2"));
+        const addItem2 = createGasQueueItem(4, new BigNumber(80), new BigNumber(80), createIdentifier("data3", "to3"));
+        const items2 = [
+            ...items,
+            addItem1,
+            addItem2
+        ];
+
+        const q1 = new GasQueue(items, 3, 15, 5);
+        const q2 = new GasQueue(items2, 5, 15, 5);
+
+        const diffItems = q2.difference(q1);
+        expect(diffItems).to.deep.equal([addItem1, addItem2]);
+
+        const diff2Items = q1.difference(q2);
+        expect(diff2Items).to.deep.equal([]);
+    });
+
+    it("contains identifier is correctly identified", () => {
+        const id1 = createIdentifier("data", "to");
+        const id2 = createIdentifier("data1", "to1");
+        const id3 = createIdentifier("data2", "to2");
+        const items = [
+            createGasQueueItem(1, new BigNumber(110), new BigNumber(110), id1),
+            createGasQueueItem(2, new BigNumber(100), new BigNumber(100), id2),
+            createGasQueueItem(3, new BigNumber(80), new BigNumber(80), id3)
+        ];
+
+        const q = new GasQueue(items, 4, 15, 5);
+
+        const contains1 = q.contains(id1);
+        const contains2 = q.contains(id2);
+        const contains3 = q.contains(id3);
+
+        expect(contains1).to.be.true;
+        expect(contains2).to.be.true;
+        expect(contains3).to.be.true;
+    });
+
+    it("contains identifier is correctly identified", () => {
+        const missingId = createIdentifier("data3", "to3");
+        const items = [
+            createGasQueueItem(1, new BigNumber(110), new BigNumber(110), createIdentifier("data", "to")),
+            createGasQueueItem(2, new BigNumber(100), new BigNumber(100), createIdentifier("data1", "to1")),
+            createGasQueueItem(3, new BigNumber(80), new BigNumber(80), createIdentifier("data2", "to2"))
+        ];
+
+        const q = new GasQueue(items, 4, 15, 5);
+        const contains = q.contains(missingId);
+
+        expect(contains).to.be.false;
+    });
 });
