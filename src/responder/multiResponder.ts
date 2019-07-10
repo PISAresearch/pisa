@@ -151,45 +151,54 @@ export class MultiResponderComponent extends Component<ResponderAnchorState, Blo
         super(new ResponderReducer(responder, blockCache));
     }
 
+    public isAppointmentPending = (
+        appointmentState: ResponderAppointmentAnchorState
+    ): appointmentState is PendingResponseState => {
+        return appointmentState.kind === ResponderStateKind.Pending;
+    };
+
+    public hasResponseBeenMined = (
+        appointmentState: ResponderAppointmentAnchorState | undefined
+    ): appointmentState is MinedResponseState => {
+        if (!appointmentState) return false;
+        return appointmentState.kind === ResponderStateKind.Mined;
+    };
+
+    public shouldAppointmentBeRemoved = (
+        state: ResponderAnchorState,
+        appointmentState: ResponderAppointmentAnchorState | undefined
+    ): appointmentState is MinedResponseState => {
+        if (!appointmentState) return false;
+        return (
+            appointmentState.kind === ResponderStateKind.Mined &&
+            state.blockNumber - appointmentState.blockMined > this.confirmationsRequired
+        );
+    };
+
     public async handleNewStateEvent(prevState: ResponderAnchorState, state: ResponderAnchorState) {
         // TODO:198: what happens to errors in here? what should we do about them
-        const isPending = (
-            appointmentState: ResponderAppointmentAnchorState
-        ): appointmentState is PendingResponseState => {
-            return appointmentState.kind === ResponderStateKind.Pending;
-        };
-        const hasBeenMined = (
-            appointmentState: ResponderAppointmentAnchorState | undefined
-        ): appointmentState is MinedResponseState => {
-            if (!appointmentState) return false;
-            return appointmentState.kind === ResponderStateKind.Mined;
-        };
-        const shouldBeRemoved = (
-            appointmentState: ResponderAppointmentAnchorState | undefined
-        ): appointmentState is MinedResponseState => {
-            if (!appointmentState) return false;
-            return (
-                appointmentState.kind === ResponderStateKind.Mined &&
-                state.blockNumber - appointmentState.blockMined > this.confirmationsRequired
-            );
-        };
 
         // every time the we handle a new head event there could potentially have been
         // a reorg, which in turn may have caused some items to be lost from the pending pool.
         // Therefor we check all of the missing items and re-enqueue them if necessary
-        this.responder.reEnqueueMissingItems([...state.items.values()].filter(isPending).map(q => q.appointmentId));
+        this.responder.reEnqueueMissingItems(
+            [...state.items.values()].filter(this.isAppointmentPending).map(q => q.appointmentId)
+        );
 
         for (const appointmentId of state.items.keys()) {
             const prevItem = prevState.items.get(appointmentId);
             const currentItem = state.items.get(appointmentId);
 
             // if a transaction has been mined we need to inform the responder
-            if (!hasBeenMined(prevItem) && hasBeenMined(currentItem)) {
+            if (!this.hasResponseBeenMined(prevItem) && this.hasResponseBeenMined(currentItem)) {
                 await this.responder.txMined(currentItem.identifier, currentItem.nonce, currentItem.from);
             }
 
             // after a certain number of confirmations we can stop tracking a transaction
-            if (!shouldBeRemoved(prevItem) && shouldBeRemoved(currentItem)) {
+            if (
+                !this.shouldAppointmentBeRemoved(state, prevItem) &&
+                this.shouldAppointmentBeRemoved(state, currentItem)
+            ) {
                 await this.responder.endResponse(currentItem.appointmentId);
             }
         }
