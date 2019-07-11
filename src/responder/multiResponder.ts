@@ -335,7 +335,7 @@ export class MultiResponder extends StartStopService {
                 // TODO:198: the queue, - leaving us with a free nonce!
 
                 // exit - we'll just also submit our own tx
-                logger.info(`Transaction mined by another address. ${from}.` )
+                logger.info(`Transaction mined by another address. ${from}. ${JSON.stringify(txIdentifier)}.`)
             }
 
             else if (txIdentifier.equals(frontItem.request.identifier)) {
