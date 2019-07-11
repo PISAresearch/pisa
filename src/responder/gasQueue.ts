@@ -314,8 +314,6 @@ export class GasQueue {
      * @param lowerNonceItems 
      */
     public unlock(lowerNonceItems: GasQueueItem[]): GasQueue {
-        // 1) check that the queue is consistent? no - this can be done in the constructor
-
         // a correct queue is ordered by both nonce and ideal gas price
         // We'll need to adjust the nonces of queue items to ensure this
         const allItemsOrderedByNonce = lowerNonceItems.concat(this.queueItems).sort((a, b) => a.nonce - b.nonce);
