@@ -15,7 +15,9 @@ export interface StateReducer<TState extends object, TBlock extends IBlockStub> 
 /**
  * Convenience type for a state derived from mapping strings (typically, an id) to a per-item state.
  */
-export type MappedState<TState extends object> = Map<string, TState>;
+export type MappedState<TState extends object> = {
+    items: Map<string, TState>;
+};
 
 /**
  * A utility class to apply a reducer to each object of a set of objects that contains a string `id` field.
@@ -32,7 +34,7 @@ export class MappedStateReducer<TState extends object, TBlock extends IBlockStub
      *     return the same value when called on the same object.
      */
     constructor(
-        public readonly getItems: () => TMappedType[],
+        public readonly getItems: () => Iterable<TMappedType>,
         public readonly getBaseReducer: (obj: TMappedType) => StateReducer<TState, TBlock>
     ) {}
 
@@ -41,12 +43,12 @@ export class MappedStateReducer<TState extends object, TBlock extends IBlockStub
      * @param block
      */
     public getInitialState(block: TBlock): MappedState<TState> {
-        const result: MappedState<TState> = new Map();
+        const items: Map<string, TState> = new Map();
         for (const obj of this.getItems()) {
             const baseReducer = this.getBaseReducer(obj);
-            result.set(obj.id, baseReducer.getInitialState(block));
+            items.set(obj.id, baseReducer.getInitialState(block));
         }
-        return result;
+        return { items };
     }
 
     /**
@@ -56,18 +58,18 @@ export class MappedStateReducer<TState extends object, TBlock extends IBlockStub
      * @param block
      */
     public reduce(prevState: MappedState<TState>, block: TBlock): MappedState<TState> {
-        const result: MappedState<TState> = new Map();
+        const items: Map<string, TState> = new Map();
         for (const obj of this.getItems()) {
             const baseReducer = this.getBaseReducer(obj);
-            const prevObjState = prevState.get(obj.id);
-            result.set(
+            const prevObjState = prevState.items.get(obj.id);
+            items.set(
                 obj.id,
                 prevObjState
                     ? baseReducer.reduce(prevObjState, block) // reduce from previous state
                     : baseReducer.getInitialState(block) // no previous state
             );
         }
-        return result;
+        return { items };
     }
 }
 
@@ -76,5 +78,5 @@ export class MappedStateReducer<TState extends object, TBlock extends IBlockStub
  */
 export abstract class Component<TState extends object, TBlock extends IBlockStub> {
     constructor(public readonly reducer: StateReducer<TState, TBlock>) {}
-    public abstract handleNewStateEvent(prevHead: TBlock, prevState: TState, head: TBlock, state: TState): void;
+    public abstract handleNewStateEvent(prevState: TState, state: TState): void;
 }
