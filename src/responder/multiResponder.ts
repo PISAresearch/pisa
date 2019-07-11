@@ -18,7 +18,7 @@ enum ResponderStateKind {
 type PendingResponseState = {
     appointmentId: string;
     kind: ResponderStateKind.Pending;
-    queueItem: GasQueueItemRequest;
+    identifier: PisaTransactionIdentifier;
 };
 type MinedResponseState = {
     appointmentId: string;
@@ -37,7 +37,7 @@ export interface ResponderAnchorState extends MappedState<ResponderAppointmentAn
 class ResponderAppointmentReducer implements StateReducer<ResponderAppointmentAnchorState, Block> {
     public constructor(
         private readonly blockCache: ReadOnlyBlockCache<Block>,
-        private readonly queueItemRequest: GasQueueItemRequest,
+        private readonly identifier: PisaTransactionIdentifier,
         private readonly appointmentId: string
     ) {}
 
@@ -74,31 +74,31 @@ class ResponderAppointmentReducer implements StateReducer<ResponderAppointmentAn
     public getInitialState(block: Block): ResponderAppointmentAnchorState {
         // find out the current state of a queue item by looking through all
         // the blocks in the block cache
-        const minedTx = this.getMinedTransaction(block.hash, this.queueItemRequest.identifier);
+        const minedTx = this.getMinedTransaction(block.hash, this.identifier);
 
         return minedTx
             ? {
                   appointmentId: this.appointmentId,
                   kind: ResponderStateKind.Mined,
                   blockMined: minedTx.blockNumber,
-                  identifier: this.queueItemRequest.identifier,
+                  identifier: this.identifier,
                   nonce: minedTx.nonce,
                   from: minedTx.from
               }
             : {
                   appointmentId: this.appointmentId,
                   kind: ResponderStateKind.Pending,
-                  queueItem: this.queueItemRequest
+                  identifier: this.identifier
               };
     }
 
     public reduce(prevState: ResponderAppointmentAnchorState, block: Block): ResponderAppointmentAnchorState {
         if (prevState.kind === ResponderStateKind.Pending) {
-            const transaction = this.txIdentifierInBlock(block, prevState.queueItem.identifier);
+            const transaction = this.txIdentifierInBlock(block, prevState.identifier);
             return transaction
                 ? {
                       appointmentId: prevState.appointmentId,
-                      identifier: prevState.queueItem.identifier,
+                      identifier: prevState.identifier,
                       blockMined: block.number,
                       nonce: transaction.nonce,
                       kind: ResponderStateKind.Mined,
@@ -107,7 +107,7 @@ class ResponderAppointmentReducer implements StateReducer<ResponderAppointmentAn
                 : {
                       appointmentId: prevState.appointmentId,
                       kind: ResponderStateKind.Pending,
-                      queueItem: prevState.queueItem
+                      identifier: prevState.identifier
                   };
         } else {
             return prevState;
@@ -116,14 +116,14 @@ class ResponderAppointmentReducer implements StateReducer<ResponderAppointmentAn
 }
 
 class ResponderReducer
-    extends MappedStateReducer<ResponderAppointmentAnchorState, Block, { id: string; queueItem: GasQueueItemRequest }>
+    extends MappedStateReducer<ResponderAppointmentAnchorState, Block, { id: string; queueItem: GasQueueItem }>
     implements StateReducer<ResponderAnchorState, Block> {
     constructor(responder: MultiResponder, blockCache: ReadOnlyBlockCache<Block>) {
         // the responder tracks a list of items that it's currently responding
         // to in the respondedTransactions map. We need to examine each of these.
         super(
             () => [...responder.respondedTransactions.values()],
-            item => new ResponderAppointmentReducer(blockCache, item.queueItem, item.id)
+            item => new ResponderAppointmentReducer(blockCache, item.queueItem.request.identifier, item.id)
         );
     }
 
@@ -202,7 +202,7 @@ export class MultiResponder extends StartStopService {
         return this.mQueue;
     }
     private mQueue: GasQueue;
-    public readonly respondedTransactions: Map<string, { id: string; queueItem: GasQueueItemRequest }> = new Map();
+    public readonly respondedTransactions: Map<string, { id: string; queueItem: GasQueueItem }> = new Map();
     private chainId: number;
     private address: string;
 
@@ -244,7 +244,7 @@ export class MultiResponder extends StartStopService {
 
     protected async startInternal() {
         this.address = await this.signer.getAddress();
-        const nonce = await this.provider.getTransactionCount(this.address);
+        const nonce = await this.provider.getTransactionCount(this.address, "pending");
         this.chainId = (await this.provider.getNetwork()).chainId;
         this.mQueue = new GasQueue([], nonce, this.replacementRate, this.maxConcurrentResponses);
     }
@@ -276,7 +276,7 @@ export class MultiResponder extends StartStopService {
                 new BigNumber(EthereumResponder.GAS_LIMIT)
             );
             const idealGas = await this.gasEstimator.estimate(responseData);
-            const request = new GasQueueItemRequest(txIdentifier, idealGas, responseData);
+            const request = new GasQueueItemRequest(appointmentId, txIdentifier, idealGas, responseData);
 
             // add the queue item to the queue, since the queue is ordered this may mean
             // that we need to replace some transactions on the network. Find those and
@@ -284,9 +284,11 @@ export class MultiResponder extends StartStopService {
             const replacedQueue = this.mQueue.add(request);
             const replacedTransactions = replacedQueue.difference(this.mQueue);
             this.mQueue = replacedQueue;
-            // and update the local list of tx identifiers
-            this.respondedTransactions.set(appointmentId, { id: appointmentId, queueItem: request });
 
+            // and update the local list of tx identifiers for the latest data, then broadcast
+            replacedTransactions.forEach(q => {
+                this.respondedTransactions.set(q.request.appointmentId, { id: q.request.appointmentId, queueItem: q });
+            });
             await Promise.all(replacedTransactions.map(this.broadcast));
         } catch (doh) {
             if (doh instanceof QueueConsistencyError) logger.error(doh.stack!);
@@ -329,12 +331,14 @@ export class MultiResponder extends StartStopService {
             }
 
             if (from.toLocaleLowerCase() !== this.address.toLocaleLowerCase()) {
-                // TODO:198: nonce can be null if we didnt mine this tx - in this case we
-                // dequeue and cancel the relevant transactions
-                throw new ApplicationError("Not implemented.");
+                // TODO:198: different address mined our transaction - we need to remove the transaction from 
+                // TODO:198: the queue, - leaving us with a free nonce!
+
+                // exit - we'll just also submit our own tx
+                logger.info(`Transaction mined by another address. ${from}.` )
             }
 
-            if (txIdentifier.equals(frontItem.request.identifier)) {
+            else if (txIdentifier.equals(frontItem.request.identifier)) {
                 // the mined transaction was the one at the front of the current queue
                 // this is what we hoped for, simply dequeue the transaction
                 this.mQueue = this.mQueue.dequeue();
@@ -370,27 +374,26 @@ export class MultiResponder extends StartStopService {
      * issued to ensure that all responses are made.
      * @param queueItems
      */
-    public async reEnqueueMissingItems(appointmentIds: string[]) {
+    public async reEnqueueMissingItems(appointmentIdsStillPending: string[]) {
         // a reorg may have occurred, if this is the case then we need to check whether
         // then some transactions that we had previously considered mined may no longer
         // be. We can find these transactions by comparing the current gas queue to the
         // transactions that we currently observe in pending. Transactions in pending
         // but not in the gas queue need to be added there.
-        const queueItems: GasQueueItemRequest[] = [];
-        appointmentIds.forEach(a => {
-            const record = this.respondedTransactions.get(a);
-            if (record) queueItems.push(record.queueItem);
-            else throw new ArgumentError("No record of transaction in responder.", a);
-        });
+        const missingQueueItems = appointmentIdsStillPending
+            .map(this.respondedTransactions.get)
+            .map(a => {
+                if (!a) throw new ArgumentError("No record of appointment in responder.", a);
+                else return a.queueItem;
+            })
+            .filter(i => !this.mQueue.contains(i.request.identifier));
 
-        const missingQueueItems = queueItems.filter(i => !this.mQueue.contains(i.identifier));
+    
+        // no need to unlock anything if we dont have any missing items
         if (missingQueueItems.length !== 0) {
-            // TODO:198: remoe this if above - also fill in the unlock of course
-            // also, what if this is called before setup - should we setup in here?
             const unlockedQueue = this.mQueue.unlock(missingQueueItems);
             const replacedTransactions = unlockedQueue.difference(this.mQueue);
             this.mQueue = unlockedQueue;
-            // broadcast these transactions
             await Promise.all(replacedTransactions.map(this.broadcast));
         }
     }

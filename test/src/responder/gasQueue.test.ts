@@ -173,7 +173,7 @@ describe("GasQueue", () => {
         expect(appendedQueue.queueItems[2].nonce).to.equal(3);
         expect(appendedQueue.queueItems[2].request).to.equal(request);
         expect(appendedQueue.queueItems[2].idealGasPrice).to.equal(request.idealGasPrice);
-        expect(appendedQueue.queueItems[2].currentGasPrice).to.equal(request.idealGasPrice);
+        expect(appendedQueue.queueItems[2].nonceGasPrice).to.equal(request.idealGasPrice);
 
         checkClone(queue, appendedQueue);
     });
@@ -203,22 +203,22 @@ describe("GasQueue", () => {
         expect(appendedQueue.queueItems[1].nonce).to.equal(2);
         expect(appendedQueue.queueItems[1].request).to.equal(request);
         expect(appendedQueue.queueItems[1].idealGasPrice).to.equal(request.idealGasPrice);
-        expect(appendedQueue.queueItems[1].currentGasPrice.toNumber()).to.equal(
+        expect(appendedQueue.queueItems[1].nonceGasPrice.toNumber()).to.equal(
             replacedGasPrice(replacementRate, new BigNumber(100)).toNumber()
         );
 
         expect(appendedQueue.queueItems[2].nonce).to.equal(3);
         expect(appendedQueue.queueItems[2].request).to.equal(queue.queueItems[1].request);
         expect(appendedQueue.queueItems[2].idealGasPrice).to.equal(queue.queueItems[1].idealGasPrice);
-        expect(appendedQueue.queueItems[2].currentGasPrice.toNumber()).to.equal(
-            queue.queueItems[1].currentGasPrice.toNumber()
+        expect(appendedQueue.queueItems[2].nonceGasPrice.toNumber()).to.equal(
+            queue.queueItems[1].nonceGasPrice.toNumber()
         );
 
         expect(appendedQueue.queueItems[3].nonce).to.equal(4);
         expect(appendedQueue.queueItems[3].request).to.equal(queue.queueItems[2].request);
         expect(appendedQueue.queueItems[3].idealGasPrice).to.equal(queue.queueItems[2].idealGasPrice);
-        expect(appendedQueue.queueItems[3].currentGasPrice.toNumber()).to.equal(
-            queue.queueItems[2].currentGasPrice.toNumber()
+        expect(appendedQueue.queueItems[3].nonceGasPrice.toNumber()).to.equal(
+            queue.queueItems[2].nonceGasPrice.toNumber()
         );
 
         checkClone(queue, appendedQueue);
@@ -262,13 +262,13 @@ describe("GasQueue", () => {
         expect(consumedQueue.queueItems[0].nonce).to.equal(2);
         expect(consumedQueue.queueItems[0].request).to.equal(items[0].request);
         expect(consumedQueue.queueItems[0].idealGasPrice).to.equal(items[0].request.idealGasPrice);
-        expect(consumedQueue.queueItems[0].currentGasPrice.toNumber()).to.equal(115);
+        expect(consumedQueue.queueItems[0].nonceGasPrice.toNumber()).to.equal(115);
 
         // // unchanged next item
         expect(consumedQueue.queueItems[1].nonce).to.equal(queue.queueItems[2].nonce);
         expect(consumedQueue.queueItems[1].request).to.equal(queue.queueItems[2].request);
         expect(consumedQueue.queueItems[1].idealGasPrice).to.equal(queue.queueItems[2].idealGasPrice);
-        expect(consumedQueue.queueItems[1].currentGasPrice).to.equal(queue.queueItems[2].currentGasPrice);
+        expect(consumedQueue.queueItems[1].nonceGasPrice).to.equal(queue.queueItems[2].nonceGasPrice);
 
         expect(consumedQueue.queueItems.length).to.equal(queue.queueItems.length - 1);
 

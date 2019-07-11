@@ -37,6 +37,7 @@ export class GasQueueItemRequest {
      * @param responseData The response data relevant to this request
      */
     constructor(
+        public readonly appointmentId: string,
         public readonly identifier: PisaTransactionIdentifier,
         public readonly idealGasPrice: BigNumber,
         public readonly responseData: IEthereumResponseData
@@ -47,22 +48,22 @@ export class GasQueueItem {
     /**
      * A queued transaction
      * @param request
-     * @param currentGasPrice
-     *      The gas price that the item will be submitted at. Should always be greater
-     *      than or equal to the ideal gas price
+     * @param nonceGasPrice
+     *      The gas price to be used at this nonce. Should always be greater
+     *      than or equal to the ideal gas price.
      * @param idealGasPrice The minimum gas price at which this item should be submitted to the network
      * @param nonce The nonce which this item should be submitted at
      */
     constructor(
         public readonly request: GasQueueItemRequest,
-        public readonly currentGasPrice: BigNumber,
+        public readonly nonceGasPrice: BigNumber,
         public readonly idealGasPrice: BigNumber,
         public readonly nonce: number
     ) {
-        if (currentGasPrice.lt(idealGasPrice)) {
+        if (nonceGasPrice.lt(idealGasPrice)) {
             throw new ArgumentError(
                 "Current gas price cannot be less than ideal gas price",
-                currentGasPrice,
+                nonceGasPrice,
                 idealGasPrice
             );
         }
@@ -77,11 +78,16 @@ export class GasQueueItem {
             data: this.request.identifier.data,
             gasLimit: this.request.identifier.gasLimit,
             nonce: this.nonce,
-            gasPrice: this.currentGasPrice,
+            gasPrice: this.nonceGasPrice,
             to: this.request.identifier.to,
             value: this.request.identifier.value
         };
     }
+}
+
+class EmptyGasQueueItem {
+    nonce: number;
+    gasPrice: BigNumber;
 }
 
 export class GasQueue {
@@ -220,7 +226,7 @@ export class GasQueue {
 
         const replacementItem = queueItems[index];
         const nonce = replacementItem.nonce;
-        const replacementPrice = this.getReplacementGasPrice(replacementItem.currentGasPrice, this.replacementRate);
+        const replacementPrice = this.getReplacementGasPrice(replacementItem.nonceGasPrice, this.replacementRate);
         // we can only replace an item with another one which has gas price at least
         // equal to an increase by the replacement rate on the current gas price. If
         // the request gas price is greater than this replaced price, we use that, otherwise
@@ -291,7 +297,6 @@ export class GasQueue {
      * @param otherQueue
      */
     public difference(otherQueue: GasQueue): GasQueueItem[] {
-        // TODO:198: tests for here and contains
         return this.queueItems.filter(tx => !otherQueue.queueItems.includes(tx));
     }
 
@@ -303,14 +308,41 @@ export class GasQueue {
         return this.queueItems.findIndex(i => i.request.identifier.equals(identifier)) !== -1;
     }
 
-    //TODO:198: documentation and tests
-    public unlock(requests: GasQueueItemRequest[]): GasQueue {
-        // we need to keep track of the max gas price used at a given nonce
-        // since we need to go at least higher than this
+    
+    /**
+     * Re-add some items that have lower nonces than any in the current queue
+     * @param lowerNonceItems 
+     */
+    public unlock(lowerNonceItems: GasQueueItem[]): GasQueue {
+        // 1) check that the queue is consistent? no - this can be done in the constructor
 
-        // we also need to unlock the specified number of nonces
-        // classify those nonces as empty, and re-arrange
+        // a correct queue is ordered by both nonce and ideal gas price
+        // We'll need to adjust the nonces of queue items to ensure this
+        const allItemsOrderedByNonce = lowerNonceItems.concat(this.queueItems).sort((a, b) => a.nonce - b.nonce);
 
-        throw new ApplicationError("Not implemented");
+        const allItemsByIdealGas = [...allItemsOrderedByNonce].sort((a, b) => {
+            if (a.idealGasPrice.gt(b.idealGasPrice)) return -1;
+            else if (a.idealGasPrice.eq(b.idealGasPrice)) return 0;
+            else return 1;
+        });
+
+        for (let index = 0; index < allItemsByIdealGas.length; index++) {
+            const itemOrderedByGas = allItemsByIdealGas[index];
+            const itemOrderedByNonce = allItemsOrderedByNonce[index];
+
+            // if there's a difference in the items then we have a difference in
+            // order. We replace the item with the gas ordered one so that we have
+            // all items ordered by gas price, and by nonce.
+            if (itemOrderedByGas !== itemOrderedByNonce) {
+                this.replace(allItemsOrderedByNonce, index, itemOrderedByGas.request);
+            }
+        }
+
+        // all items ordered by nonce are now also ordered by gas price
+        return new GasQueue(allItemsOrderedByNonce, this.emptyNonce, this.replacementRate, this.maxQueueDepth);
+    }
+
+    public getItem(request: GasQueueItemRequest) {
+        const queueItem = this.queueItems.find(q => q.request === request);
     }
 }
