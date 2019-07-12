@@ -1,5 +1,12 @@
 import { PisaTransactionIdentifier } from "./gasQueue";
-import { MappedState, StateReducer, MappedStateReducer, Component, BlockNumberState, BlockNumberReducer } from "../blockMonitor/component";
+import {
+    MappedState,
+    StateReducer,
+    MappedStateReducer,
+    Component,
+    BlockNumberState,
+    BlockNumberReducer
+} from "../blockMonitor/component";
 import { ReadOnlyBlockCache } from "../blockMonitor";
 import { Block } from "../dataEntities";
 import { MultiResponder } from "./multiResponder";
@@ -143,7 +150,7 @@ export class MultiResponderComponent extends Component<ResponderAnchorState, Blo
         // every time the we handle a new head event there could potentially have been
         // a reorg, which in turn may have caused some items to be lost from the pending pool.
         // Therefor we check all of the missing items and re-enqueue them if necessary
-        this.responder.reEnqueueMissingItems(
+        await this.responder.reEnqueueMissingItems(
             [...state.items.values()]
                 .filter(appState => appState.kind === ResponderStateKind.Pending)
                 .map(q => q.appointmentId)
@@ -160,7 +167,7 @@ export class MultiResponderComponent extends Component<ResponderAnchorState, Blo
 
             // after a certain number of confirmations we can stop tracking a transaction
             if (
-                !this.shouldAppointmentBeRemoved(state, prevItem) &&
+                !this.shouldAppointmentBeRemoved(prevState, prevItem) &&
                 this.shouldAppointmentBeRemoved(state, currentItem)
             ) {
                 await this.responder.endResponse(currentItem.appointmentId);
