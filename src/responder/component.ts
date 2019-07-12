@@ -3,39 +3,40 @@ import { MappedState, StateReducer, MappedStateReducer, Component } from "../blo
 import { ReadOnlyBlockCache } from "../blockMonitor";
 import { Block } from "../dataEntities";
 import { MultiResponder } from "./multiResponder";
+import { ResponderBlock } from "../dataEntities/block";
 
-enum ResponderStateKind {
+export enum ResponderStateKind {
     Pending = 1,
     Mined = 2
 }
-type PendingResponseState = {
+export type PendingResponseState = {
     appointmentId: string;
     kind: ResponderStateKind.Pending;
     identifier: PisaTransactionIdentifier;
 };
-type MinedResponseState = {
+export type MinedResponseState = {
     appointmentId: string;
     kind: ResponderStateKind.Mined;
     identifier: PisaTransactionIdentifier;
     blockMined: number;
     nonce: number;
 };
-type ResponderAppointmentAnchorState = PendingResponseState | MinedResponseState;
+export type ResponderAppointmentAnchorState = PendingResponseState | MinedResponseState;
 
 export interface ResponderAnchorState extends MappedState<ResponderAppointmentAnchorState> {
     blockNumber: number;
 }
 
-class ResponderAppointmentReducer implements StateReducer<ResponderAppointmentAnchorState, Block> {
+export class ResponderAppointmentReducer implements StateReducer<ResponderAppointmentAnchorState, ResponderBlock> {
     public constructor(
-        private readonly blockCache: ReadOnlyBlockCache<Block>,
+        private readonly blockCache: ReadOnlyBlockCache<ResponderBlock>,
         private readonly identifier: PisaTransactionIdentifier,
         private readonly appointmentId: string,
         private readonly address: string
     ) {}
 
     private txIdentifierInBlock(
-        block: Block,
+        block: ResponderBlock,
         identifier: PisaTransactionIdentifier
     ): { blockNumber: number; nonce: number } | null {
         for (const tx of block.transactions) {
@@ -63,7 +64,7 @@ class ResponderAppointmentReducer implements StateReducer<ResponderAppointmentAn
         return null;
     }
 
-    public getInitialState(block: Block): ResponderAppointmentAnchorState {
+    public getInitialState(block: ResponderBlock): ResponderAppointmentAnchorState {
         // find out the current state of a queue item by looking through all
         // the blocks in the block cache
         const minedTx = this.getMinedTransaction(block.hash, this.identifier);
@@ -83,7 +84,7 @@ class ResponderAppointmentReducer implements StateReducer<ResponderAppointmentAn
               };
     }
 
-    public reduce(prevState: ResponderAppointmentAnchorState, block: Block): ResponderAppointmentAnchorState {
+    public reduce(prevState: ResponderAppointmentAnchorState, block: ResponderBlock): ResponderAppointmentAnchorState {
         if (prevState.kind === ResponderStateKind.Pending) {
             const transaction = this.txIdentifierInBlock(block, prevState.identifier);
             return transaction
