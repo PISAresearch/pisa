@@ -261,29 +261,6 @@ describe("MultiResponder", () => {
         await responder.stop();
     });
 
-    it("txMined does nothing when from does not equal responder address", async () => {
-        const appointmentId = "app1";
-        const responseData = createResponseData("app1");
-        const differentAddress = "different address"
-        const responder = new MultiResponder(
-            signer,
-            increasingGasPriceEstimator,
-            maxConcurrentResponses,
-            replacementRate
-        );
-
-        await responder.start();
-
-        await responder.startResponse(appointmentId, responseData);
-        const item = responder.queue.queueItems[0];
-
-        const queueBefore = responder.queue;
-        await responder.txMined(item.request.identifier, item.nonce);
-        expect(responder.queue).to.equal(queueBefore);
-
-        await responder.stop();
-    })
-
     it("txMined does nothing when queue is empty", async () => {
         const responder = new MultiResponder(
             signer,
@@ -295,11 +272,7 @@ describe("MultiResponder", () => {
         await responder.start();
 
         const queueBefore = responder.queue;
-        await responder.txMined(
-            new PisaTransactionIdentifier(1, "data", "to", new BigNumber(0), new BigNumber(10)),
-            1,
-            
-        );
+        await responder.txMined(new PisaTransactionIdentifier(1, "data", "to", new BigNumber(0), new BigNumber(10)), 1);
         expect(responder.queue).to.equal(queueBefore);
 
         await responder.stop();
@@ -317,11 +290,7 @@ describe("MultiResponder", () => {
         await responder.start();
         await responder.startResponse(appointmentId, responseData);
         const queueBefore = responder.queue;
-        await responder.txMined(
-            new PisaTransactionIdentifier(1, "data", "to", new BigNumber(0), new BigNumber(10)),
-            1,
-        
-        );
+        await responder.txMined(new PisaTransactionIdentifier(1, "data", "to", new BigNumber(0), new BigNumber(10)), 1);
         expect(responder.queue).to.equal(queueBefore);
 
         await responder.stop();
@@ -341,7 +310,7 @@ describe("MultiResponder", () => {
         await responder.startResponse(appointmentId, responseData);
         const queueBefore = responder.queue;
         const item = responder.queue.queueItems[0];
-        await responder.txMined(item.request.identifier, item.nonce + 1,);
+        await responder.txMined(item.request.identifier, item.nonce + 1);
 
         expect(responder.queue).to.equal(queueBefore);
 
