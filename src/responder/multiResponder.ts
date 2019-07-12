@@ -10,12 +10,19 @@ import { QueueConsistencyError, ArgumentError } from "../dataEntities/errors";
 
 export class MultiResponder extends StartStopService {
     private readonly provider: ethers.providers.Provider;
+    /**
+     * The current queue of pending transaction being handled by this responder
+     */
     public get queue() {
         return this.mQueue;
     }
     private mQueue: GasQueue;
     public readonly respondedTransactions: Map<string, { id: string; queueItem: GasQueueItem }> = new Map();
     private chainId: number;
+    /**
+     * The address of the private signing key being used to create responses
+     * 
+     */
     public get address() {
         return this.mAddress;
     }
@@ -41,7 +48,6 @@ export class MultiResponder extends StartStopService {
      *   Parity: 12.5%: https://github.com/paritytech/parity-ethereum/blob/master/miner/src/pool/scoring.rs#L38
      *   Geth: 10% default : https://github.com/ethereum/go-ethereum/wiki/Command-Line-Options --txpool.pricebump
      */
-    //TODO:198: documentation out of date - check everywhere in this file
     public constructor(
         public readonly signer: ethers.Signer,
         public readonly gasEstimator: GasPriceEstimator,
@@ -73,7 +79,6 @@ export class MultiResponder extends StartStopService {
      */
     public async startResponse(appointmentId: string, responseData: IEthereumResponseData) {
         try {
-            // TODO:198: somewhere we should also check if we actually need to respond to this
             if (this.mQueue.depthReached()) {
                 throw new QueueConsistencyError(
                     `Cannot add to queue. Max queue depth ${this.mQueue.maxQueueDepth} reached.`

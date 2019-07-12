@@ -31,6 +31,9 @@ export type MinedResponseState = {
 export type ResponderAppointmentAnchorState = PendingResponseState | MinedResponseState;
 export type ResponderAnchorState = MappedState<ResponderAppointmentAnchorState> & BlockNumberState;
 
+/**
+ * Selects information from blocks that are relevant to generating responses.
+ */
 export class ResponderAppointmentReducer implements StateReducer<ResponderAppointmentAnchorState, ResponderBlock> {
     public constructor(
         private readonly blockCache: ReadOnlyBlockCache<ResponderBlock>,
@@ -110,6 +113,10 @@ export class ResponderAppointmentReducer implements StateReducer<ResponderAppoin
     }
 }
 
+/**
+ * Handle the state events related to the multiresponder. Knows how to interpret
+ * changes in the responder anchor state, and when to fire side effects.
+ */
 export class MultiResponderComponent extends Component<ResponderAnchorState, Block> {
     public constructor(
         private readonly responder: MultiResponder,
