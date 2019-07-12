@@ -85,11 +85,6 @@ export class GasQueueItem {
     }
 }
 
-class EmptyGasQueueItem {
-    nonce: number;
-    gasPrice: BigNumber;
-}
-
 export class GasQueue {
     /**
      * Items ordered by an ideal gas prices. Items in the queue
