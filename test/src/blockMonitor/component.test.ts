@@ -131,7 +131,7 @@ describe("MappedStateReducer", () => {
         expect(reducedState.items).to.deep.equal(expectedMap);
     });
 
-    it("reduce call getInitialState if a new object id is added to the collection", () => {
+    it("reduce calls getInitialState if a new object id is added to the collection", () => {
         // start with only two objects
         const items = new Map<string, TestAnchorState>();
         items.set(objects[0].id, { someNumber: objects[0].value + blocks[0].number });
