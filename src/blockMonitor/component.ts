@@ -76,8 +76,8 @@ export class MappedStateReducer<
                     : baseReducer.getInitialState(block) // no previous state
             );
         }
-        const mappedState = this.reducer.reduce(prevState, block);
-        return { items, ...mappedState };
+        const state = this.reducer.reduce(prevState, block);
+        return { items, ...state };
     }
 }
 
