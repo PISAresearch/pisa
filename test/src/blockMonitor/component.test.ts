@@ -97,6 +97,15 @@ describe("MappedStateReducer", () => {
         expect(initialState.items).to.deep.equal(expectedMap);
     });
 
+    it("reduce computes reduces state", () => {
+        const msr = new MappedStateReducer(() => [], () => new NullReducer(), new TestAnchorStateReducer(10));
+
+        const initialState = msr.getInitialState(blocks[1]);
+        const reducedState = msr.reduce(initialState, blocks[2]);
+
+        expect(reducedState.someNumber).to.equal(10 + blocks[1].number + blocks[2].number);
+    });
+
     it("reduce computes state on mapped states", () => {
         const msr = new MappedStateReducer(
             () => objects,
