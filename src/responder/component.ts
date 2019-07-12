@@ -145,8 +145,6 @@ export class MultiResponderComponent extends Component<ResponderAnchorState, Blo
         state.blockNumber - appointmentState.blockMined > this.confirmationsRequired;
 
     public async handleNewStateEvent(prevState: ResponderAnchorState, state: ResponderAnchorState) {
-        // TODO:198: what happens to errors in here? what should we do about them
-
         // every time the we handle a new head event there could potentially have been
         // a reorg, which in turn may have caused some items to be lost from the pending pool.
         // Therefor we check all of the missing items and re-enqueue them if necessary
