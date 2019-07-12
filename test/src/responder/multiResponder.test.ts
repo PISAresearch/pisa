@@ -222,7 +222,7 @@ describe("MultiResponder", () => {
         await responder.startResponse(appointmentId, responseData);
         const item = responder.queue.queueItems[0];
 
-        await responder.txMined(item.request.identifier, item.nonce, address);
+        await responder.txMined(item.request.identifier, item.nonce);
         expect(responder.queue.queueItems.length).to.equal(0);
 
         await responder.stop();
@@ -249,7 +249,7 @@ describe("MultiResponder", () => {
         const itemAfterReplace = responder.queue.queueItems[0];
 
         const queueBefore = responder.queue;
-        await responder.txMined(item.request.identifier, item.nonce, address);
+        await responder.txMined(item.request.identifier, item.nonce);
         const issuedTransactions = responder.queue.difference(queueBefore);
         expect(responder.respondedTransactions.size).to.equal(2);
         expect(issuedTransactions.length).to.equal(1);
@@ -278,7 +278,7 @@ describe("MultiResponder", () => {
         const item = responder.queue.queueItems[0];
 
         const queueBefore = responder.queue;
-        await responder.txMined(item.request.identifier, item.nonce, differentAddress);
+        await responder.txMined(item.request.identifier, item.nonce);
         expect(responder.queue).to.equal(queueBefore);
 
         await responder.stop();
@@ -298,7 +298,7 @@ describe("MultiResponder", () => {
         await responder.txMined(
             new PisaTransactionIdentifier(1, "data", "to", new BigNumber(0), new BigNumber(10)),
             1,
-            address
+            
         );
         expect(responder.queue).to.equal(queueBefore);
 
@@ -320,7 +320,7 @@ describe("MultiResponder", () => {
         await responder.txMined(
             new PisaTransactionIdentifier(1, "data", "to", new BigNumber(0), new BigNumber(10)),
             1,
-            address
+        
         );
         expect(responder.queue).to.equal(queueBefore);
 
@@ -341,7 +341,7 @@ describe("MultiResponder", () => {
         await responder.startResponse(appointmentId, responseData);
         const queueBefore = responder.queue;
         const item = responder.queue.queueItems[0];
-        await responder.txMined(item.request.identifier, item.nonce + 1, address);
+        await responder.txMined(item.request.identifier, item.nonce + 1,);
 
         expect(responder.queue).to.equal(queueBefore);
 
@@ -368,7 +368,7 @@ describe("MultiResponder", () => {
         await responder.startResponse(appointmentId2, responseData2);
 
         const item = responder.respondedTransactions.get(appointmentId)!.queueItem;
-        await responder.txMined(item.request.identifier, item.nonce, address);
+        await responder.txMined(item.request.identifier, item.nonce);
 
         const queueBefore = responder.queue;
         await responder.reEnqueueMissingItems([appointmentId, appointmentId2]);
@@ -396,7 +396,7 @@ describe("MultiResponder", () => {
         await responder.start();
         await responder.startResponse(appointmentId, responseData);
         const item = responder.respondedTransactions.get(appointmentId)!.queueItem;
-        await responder.txMined(item.request.identifier, item.nonce, address);
+        await responder.txMined(item.request.identifier, item.nonce);
 
         await responder.startResponse(appointmentId2, responseData2);
         const item2 = responder.respondedTransactions.get(appointmentId2)!.queueItem;
@@ -448,7 +448,7 @@ describe("MultiResponder", () => {
         await responder.startResponse(appointmentId2, responseData2);
 
         const item = responder.respondedTransactions.get(appointmentId)!.queueItem;
-        await responder.txMined(item.request.identifier, item.nonce, address);
+        await responder.txMined(item.request.identifier, item.nonce);
 
         const queueBefore = responder.queue;
         await responder.reEnqueueMissingItems([appointmentId2]);

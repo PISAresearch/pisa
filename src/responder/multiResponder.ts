@@ -26,7 +26,6 @@ type MinedResponseState = {
     identifier: PisaTransactionIdentifier;
     blockMined: number;
     nonce: number;
-    from: string;
 };
 type ResponderAppointmentAnchorState = PendingResponseState | MinedResponseState;
 
@@ -38,24 +37,24 @@ class ResponderAppointmentReducer implements StateReducer<ResponderAppointmentAn
     public constructor(
         private readonly blockCache: ReadOnlyBlockCache<Block>,
         private readonly identifier: PisaTransactionIdentifier,
-        private readonly appointmentId: string
+        private readonly appointmentId: string,
+        private readonly address: string
     ) {}
 
     private txIdentifierInBlock(
         block: Block,
         identifier: PisaTransactionIdentifier
-    ): { blockNumber: number; nonce: number; from: string } | null {
+    ): { blockNumber: number; nonce: number } | null {
         for (const tx of block.transactions) {
             // a contract creation - cant be of interest
             if (!tx.to) continue;
 
             // look for matching transactions
             const txIdentifier = new PisaTransactionIdentifier(tx.chainId, tx.data, tx.to, tx.value, tx.gasLimit);
-            if (txIdentifier.equals(identifier)) {
+            if (txIdentifier.equals(identifier) && tx.from.toLocaleLowerCase() === this.address.toLocaleLowerCase()) {
                 return {
                     blockNumber: tx.blockNumber!,
-                    nonce: tx.nonce,
-                    from: tx.from
+                    nonce: tx.nonce
                 };
             }
         }
@@ -82,8 +81,7 @@ class ResponderAppointmentReducer implements StateReducer<ResponderAppointmentAn
                   kind: ResponderStateKind.Mined,
                   blockMined: minedTx.blockNumber,
                   identifier: this.identifier,
-                  nonce: minedTx.nonce,
-                  from: minedTx.from
+                  nonce: minedTx.nonce
               }
             : {
                   appointmentId: this.appointmentId,
@@ -101,8 +99,7 @@ class ResponderAppointmentReducer implements StateReducer<ResponderAppointmentAn
                       identifier: prevState.identifier,
                       blockMined: block.number,
                       nonce: transaction.nonce,
-                      kind: ResponderStateKind.Mined,
-                      from: transaction.from
+                      kind: ResponderStateKind.Mined
                   }
                 : {
                       appointmentId: prevState.appointmentId,
@@ -123,7 +120,13 @@ class ResponderReducer
         // to in the respondedTransactions map. We need to examine each of these.
         super(
             () => [...responder.respondedTransactions.values()],
-            item => new ResponderAppointmentReducer(blockCache, item.queueItem.request.identifier, item.id)
+            item =>
+                new ResponderAppointmentReducer(
+                    blockCache,
+                    item.queueItem.request.identifier,
+                    item.id,
+                    responder.address
+                )
         );
     }
 
@@ -182,7 +185,7 @@ export class MultiResponderComponent extends Component<ResponderAnchorState, Blo
 
             // if a transaction has been mined we need to inform the responder
             if (!this.hasResponseBeenMined(prevItem) && this.hasResponseBeenMined(currentItem)) {
-                await this.responder.txMined(currentItem.identifier, currentItem.nonce, currentItem.from);
+                await this.responder.txMined(currentItem.identifier, currentItem.nonce);
             }
 
             // after a certain number of confirmations we can stop tracking a transaction
@@ -204,7 +207,10 @@ export class MultiResponder extends StartStopService {
     private mQueue: GasQueue;
     public readonly respondedTransactions: Map<string, { id: string; queueItem: GasQueueItem }> = new Map();
     private chainId: number;
-    private address: string;
+    public get address() {
+        return this.mAddress;
+    }
+    private mAddress: string;
 
     /**
      * Can handle multiple response for a given signer. This responder requires exclusive
@@ -243,8 +249,8 @@ export class MultiResponder extends StartStopService {
     }
 
     protected async startInternal() {
-        this.address = await this.signer.getAddress();
-        const nonce = await this.provider.getTransactionCount(this.address, "pending");
+        this.mAddress = await this.signer.getAddress();
+        const nonce = await this.provider.getTransactionCount(this.mAddress, "pending");
         this.chainId = (await this.provider.getNetwork()).chainId;
         this.mQueue = new GasQueue([], nonce, this.replacementRate, this.maxConcurrentResponses);
     }
@@ -311,7 +317,7 @@ export class MultiResponder extends StartStopService {
      * front of the current transaction queue. Will throw QueueConsistencyError otherwise.
      * This enforces that this method is called in the same order that transactions are mined
      */
-    public async txMined(txIdentifier: PisaTransactionIdentifier, nonce: number, from: string) {
+    public async txMined(txIdentifier: PisaTransactionIdentifier, nonce: number) {
         try {
             if (this.mQueue.queueItems.length === 0) {
                 throw new QueueConsistencyError(
@@ -330,13 +336,7 @@ export class MultiResponder extends StartStopService {
                 );
             }
 
-            if (from.toLocaleLowerCase() !== this.address.toLocaleLowerCase()) {
-                // TODO:198: different address mined our transaction - we need to remove the transaction from
-                // TODO:198: the queue, - leaving us with a free nonce!
-
-                // exit - we'll just also submit our own tx
-                logger.info(`Transaction mined by another address. ${from}. ${JSON.stringify(txIdentifier)}.`);
-            } else if (txIdentifier.equals(frontItem.request.identifier)) {
+            if (txIdentifier.equals(frontItem.request.identifier)) {
                 // the mined transaction was the one at the front of the current queue
                 // this is what we hoped for, simply dequeue the transaction
                 this.mQueue = this.mQueue.dequeue();
