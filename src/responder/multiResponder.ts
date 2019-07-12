@@ -353,6 +353,9 @@ export class MultiResponder extends StartStopService {
                 const reducedQueue = this.mQueue.consume(txIdentifier);
                 const replacedTransactions = reducedQueue.difference(this.mQueue);
                 this.mQueue = reducedQueue;
+                replacedTransactions.forEach(q => {
+                    this.respondedTransactions.set(q.request.appointmentId, { id: q.request.appointmentId, queueItem: q });
+                });
 
                 // since we had to bump up some transactions - change their nonces
                 // we'll have to issue new transactions to the network
@@ -381,19 +384,21 @@ export class MultiResponder extends StartStopService {
         // transactions that we currently observe in pending. Transactions in pending
         // but not in the gas queue need to be added there.
         const missingQueueItems = appointmentIdsStillPending
-            .map(this.respondedTransactions.get)
+            .map((a) => this.respondedTransactions.get(a))
             .map(a => {
                 if (!a) throw new ArgumentError("No record of appointment in responder.", a);
                 else return a.queueItem;
             })
             .filter(i => !this.mQueue.contains(i.request.identifier));
-
     
         // no need to unlock anything if we dont have any missing items
         if (missingQueueItems.length !== 0) {
             const unlockedQueue = this.mQueue.unlock(missingQueueItems);
             const replacedTransactions = unlockedQueue.difference(this.mQueue);
             this.mQueue = unlockedQueue;
+            replacedTransactions.forEach(q => {
+                this.respondedTransactions.set(q.request.appointmentId, { id: q.request.appointmentId, queueItem: q });
+            });
             await Promise.all(replacedTransactions.map(this.broadcast));
         }
     }

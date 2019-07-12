@@ -4,9 +4,11 @@ import Ganache from "ganache-core";
 import { ethers } from "ethers";
 import { mock, when, anything, instance } from "ts-mockito";
 import { BigNumber } from "ethers/utils";
-import { expect } from "chai";
+import chai, { expect } from "chai";
 import { ArgumentError, IEthereumResponseData, Block } from "../../../src/dataEntities";
 import { PisaTransactionIdentifier } from "../../../src/responder/gasQueue";
+import chaiAsPromised from "chai-as-promised";
+chai.use(chaiAsPromised);
 
 const ganache = Ganache.provider({
     mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect"
@@ -220,7 +222,6 @@ describe("MultiResponder", () => {
         await responder.startResponse(appointmentId, responseData);
         const item = responder.queue.queueItems[0];
 
-        // TODO:198: we need to test txMined for different 'from' variants - in all places for txMined
         await responder.txMined(item.request.identifier, item.nonce, address);
         expect(responder.queue.queueItems.length).to.equal(0);
 
@@ -259,6 +260,29 @@ describe("MultiResponder", () => {
         expect(itemAfterMined.nonce).to.equal(itemAfterReplace.nonce + 1);
         await responder.stop();
     });
+
+    it("txMined does nothing when from does not equal responder address", async () => {
+        const appointmentId = "app1";
+        const responseData = createResponseData("app1");
+        const differentAddress = "different address"
+        const responder = new MultiResponder(
+            signer,
+            increasingGasPriceEstimator,
+            maxConcurrentResponses,
+            replacementRate
+        );
+
+        await responder.start();
+
+        await responder.startResponse(appointmentId, responseData);
+        const item = responder.queue.queueItems[0];
+
+        const queueBefore = responder.queue;
+        await responder.txMined(item.request.identifier, item.nonce, differentAddress);
+        expect(responder.queue).to.equal(queueBefore);
+
+        await responder.stop();
+    })
 
     it("txMined does nothing when queue is empty", async () => {
         const responder = new MultiResponder(
@@ -321,6 +345,133 @@ describe("MultiResponder", () => {
 
         expect(responder.queue).to.equal(queueBefore);
 
+        await responder.stop();
+    });
+
+    it("renqueueMissingItems does issue new transactions", async () => {
+        const appointmentId = "app1";
+        const responseData = createResponseData("app1");
+        const appointmentId2 = "app2";
+        const responseData2 = createResponseData("app2");
+
+        // there are some items that are not in the queue, but are in the multi responder
+        // we achieve this by adding the items, the mining them, then insisting they're still in pending
+
+        const responder = new MultiResponder(
+            signer,
+            decreasingGasPriceEstimator,
+            maxConcurrentResponses,
+            replacementRate
+        );
+        await responder.start();
+        await responder.startResponse(appointmentId, responseData);
+        await responder.startResponse(appointmentId2, responseData2);
+
+        const item = responder.respondedTransactions.get(appointmentId)!.queueItem;
+        await responder.txMined(item.request.identifier, item.nonce, address);
+
+        const queueBefore = responder.queue;
+        await responder.reEnqueueMissingItems([appointmentId, appointmentId2]);
+        const replacedTransactions = responder.queue.difference(queueBefore);
+        expect(replacedTransactions.length).to.equal(1);
+        expect(replacedTransactions[0].request.identifier).to.equal(item.request.identifier);
+        expect(replacedTransactions[0].nonce).to.equal(item.nonce);
+
+        await responder.stop();
+    });
+
+    it("renqueueMissingItems does replace transactions", async () => {
+        const appointmentId = "app1";
+        // choose a lower gas fee for the first item - this should cause a double replacement
+        const responseData = createResponseData("app1");
+        const appointmentId2 = "app2";
+        const responseData2 = createResponseData("app2");
+
+        const responder = new MultiResponder(
+            signer,
+            increasingGasPriceEstimator,
+            maxConcurrentResponses,
+            replacementRate
+        );
+        await responder.start();
+        await responder.startResponse(appointmentId, responseData);
+        const item = responder.respondedTransactions.get(appointmentId)!.queueItem;
+        await responder.txMined(item.request.identifier, item.nonce, address);
+
+        await responder.startResponse(appointmentId2, responseData2);
+        const item2 = responder.respondedTransactions.get(appointmentId2)!.queueItem;
+
+        // should only be one item in the queue
+        expect(responder.queue.queueItems.length).to.equal(1);
+
+        const queueBefore = responder.queue;
+        await responder.reEnqueueMissingItems([appointmentId, appointmentId2]);
+        const replacedTransactions = responder.queue.difference(queueBefore);
+        expect(replacedTransactions.length).to.equal(2);
+        expect(replacedTransactions[0].request.identifier).to.equal(item2.request.identifier);
+        expect(replacedTransactions[0].nonce).to.equal(item.nonce);
+        expect(replacedTransactions[1].request.identifier).to.equal(item.request.identifier);
+        expect(replacedTransactions[1].nonce).to.equal(item2.nonce);
+
+        await responder.stop();
+    });
+
+    it("renqueueMissingItems throws error for missing transactions", async () => {
+        const appointmentId = "app1";
+        const responder = new MultiResponder(
+            signer,
+            decreasingGasPriceEstimator,
+            maxConcurrentResponses,
+            replacementRate
+        );
+        await responder.start();
+
+        expect(responder.reEnqueueMissingItems([appointmentId])).to.eventually.be.rejectedWith(ArgumentError);
+
+        await responder.stop();
+    });
+
+    it("renqueueMissingItems does nothing for no missing transactions", async () => {
+        const appointmentId = "app1";
+        const responseData = createResponseData("app1");
+        const appointmentId2 = "app2";
+        const responseData2 = createResponseData("app2");
+
+        const responder = new MultiResponder(
+            signer,
+            decreasingGasPriceEstimator,
+            maxConcurrentResponses,
+            replacementRate
+        );
+        await responder.start();
+        await responder.startResponse(appointmentId, responseData);
+        await responder.startResponse(appointmentId2, responseData2);
+
+        const item = responder.respondedTransactions.get(appointmentId)!.queueItem;
+        await responder.txMined(item.request.identifier, item.nonce, address);
+
+        const queueBefore = responder.queue;
+        await responder.reEnqueueMissingItems([appointmentId2]);
+        const replacedTransactions = responder.queue.difference(queueBefore);
+        expect(replacedTransactions.length).to.equal(0);
+
+        await responder.stop();
+    });
+
+    it("endResponse removes item from transactions", async () => {
+        const appointmentId = "app1";
+        const responseData = createResponseData("app1");
+        const responder = new MultiResponder(
+            signer,
+            decreasingGasPriceEstimator,
+            maxConcurrentResponses,
+            replacementRate
+        );
+        await responder.start();
+        await responder.startResponse(appointmentId, responseData);
+        expect(responder.respondedTransactions.has(appointmentId)).to.be.true;
+        await responder.endResponse(appointmentId);
+        expect(responder.respondedTransactions.has(appointmentId)).to.be.false;
         await responder.stop();
     });
 });
