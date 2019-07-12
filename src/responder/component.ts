@@ -1,5 +1,5 @@
-import { PisaTransactionIdentifier, GasQueueItem } from "./gasQueue";
-import { MappedState, StateReducer, MappedStateReducer, Component } from "../blockMonitor/component";
+import { PisaTransactionIdentifier } from "./gasQueue";
+import { MappedState, StateReducer, MappedStateReducer, Component, BlockNumberState, BlockNumberReducer } from "../blockMonitor/component";
 import { ReadOnlyBlockCache } from "../blockMonitor";
 import { Block } from "../dataEntities";
 import { MultiResponder } from "./multiResponder";
@@ -22,10 +22,7 @@ export type MinedResponseState = {
     nonce: number;
 };
 export type ResponderAppointmentAnchorState = PendingResponseState | MinedResponseState;
-
-export interface ResponderAnchorState extends MappedState<ResponderAppointmentAnchorState> {
-    blockNumber: number;
-}
+export type ResponderAnchorState = MappedState<ResponderAppointmentAnchorState> & BlockNumberState;
 
 export class ResponderAppointmentReducer implements StateReducer<ResponderAppointmentAnchorState, ResponderBlock> {
     public constructor(
@@ -106,46 +103,25 @@ export class ResponderAppointmentReducer implements StateReducer<ResponderAppoin
     }
 }
 
-class ResponderReducer
-    extends MappedStateReducer<ResponderAppointmentAnchorState, Block, { id: string; queueItem: GasQueueItem }>
-    implements StateReducer<ResponderAnchorState, Block> {
-    constructor(responder: MultiResponder, blockCache: ReadOnlyBlockCache<Block>) {
-        // the responder tracks a list of items that it's currently responding
-        // to in the respondedTransactions map. We need to examine each of these.
-        super(
-            () => [...responder.respondedTransactions.values()],
-            item =>
-                new ResponderAppointmentReducer(
-                    blockCache,
-                    item.queueItem.request.identifier,
-                    item.id,
-                    responder.address
-                )
-        );
-    }
-
-    public getInitialState(block: Block): ResponderAnchorState {
-        return {
-            ...super.getInitialState(block),
-            blockNumber: block.number
-        };
-    }
-
-    public reduce(prevState: ResponderAnchorState, block: Block): ResponderAnchorState {
-        return {
-            ...super.reduce(prevState, block),
-            blockNumber: block.number
-        };
-    }
-}
-
 export class MultiResponderComponent extends Component<ResponderAnchorState, Block> {
     public constructor(
         private readonly responder: MultiResponder,
         blockCache: ReadOnlyBlockCache<Block>,
         private readonly confirmationsRequired: number
     ) {
-        super(new ResponderReducer(responder, blockCache));
+        super(
+            new MappedStateReducer(
+                () => [...responder.respondedTransactions.values()],
+                item =>
+                    new ResponderAppointmentReducer(
+                        blockCache,
+                        item.queueItem.request.identifier,
+                        item.id,
+                        responder.address
+                    ),
+                new BlockNumberReducer()
+            )
+        );
     }
 
     private hasResponseBeenMined = (

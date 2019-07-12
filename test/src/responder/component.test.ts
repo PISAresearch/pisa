@@ -1,10 +1,5 @@
 import "mocha";
-import {
-    ResponderAppointmentReducer,
-    ResponderStateKind,
-    ResponderAppointmentAnchorState,
-    MinedResponseState
-} from "../../../src/responder/component";
+import { ResponderAppointmentReducer, ResponderStateKind } from "../../../src/responder/component";
 import { BlockCache } from "../../../src/blockMonitor";
 import { PisaTransactionIdentifier } from "../../../src/responder/gasQueue";
 import { BigNumber } from "ethers/utils";

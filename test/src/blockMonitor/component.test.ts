@@ -1,6 +1,6 @@
 import "mocha";
 import { expect } from "chai";
-import { MappedStateReducer, StateReducer } from "../../../src/blockMonitor/component";
+import { MappedStateReducer, StateReducer, BlockNumberReducer } from "../../../src/blockMonitor/component";
 import { IBlockStub } from "../../../src/dataEntities/block";
 
 const objects = [
@@ -18,6 +18,24 @@ const objects = [
     }
 ];
 
+const blocks: IBlockStub[] = [
+    {
+        hash: "hash0",
+        number: 0,
+        parentHash: "hash"
+    },
+    {
+        hash: "hash1",
+        number: 1,
+        parentHash: "hash0"
+    },
+    {
+        hash: "hash2",
+        number: 2,
+        parentHash: "hash1"
+    }
+];
+
 type TestAnchorState = {
     someNumber: number;
 };
@@ -28,6 +46,15 @@ class TestAnchorStateReducer implements StateReducer<TestAnchorState, IBlockStub
     reduce = (prevState: TestAnchorState, block: IBlockStub) => ({
         someNumber: prevState.someNumber + block.number
     });
+}
+
+class NullReducer implements StateReducer<{}, IBlockStub> {
+    getInitialState() {
+        return {};
+    }
+    reduce(prevState: {}, block: IBlockStub) {
+        return {};
+    }
 }
 
 describe("MappedStateReducer", () => {
@@ -45,8 +72,19 @@ describe("MappedStateReducer", () => {
         }
     });
 
-    it("correctly computes the initial state", () => {
-        const msr = new MappedStateReducer(() => objects, ({ value }) => new TestAnchorStateReducer(value));
+    it("getInitialState computes initial state", () => {
+        const msr = new MappedStateReducer(() => [], () => new NullReducer(), new TestAnchorStateReducer(10));
+
+        const initialState = msr.getInitialState(blocks[1]);
+        expect(initialState.someNumber).to.equal(10 + blocks[1].number);
+    });
+
+    it("getInitialState computes initial state on mapped state", () => {
+        const msr = new MappedStateReducer(
+            () => objects,
+            ({ value }) => new TestAnchorStateReducer(value),
+            new NullReducer()
+        );
 
         const initialState = msr.getInitialState(blocks[0]);
         expect(Object.keys(initialState)).to.eql(["items"]);
@@ -59,8 +97,12 @@ describe("MappedStateReducer", () => {
         expect(initialState.items).to.deep.equal(expectedMap);
     });
 
-    it("correctly reduces the combined state", () => {
-        const msr = new MappedStateReducer(() => objects, ({ value }) => new TestAnchorStateReducer(value));
+    it("reduce computes state on mapped states", () => {
+        const msr = new MappedStateReducer(
+            () => objects,
+            ({ value }) => new TestAnchorStateReducer(value),
+            new NullReducer()
+        );
 
         const items = new Map<string, TestAnchorState>();
         items.set(objects[0].id, { someNumber: objects[0].value });
@@ -80,7 +122,7 @@ describe("MappedStateReducer", () => {
         expect(reducedState.items).to.deep.equal(expectedMap);
     });
 
-    it("initializes to the initial state if a new object id is added to the collection", () => {
+    it("reduce call getInitialState if a new object id is added to the collection", () => {
         // start with only two objects
         const items = new Map<string, TestAnchorState>();
         items.set(objects[0].id, { someNumber: objects[0].value + blocks[0].number });
@@ -88,7 +130,11 @@ describe("MappedStateReducer", () => {
         const initialState = { items };
 
         // now call the reducer with all the three objects
-        const msr = new MappedStateReducer(() => objects, ({ value }) => new TestAnchorStateReducer(value));
+        const msr = new MappedStateReducer(
+            () => objects,
+            ({ value }) => new TestAnchorStateReducer(value),
+            new NullReducer()
+        );
 
         const reducedState = msr.reduce(initialState, blocks[1]);
 
@@ -100,5 +146,23 @@ describe("MappedStateReducer", () => {
         expectedMap.set(objects[2].id, { someNumber: objects[2].value + blocks[1].number }); // no block[0]!
 
         expect(reducedState.items).to.deep.equal(expectedMap);
+    });
+});
+
+describe("BlockNumberReducer", () => {
+    it("getInitialState sets current block number", () => {
+        const reducer = new BlockNumberReducer();
+        const anchorState = reducer.getInitialState(blocks[0]);
+
+        expect(anchorState.blockNumber).to.equal(blocks[0].number);
+    });
+
+    it("reduce sets current block number", () => {
+        const reducer = new BlockNumberReducer();
+
+        const prevAnchorState = reducer.getInitialState(blocks[0]);
+        const nextAnchorState = reducer.reduce(prevAnchorState, blocks[2]);
+
+        expect(nextAnchorState.blockNumber).to.equal(blocks[2].number);
     });
 });

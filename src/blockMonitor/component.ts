@@ -24,8 +24,12 @@ export type MappedState<TState extends object> = {
  * Each object is used to generate an individual reducer (here referred as "base reducer"), and this class combines them
  * to obtain a bigger anchor state as a map indexed by the same `id`.
  */
-export class MappedStateReducer<TState extends object, TBlock extends IBlockStub, TMappedType extends { id: string }>
-    implements StateReducer<MappedState<TState>, TBlock> {
+export class MappedStateReducer<
+    TState extends object,
+    TMappedState extends object,
+    TBlock extends IBlockStub,
+    TMappedType extends { id: string }
+> implements StateReducer<MappedState<TMappedState>, TBlock> {
     /**
      * Creates a new reducer for the given collection of objects.
      * @param getItems a function returning the current state of the collection; it is expected that
@@ -35,20 +39,23 @@ export class MappedStateReducer<TState extends object, TBlock extends IBlockStub
      */
     constructor(
         public readonly getItems: () => Iterable<TMappedType>,
-        public readonly getBaseReducer: (obj: TMappedType) => StateReducer<TState, TBlock>
+        public readonly getBaseReducer: (obj: TMappedType) => StateReducer<TMappedState, TBlock>,
+        public readonly reducer: StateReducer<TState, TBlock>
     ) {}
 
     /**
      * Computes the initial state, by using the `getInitialState` function on each base reducer.
      * @param block
      */
-    public getInitialState(block: TBlock): MappedState<TState> {
-        const items: Map<string, TState> = new Map();
+    public getInitialState(block: TBlock): MappedState<TMappedState> & TState {
+        const items: Map<string, TMappedState> = new Map();
         for (const obj of this.getItems()) {
             const baseReducer = this.getBaseReducer(obj);
             items.set(obj.id, baseReducer.getInitialState(block));
         }
-        return { items };
+        const state = this.reducer.getInitialState(block);
+
+        return { items, ...state };
     }
 
     /**
@@ -57,8 +64,8 @@ export class MappedStateReducer<TState extends object, TBlock extends IBlockStub
      * @param prevState
      * @param block
      */
-    public reduce(prevState: MappedState<TState>, block: TBlock): MappedState<TState> {
-        const items: Map<string, TState> = new Map();
+    public reduce(prevState: MappedState<TMappedState> & TState, block: TBlock): MappedState<TMappedState> & TState {
+        const items: Map<string, TMappedState> = new Map();
         for (const obj of this.getItems()) {
             const baseReducer = this.getBaseReducer(obj);
             const prevObjState = prevState.items.get(obj.id);
@@ -69,7 +76,8 @@ export class MappedStateReducer<TState extends object, TBlock extends IBlockStub
                     : baseReducer.getInitialState(block) // no previous state
             );
         }
-        return { items };
+        const mappedState = this.reducer.reduce(prevState, block);
+        return { items, ...mappedState };
     }
 }
 
@@ -79,4 +87,25 @@ export class MappedStateReducer<TState extends object, TBlock extends IBlockStub
 export abstract class Component<TState extends object, TBlock extends IBlockStub> {
     constructor(public readonly reducer: StateReducer<TState, TBlock>) {}
     public abstract handleNewStateEvent(prevState: TState, state: TState): void;
+}
+
+export interface BlockNumberState {
+    blockNumber: number;
+}
+
+/**
+ * Selects the block number from the provided block
+ */
+export class BlockNumberReducer implements StateReducer<BlockNumberState, IBlockStub> {
+    public getInitialState(block: IBlockStub) {
+        return {
+            blockNumber: block.number
+        };
+    }
+
+    public reduce(prevState: BlockNumberState, block: IBlockStub) {
+        return {
+            blockNumber: block.number
+        };
+    }
 }
