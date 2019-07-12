@@ -5,7 +5,7 @@ import { ethers } from "ethers";
 import { mock, when, anything, instance } from "ts-mockito";
 import { BigNumber } from "ethers/utils";
 import chai, { expect } from "chai";
-import { ArgumentError, IEthereumResponseData, Block } from "../../../src/dataEntities";
+import { ArgumentError, IEthereumResponseData } from "../../../src/dataEntities";
 import { PisaTransactionIdentifier } from "../../../src/responder/gasQueue";
 import chaiAsPromised from "chai-as-promised";
 chai.use(chaiAsPromised);
