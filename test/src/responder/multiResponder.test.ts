@@ -348,7 +348,7 @@ describe("MultiResponder", () => {
         await responder.stop();
     });
 
-    it("renqueueMissingItems does issue new transactions", async () => {
+    it("reEnqueueMissingItems does issue new transactions", async () => {
         const appointmentId = "app1";
         const responseData = createResponseData("app1");
         const appointmentId2 = "app2";
@@ -380,7 +380,7 @@ describe("MultiResponder", () => {
         await responder.stop();
     });
 
-    it("renqueueMissingItems does replace transactions", async () => {
+    it("reEnqueueMissingItems does replace transactions", async () => {
         const appointmentId = "app1";
         // choose a lower gas fee for the first item - this should cause a double replacement
         const responseData = createResponseData("app1");
@@ -416,7 +416,7 @@ describe("MultiResponder", () => {
         await responder.stop();
     });
 
-    it("renqueueMissingItems throws error for missing transactions", async () => {
+    it("reEnqueueMissingItems throws error for missing transactions", async () => {
         const appointmentId = "app1";
         const responder = new MultiResponder(
             signer,
@@ -431,7 +431,7 @@ describe("MultiResponder", () => {
         await responder.stop();
     });
 
-    it("renqueueMissingItems does nothing for no missing transactions", async () => {
+    it("reEnqueueMissingItems does nothing for no missing transactions", async () => {
         const appointmentId = "app1";
         const responseData = createResponseData("app1");
         const appointmentId2 = "app2";
