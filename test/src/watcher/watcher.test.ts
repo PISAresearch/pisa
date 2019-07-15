@@ -1,15 +1,12 @@
 import "mocha";
-import { assert } from "chai";
-import mockito, { mock, instance, when, verify, anything, resetCalls, capture, anyNumber, spy } from "ts-mockito";
+import mockito, { mock, instance, when, resetCalls } from "ts-mockito";
 import uuid from "uuid/v4";
-import { AppointmentStore, Watcher } from "../../../src/watcher";
+import { AppointmentStore } from "../../../src/watcher";
 import { KitsuneAppointment } from "../../../src/integrations/kitsune";
 import { ethers } from "ethers";
-import { AppointmentSubscriber } from "../../../src/watcher/appointmentSubscriber";
 import * as Ganache from "ganache-core";
-import { EthereumResponderManager } from "../../../src/responder";
-import { BlockProcessor, BlockCache, blockStubAndTxFactory } from "../../../src/blockMonitor";
-import { IBlockStub, TransactionHashes } from "../../../src/dataEntities";
+import { MultiResponder } from "../../../src/responder";
+import { BlockProcessor } from "../../../src/blockMonitor";
 
 describe("Watcher", () => {
     const ganache = Ganache.provider({});
@@ -34,6 +31,7 @@ describe("Watcher", () => {
         mockito.when(mockedAppointment.id).thenReturn(id);
         mockito.when(mockedAppointment.getEventFilter()).thenReturn(ethersEventFilter);
         mockito.when(mockedAppointment.passedInspection).thenReturn(passedInspection);
+        mockito.when(mockedAppointment.getResponseData()).thenReturn({ contractAbi: "abi", contractAddress: "address", endBlock: 10, functionArgs: [], functionName: "fnName"})
         return mockito.instance(mockedAppointment);
     };
     const appointmentCanBeUpdated = createMockAppointment(appointmentId1, eventFilter, true);
@@ -56,12 +54,12 @@ describe("Watcher", () => {
     when(mockedStore.addOrUpdateByStateLocator(appointmentErrorUpdate)).thenReject(new Error("Store update failure."));
     const store = instance(mockedStore);
 
-    const mockedResponder = mock(EthereumResponderManager);
-    when(mockedResponder.respond(appointmentCanBeUpdated));
+    const mockedResponder = mock(MultiResponder);
+    when(mockedResponder.startResponse(appointmentCanBeUpdated.id, appointmentCanBeUpdated.getResponseData()));
     const responderInstance = instance(mockedResponder);
 
-    const mockedResponderThatThrows = mock(EthereumResponderManager);
-    when(mockedResponderThatThrows.respond(appointmentCanBeUpdated)).thenThrow(new Error("Responder error."));
+    const mockedResponderThatThrows = mock(MultiResponder);
+    when(mockedResponderThatThrows.startResponse(appointmentCanBeUpdated.id, appointmentCanBeUpdated.getResponseData())).thenThrow(new Error("Responder error."));
     const responderInstanceThrow = instance(mockedResponderThatThrows);
 
     const mockedStoreThatThrows = mock(AppointmentStore);

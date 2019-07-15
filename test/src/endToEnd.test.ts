@@ -3,15 +3,13 @@ import { Watcher } from "../../src/watcher/watcher";
 import { KitsuneInspector, KitsuneAppointment, KitsuneTools } from "../../src/integrations/kitsune";
 import { ethers } from "ethers";
 import Ganache from "ganache-core";
-import { EthereumResponderManager, GasPriceEstimator, MultiResponder } from "../../src/responder";
+import { GasPriceEstimator, MultiResponder } from "../../src/responder";
 import { ChannelType, Block } from "../../src/dataEntities";
 import { AppointmentStore } from "../../src/watcher/store";
 import { wait } from "../../src/utils";
 import {
     BlockProcessor,
     BlockCache,
-    BlockTimeoutDetector,
-    ConfirmationObserver,
     blockFactory
 } from "../../src/blockMonitor";
 import levelup from "levelup";
@@ -79,22 +77,9 @@ describe("End to end", () => {
         await blockProcessor.start();
 
         // 2. pass this appointment to the watcher
-        const blockTimeoutDetector = new BlockTimeoutDetector(blockProcessor, 120 * 1000);
-        await blockTimeoutDetector.start();
-        const confirmationObserver = new ConfirmationObserver(blockProcessor);
-        await confirmationObserver.start();
-
         const gasPriceEstimator = new GasPriceEstimator(provider, blockProcessor.blockCache);
 
         const multiResponder = new MultiResponder(provider.getSigner(pisaAccount), gasPriceEstimator);
-
-        const responderManager = new EthereumResponderManager(
-            false,
-            provider.getSigner(pisaAccount),
-            blockTimeoutDetector,
-            confirmationObserver,
-            multiResponder
-        );
 
         let db = levelup(MemDown());
         const store = new AppointmentStore(
@@ -103,22 +88,22 @@ describe("End to end", () => {
         );
         await store.start();
         await store.addOrUpdateByStateLocator(appointment);
-        const watcher = new Watcher(responderManager, blockProcessor.blockCache, store, 0, 20);
+        const watcher = new Watcher(multiResponder, blockProcessor.blockCache, store, 0, 20);
         const player0Contract = channelContract.connect(provider.getSigner(player0));
 
         const blockchainMachine = new BlockchainMachine<Block>(blockProcessor);
 
         blockchainMachine.addComponent(watcher);
         await blockchainMachine.start();
+        await multiResponder.start();
 
         // 3. Trigger a dispute
         const tx = await player0Contract.triggerDispute();
         await tx.wait();
 
         await blockchainMachine.stop();
+        await multiResponder.stop();
         await store.stop();
-        await confirmationObserver.stop();
-        await blockTimeoutDetector.stop();
         await blockProcessor.stop();
         await db.close();
         await wait(2000);

@@ -1,6 +1,5 @@
 import { IEthereumAppointment } from "../dataEntities";
 import { ApplicationError, ArgumentError } from "../dataEntities/errors";
-import { EthereumResponderManager } from "../responder";
 import { AppointmentStore } from "./store";
 import { ReadOnlyBlockCache } from "../blockMonitor";
 import { Block } from "../dataEntities/block";
@@ -14,6 +13,7 @@ import {
     BlockNumberReducer
 } from "../blockMonitor/component";
 import logger from "../logger";
+import { MultiResponder } from "../responder";
 
 enum AppointmentState {
     WATCHING,
@@ -86,7 +86,7 @@ export class Watcher extends Component<WatcherAnchorState, Block> {
      * acted upon, that is the responsibility of the responder.
      */
     constructor(
-        private readonly responder: EthereumResponderManager,
+        private readonly responder: MultiResponder,
         blockCache: ReadOnlyBlockCache<Block>,
         private readonly store: AppointmentStore,
         private readonly confirmationsBeforeResponse: number,
@@ -147,7 +147,7 @@ export class Watcher extends Component<WatcherAnchorState, Block> {
 
                     // pass the appointment to the responder to complete. At this point the job has completed as far as
                     // the watcher is concerned, therefore although respond is an async function we do not need to await it for a result
-                    await this.responder.respond(appointment);
+                    await this.responder.startResponse(appointment.id, appointment.getResponseData());
                 } catch (doh) {
                     // an error occured whilst responding to the callback - this is serious and the problem needs to be correctly diagnosed
                     logger.error(

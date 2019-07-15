@@ -1,5 +1,5 @@
 import { IEthereumResponseData, ArgumentError, IBlockStub } from "../dataEntities";
-import { BlockProcessor, BlockCache, ReadOnlyBlockCache } from "../blockMonitor";
+import { ReadOnlyBlockCache } from "../blockMonitor";
 import { BigNumber } from "ethers/utils";
 import { ethers } from "ethers";
 
@@ -9,6 +9,7 @@ export class GasPriceEstimator {
      * @param provider
      * @param blockCache
      * @param gasCurveFactory A factory for generating curves from which to estimate gas prices.
+    
      */
     public constructor(
         private readonly provider: ethers.providers.Provider,

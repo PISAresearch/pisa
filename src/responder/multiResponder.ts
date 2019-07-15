@@ -1,5 +1,4 @@
-import { IEthereumResponseData, StartStopService, IEthereumAppointment } from "../dataEntities";
-import { EthereumResponder } from "./responder";
+import { IEthereumResponseData, StartStopService } from "../dataEntities";
 import { GasQueue, PisaTransactionIdentifier, GasQueueItem, GasQueueItemRequest } from "./gasQueue";
 import { GasPriceEstimator } from "./gasPriceEstimator";
 import { ethers } from "ethers";
@@ -9,6 +8,10 @@ import logger from "../logger";
 import { QueueConsistencyError, ArgumentError } from "../dataEntities/errors";
 
 export class MultiResponder extends StartStopService {
+    // TODO-93: the correct gas limit should be provided based on the appointment/integration.
+    //          200000 is enough for Kitsune and Raiden (see https://github.com/raiden-network/raiden-contracts/blob/master/raiden_contracts/data/gas.json).
+    private static readonly GAS_LIMIT = 200000;
+
     private readonly provider: ethers.providers.Provider;
     /**
      * The current queue of pending transaction being handled by this responder
@@ -93,7 +96,7 @@ export class MultiResponder extends StartStopService {
                 data,
                 responseData.contractAddress,
                 new BigNumber(0),
-                new BigNumber(EthereumResponder.GAS_LIMIT)
+                new BigNumber(MultiResponder.GAS_LIMIT)
             );
             const idealGas = await this.gasEstimator.estimate(responseData);
             const request = new GasQueueItemRequest(appointmentId, txIdentifier, idealGas, responseData);
