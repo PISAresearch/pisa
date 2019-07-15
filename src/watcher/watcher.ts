@@ -125,7 +125,7 @@ export class Watcher extends Component<WatcherAnchorState, Block> {
         appointmentState.state === AppointmentState.OBSERVED &&
         state.blockNumber - appointmentState.blockObserved + 1 >= this.confirmationsBeforeRemoval;
 
-    public async handleNewStateEvent(prevState: WatcherAnchorState, state: WatcherAnchorState) {
+    public async detectChanges(prevState: WatcherAnchorState, state: WatcherAnchorState) {
         for (const [objId, appointmentState] of state.items.entries()) {
             const prevAppointmentState = prevState.items.get(objId);
 

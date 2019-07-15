@@ -86,7 +86,12 @@ export class MappedStateReducer<
  */
 export abstract class Component<TState extends object, TBlock extends IBlockStub> {
     constructor(public readonly reducer: StateReducer<TState, TBlock>) {}
-    public abstract handleNewStateEvent(prevState: TState, state: TState): void;
+    /**
+     * Detect changes between the two states and triggers any necessary side effects
+     * @param prevState
+     * @param state 
+     */
+    public abstract detectChanges(prevState: TState, state: TState): void;
 }
 
 export interface BlockNumberState {

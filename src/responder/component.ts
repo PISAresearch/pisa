@@ -151,7 +151,7 @@ export class MultiResponderComponent extends Component<ResponderAnchorState, Blo
         appointmentState.kind === ResponderStateKind.Mined &&
         state.blockNumber - appointmentState.blockMined > this.confirmationsRequired;
 
-    public async handleNewStateEvent(prevState: ResponderAnchorState, state: ResponderAnchorState) {
+    public async detectChanges(prevState: ResponderAnchorState, state: ResponderAnchorState) {
         // every time the we handle a new head event there could potentially have been
         // a reorg, which in turn may have caused some items to be lost from the pending pool.
         // Therefor we check all of the missing items and re-enqueue them if necessary
@@ -175,7 +175,7 @@ export class MultiResponderComponent extends Component<ResponderAnchorState, Blo
                 !this.shouldAppointmentBeRemoved(prevState, prevItem) &&
                 this.shouldAppointmentBeRemoved(state, currentItem)
             ) {
-                await this.responder.endResponse(currentItem.appointmentId);
+                this.responder.endResponse(currentItem.appointmentId);
             }
         }
     }
