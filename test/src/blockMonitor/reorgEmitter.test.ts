@@ -177,7 +177,7 @@ class TestCase {
         await Promise.resolve();
 
         await blockProcessor.stop();
-        expect(this.blocks[this.blocks.length - 1]).to.deep.equal(blockProcessor.head!);
+        expect(this.blocks[this.blocks.length - 1]).to.deep.equal(blockProcessor.blockCache.head!);
     }
 }
 
@@ -403,7 +403,7 @@ describe("ReorgEmitter", () => {
         expect(fired1, "did not fire at height 1").to.equal(0);
         expect(fired2, "fired at height 2").to.equal(1);
 
-        expect(a_block2).to.deep.equal(blockProcessor.head!);
+        expect(a_block2).to.deep.equal(blockProcessor.blockCache.head!);
         await blockProcessor.stop();
     });
     it("new block emits start, then end, reset events provider upon reorg", async () => {
