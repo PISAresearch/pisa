@@ -125,6 +125,8 @@ function createAppointment(_sc, _blockNo, _cus, _v, _jobid, _toCall) {
   appointment['refund'] = refund;
   appointment['gas'] = gas;
   appointment['mode'] = mode;
+  appointment['eventDesc'] = "doEvent(uint,uint,uint)";
+  appointment['eventVals'] = [1,2,3];
   appointment['postcondition'] = postcondition;
   appointment['h'] = h;
   appointment['r'] = web3.eth.abi.encodeParameter('uint', 123);
@@ -159,8 +161,14 @@ function createAppointment(_sc, _blockNo, _cus, _v, _jobid, _toCall) {
   extraData[1] = gas;
   extraData[2] = mode;
 
-  encodedAppointment = web3.eth.abi.encodeParameters(['address','address','uint[3]', "uint[2]", "bytes[2]", "uint[3]","bytes32"],
-                                             [_sc, _cus, timersArray, appointmentinfoArray, jobdata, extraData, h]);
+  let eventData = new Array();
+  encodeEventDesc = web3.eth.abi.encodeParameter('string',appointment['eventDesc']);
+  encodeEventVal = web3.eth.abi.encodeParameters(['uint','uint','uint'],appointment['eventVals']);
+  eventData[0] = encodeEventDesc;
+  eventData[1] = encodeEventVal;
+
+  encodedAppointment = web3.eth.abi.encodeParameters(['address','address','uint[3]', "uint[2]", "bytes[2]", "uint[3]","bytes[2]","bytes32"],
+                                             [_sc, _cus, timersArray, appointmentinfoArray, jobdata, extraData, eventData, h]);
 
 }
 
@@ -296,6 +304,7 @@ contract('PISAHash', (accounts) => {
 
       appointmentToSign = web3.eth.abi.encodeParameters(['bytes','address'],[encodedAppointment, pisaHashInstance.address]);
       let hash = web3.utils.keccak256(appointmentToSign);
+
       cussig =  await web3.eth.sign(hash,accounts[3]);
       let signerAddr = await pisaHashInstance.recoverEthereumSignedMessage.call(hash,cussig);
       assert.equal(signerAddr, accounts[3], "Customer signer address should be the same");
