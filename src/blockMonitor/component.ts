@@ -91,7 +91,7 @@ export abstract class Component<TState extends object, TBlock extends IBlockStub
      * @param prevState
      * @param state 
      */
-    public abstract detectChanges(prevState: TState, state: TState): void;
+    public abstract handleChanges(prevState: TState, state: TState): void;
 }
 
 export interface BlockNumberState {

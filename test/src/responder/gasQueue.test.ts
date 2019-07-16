@@ -365,14 +365,9 @@ describe("GasQueue", () => {
         ];
 
         const q = new GasQueue(items, 4, 15, 5);
-
-        const contains1 = q.contains(id1);
-        const contains2 = q.contains(id2);
-        const contains3 = q.contains(id3);
-
-        expect(contains1).to.be.true;
-        expect(contains2).to.be.true;
-        expect(contains3).to.be.true;
+        expect(q.contains(id1)).to.be.true;
+        expect(q.contains(id2)).to.be.true;
+        expect(q.contains(id3)).to.be.true;
     });
 
     it("contains identifier is correctly identified", () => {
@@ -389,8 +384,8 @@ describe("GasQueue", () => {
         expect(contains).to.be.false;
     });
 
-    it("unlock lower nonces without replace", () => {
-        const unlockItems = [
+    it("prepend lower nonces without replace", () => {
+        const lowerItems = [
             createGasQueueItem("app1", 1, new BigNumber(110), new BigNumber(110), createIdentifier("data1", "to1")),
             createGasQueueItem("app2", 2, new BigNumber(100), new BigNumber(100), createIdentifier("data2", "to2"))
         ];
@@ -401,14 +396,14 @@ describe("GasQueue", () => {
         ];
 
         const q = new GasQueue(items, 5, 15, 5);
-        const uQ = q.unlock(unlockItems);
+        const uQ = q.prepend(lowerItems);
 
         const replacedItems = uQ.difference(q);
-        expect(replacedItems).to.deep.equal(unlockItems);
+        expect(replacedItems).to.deep.equal(lowerItems);
     });
 
-    it("unlock lower nonces without replace", () => {
-        const unlockItems = [
+    it("prepend lower nonces without replace", () => {
+        const lowerNonceItems = [
             createGasQueueItem("app1", 1, new BigNumber(70), new BigNumber(70), createIdentifier("data1", "to1")),
             createGasQueueItem("app2", 2, new BigNumber(60), new BigNumber(60), createIdentifier("data2", "to2"))
         ];
@@ -426,7 +421,7 @@ describe("GasQueue", () => {
         ]
 
         const q = new GasQueue(items, 5, 10, 5);
-        const uQ = q.unlock(unlockItems);
+        const uQ = q.prepend(lowerNonceItems);
 
         const replacedItems = uQ.difference(q);
         expect(replacedItems).to.deep.equal(finalItems);
@@ -438,7 +433,7 @@ describe("GasQueue", () => {
             createGasQueueItem("app4", 4, new BigNumber(80), new BigNumber(80), createIdentifier("data4", "to4"))
         ];
         const q = new GasQueue(items, 5, 10, 5);
-        const uQ = q.unlock([]);
+        const uQ = q.prepend([]);
         expect(uQ.difference(q)).to.deep.equal([]);
     })
 
@@ -453,11 +448,11 @@ describe("GasQueue", () => {
         ];
 
         const q = new GasQueue(items, 5, 15, 5);
-        expect(() => q.unlock(unlockItems)).to.throw(ArgumentError);
+        expect(() => q.prepend(unlockItems)).to.throw(ArgumentError);
     })
 
-    it("unlock does throws error for duplicate nonce", () => {
-        const unlockItems = [
+    it("prepend does throws error for duplicate nonce", () => {
+        const lowerNonceItems = [
             createGasQueueItem("app1", 3, new BigNumber(110), new BigNumber(110), createIdentifier("data1", "to1"))
         ];
 
@@ -467,11 +462,11 @@ describe("GasQueue", () => {
         ];
 
         const q = new GasQueue(items, 5, 15, 5);
-        expect(() => q.unlock(unlockItems)).to.throw(ArgumentError);
+        expect(() => q.prepend(lowerNonceItems)).to.throw(ArgumentError);
     })
 
-    it("unlock does throws error for nonce too high", () => {
-        const unlockItems = [
+    it("prepend does throws error for nonce too high", () => {
+        const lowerNonceItems = [
             createGasQueueItem("app1", 5, new BigNumber(110), new BigNumber(110), createIdentifier("data1", "to1"))
         ];
 
@@ -481,6 +476,6 @@ describe("GasQueue", () => {
         ];
 
         const q = new GasQueue(items, 5, 15, 5);        
-        expect(() => q.unlock(unlockItems)).to.throw(ArgumentError);
+        expect(() => q.prepend(lowerNonceItems)).to.throw(ArgumentError);
     })
 });

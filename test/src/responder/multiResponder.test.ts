@@ -8,6 +8,7 @@ import chai, { expect } from "chai";
 import { ArgumentError, IEthereumResponseData } from "../../../src/dataEntities";
 import { PisaTransactionIdentifier } from "../../../src/responder/gasQueue";
 import chaiAsPromised from "chai-as-promised";
+import { wait } from "../../../src/utils";
 chai.use(chaiAsPromised);
 
 const ganache = Ganache.provider({
@@ -395,9 +396,9 @@ describe("MultiResponder", () => {
         );
         await responder.start();
 
-        expect(responder.reEnqueueMissingItems([appointmentId])).to.eventually.be.rejectedWith(ArgumentError);
-
-        await responder.stop();
+        return expect(responder.reEnqueueMissingItems([appointmentId]))
+            .to.eventually.be.rejectedWith(ArgumentError)
+            .then(async () => await responder.stop());
     });
 
     it("reEnqueueMissingItems does nothing for no missing transactions", async () => {

@@ -305,10 +305,12 @@ export class GasQueue {
 
     
     /**
-     * Re-add some items that have lower nonces than any in the current queue
-     * @param lowerNonceItems 
+     * Re-add some items that have lower nonces than any in the current queue.
+     * These items will be added to the front of the qeueue, then the queue will
+     * be re-sorted to ensure ideal gas price descending as well as nonce ascending.
+     * @param lowerNonceItems Items with consecutive nonces less than the current lowest nonce in the queue.
      */
-    public unlock(lowerNonceItems: GasQueueItem[]): GasQueue {
+    public prepend(lowerNonceItems: GasQueueItem[]): GasQueue {
         // a correct queue is ordered by both nonce and ideal gas price
         // We'll need to adjust the nonces of queue items to ensure this
         const allItemsOrderedByNonce = lowerNonceItems.concat(this.queueItems).sort((a, b) => a.nonce - b.nonce);
@@ -333,9 +335,5 @@ export class GasQueue {
 
         // all items ordered by nonce are now also ordered by gas price
         return new GasQueue(allItemsOrderedByNonce, this.emptyNonce, this.replacementRate, this.maxQueueDepth);
-    }
-
-    public getItem(request: GasQueueItemRequest) {
-        const queueItem = this.queueItems.find(q => q.request === request);
     }
 }

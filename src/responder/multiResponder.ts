@@ -199,16 +199,16 @@ export class MultiResponder extends StartStopService {
         // transactions that we currently observe in pending. Transactions in pending
         // but not in the gas queue need to be added there.
         const missingQueueItems = appointmentIdsStillPending
-            .map(a => this.respondedTransactions.get(a))
-            .map(a => {
-                if (!a) throw new ArgumentError("No record of appointment in responder.", a);
-                else return a.queueItem;
+            .map(appId => this.respondedTransactions.get(appId))
+            .map(txRecord => {
+                if (!txRecord) throw new ArgumentError("No record of appointment in responder.", txRecord);
+                else return txRecord.queueItem;
             })
             .filter(i => !this.mQueue.contains(i.request.identifier));
 
         // no need to unlock anything if we dont have any missing items
         if (missingQueueItems.length !== 0) {
-            const unlockedQueue = this.mQueue.unlock(missingQueueItems);
+            const unlockedQueue = this.mQueue.prepend(missingQueueItems);
             const replacedTransactions = unlockedQueue.difference(this.mQueue);
             this.mQueue = unlockedQueue;
             replacedTransactions.forEach(q => {

@@ -73,7 +73,7 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
                 if (prevState) {
                     // TODO:198: should we (deeply) compare old state and new state and only emit if different?
                     // Probably not, it might be expensive/inefficient depending on what is in TState
-                    component.detectChanges(prevState, state);
+                    component.handleChanges(prevState, state);
                 }
             }
         }

@@ -196,20 +196,20 @@ describe("MultiResponderComponent", () => {
         blockCache = instance(blockCacheMock);
     });
 
-    it("detectChanges reEnqueues all pending items", async () => {
+    it("handleChanges reEnqueues all pending items", async () => {
         const app1State = pendingAppointmentState("app1", "data1");
         const app2State = minedAppointmentState("app2", "data2", 0, 0);
         const state1 = setupState([app1State, app2State], 0);
         const state2 = setupState([app1State, app2State], 1);
         const component = new MultiResponderComponent(multiResponder, blockCache, confirmationsRequired);
 
-        await component.detectChanges(state1, state2);
+        await component.handleChanges(state1, state2);
 
         const [firstArg] = capture(multiResponderMock.reEnqueueMissingItems).last();
         expect(firstArg).to.deep.equal(["app1"]);
     });
 
-    it("detectChanges detects response has been mined", async () => {
+    it("handleChanges detects response has been mined", async () => {
         const app1State = pendingAppointmentState("app1", "data1");
         const app2State = minedAppointmentState("app1", "data1", 0, 0);
         const state1 = setupState([app1State], 0);
@@ -217,53 +217,53 @@ describe("MultiResponderComponent", () => {
         const state2 = setupState([app2State], 2);
         const component = new MultiResponderComponent(multiResponder, blockCache, confirmationsRequired);
 
-        await component.detectChanges(state1, state2);
+        await component.handleChanges(state1, state2);
 
         const [identifier, nonce] = capture(multiResponderMock.txMined).last();
         expect(identifier).to.deep.equal(app2State.identifier);
         expect(nonce).to.equal(app2State.nonce);
     });
 
-    it("detectChanges detects newly mined item", async () => {
+    it("handleChanges detects newly mined item", async () => {
         const app2State = minedAppointmentState("app1", "data1", 0, 0);
         const state1 = setupState([], 0);
         // two block difference
         const state2 = setupState([app2State], 2);
         const component = new MultiResponderComponent(multiResponder, blockCache, confirmationsRequired);
 
-        await component.detectChanges(state1, state2);
+        await component.handleChanges(state1, state2);
 
         const [identifier, nonce] = capture(multiResponderMock.txMined).last();
         expect(identifier).to.deep.equal(app2State.identifier);
         expect(nonce).to.equal(app2State.nonce);
     });
 
-    it("detectChanges doesnt detect already mined response", async () => {
+    it("handleChanges doesnt detect already mined response", async () => {
         const app2State = minedAppointmentState("app1", "data1", 0, 0);
         const state1 = setupState([app2State], 0);
         // two block difference
         const state2 = setupState([app2State], 2);
         const component = new MultiResponderComponent(multiResponder, blockCache, confirmationsRequired);
 
-        await component.detectChanges(state1, state2);
+        await component.handleChanges(state1, state2);
 
         verify(multiResponderMock.txMined(anything(), anything())).never();
     });
 
-    it("detectChanges removes item after confirmations", async () => {
+    it("handleChanges removes item after confirmations", async () => {
         const app2State = minedAppointmentState("app1", "data1", 0, 0);
         const state1 = setupState([app2State], 0);
         // two block difference
         const state2 = setupState([app2State], confirmationsRequired + 1);
         const component = new MultiResponderComponent(multiResponder, blockCache, confirmationsRequired);
 
-        await component.detectChanges(state1, state2);
+        await component.handleChanges(state1, state2);
 
         const [appointmentId] = capture(multiResponderMock.endResponse).last();
         expect(appointmentId).to.equal(app2State.appointmentId);
     });
 
-    it("detectChanges removes item after confirmations from pending", async () => {
+    it("handleChanges removes item after confirmations from pending", async () => {
         const app1State = pendingAppointmentState("app1", "data1");
         const app2State = minedAppointmentState("app1", "data1", 0, 0);
         const state1 = setupState([app1State], 0);
@@ -271,33 +271,33 @@ describe("MultiResponderComponent", () => {
         const state2 = setupState([app2State], confirmationsRequired + 1);
         const component = new MultiResponderComponent(multiResponder, blockCache, confirmationsRequired);
 
-        await component.detectChanges(state1, state2);
+        await component.handleChanges(state1, state2);
 
         const [appointmentId] = capture(multiResponderMock.endResponse).last();
         expect(appointmentId).to.equal(app2State.appointmentId);
     });
 
-    it("detectChanges removes item after confirmations from empty", async () => {
+    it("handleChanges removes item after confirmations from empty", async () => {
         const app2State = minedAppointmentState("app1", "data1", 0, 0);
         const state1 = setupState([], 0);
         // two block difference
         const state2 = setupState([app2State], confirmationsRequired + 1);
         const component = new MultiResponderComponent(multiResponder, blockCache, confirmationsRequired);
 
-        await component.detectChanges(state1, state2);
+        await component.handleChanges(state1, state2);
 
         const [appointmentId] = capture(multiResponderMock.endResponse).last();
         expect(appointmentId).to.equal(app2State.appointmentId);
     });
 
-    it("detectChanges does not try to remove already removed item", async () => {
+    it("handleChanges does not try to remove already removed item", async () => {
         const app2State = minedAppointmentState("app1", "data1", 0, 0);
         const state1 = setupState([app2State], confirmationsRequired + 1);
         // already removed - then one block later
         const state2 = setupState([app2State], confirmationsRequired + 2);
         const component = new MultiResponderComponent(multiResponder, blockCache, confirmationsRequired);
 
-        await component.detectChanges(state1, state2);
+        await component.handleChanges(state1, state2);
 
         verify(multiResponderMock.endResponse(anything())).never();
     });
