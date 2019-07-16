@@ -35,6 +35,8 @@ contract PISAHash {
     mapping(address => bool) watchers;
     mapping(uint => address) disputeHandlers;
     address payable admin;
+    address[] defenders;
+    bool frozen;
 
     // Cheated record
     struct Cheated {
@@ -57,6 +59,8 @@ contract PISAHash {
         uint refund; // How much should PISA refund the customer by?
         uint gas; // How much gas should PISA allocate to function call?
         uint mode; // What dispute handler should check this appointment?
+        bytes eventDesc; // What event is PISA watching for?
+        bytes eventVal; // Are there any index/values/id we should watch for? (Decode into distinct values)
         bytes postcondition; // If PISA was successful - what should the post-condition be?
         bytes32 h; // Customer must reveal pre-image to prove appointment is valid
     }
@@ -78,12 +82,19 @@ contract PISAHash {
     event PISARefunded(address watcher, address cus, uint refund, uint timestamp);
     event PISARecordedResponse(address watcher, uint timestamp, uint jobid, bytes data, uint gas);
 
+    // We have a built-in fail safe that can lock down the contract
+    modifier isNotFrozen() {
+      require(!frozen);
+      _;
+    }
+
     // Set up PISA with data registry, timers and the admin address.
-    constructor(address _dataregistry, uint _withdrawperiod, uint _cheatedtimer, address payable _admin) public {
+    constructor(address _dataregistry, uint _withdrawperiod, uint _cheatedtimer, address payable _admin, address[] memory _defenders) public {
         dataregistry = _dataregistry;
         withdrawperiod = _withdrawperiod;
         cheatedtimer = _cheatedtimer;
         admin = _admin;
+        defenders = _defenders; // Built-in safety feature.
     }
 
     // Given an apoointment, PISA will respond on behalf of the customer.
@@ -127,7 +138,7 @@ contract PISAHash {
 
     // Customer will provide sign receipt + locator to find dispute record in DataRegistry
     // PISA will look up registry to check if PISA has responded to the dispute. If so, it'll verify customer's signature and compare the jobid.
-    function recourse(bytes memory _appointment, bytes[] memory _sig,  uint _r, bytes[] memory _logdata, uint[] memory _datashard, uint[] memory _dataindex) public {
+    function recourse(bytes memory _appointment, bytes[] memory _sig,  uint _r, bytes[] memory _logdata, uint[] memory _datashard, uint[] memory _dataindex) public isNotFrozen() {
 
         // Compute Appointment (avoid callstack issues)
         Appointment memory appointment = computeAppointment(_appointment);
@@ -229,11 +240,11 @@ contract PISAHash {
         uint[2] memory appointmentinfo; // [0] Monotonic counter to keep track of appointments and [1] to keep track of job updates in PISA
         bytes[2] memory data; // [0] Job-specific data (depends whether it is Plasma, Channels, etc) and [1] is the post-condition data to check if dispute resolved as expected
         uint[3] memory extraData; // [0] Refund value to customer. [1] Gas allocated for job. [3] Dispute handler mode.
-        bytes32 hash; // Customer must reveal pre-image to prove appointment is valid
+        bytes[2] memory eventData; // What event is PISA watching for?
+        bytes32 h; // Customer must reveal pre-image to prove appointment is valid
 
-        (sc,cus,timers, appointmentinfo, data, extraData, hash) = abi.decode(_appointment, (address, address, uint[3], uint[2], bytes[2], uint[3], bytes32));
-
-        return Appointment(sc, cus, timers[0], timers[1], timers[2], appointmentinfo[0], appointmentinfo[1], data[0], extraData[0], extraData[1], extraData[2], data[1], hash);
+        (sc,cus,timers, appointmentinfo, data, extraData, eventData, h) = abi.decode(_appointment, (address, address, uint[3], uint[2], bytes[2], uint[3], bytes[2], bytes32));
+        return Appointment(sc, cus, timers[0], timers[1], timers[2], appointmentinfo[0], appointmentinfo[1], data[0], extraData[0], extraData[1], extraData[2], eventData[0], eventData[1], data[1], h);
     }
 
     // PISA must refund the customer before a deadline. If not, the security deposit is burnt/frozen
@@ -326,6 +337,39 @@ contract PISAHash {
         watchers[_watcher] = true;
     }
 
+    /*
+     * While PISA remains a young project, there is a potential for devastating smart contract bugs
+     * that can be used against us to forfeit the security deposit. We don't want to face the same fate
+     * as the parity wallet, the dao, etc. Especially if we have acted honestly as a company.
+     *
+     * We have entrusted the following people to 'evaluate' the situation:
+     * Name1, Name2, Name3
+     *
+     * If the PISA contract breaks down (and the security deposit is "burnt"), then the individuals will judge the situation.
+     * - Did PISA break down because of an unforseen smart contract bug?
+     * - Did PISA, honestly, respond to all jobs as it was hired to do?
+     * - Did the attacker discover a bug at the API (external to smart contract) to forge receipts and try to kill PISA?
+     *
+     * Generally, if PISA has acted honest and software bugs beat us, then the individuals can unlock the funds. If PISA
+     * was DISHONEST and simply refused to respond to a job. Then the individuals are compelled NOT to unlock the funds.
+     * It is hard to foresee the future cases, but the principle of "do not be evil" should be used here.
+     *
+     * What does it do? Flag = OK and disables the "recourse" function.
+     */
+    function failSafe(bytes[] memory _sig) public {
+
+      bytes32 sighash = keccak256(abi.encode(address(this),"frozen"));
+
+      // Every defender must agree... TODO: Change to a multi-sig.
+      for(uint i=0; i<defenders.length; i++) {
+        require(defenders[i] == recoverEthereumSignedMessage(sighash, _sig[i]), "Not signed by defenders address in order");
+      }
+
+      // Lock down contract and re-set flag
+      frozen = true;
+      flag = Flag.OK;
+    }
+
     // Helper function
     function getFlag() public view returns(uint) {
         return uint(flag);
@@ -369,6 +413,7 @@ contract PISAHash {
         bytes32 prefixedHash = keccak256(abi.encodePacked(prefix, _hash));
         return recover(prefixedHash, _signature);
     }
+
 
     // Recover signer's address
     function recover(bytes32 _hash, bytes memory _signature) internal pure returns (address) {
