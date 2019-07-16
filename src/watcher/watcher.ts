@@ -49,10 +49,12 @@ class AppointmentStateReducer implements StateReducer<WatcherAppointmentAnchorSt
         const eventAncestor = this.cache.findAncestor(block.hash, ancestor => hasLogMatchingEvent(ancestor, filter));
 
         if (!eventAncestor) {
+            logger.info(`Watching for appointment ${this.appointment.id}.`);
             return {
                 state: AppointmentState.WATCHING
             };
         } else {
+            logger.info(`Initial observed appointment ${this.appointment.id} in block ${eventAncestor.number}.`);
             return {
                 state: AppointmentState.OBSERVED,
                 blockObserved: eventAncestor.number
@@ -64,6 +66,7 @@ class AppointmentStateReducer implements StateReducer<WatcherAppointmentAnchorSt
             prevState.state === AppointmentState.WATCHING &&
             hasLogMatchingEvent(block, this.appointment.getEventFilter())
         ) {
+            logger.info(`Observed appointment ${this.appointment.id} in block ${block.number}.`);
             return {
                 state: AppointmentState.OBSERVED,
                 blockObserved: block.number
@@ -134,35 +137,17 @@ export class Watcher extends Component<WatcherAnchorState, Block> {
                 this.shouldHaveStartedResponder(state, appointmentState)
             ) {
                 const appointment = this.store.getById(objId);
-                // start the responder
-                try {
-                    logger.info(
-                        appointment.formatLog(
-                            `Observed event ${appointment.getEventName()} in contract ${appointment.getContractAddress()}.`
-                        )
-                    );
-
-                    // TODO: add some logging to replace this
-                    // this.logger.debug(appointment.formatLog(`Event info: ${inspect(event)}`));
-
-                    // pass the appointment to the responder to complete. At this point the job has completed as far as
-                    // the watcher is concerned, therefore although respond is an async function we do not need to await it for a result
-                    await this.responder.startResponse(appointment.id, appointment.getResponseData());
-                } catch (doh) {
-                    // an error occured whilst responding to the callback - this is serious and the problem needs to be correctly diagnosed
-                    logger.error(
-                        appointment.formatLog(
-                            `An unexpected error occured whilst responding to event ${appointment.getEventName()} in contract ${appointment.getContractAddress()}.`
-                        )
-                    );
-                    logger.error(appointment.formatLog(doh));
-                }
+                logger.info(`Responding to appointment ${objId}, block ${state.blockNumber}.`);
+                // pass the appointment to the responder to complete. At this point the job has completed as far as
+                // the watcher is concerned, therefore although respond is an async function we do not need to await it for a result
+                await this.responder.startResponse(appointment.id, appointment.getResponseData());
             }
 
             if (
                 !this.shouldRemoveAppointment(prevState, prevAppointmentState) &&
                 this.shouldRemoveAppointment(state, appointmentState)
             ) {
+                logger.info(`Removing appointment ${objId}, block ${state.blockNumber} from watcher.`);
                 await this.store.removeById(objId);
             }
         }

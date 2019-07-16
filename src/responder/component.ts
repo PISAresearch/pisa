@@ -11,6 +11,7 @@ import { ReadOnlyBlockCache } from "../blockMonitor";
 import { Block } from "../dataEntities";
 import { MultiResponder } from "./multiResponder";
 import { ResponderBlock } from "../dataEntities/block";
+import logger from "../logger";
 
 export enum ResponderStateKind {
     Pending = 1,
@@ -76,40 +77,42 @@ export class ResponderAppointmentReducer implements StateReducer<ResponderAppoin
         // the blocks in the block cache
         const minedTx = this.getMinedTransaction(block.hash, this.identifier);
 
-        return minedTx
-            ? {
-                  appointmentId: this.appointmentId,
-                  kind: ResponderStateKind.Mined,
-                  blockMined: minedTx.blockNumber,
-                  identifier: this.identifier,
-                  nonce: minedTx.nonce
-              }
-            : {
-                  appointmentId: this.appointmentId,
-                  kind: ResponderStateKind.Pending,
-                  identifier: this.identifier
-              };
+        if (minedTx) {
+            const minedTxState: MinedResponseState = {
+                appointmentId: this.appointmentId,
+                kind: ResponderStateKind.Mined,
+                blockMined: minedTx.blockNumber,
+                identifier: this.identifier,
+                nonce: minedTx.nonce
+            };
+            logger.info(`Initial mined transaction ${JSON.stringify(minedTxState)}.`);
+            return minedTxState;
+        } else {
+            const pendingTxState: PendingResponseState = {
+                appointmentId: this.appointmentId,
+                kind: ResponderStateKind.Pending,
+                identifier: this.identifier
+            };
+            logger.info(`Pending transaction ${JSON.stringify(pendingTxState)}.`);
+            return pendingTxState;
+        }
     }
 
     public reduce(prevState: ResponderAppointmentAnchorState, block: ResponderBlock): ResponderAppointmentAnchorState {
         if (prevState.kind === ResponderStateKind.Pending) {
             const transaction = this.txIdentifierInBlock(block, prevState.identifier);
-            return transaction
-                ? {
-                      appointmentId: prevState.appointmentId,
-                      identifier: prevState.identifier,
-                      blockMined: block.number,
-                      nonce: transaction.nonce,
-                      kind: ResponderStateKind.Mined
-                  }
-                : {
-                      appointmentId: prevState.appointmentId,
-                      kind: ResponderStateKind.Pending,
-                      identifier: prevState.identifier
-                  };
-        } else {
-            return prevState;
-        }
+            if (transaction) {
+                const minedTxState: MinedResponseState = {
+                    appointmentId: prevState.appointmentId,
+                    identifier: prevState.identifier,
+                    blockMined: block.number,
+                    nonce: transaction.nonce,
+                    kind: ResponderStateKind.Mined
+                };
+                logger.info(`Mined transaction ${JSON.stringify(minedTxState)}.`);
+                return minedTxState;
+            } else return prevState;
+        } else return prevState;
     }
 }
 

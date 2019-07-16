@@ -24,7 +24,7 @@ export class MultiResponder extends StartStopService {
     private chainId: number;
     /**
      * The address of the private signing key being used to create responses
-     * 
+     *
      */
     public get address() {
         return this.mAddress;
@@ -100,6 +100,7 @@ export class MultiResponder extends StartStopService {
             );
             const idealGas = await this.gasEstimator.estimate(responseData);
             const request = new GasQueueItemRequest(appointmentId, txIdentifier, idealGas, responseData);
+            logger.info(`Enqueueing request for ${appointmentId}. ${JSON.stringify(request)}.`);
 
             // add the queue item to the queue, since the queue is ordered this may mean
             // that we need to replace some transactions on the network. Find those and
@@ -112,7 +113,7 @@ export class MultiResponder extends StartStopService {
             replacedTransactions.forEach(q => {
                 this.respondedTransactions.set(q.request.appointmentId, { id: q.request.appointmentId, queueItem: q });
             });
-            await Promise.all(replacedTransactions.map(this.broadcast));
+            await Promise.all(replacedTransactions.map(b => this.broadcast(b)));
         } catch (doh) {
             if (doh instanceof QueueConsistencyError) logger.error(doh.stack!);
             else {
@@ -136,6 +137,7 @@ export class MultiResponder extends StartStopService {
      */
     public async txMined(txIdentifier: PisaTransactionIdentifier, nonce: number) {
         try {
+            logger.info(`Transaction mined. ${txIdentifier}. ${nonce}.`);
             if (this.mQueue.queueItems.length === 0) {
                 throw new QueueConsistencyError(
                     `Transaction mined for empty queue at nonce ${nonce}. ${inspect(txIdentifier)}`
@@ -156,6 +158,7 @@ export class MultiResponder extends StartStopService {
             if (txIdentifier.equals(frontItem.request.identifier)) {
                 // the mined transaction was the one at the front of the current queue
                 // this is what we hoped for, simply dequeue the transaction
+                logger.info(`Transaction is front of queue.`);
                 this.mQueue = this.mQueue.dequeue();
             } else {
                 // the mined transaction was not the one at the front of the current queue
@@ -165,6 +168,7 @@ export class MultiResponder extends StartStopService {
                 // the mined tx and remove it. In doing so free up a later nonce.
                 // and bump up all transactions with a lower nonce so that the tx that is
                 // at the front of the current queue - but was not mined - remains there
+                logger.info(`Transaction has since been replaced.`);
                 const reducedQueue = this.mQueue.consume(txIdentifier);
                 const replacedTransactions = reducedQueue.difference(this.mQueue);
                 this.mQueue = reducedQueue;
@@ -177,7 +181,7 @@ export class MultiResponder extends StartStopService {
 
                 // since we had to bump up some transactions - change their nonces
                 // we'll have to issue new transactions to the network
-                await Promise.all(replacedTransactions.map(this.broadcast));
+                await Promise.all(replacedTransactions.map(b => this.broadcast(b)));
             }
         } catch (doh) {
             if (doh instanceof QueueConsistencyError) logger.error(doh.stack!);
@@ -211,13 +215,14 @@ export class MultiResponder extends StartStopService {
 
         // no need to unlock anything if we dont have any missing items
         if (missingQueueItems.length !== 0) {
+            logger.info(`${missingQueueItems.length} items missing from the gas queue. Re-enqueueing: ${JSON.stringify(missingQueueItems)}.`); //prettier-ignore
             const unlockedQueue = this.mQueue.prepend(missingQueueItems);
             const replacedTransactions = unlockedQueue.difference(this.mQueue);
             this.mQueue = unlockedQueue;
             replacedTransactions.forEach(q => {
                 this.respondedTransactions.set(q.request.appointmentId, { id: q.request.appointmentId, queueItem: q });
             });
-            await Promise.all(replacedTransactions.map(this.broadcast));
+            await Promise.all(replacedTransactions.map(b => this.broadcast(b)));
         }
     }
 
@@ -226,12 +231,15 @@ export class MultiResponder extends StartStopService {
      * @param appointmentId
      */
     public endResponse(appointmentId: string) {
+        logger.info(`Removing appointment from responder: ${appointmentId}.`);
         this.respondedTransactions.delete(appointmentId);
     }
 
     private async broadcast(queueItem: GasQueueItem) {
         try {
-            await this.signer.sendTransaction(queueItem.toTransactionRequest());
+            const tx = queueItem.toTransactionRequest();
+            logger.info(`Broadcasting tx for ${queueItem.request.appointmentId}. ${JSON.stringify(queueItem)}. ${JSON.stringify(tx)}.`); // prettier-ignore
+            await this.signer.sendTransaction(tx);
         } catch (doh) {
             // we've failed to broadcast a transaction however this isn't a fatal
             // error. Periodically, we look to see if a transaction has been mined
