@@ -16,10 +16,10 @@ import { Raiden, Kitsune } from "./integrations";
 import { Watcher, AppointmentStore } from "./watcher";
 import { PisaTower, HotEthereumAppointmentSigner } from "./tower";
 import { setRequestId } from "./customExpressHttpContext";
-import { EthereumResponderManager, GasPriceEstimator, MultiResponder, MultiResponderComponent } from "./responder";
+import { GasPriceEstimator, MultiResponder, MultiResponderComponent } from "./responder";
 import { AppointmentStoreGarbageCollector } from "./watcher/garbageCollector";
 import { IArgConfig } from "./dataEntities/config";
-import { BlockProcessor, BlockCache, BlockTimeoutDetector, ConfirmationObserver } from "./blockMonitor";
+import { BlockProcessor, BlockCache } from "./blockMonitor";
 import { LevelUp } from "levelup";
 import encodingDown from "encoding-down";
 import { blockFactory } from "./blockMonitor";
@@ -33,8 +33,6 @@ export class PisaService extends StartStopService {
     private readonly server: Server;
     private readonly garbageCollector: AppointmentStoreGarbageCollector;
     private readonly blockProcessor: BlockProcessor<Block>;
-    private readonly blockTimeoutDetector: BlockTimeoutDetector;
-    private readonly confirmationObserver: ConfirmationObserver;
     private readonly multiResponder: MultiResponder;
     private readonly appointmentStore: AppointmentStore;
     private readonly blockchainMachine: BlockchainMachine<Block>;
@@ -76,24 +74,14 @@ export class PisaService extends StartStopService {
             db,
             new Map(configs.map<[ChannelType, (obj: any) => IEthereumAppointment]>(c => [c.channelType, c.appointment]))
         );
-        this.blockTimeoutDetector = new BlockTimeoutDetector(this.blockProcessor, 120 * 1000);
-        this.confirmationObserver = new ConfirmationObserver(this.blockProcessor);
 
         this.multiResponder = new MultiResponder(
             wallet,
             new GasPriceEstimator(wallet.provider, this.blockProcessor.blockCache)
         );
 
-        const ethereumResponderManager = new EthereumResponderManager(
-            false,
-            wallet,
-            this.blockTimeoutDetector,
-            this.confirmationObserver,
-            this.multiResponder
-        );
-
         const watcher = new Watcher(
-            ethereumResponderManager,
+            this.multiResponder,
             this.blockProcessor.blockCache,
             this.appointmentStore,
             watcherResponseConfirmations,
@@ -129,8 +117,6 @@ export class PisaService extends StartStopService {
     protected async startInternal() {
         await this.blockchainMachine.start();
         await this.blockProcessor.start();
-        await this.blockTimeoutDetector.start();
-        await this.confirmationObserver.start();
         await this.garbageCollector.start();
         await this.appointmentStore.start();
         await this.multiResponder.start();
@@ -140,8 +126,6 @@ export class PisaService extends StartStopService {
         await this.multiResponder.stop();
         await this.appointmentStore.stop();
         await this.garbageCollector.stop();
-        await this.confirmationObserver.stop();
-        await this.blockTimeoutDetector.stop();
         await this.blockProcessor.stop();
         await this.blockchainMachine.stop();
 
