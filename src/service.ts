@@ -16,7 +16,7 @@ import { Raiden, Kitsune } from "./integrations";
 import { Watcher, AppointmentStore } from "./watcher";
 import { PisaTower, HotEthereumAppointmentSigner } from "./tower";
 import { setRequestId } from "./customExpressHttpContext";
-import { EthereumResponderManager, GasPriceEstimator } from "./responder";
+import { EthereumResponderManager, GasPriceEstimator, MultiResponder, MultiResponderComponent } from "./responder";
 import { AppointmentStoreGarbageCollector } from "./watcher/garbageCollector";
 import { IArgConfig } from "./dataEntities/config";
 import { BlockProcessor, BlockCache, BlockTimeoutDetector, ConfirmationObserver } from "./blockMonitor";
@@ -25,7 +25,6 @@ import encodingDown from "encoding-down";
 import { blockFactory } from "./blockMonitor";
 import { Block } from "./dataEntities/block";
 import { BlockchainMachine } from "./blockMonitor/blockchainMachine";
-import { MultiResponderComponent, MultiResponder } from "./responder/multiResponder";
 
 /**
  * Hosts a PISA service at the endpoint.

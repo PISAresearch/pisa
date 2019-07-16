@@ -37,6 +37,7 @@ export class GasQueueItemRequest {
      * @param responseData The response data relevant to this request
      */
     constructor(
+        public readonly appointmentId: string,
         public readonly identifier: PisaTransactionIdentifier,
         public readonly idealGasPrice: BigNumber,
         public readonly responseData: IEthereumResponseData
@@ -47,22 +48,22 @@ export class GasQueueItem {
     /**
      * A queued transaction
      * @param request
-     * @param currentGasPrice
-     *      The gas price that the item will be submitted at. Should always be greater
-     *      than or equal to the ideal gas price
+     * @param nonceGasPrice
+     *      The gas price to be used at this nonce. Should always be greater
+     *      than or equal to the ideal gas price.
      * @param idealGasPrice The minimum gas price at which this item should be submitted to the network
      * @param nonce The nonce which this item should be submitted at
      */
     constructor(
         public readonly request: GasQueueItemRequest,
-        public readonly currentGasPrice: BigNumber,
+        public readonly nonceGasPrice: BigNumber,
         public readonly idealGasPrice: BigNumber,
         public readonly nonce: number
     ) {
-        if (currentGasPrice.lt(idealGasPrice)) {
+        if (nonceGasPrice.lt(idealGasPrice)) {
             throw new ArgumentError(
                 "Current gas price cannot be less than ideal gas price",
-                currentGasPrice,
+                nonceGasPrice,
                 idealGasPrice
             );
         }
@@ -77,7 +78,7 @@ export class GasQueueItem {
             data: this.request.identifier.data,
             gasLimit: this.request.identifier.gasLimit,
             nonce: this.nonce,
-            gasPrice: this.currentGasPrice,
+            gasPrice: this.nonceGasPrice,
             to: this.request.identifier.to,
             value: this.request.identifier.value
         };
@@ -220,7 +221,7 @@ export class GasQueue {
 
         const replacementItem = queueItems[index];
         const nonce = replacementItem.nonce;
-        const replacementPrice = this.getReplacementGasPrice(replacementItem.currentGasPrice, this.replacementRate);
+        const replacementPrice = this.getReplacementGasPrice(replacementItem.nonceGasPrice, this.replacementRate);
         // we can only replace an item with another one which has gas price at least
         // equal to an increase by the replacement rate on the current gas price. If
         // the request gas price is greater than this replaced price, we use that, otherwise
@@ -286,14 +287,53 @@ export class GasQueue {
         return new GasQueue(clonedArray, this.emptyNonce, this.replacementRate, this.maxQueueDepth);
     }
 
-    //TODO:198: documentation and tests
-    public unlock(requests: GasQueueItemRequest[]): GasQueue {
-        // we need to keep track of the max gas price used at a given nonce
-        // since we need to go at least higher than this
+    /**
+     * Returns all queue items that are in this queue but not in the supplied queue
+     * @param otherQueue
+     */
+    public difference(otherQueue: GasQueue): GasQueueItem[] {
+        return this.queueItems.filter(tx => !otherQueue.queueItems.includes(tx));
+    }
 
-        // we also need to unlock the specified number of nonces
-        // classify those nonces as empty, and re-arrange
+    /**
+     * Checks to see if this queue contains an item with the supplied identifier
+     * @param queueItem
+     */
+    public contains(identifier: PisaTransactionIdentifier): boolean {
+        return this.queueItems.findIndex(i => i.request.identifier.equals(identifier)) !== -1;
+    }
 
-        throw new ApplicationError("Not implemented");
+    
+    /**
+     * Re-add some items that have lower nonces than any in the current queue.
+     * These items will be added to the front of the qeueue, then the queue will
+     * be re-sorted to ensure ideal gas price descending as well as nonce ascending.
+     * @param lowerNonceItems Items with consecutive nonces less than the current lowest nonce in the queue.
+     */
+    public prepend(lowerNonceItems: GasQueueItem[]): GasQueue {
+        // a correct queue is ordered by both nonce and ideal gas price
+        // We'll need to adjust the nonces of queue items to ensure this
+        const allItemsOrderedByNonce = lowerNonceItems.concat(this.queueItems).sort((a, b) => a.nonce - b.nonce);
+
+        const allItemsByIdealGas = [...allItemsOrderedByNonce].sort((a, b) => {
+            if (a.idealGasPrice.gt(b.idealGasPrice)) return -1;
+            else if (a.idealGasPrice.eq(b.idealGasPrice)) return 0;
+            else return 1;
+        });
+
+        for (let index = 0; index < allItemsByIdealGas.length; index++) {
+            const itemOrderedByGas = allItemsByIdealGas[index];
+            const itemOrderedByNonce = allItemsOrderedByNonce[index];
+
+            // if there's a difference in the items then we have a difference in
+            // order. We replace the item with the gas ordered one so that we have
+            // all items ordered by gas price, and by nonce.
+            if (itemOrderedByGas !== itemOrderedByNonce) {
+                this.replace(allItemsOrderedByNonce, index, itemOrderedByGas.request);
+            }
+        }
+
+        // all items ordered by nonce are now also ordered by gas price
+        return new GasQueue(allItemsOrderedByNonce, this.emptyNonce, this.replacementRate, this.maxQueueDepth);
     }
 }

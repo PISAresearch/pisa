@@ -5,7 +5,14 @@ import { AppointmentStore } from "./store";
 import { ReadOnlyBlockCache } from "../blockMonitor";
 import { Block } from "../dataEntities/block";
 import { EventFilter } from "ethers";
-import { StateReducer, MappedStateReducer, MappedState, Component } from "../blockMonitor/component";
+import {
+    StateReducer,
+    MappedStateReducer,
+    MappedState,
+    Component,
+    BlockNumberState,
+    BlockNumberReducer
+} from "../blockMonitor/component";
 import logger from "../logger";
 
 enum AppointmentState {
@@ -24,9 +31,7 @@ type WatcherAppointmentAnchorState =
       };
 
 /** The complete anchor state for the watcher, that also includes the block number */
-interface WatcherAnchorState extends MappedState<WatcherAppointmentAnchorState> {
-    blockNumber: number;
-}
+type WatcherAnchorState = MappedState<WatcherAppointmentAnchorState> & BlockNumberState;
 
 // TODO:198: move this to a utility function somewhere
 const hasLogMatchingEvent = (block: Block, filter: EventFilter): boolean => {
@@ -69,30 +74,6 @@ class AppointmentStateReducer implements StateReducer<WatcherAppointmentAnchorSt
     }
 }
 
-export class WatcherStateReducer extends MappedStateReducer<WatcherAppointmentAnchorState, Block, IEthereumAppointment>
-    implements StateReducer<WatcherAnchorState, Block> {
-    constructor(store: AppointmentStore, blockCache: ReadOnlyBlockCache<Block>) {
-        super(
-            () => store.getAll(),
-            (appointment: IEthereumAppointment) => new AppointmentStateReducer(blockCache, appointment)
-        );
-    }
-
-    public getInitialState(block: Block): WatcherAnchorState {
-        return {
-            ...super.getInitialState(block),
-            blockNumber: block.number
-        };
-    }
-
-    public reduce(prevState: WatcherAnchorState, block: Block): WatcherAnchorState {
-        return {
-            ...super.reduce(prevState, block),
-            blockNumber: block.number
-        };
-    }
-}
-
 /**
  * Watches the chain for events related to the supplied appointments. When an event is noticed data is forwarded to the
  * observe method to complete the task. The watcher is not responsible for ensuring that observed events are properly
@@ -111,7 +92,13 @@ export class Watcher extends Component<WatcherAnchorState, Block> {
         private readonly confirmationsBeforeResponse: number,
         private readonly confirmationsBeforeRemoval: number
     ) {
-        super(new WatcherStateReducer(store, blockCache));
+        super(
+            new MappedStateReducer(
+                () => store.getAll(),
+                (appointment: IEthereumAppointment) => new AppointmentStateReducer(blockCache, appointment),
+                new BlockNumberReducer()
+            )
+        );
 
         if (confirmationsBeforeResponse > confirmationsBeforeRemoval) {
             throw new ArgumentError(
@@ -138,7 +125,7 @@ export class Watcher extends Component<WatcherAnchorState, Block> {
         appointmentState.state === AppointmentState.OBSERVED &&
         state.blockNumber - appointmentState.blockObserved + 1 >= this.confirmationsBeforeRemoval;
 
-    public async handleNewStateEvent(prevState: WatcherAnchorState, state: WatcherAnchorState) {
+    public async handleChanges(prevState: WatcherAnchorState, state: WatcherAnchorState) {
         for (const [objId, appointmentState] of state.items.entries()) {
             const prevAppointmentState = prevState.items.get(objId);
 
