@@ -68,11 +68,15 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
 
         for (const { component, states } of this.componentsAndStates) {
             const state = states.get(head);
-            if (state && prevHead) {
+            if (!state) {
+                // as processNewBlock is always called before processNewHead, this should never happen
+                throw new ApplicationError(
+                    `State for block ${head.hash} (number ${head.number}) was not set, but it should have been`
+                );
+            }
+            if (prevHead) {
                 const prevState = states.get(prevHead);
                 if (prevState) {
-                    // TODO:198: should we (deeply) compare old state and new state and only emit if different?
-                    // Probably not, it might be expensive/inefficient depending on what is in TState
                     component.handleChanges(prevState, state);
                 }
             }
