@@ -83,7 +83,7 @@ describe("BlockchainMachine", () => {
 
         blockProcessor.emit(BlockProcessor.NEW_BLOCK_EVENT, blocks[0]);
 
-        verify(spiedReducer.getInitialState(anything())).once();
+        verify(spiedReducer.getInitialState(blocks[0])).once();
         verify(spiedReducer.reduce(anything(), anything())).never();
 
         await bm.stop();
@@ -97,7 +97,7 @@ describe("BlockchainMachine", () => {
         blockProcessor.emit(BlockProcessor.NEW_BLOCK_EVENT, blocks[1]);
 
         // initializer and reducer should both be called once
-        verify(spiedReducer.getInitialState(anything())).once();
+        verify(spiedReducer.getInitialState(blocks[0])).once(); // initial state from the parent block
         verify(spiedReducer.reduce(anything(), anything())).once();
 
         // Check that the reducer was called on the right data
