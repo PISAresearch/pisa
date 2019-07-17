@@ -135,7 +135,62 @@ describe("BlockchainMachine", () => {
         await bm.stop();
     });
 
-    it("processNewHead correctly calls handleChanges on the component", async () => {
+    it("processNewBlock computes the state for each component", async () => {
+        const bm = new BlockchainMachine(blockProcessor);
+
+        const reducers: ExampleReducer[] = [];
+        const spiedReducers: ExampleReducer[] = [];
+        const nComponents = 3;
+        for (let i = 0; i < nComponents; i++) {
+            const newReducer = new ExampleReducer();
+            reducers.push(newReducer);
+            spiedReducers.push(spy(newReducer));
+            const component = new ExampleComponent(newReducer);
+            bm.addComponent(component);
+        }
+
+        await bm.start();
+
+        blockProcessor.emit(BlockProcessor.NEW_BLOCK_EVENT, blocks[0]);
+        blockProcessor.emit(BlockProcessor.NEW_BLOCK_EVENT, blocks[1]);
+
+        spiedReducers.forEach(r => resetCalls(r));
+
+        // State of the parent is { someNumber: 42 + blocks[1].number }
+
+        blockProcessor.emit(BlockProcessor.NEW_BLOCK_EVENT, blocks[2]);
+
+        for (let i = 0; i < nComponents; i++) {
+            // Check that each reducer was used, but not getInitialState
+            verify(spiedReducers[i].getInitialState(anything())).never();
+            verify(spiedReducers[i].reduce(anything(), anything())).once();
+        }
+
+        await bm.stop();
+    });
+
+    it("processNewHead does not call handleChanges before NEW_HEAD_EVENT happens twice", async () => {
+        const bm = new BlockchainMachine(blockProcessor);
+        const component = new ExampleComponent(reducer);
+        const spiedComponent = spy(component);
+
+        bm.addComponent(component);
+        await bm.start();
+
+        blockProcessor.emit(BlockProcessor.NEW_BLOCK_EVENT, blocks[0]);
+        blockProcessor.emit(BlockProcessor.NEW_HEAD_EVENT, blocks[0], null);
+
+        // some new blocks without a new_head event
+        blockProcessor.emit(BlockProcessor.NEW_BLOCK_EVENT, blocks[1]);
+        blockProcessor.emit(BlockProcessor.NEW_BLOCK_EVENT, blocks[2]);
+
+        // Up to here, handleChanges should not have been called on the component
+        verify(spiedComponent.handleChanges(anything(), anything())).never();
+
+        await bm.stop();
+    });
+
+    it("processNewHead does call handleChanges", async () => {
         const bm = new BlockchainMachine(blockProcessor);
         const component = new ExampleComponent(reducer);
         const spiedComponent = spy(component);
@@ -147,10 +202,6 @@ describe("BlockchainMachine", () => {
         blockProcessor.emit(BlockProcessor.NEW_HEAD_EVENT, blocks[0], null);
 
         blockProcessor.emit(BlockProcessor.NEW_BLOCK_EVENT, blocks[1]);
-
-        // Up to here, handleChanges should not have been called on the component
-        verify(spiedComponent.handleChanges(anything(), anything())).never();
-
         blockProcessor.emit(BlockProcessor.NEW_BLOCK_EVENT, blocks[2]);
         blockProcessor.emit(BlockProcessor.NEW_HEAD_EVENT, blocks[2], blocks[0]);
 
@@ -163,6 +214,34 @@ describe("BlockchainMachine", () => {
         expect(newState).to.deep.equal({
             someNumber: initialState.someNumber + blocks[1].number + blocks[2].number
         });
+
+        await bm.stop();
+    });
+
+    it("processNewHead does call handleChanges on multiple components", async () => {
+        const bm = new BlockchainMachine(blockProcessor);
+        const components: ExampleComponent[] = [];
+        const spiedComponents: ExampleComponent[] = [];
+        const nComponents = 3;
+        for (let i = 0; i < nComponents; i++) {
+            const component = new ExampleComponent(reducer);
+            components.push(component);
+            spiedComponents.push(spy(component));
+            bm.addComponent(component);
+        }
+
+        await bm.start();
+
+        blockProcessor.emit(BlockProcessor.NEW_BLOCK_EVENT, blocks[0]);
+        blockProcessor.emit(BlockProcessor.NEW_HEAD_EVENT, blocks[0], null);
+
+        blockProcessor.emit(BlockProcessor.NEW_BLOCK_EVENT, blocks[1]);
+        blockProcessor.emit(BlockProcessor.NEW_BLOCK_EVENT, blocks[2]);
+        blockProcessor.emit(BlockProcessor.NEW_HEAD_EVENT, blocks[2], blocks[0]);
+
+        for (let i = 0; i < nComponents; i++) {
+            verify(spiedComponents[i].handleChanges(anything(), anything())).once();
+        }
 
         await bm.stop();
     });
