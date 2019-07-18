@@ -232,7 +232,9 @@ export class MultiResponder extends StartStopService {
 
     private async broadcast(queueItem: GasQueueItem) {
         try {
+
             const tx = queueItem.toTransactionRequest();
+            
             logger.info(`Broadcasting tx for ${queueItem.request.appointment.uniqueJobId()}. ${JSON.stringify(queueItem)}. ${JSON.stringify(tx)}.`); // prettier-ignore
             await this.signer.sendTransaction(tx);
         } catch (doh) {
