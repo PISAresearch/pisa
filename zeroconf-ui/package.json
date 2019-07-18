@@ -70,7 +70,10 @@
   "dependencies": {
     "@material-ui/core": "^3.1.1",
     "@material-ui/icons": "^3.0.1",
+    "ethers": "^4.0.33",
+    "fs": "0.0.1-security",
     "keymirror": "^0.1.1",
+    "net": "^1.0.2",
     "prop-types": "^15.6.2",
     "react": "^16.5.2",
     "react-dnd": "^6.0.0",
@@ -78,11 +81,12 @@
     "react-dom": "^16.5.2",
     "react-mic": "^12.0.0",
     "react-router-dom": "^4.3.1",
+    "request-promise": "^4.2.4",
+    "tls": "0.0.1",
     "truffle-contract": "^3.0.6",
     "validator": "^10.9.0",
-    "web3": "0.20.6",
-    "web3-eth-abi": "^1.0.0-beta.46",
-    "web3-utils": "^1.0.0-beta.46"
+    "web3": "^1.0.0-beta.55",
+    "web3-eth-abi": "^1.0.0-beta.46"
   },
   "husky": {
     "hooks": {
