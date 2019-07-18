@@ -148,7 +148,7 @@ describe("ResponderAppointmentReducer", () => {
     });
 });
 
-const pendingAppointmentState = (appointmentId: string, data: string): PendingResponseState => {
+const makePendingAppointmentState = (appointmentId: string, data: string): PendingResponseState => {
     const identifier = new PisaTransactionIdentifier(1, data, "to", new BigNumber(0), new BigNumber(200));
     return {
         appointmentId,
@@ -157,7 +157,7 @@ const pendingAppointmentState = (appointmentId: string, data: string): PendingRe
     };
 };
 
-const minedAppointmentState = (
+const makeMinedAppointmentState = (
     appointmentId: string,
     data: string,
     blockMined: number,
@@ -197,8 +197,8 @@ describe("MultiResponderComponent", () => {
     });
 
     it("handleChanges reEnqueues all pending items", async () => {
-        const app1State = pendingAppointmentState("app1", "data1");
-        const app2State = minedAppointmentState("app2", "data2", 0, 0);
+        const app1State = makePendingAppointmentState("app1", "data1");
+        const app2State = makeMinedAppointmentState("app2", "data2", 0, 0);
         const state1 = setupState([app1State, app2State], 0);
         const state2 = setupState([app1State, app2State], 1);
         const component = new MultiResponderComponent(multiResponder, blockCache, confirmationsRequired);
@@ -210,8 +210,8 @@ describe("MultiResponderComponent", () => {
     });
 
     it("handleChanges detects response has been mined", async () => {
-        const app1State = pendingAppointmentState("app1", "data1");
-        const app2State = minedAppointmentState("app1", "data1", 0, 0);
+        const app1State = makePendingAppointmentState("app1", "data1");
+        const app2State = makeMinedAppointmentState("app1", "data1", 0, 0);
         const state1 = setupState([app1State], 0);
         // two block difference
         const state2 = setupState([app2State], 2);
@@ -225,7 +225,7 @@ describe("MultiResponderComponent", () => {
     });
 
     it("handleChanges detects newly mined item", async () => {
-        const app2State = minedAppointmentState("app1", "data1", 0, 0);
+        const app2State = makeMinedAppointmentState("app1", "data1", 0, 0);
         const state1 = setupState([], 0);
         // two block difference
         const state2 = setupState([app2State], 2);
@@ -239,7 +239,7 @@ describe("MultiResponderComponent", () => {
     });
 
     it("handleChanges doesnt detect already mined response", async () => {
-        const app2State = minedAppointmentState("app1", "data1", 0, 0);
+        const app2State = makeMinedAppointmentState("app1", "data1", 0, 0);
         const state1 = setupState([app2State], 0);
         // two block difference
         const state2 = setupState([app2State], 2);
@@ -251,7 +251,7 @@ describe("MultiResponderComponent", () => {
     });
 
     it("handleChanges removes item after confirmations", async () => {
-        const app2State = minedAppointmentState("app1", "data1", 0, 0);
+        const app2State = makeMinedAppointmentState("app1", "data1", 0, 0);
         const state1 = setupState([app2State], 0);
         // two block difference
         const state2 = setupState([app2State], confirmationsRequired + 1);
@@ -264,8 +264,8 @@ describe("MultiResponderComponent", () => {
     });
 
     it("handleChanges removes item after confirmations from pending", async () => {
-        const app1State = pendingAppointmentState("app1", "data1");
-        const app2State = minedAppointmentState("app1", "data1", 0, 0);
+        const app1State = makePendingAppointmentState("app1", "data1");
+        const app2State = makeMinedAppointmentState("app1", "data1", 0, 0);
         const state1 = setupState([app1State], 0);
         // two block difference
         const state2 = setupState([app2State], confirmationsRequired + 1);
@@ -278,7 +278,7 @@ describe("MultiResponderComponent", () => {
     });
 
     it("handleChanges removes item after confirmations from empty", async () => {
-        const app2State = minedAppointmentState("app1", "data1", 0, 0);
+        const app2State = makeMinedAppointmentState("app1", "data1", 0, 0);
         const state1 = setupState([], 0);
         // two block difference
         const state2 = setupState([app2State], confirmationsRequired + 1);
@@ -291,7 +291,7 @@ describe("MultiResponderComponent", () => {
     });
 
     it("handleChanges does not try to remove already removed item", async () => {
-        const app2State = minedAppointmentState("app1", "data1", 0, 0);
+        const app2State = makeMinedAppointmentState("app1", "data1", 0, 0);
         const state1 = setupState([app2State], confirmationsRequired + 1);
         // already removed - then one block later
         const state2 = setupState([app2State], confirmationsRequired + 2);

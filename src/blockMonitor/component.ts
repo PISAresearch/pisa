@@ -42,9 +42,11 @@ export class MappedStateReducer<
     /**
      * Creates a new reducer for the given collection of objects.
      * @param getItems a function returning the current state of the collection; it is expected that
-     *     the collection changes over time, but each item of the collection should be immutable.
+     *      the collection changes over time, but each item of the collection should be immutable.
      * @param getBaseReducer a function that returns a reducer for a given object. The function should always
-     *     return the same value when called on the same object.
+     *      return the same value when called on the same object. Will be used to reduce each of the objects
+     *      in the collection
+     * @param reducer The reducer to be used on the whole state.
      */
     constructor(
         public readonly getItems: () => Iterable<TMappedType>,
