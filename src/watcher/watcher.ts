@@ -132,7 +132,6 @@ export class Watcher extends Component<WatcherAnchorState, Block> {
     public async handleChanges(prevState: WatcherAnchorState, state: WatcherAnchorState) {
         for (const [objId, appointmentState] of state.items.entries()) {
             const prevAppointmentState = prevState.items.get(objId);
-
             if (
                 !this.shouldHaveStartedResponder(prevState, prevAppointmentState) &&
                 this.shouldHaveStartedResponder(state, appointmentState)

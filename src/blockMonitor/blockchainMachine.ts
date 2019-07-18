@@ -68,6 +68,7 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
 
         for (const { component, states } of this.componentsAndStates) {
             const state = states.get(head);
+
             if (state && prevHead) {
                 const prevState = states.get(prevHead);
                 if (prevState) {
