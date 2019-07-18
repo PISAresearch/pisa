@@ -184,7 +184,7 @@ describe("BlockchainMachine", () => {
         blockProcessor.emit(BlockProcessor.NEW_BLOCK_EVENT, blocks[1]);
         blockProcessor.emit(BlockProcessor.NEW_BLOCK_EVENT, blocks[2]);
 
-        // Up to here, handleChanges should not have been called on the component
+        // handleChanges should not have been called on the component
         verify(spiedComponent.handleChanges(anything(), anything())).never();
 
         await bm.stop();
@@ -214,6 +214,22 @@ describe("BlockchainMachine", () => {
         expect(newState).to.deep.equal({
             someNumber: initialState.someNumber + blocks[1].number + blocks[2].number
         });
+
+        await bm.stop();
+    });
+
+    it("processNewHead throws ApplicationError if the state was not computed for the current head", async () => {
+        const bm = new BlockchainMachine(blockProcessor);
+        const component = new ExampleComponent(reducer);
+
+        bm.addComponent(component);
+        await bm.start();
+
+        blockProcessor.emit(BlockProcessor.NEW_BLOCK_EVENT, blocks[0]);
+        blockProcessor.emit(BlockProcessor.NEW_HEAD_EVENT, blocks[0], null);
+
+        // We simulate a new_head without a new_block event (which is never expected to happen)
+        expect(() => blockProcessor.emit(BlockProcessor.NEW_HEAD_EVENT, blocks[1], blocks[0])).to.throw(ApplicationError); //prettier-ignore
 
         await bm.stop();
     });
