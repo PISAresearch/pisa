@@ -148,7 +148,6 @@ export class Appointment implements IAppointment {
     public getEventFilter(): ethers.EventFilter {
         // first generate the interface from the abi
         console.log(this.eventABI);
-        ethers.utils.from
         const iFace = new ethers.utils.Interface(this.eventABI);
         console.log(iFace);
         // name of the event

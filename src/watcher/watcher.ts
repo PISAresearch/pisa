@@ -17,7 +17,8 @@ import { MultiResponder } from "../responder";
 
 enum AppointmentState {
     WATCHING,
-    OBSERVED
+    OBSERVED,
+    AUTOTRIGGERED
 }
 
 /** Portion of the anchor state for a single appointment */
@@ -28,6 +29,10 @@ type WatcherAppointmentAnchorState =
     | {
           state: AppointmentState.OBSERVED;
           blockObserved: number; // block number in which the event was observed
+      }
+    |
+      {
+        state: AppointmentState.AUTOTRIGGERED;
       };
 
 /** The complete anchor state for the watcher, that also includes the block number */
@@ -45,20 +50,28 @@ class AppointmentStateReducer implements StateReducer<WatcherAppointmentAnchorSt
     public getInitialState(block: Block): WatcherAppointmentAnchorState {
         const filter = this.appointment.getEventFilter();
         if (!filter.topics) throw new ApplicationError(`topics should not be undefined`);
-
-        const eventAncestor = this.cache.findAncestor(block.hash, ancestor => hasLogMatchingEvent(ancestor, filter));
-
-        if (!eventAncestor) {
-            logger.info(`Watching for appointment ${this.appointment.uniqueJobId()}.`);
+        
+        // Pretty ugly hack, we should have a field in the appointment that specifies if it is autotriggerable or not
+        if (this.appointment.eventABI  === 'autotriggerable'){
+            logger.info(`Auto-triggerable appointment ${this.appointment.uniqueJobId()}.`); // prettier-ignore
             return {
-                state: AppointmentState.WATCHING
+                state: AppointmentState.AUTOTRIGGERED
             };
         } else {
-            logger.info(`Initial observed appointment ${this.appointment.uniqueJobId()} in block ${eventAncestor.number}.`); // prettier-ignore
-            return {
-                state: AppointmentState.OBSERVED,
-                blockObserved: eventAncestor.number
-            };
+            const eventAncestor = this.cache.findAncestor(block.hash, ancestor => hasLogMatchingEvent(ancestor, filter));
+
+            if (!eventAncestor) {
+                logger.info(`Watching for appointment ${this.appointment.uniqueJobId()}.`);
+                return {
+                    state: AppointmentState.WATCHING
+                };
+            } else {
+                logger.info(`Initial observed appointment ${this.appointment.uniqueJobId()} in block ${eventAncestor.number}.`); // prettier-ignore
+                return {
+                    state: AppointmentState.OBSERVED,
+                    blockObserved: eventAncestor.number
+                };
+            }
         }
     }
     public reduce(prevState: WatcherAppointmentAnchorState, block: Block): WatcherAppointmentAnchorState {
@@ -118,8 +131,12 @@ export class Watcher extends Component<WatcherAnchorState, Block> {
         appointmentState: WatcherAppointmentAnchorState | undefined
     ): boolean =>
         appointmentState != undefined &&
-        appointmentState.state === AppointmentState.OBSERVED &&
-        state.blockNumber - appointmentState.blockObserved + 1 >= this.confirmationsBeforeResponse;
+        (
+            (appointmentState.state === AppointmentState.OBSERVED &&
+            state.blockNumber - appointmentState.blockObserved + 1 >= this.confirmationsBeforeResponse) 
+        ||
+            appointmentState.state === AppointmentState.AUTOTRIGGERED
+        );
 
     private shouldRemoveAppointment = (
         state: WatcherAnchorState,
