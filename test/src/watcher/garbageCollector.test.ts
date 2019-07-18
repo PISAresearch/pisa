@@ -2,12 +2,12 @@ import "mocha";
 import { assert } from "chai";
 import { anything, verify, resetCalls, anyString, when, mock, instance } from "ts-mockito";
 import { AppointmentStore } from "../../../src/watcher";
-import { KitsuneAppointment } from "../../../src/integrations/kitsune";
+//import { KitsuneAppointment } from "../../../src/integrations/kitsune";
 import { AppointmentStoreGarbageCollector } from "../../../src/watcher/garbageCollector";
 import Ganache from "ganache-core";
 import { ethers } from "ethers";
-import { AppointmentSubscriber } from "../../../src/watcher/appointmentSubscriber";
 import { wait } from "../../../src/utils";
+import { Appointment } from "../../../src/dataEntities";
 
 describe("GarbageCollector", () => {
     // some constants for use in the tests
@@ -17,10 +17,6 @@ describe("GarbageCollector", () => {
     const appointmentId2 = "id2";
     const errorAppointmentID = "id3";
     const errorRemoveByIdId = "id4";
-    const eventFilter = {
-        address: "fake address",
-        topics: ["topic1", "topic2"]
-    };
     const blockNumber = 100;
     const appointment1Expired = blockNumber;
     const appointment2Expired = blockNumber + 1;
@@ -33,29 +29,23 @@ describe("GarbageCollector", () => {
     const errorSubscriberAppointmentExpired = blockNumber + 6;
     const errorRemoveByIdExpiredBlock = blockNumber + 7;
 
-    // provider mock
-    const mockedProvider = mock(ethers.providers.Web3Provider);
-    when(mockedProvider.on("block", anything()));
-    const onProviderInstance = instance(mockedProvider);
-
     // appointment mocks
-    const createMockAppointment = (id: string, ethersEventFilter: ethers.EventFilter) => {
-        const mockedAppointment = mock(KitsuneAppointment);
-        when(mockedAppointment.id).thenReturn(id);
-        when(mockedAppointment.getEventFilter()).thenReturn(ethersEventFilter);
+    const createMockAppointment = (id: string) => {
+        const mockedAppointment = mock(Appointment);
+        when(mockedAppointment.uniqueJobId()).thenReturn(id);
         return instance(mockedAppointment);
     };
 
-    const appointmentInstance1 = createMockAppointment(appointmentId1, eventFilter);
-    const appointmentInstance2 = createMockAppointment(appointmentId2, eventFilter);
-    const errorSubscriberAppointment = createMockAppointment(errorAppointmentID, eventFilter);
-    const errorStoreRemoveByIdAppointment = createMockAppointment(errorRemoveByIdId, eventFilter);
+    const appointmentInstance1 = createMockAppointment(appointmentId1);
+    const appointmentInstance2 = createMockAppointment(appointmentId2);
+    const errorSubscriberAppointment = createMockAppointment(errorAppointmentID);
+    const errorStoreRemoveByIdAppointment = createMockAppointment(errorRemoveByIdId);
 
     // mock the store
     const mockedStore = mock(AppointmentStore);
-    when(mockedStore.removeById(appointmentInstance1.id)).thenResolve(true);
-    when(mockedStore.removeById(appointmentInstance2.id)).thenResolve(true);
-    when(mockedStore.removeById(errorStoreRemoveByIdAppointment.id)).thenReject(new Error("Remove failed."));
+    when(mockedStore.removeById(appointmentInstance1.uniqueJobId())).thenResolve(true);
+    when(mockedStore.removeById(appointmentInstance2.uniqueJobId())).thenResolve(true);
+    when(mockedStore.removeById(errorStoreRemoveByIdAppointment.uniqueJobId())).thenReject(new Error("Remove failed."));
     when(mockedStore.getExpiredSince(appointment1Expired - confirmationCount)).thenReturn([appointmentInstance1]);
 
     when(mockedStore.getExpiredSince(appointment2Expired - confirmationCount)).thenReturn([appointmentInstance2]);
@@ -65,7 +55,7 @@ describe("GarbageCollector", () => {
     ]);
     when(mockedStore.getExpiredSince(nothingExpired - confirmationCount)).thenReturn([]);
     // wait some time, then call then return the appointment
-    when(mockedStore.removeById(appointmentInstance1.id)).thenCall(async () => {
+    when(mockedStore.removeById(appointmentInstance1.uniqueJobId())).thenCall(async () => {
         await wait(slowExpiredTime);
         return true;
     });

@@ -3,19 +3,19 @@ import yargs from "yargs";
 import { LogLevel } from "../logger";
 
 export interface IArgConfig {
-    jsonRpcUrl: string;
-    hostName: string;
-    hostPort: number;
-    responderKey: string;
-    receiptKey: string;
-    loglevel: string;
-    rateLimitUserWindowMs?: number;
-    rateLimitUserMax?: number;
-    rateLimitUserMessage?: string;
-    rateLimitGlobalWindowMs?: number;
-    rateLimitGlobalMax?: number;
-    rateLimitGlobalMessage?: string;
-    dbDir: string;
+    readonly jsonRpcUrl: string;
+    readonly hostName: string;
+    readonly hostPort: number;
+    readonly responderKey: string;
+    readonly receiptKey: string;
+    readonly loglevel: string;
+    readonly rateLimitUserWindowMs?: number;
+    readonly rateLimitUserMax?: number;
+    readonly rateLimitUserMessage?: string;
+    readonly rateLimitGlobalWindowMs?: number;
+    readonly rateLimitGlobalMax?: number;
+    readonly rateLimitGlobalMessage?: string;
+    readonly dbDir: string;
 }
 
 class ConfigProperty {

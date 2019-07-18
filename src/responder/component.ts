@@ -132,10 +132,11 @@ export class MultiResponderComponent extends Component<ResponderAnchorState, Blo
                 item =>
                     new ResponderAppointmentReducer(
                         blockCache,
-                        item.queueItem.request.identifier,
-                        item.id,
+                        item.request.identifier,
+                        item.request.appointment.uniqueJobId(),
                         responder.address
                     ),
+                item => item.request.appointment.uniqueJobId(),
                 new BlockNumberReducer()
             )
         );

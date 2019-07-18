@@ -1,7 +1,7 @@
 import { PisaService } from "./service";
 import { ethers } from "ethers";
 import jsonConfig, { IArgConfig, ConfigManager } from "./dataEntities/config";
-import { withDelay, validateProvider, getJsonRPCProvider } from "./utils/ethers";
+import { validateProvider, getJsonRPCProvider } from "./utils/ethers";
 import logger, { setLogLevel, LogLevel, LogLevelInfo } from "./logger";
 import levelup, { LevelUp } from "levelup";
 import encodingDown from "encoding-down";
@@ -46,10 +46,7 @@ async function startUp() {
     setLogLevel(logLevelInfo);
 
     const provider = getJsonRPCProvider(config.jsonRpcUrl);
-    const delayedProvider = getJsonRPCProvider(config.jsonRpcUrl);
-    withDelay(delayedProvider, 2);
     await validateProvider(provider);
-    await validateProvider(delayedProvider);
 
     const watcherWallet = new ethers.Wallet(config.responderKey, provider);
     const receiptSigner = new ethers.Wallet(config.receiptKey);

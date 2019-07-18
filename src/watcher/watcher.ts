@@ -1,4 +1,4 @@
-import { IEthereumAppointment } from "../dataEntities";
+import { Appointment } from "../dataEntities";
 import { ApplicationError, ArgumentError } from "../dataEntities/errors";
 import { AppointmentStore } from "./store";
 import { ReadOnlyBlockCache } from "../blockMonitor";
@@ -41,7 +41,7 @@ const hasLogMatchingEvent = (block: Block, filter: EventFilter): boolean => {
 };
 
 class AppointmentStateReducer implements StateReducer<WatcherAppointmentAnchorState, Block> {
-    constructor(private cache: ReadOnlyBlockCache<Block>, private appointment: IEthereumAppointment) {}
+    constructor(private cache: ReadOnlyBlockCache<Block>, private appointment: Appointment) {}
     public getInitialState(block: Block): WatcherAppointmentAnchorState {
         const filter = this.appointment.getEventFilter();
         if (!filter.topics) throw new ApplicationError(`topics should not be undefined`);
@@ -49,12 +49,12 @@ class AppointmentStateReducer implements StateReducer<WatcherAppointmentAnchorSt
         const eventAncestor = this.cache.findAncestor(block.hash, ancestor => hasLogMatchingEvent(ancestor, filter));
 
         if (!eventAncestor) {
-            logger.info(`Watching for appointment ${this.appointment.id}.`);
+            logger.info(`Watching for appointment ${this.appointment.uniqueJobId()}.`);
             return {
                 state: AppointmentState.WATCHING
             };
         } else {
-            logger.info(`Initial observed appointment ${this.appointment.id} in block ${eventAncestor.number}.`);
+            logger.info(`Initial observed appointment ${this.appointment.uniqueJobId()} in block ${eventAncestor.number}.`); // prettier-ignore
             return {
                 state: AppointmentState.OBSERVED,
                 blockObserved: eventAncestor.number
@@ -66,7 +66,7 @@ class AppointmentStateReducer implements StateReducer<WatcherAppointmentAnchorSt
             prevState.state === AppointmentState.WATCHING &&
             hasLogMatchingEvent(block, this.appointment.getEventFilter())
         ) {
-            logger.info(`Observed appointment ${this.appointment.id} in block ${block.number}.`);
+            logger.info(`Observed appointment ${this.appointment.uniqueJobId()} in block ${block.number}.`);
             return {
                 state: AppointmentState.OBSERVED,
                 blockObserved: block.number
@@ -98,7 +98,8 @@ export class Watcher extends Component<WatcherAnchorState, Block> {
         super(
             new MappedStateReducer(
                 () => store.getAll(),
-                (appointment: IEthereumAppointment) => new AppointmentStateReducer(blockCache, appointment),
+                appointment => new AppointmentStateReducer(blockCache, appointment),
+                appointment => appointment.uniqueJobId(),
                 new BlockNumberReducer()
             )
         );
@@ -140,7 +141,7 @@ export class Watcher extends Component<WatcherAnchorState, Block> {
                 logger.info(`Responding to appointment ${objId}, block ${state.blockNumber}.`);
                 // pass the appointment to the responder to complete. At this point the job has completed as far as
                 // the watcher is concerned, therefore although respond is an async function we do not need to await it for a result
-                await this.responder.startResponse(appointment.id, appointment.getResponseData());
+                await this.responder.startResponse(appointment);
             }
 
             if (

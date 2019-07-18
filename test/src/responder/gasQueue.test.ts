@@ -6,21 +6,32 @@ import {
     GasQueueItemRequest,
     PisaTransactionIdentifier
 } from "../../../src/responder/gasQueue";
-import { ArgumentError, IEthereumResponseData } from "../../../src/dataEntities";
+import { ArgumentError, Appointment } from "../../../src/dataEntities";
 import { BigNumber } from "ethers/utils";
 
 const createIdentifier = (data: string, to: string) => {
     return new PisaTransactionIdentifier(1, data, to, new BigNumber(0), new BigNumber(500));
 };
 
-const createResponseData = (): IEthereumResponseData => {
-    return {
-        contractAbi: "abi",
-        contractAddress: "address",
-        functionArgs: [],
-        functionName: "fnName",
-        endBlock: 10
-    };
+
+const createAppointment = (id: string): Appointment => {
+    return Appointment.fromIAppointment({
+        challengePeriod: 10,
+        contractAddress: "contractAddress",
+        customerAddress: "customerAddress",
+        data: "data",
+        endBlock: 10,
+        eventABI: "eventABI",
+        eventArgs: "eventArgs",
+        gas: 100,
+        id,
+        jobId: 1,
+        mode: 1,
+        paymentHash: "paymentHash",
+        postCondition: "postCondition",
+        refund: 3,
+        startBlock: 7
+    });
 };
 
 const createGasQueueItem = (
@@ -31,7 +42,7 @@ const createGasQueueItem = (
     identifier: PisaTransactionIdentifier
 ) => {
     return new GasQueueItem(
-        new GasQueueItemRequest(appointmentId, identifier, idealGasPrice, createResponseData()),
+        new GasQueueItemRequest(identifier, idealGasPrice, createAppointment(appointmentId)),
         currentGasPrice,
         idealGasPrice,
         nonce
@@ -163,10 +174,9 @@ describe("GasQueue", () => {
             createGasQueueItem("app2", 2, new BigNumber(9), new BigNumber(11), createIdentifier("data1", "to1"))
         ];
         const request = new GasQueueItemRequest(
-            "app1",
             createIdentifier("data2", "to2"),
             new BigNumber(8),
-            createResponseData()
+            createAppointment("app1")
         );
 
         const queue = new GasQueue(items, emptyNonce, replacementRate, maxQueueDepth);
@@ -194,10 +204,9 @@ describe("GasQueue", () => {
             createGasQueueItem("app3", 3, new BigNumber(80), new BigNumber(80), createIdentifier("data2", "to2"))
         ];
         const request = new GasQueueItemRequest(
-            "app1",
             createIdentifier("data3", "to3"),
             new BigNumber(110),
-            createResponseData()
+            createAppointment("app1")
         );
 
         const queue = new GasQueue(items, emptyNonce, replacementRate, maxQueueDepth);
@@ -238,10 +247,9 @@ describe("GasQueue", () => {
             createGasQueueItem("app3", 3, new BigNumber(80), new BigNumber(80), createIdentifier("data2", "to2"))
         ];
         const request = new GasQueueItemRequest(
-            "app1",
             createIdentifier("data3", "to3"),
             new BigNumber(110),
-            createResponseData()
+            createAppointment("app1")
         );
 
         const queue = new GasQueue(items, 4, 15, 3);

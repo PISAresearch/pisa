@@ -2,7 +2,6 @@ import "mocha";
 import mockito, { mock, instance, when, resetCalls } from "ts-mockito";
 import uuid from "uuid/v4";
 import { AppointmentStore } from "../../../src/watcher";
-import { KitsuneAppointment } from "../../../src/integrations/kitsune";
 import { ethers } from "ethers";
 import * as Ganache from "ganache-core";
 import { MultiResponder } from "../../../src/responder";
@@ -26,58 +25,58 @@ describe("Watcher", () => {
         address: "error address",
         topics: ["topic1", "topic2"]
     };
-    const createMockAppointment = (id: string, ethersEventFilter: ethers.EventFilter, passedInspection: boolean) => {
-        const mockedAppointment = mockito.mock(KitsuneAppointment);
-        mockito.when(mockedAppointment.id).thenReturn(id);
-        mockito.when(mockedAppointment.getEventFilter()).thenReturn(ethersEventFilter);
-        mockito.when(mockedAppointment.passedInspection).thenReturn(passedInspection);
-        mockito.when(mockedAppointment.getResponseData()).thenReturn({ contractAbi: "abi", contractAddress: "address", endBlock: 10, functionArgs: [], functionName: "fnName"})
-        return mockito.instance(mockedAppointment);
-    };
-    const appointmentCanBeUpdated = createMockAppointment(appointmentId1, eventFilter, true);
-    const appointmentNotUpdated = createMockAppointment(appointmentId2, eventFilter, true);
-    const appointmentNotInspected = createMockAppointment(appointmentId1, eventFilter, false);
-    const appointmentErrorUpdate = createMockAppointment(appointmentErrorUpdateStateId, eventFilter, true);
-    const appointmentErrorUnsubscribe = createMockAppointment(appointmentErrorUnsubscribeId, errorEventFilter, true);
-    const appointmentErrorSubscribeOnce = createMockAppointment(appointmentErrorSubscribeOnceId, eventFilter, true);
+    // const createMockAppointment = (id: string, ethersEventFilter: ethers.EventFilter, passedInspection: boolean) => {
+    //     const mockedAppointment = mockito.mock(KitsuneAppointment);
+    //     mockito.when(mockedAppointment.id).thenReturn(id);
+    //     mockito.when(mockedAppointment.getEventFilter()).thenReturn(ethersEventFilter);
+    //     mockito.when(mockedAppointment.passedInspection).thenReturn(passedInspection);
+    //     mockito.when(mockedAppointment.getResponseData()).thenReturn({ contractAbi: "abi", contractAddress: "address", endBlock: 10, functionArgs: [], functionName: "fnName"})
+    //     return mockito.instance(mockedAppointment);
+    // };
+    // const appointmentCanBeUpdated = createMockAppointment(appointmentId1, eventFilter, true);
+    // const appointmentNotUpdated = createMockAppointment(appointmentId2, eventFilter, true);
+    // const appointmentNotInspected = createMockAppointment(appointmentId1, eventFilter, false);
+    // const appointmentErrorUpdate = createMockAppointment(appointmentErrorUpdateStateId, eventFilter, true);
+    // const appointmentErrorUnsubscribe = createMockAppointment(appointmentErrorUnsubscribeId, errorEventFilter, true);
+    // const appointmentErrorSubscribeOnce = createMockAppointment(appointmentErrorSubscribeOnceId, eventFilter, true);
 
-    // BlockProcessor mock
-    const mockedBlockProcessor = mock(BlockProcessor);
-    const blockProcessor = instance(mockedBlockProcessor);
+    // // BlockProcessor mock
+    // const mockedBlockProcessor = mock(BlockProcessor);
+    // const blockProcessor = instance(mockedBlockProcessor);
 
-    // store mock
-    const mockedStore = mock(AppointmentStore);
-    when(mockedStore.addOrUpdateByStateLocator(appointmentCanBeUpdated)).thenResolve(true);
-    when(mockedStore.addOrUpdateByStateLocator(appointmentNotUpdated)).thenResolve(false);
-    when(mockedStore.addOrUpdateByStateLocator(appointmentErrorSubscribeOnce)).thenResolve(true);
-    when(mockedStore.addOrUpdateByStateLocator(appointmentErrorUnsubscribe)).thenResolve(true);
-    when(mockedStore.addOrUpdateByStateLocator(appointmentErrorUpdate)).thenReject(new Error("Store update failure."));
-    const store = instance(mockedStore);
+    // // store mock
+    // const mockedStore = mock(AppointmentStore);
+    // when(mockedStore.addOrUpdateByStateLocator(appointmentCanBeUpdated)).thenResolve(true);
+    // when(mockedStore.addOrUpdateByStateLocator(appointmentNotUpdated)).thenResolve(false);
+    // when(mockedStore.addOrUpdateByStateLocator(appointmentErrorSubscribeOnce)).thenResolve(true);
+    // when(mockedStore.addOrUpdateByStateLocator(appointmentErrorUnsubscribe)).thenResolve(true);
+    // when(mockedStore.addOrUpdateByStateLocator(appointmentErrorUpdate)).thenReject(new Error("Store update failure."));
+    // const store = instance(mockedStore);
 
-    const mockedResponder = mock(MultiResponder);
-    when(mockedResponder.startResponse(appointmentCanBeUpdated.id, appointmentCanBeUpdated.getResponseData()));
-    const responderInstance = instance(mockedResponder);
+    // const mockedResponder = mock(MultiResponder);
+    // when(mockedResponder.startResponse(appointmentCanBeUpdated.id, appointmentCanBeUpdated.getResponseData()));
+    // const responderInstance = instance(mockedResponder);
 
-    const mockedResponderThatThrows = mock(MultiResponder);
-    when(mockedResponderThatThrows.startResponse(appointmentCanBeUpdated.id, appointmentCanBeUpdated.getResponseData())).thenThrow(new Error("Responder error."));
-    const responderInstanceThrow = instance(mockedResponderThatThrows);
+    // const mockedResponderThatThrows = mock(MultiResponder);
+    // when(mockedResponderThatThrows.startResponse(appointmentCanBeUpdated.id, appointmentCanBeUpdated.getResponseData())).thenThrow(new Error("Responder error."));
+    // const responderInstanceThrow = instance(mockedResponderThatThrows);
 
-    const mockedStoreThatThrows = mock(AppointmentStore);
-    when(mockedStoreThatThrows.removeById(appointmentCanBeUpdated.id)).thenReject(new Error("Store error."));
-    when(mockedStoreThatThrows.getAll()).thenReturn([appointmentCanBeUpdated, appointmentNotUpdated]);
-    const storeInstanceThrow = instance(mockedStoreThatThrows);
+    // const mockedStoreThatThrows = mock(AppointmentStore);
+    // when(mockedStoreThatThrows.removeById(appointmentCanBeUpdated.id)).thenReject(new Error("Store error."));
+    // when(mockedStoreThatThrows.getAll()).thenReturn([appointmentCanBeUpdated, appointmentNotUpdated]);
+    // const storeInstanceThrow = instance(mockedStoreThatThrows);
 
-    const event = {
-        blockNumber: 10
-    } as ethers.Event;
+    // const event = {
+    //     blockNumber: 10
+    // } as ethers.Event;
 
-    afterEach(() => {
-        resetCalls(mockedStore);
-        resetCalls(mockedResponder);
-        resetCalls(mockedStore);
-        resetCalls(mockedResponderThatThrows);
-        resetCalls(mockedStoreThatThrows);
-    });
+    // afterEach(() => {
+    //     resetCalls(mockedStore);
+    //     resetCalls(mockedResponder);
+    //     resetCalls(mockedStore);
+    //     resetCalls(mockedResponderThatThrows);
+    //     resetCalls(mockedStoreThatThrows);
+    // });
 
     // it("add appointment updates store and subscriptions", async () => {
     //     const watcher = new Watcher(responderInstance, blockProcessor, store, 0, 20);

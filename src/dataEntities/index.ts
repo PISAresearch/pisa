@@ -1,4 +1,4 @@
-export { IAppointment, IEthereumAppointment, EthereumAppointment, IEthereumResponseData } from "./appointment";
+export { IAppointment, IAppointmentRequest, Appointment } from "./appointment";
 export {
     ArgumentError,
     TimeoutError,

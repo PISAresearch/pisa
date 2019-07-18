@@ -1,4 +1,4 @@
-import { IEthereumResponseData, ArgumentError, ApplicationError } from "../dataEntities";
+import { Appointment, ArgumentError, ApplicationError } from "../dataEntities";
 import { BigNumber } from "ethers/utils";
 import { ethers } from "ethers";
 
@@ -34,13 +34,12 @@ export class GasQueueItemRequest {
      * A request to a queue a transaction at a specified gas price.
      * @param identifier
      * @param idealGasPrice The minimum gas price at which this item should be submitted to the network
-     * @param responseData The response data relevant to this request
+     * @param appointment The appointment data relevant to this request
      */
     constructor(
-        public readonly appointmentId: string,
         public readonly identifier: PisaTransactionIdentifier,
         public readonly idealGasPrice: BigNumber,
-        public readonly responseData: IEthereumResponseData
+        public readonly appointment: Appointment
     ) {}
 }
 
@@ -292,7 +291,7 @@ export class GasQueue {
      * @param otherQueue
      */
     public difference(otherQueue: GasQueue): GasQueueItem[] {
-        return this.queueItems.filter(tx => !otherQueue.queueItems.includes(tx));
+        return this.queueItems.filter(item => !otherQueue.queueItems.includes(item));
     }
 
     /**
@@ -303,7 +302,6 @@ export class GasQueue {
         return this.queueItems.findIndex(i => i.request.identifier.equals(identifier)) !== -1;
     }
 
-    
     /**
      * Re-add some items that have lower nonces than any in the current queue.
      * These items will be added to the front of the qeueue, then the queue will

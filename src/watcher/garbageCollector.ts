@@ -13,7 +13,6 @@ export class AppointmentStoreGarbageCollector extends StartStopService {
      * @param provider Used to monitor the blockchain for new blocks
      * @param confirmationCount The number of confirmation window allowed to gain certainty that an appointment has indeed expired
      * @param store The store to update when appointments expire
-     * @param appointmentSubscriber The subscriber to update when appointments expire
      */
     constructor(
         private readonly provider: ethers.providers.Provider,
@@ -68,7 +67,7 @@ export class AppointmentStoreGarbageCollector extends StartStopService {
                     // wait for all appointments to be removed from the store and the subscribers
                     await Promise.all(
                         expiredAppointments.map(async a => {
-                            await this.store.removeById(a.id);
+                            await this.store.removeById(a.uniqueJobId());
                             this.logger.info(a.formatLog(`Collected appointment with end: ${a.endBlock}.`));
                         })
                     );
