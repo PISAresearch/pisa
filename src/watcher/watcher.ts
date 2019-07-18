@@ -1,4 +1,4 @@
-import { IEthereumAppointment } from "../dataEntities";
+import { Appointment } from "../dataEntities";
 import { ApplicationError, ArgumentError } from "../dataEntities/errors";
 import { AppointmentStore } from "./store";
 import { ReadOnlyBlockCache } from "../blockMonitor";
@@ -32,8 +32,21 @@ export type WatcherAppointmentAnchorState =
 /** The complete anchor state for the watcher, that also includes the block number */
 type WatcherAnchorState = MappedState<WatcherAppointmentAnchorState> & BlockNumberState;
 
+<<<<<<< HEAD
 export class WatcherAppointmentStateReducer implements StateReducer<WatcherAppointmentAnchorState, IBlockStub & Logs> {
     constructor(private cache: ReadOnlyBlockCache<IBlockStub & Logs>, private appointment: IEthereumAppointment) {
+=======
+// TODO:198: move this to a utility function somewhere
+const hasLogMatchingEvent = (block: Block, filter: EventFilter): boolean => {
+    return block.logs.some(
+        log => log.address === filter.address && filter.topics!.every((topic, idx) => log.topics[idx] === topic)
+    );
+};
+
+class AppointmentStateReducer implements StateReducer<WatcherAppointmentAnchorState, Block> {
+    constructor(private cache: ReadOnlyBlockCache<Block>, private appointment: Appointment) {}
+    public getInitialState(block: Block): WatcherAppointmentAnchorState {
+>>>>>>> First step towards generalising appointment type
         const filter = this.appointment.getEventFilter();
         if (!filter.topics) throw new ApplicationError(`topics should not be undefined`);
     }
@@ -45,10 +58,18 @@ export class WatcherAppointmentStateReducer implements StateReducer<WatcherAppoi
         );
 
         if (!eventAncestor) {
+<<<<<<< HEAD
+=======
+            logger.info(`Watching for appointment ${this.appointment.uniqueJobId()}.`);
+>>>>>>> First step towards generalising appointment type
             return {
                 state: WatcherAppointmentState.WATCHING
             };
         } else {
+<<<<<<< HEAD
+=======
+            logger.info(`Initial observed appointment ${this.appointment.uniqueJobId()} in block ${eventAncestor.number}.`); // prettier-ignore
+>>>>>>> First step towards generalising appointment type
             return {
                 state: WatcherAppointmentState.OBSERVED,
                 blockObserved: eventAncestor.number
@@ -60,6 +81,10 @@ export class WatcherAppointmentStateReducer implements StateReducer<WatcherAppoi
             prevState.state === WatcherAppointmentState.WATCHING &&
             hasLogMatchingEventFilter(block, this.appointment.getEventFilter())
         ) {
+<<<<<<< HEAD
+=======
+            logger.info(`Observed appointment ${this.appointment.uniqueJobId()} in block ${block.number}.`);
+>>>>>>> First step towards generalising appointment type
             return {
                 state: WatcherAppointmentState.OBSERVED,
                 blockObserved: block.number
@@ -91,7 +116,12 @@ export class Watcher extends Component<WatcherAnchorState, IBlockStub & Logs> {
         super(
             new MappedStateReducer(
                 () => store.getAll(),
+<<<<<<< HEAD
                 (appointment: IEthereumAppointment) => new WatcherAppointmentStateReducer(blockCache, appointment),
+=======
+                appointment => new AppointmentStateReducer(blockCache, appointment),
+                appointment => appointment.uniqueJobId(),
+>>>>>>> First step towards generalising appointment type
                 new BlockNumberReducer()
             )
         );
@@ -157,7 +187,7 @@ export class Watcher extends Component<WatcherAnchorState, IBlockStub & Logs> {
                 logger.info(`Responding to appointment ${appointmentId}, block ${state.blockNumber}.`);
                 // pass the appointment to the responder to complete. At this point the job has completed as far as
                 // the watcher is concerned, therefore although respond is an async function we do not need to await it for a result
-                await this.responder.startResponse(appointment.id, appointment.getResponseData());
+                await this.responder.startResponse(appointment);
             }
 
             // Cleanup if done with appointment

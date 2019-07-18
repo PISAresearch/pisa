@@ -1,4 +1,4 @@
-import { IEthereumResponseData, ArgumentError, IBlockStub } from "../dataEntities";
+import { Appointment, ArgumentError, IBlockStub } from "../dataEntities";
 import { ReadOnlyBlockCache } from "../blockMonitor";
 import { BigNumber } from "ethers/utils";
 import { ethers } from "ethers";
@@ -19,12 +19,12 @@ export class GasPriceEstimator {
     /**
      * Uses the current state of the network, and any information to be found in the
      * appointment data, to try estimate an appropriate gas price.
-     * @param responseData
+     * @param appointment
      */
-    public async estimate(responseData: IEthereumResponseData): Promise<BigNumber> {
+    public async estimate(appointment: Appointment): Promise<BigNumber> {
         const currentPrice = await this.provider.getGasPrice();
         const currentHead = this.blockCache.head;
-        const timeLeft = responseData.endBlock - currentHead.number;
+        const timeLeft = appointment.endBlock - currentHead.number;
 
         const curve = new ExponentialGasCurve(currentPrice);
         return curve.getGasPrice(timeLeft);

@@ -6,7 +6,7 @@ import uuid from "uuid/v4";
 import fs from "fs";
 import path from "path";
 import { ethers } from "ethers";
-import { KitsuneTools } from "../../../src/integrations/kitsune";
+import { KitsuneTools } from "../../../src/integrations/kitsune/tools";
 import request from "request-promise";
 import { ChannelType } from "../../../src/dataEntities";
 import { wait } from "../../../src/utils";

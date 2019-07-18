@@ -1,12 +1,12 @@
 import * as chai from "chai";
 import "mocha";
 import request from "request-promise";
-import { KitsuneTools } from "../../src/integrations/kitsune";
+import { KitsuneTools } from "../../src/integrations/kitsune/tools";
 import { ethers, Wallet } from "ethers";
 import { PisaService } from "../../src/service";
 import config from "../../src/dataEntities/config";
 import Ganache from "ganache-core";
-import { ChannelType } from "../../src/dataEntities";
+import { ChannelType, IAppointmentRequest } from "../../src/dataEntities";
 import logger from "../../src/logger";
 import StateChannelFactory from "../../src/integrations/kitsune/StateChannelFactory.json";
 import levelup, { LevelUp } from "levelup";
@@ -18,12 +18,23 @@ logger.transports.forEach(l => (l.level = "max"));
 const ganache = Ganache.provider({
     mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect"
 });
+<<<<<<< HEAD
 config.hostName = "localhost";
 config.hostPort = 3000;
 config.jsonRpcUrl = "http://localhost:8545";
 config.responderKey = "0x6370fd033278c143179d81c5526140625662b8daa446c22ee2d73db3707e620c";
 config.receiptKey = "0x6370fd033278c143179d81c5526140625662b8daa446c22ee2d73db3707e620c";
 config.watcherResponseConfirmations = 0;
+=======
+const nextConfig = {
+    ...config,
+    hostName: "localhost",
+    hostPort: 3000,
+    jsonRpcUrl: "http://localhost:8545",
+    responderKey: "0x6370fd033278c143179d81c5526140625662b8daa446c22ee2d73db3707e620c",
+    receiptKey: "0x6370fd033278c143179d81c5526140625662b8daa446c22ee2d73db3707e620c"
+};
+>>>>>>> First step towards generalising appointment type
 
 const provider = new ethers.providers.Web3Provider(ganache);
 provider.pollingInterval = 100;
@@ -40,7 +51,7 @@ describe("Service end-to-end", () => {
         db: LevelUp<encodingDown<string, any>>;
 
     beforeEach(async () => {
-        const responderWallet = new ethers.Wallet(config.responderKey, provider);
+        const responderWallet = new ethers.Wallet(nextConfig.responderKey, provider);
 
         db = levelup(
             encodingDown<string, any>(MemDown(), {
@@ -48,9 +59,13 @@ describe("Service end-to-end", () => {
             })
         );
 
-        const signerWallet = new ethers.Wallet(config.receiptKey!, provider);
+        const signerWallet = new ethers.Wallet(nextConfig.receiptKey!, provider);
 
+<<<<<<< HEAD
         service = new PisaService(config, provider, responderWallet, signerWallet, db);
+=======
+        service = new PisaService(nextConfig, provider, responderWallet, signerWallet, db, 0, 20);
+>>>>>>> First step towards generalising appointment type
         await service.start();
 
         // accounts
@@ -77,11 +92,11 @@ describe("Service end-to-end", () => {
     });
 
     it("service cannot be accessed during startup", async () => {
-        const watcherWallet = new ethers.Wallet(config.responderKey, provider);
-        const signerWallet = new ethers.Wallet(config.receiptKey!, provider);
+        const watcherWallet = new ethers.Wallet(nextConfig.responderKey, provider);
+        const signerWallet = new ethers.Wallet(nextConfig.receiptKey!, provider);
 
         const exService = new PisaService(
-            { ...config, hostPort: config.hostPort + 1 },
+            { ...nextConfig, hostPort: nextConfig.hostPort + 1 },
             provider,
             watcherWallet,
             signerWallet,
@@ -106,7 +121,7 @@ describe("Service end-to-end", () => {
 
         let res;
         try {
-            res = await request.post(`http://${config.hostName}:${config.hostPort + 1}/appointment`, {
+            res = await request.post(`http://${nextConfig.hostName}:${nextConfig.hostPort + 1}/appointment`, {
                 json: appointment
             });
 
@@ -122,24 +137,51 @@ describe("Service end-to-end", () => {
     });
 
     it("create channel, submit appointment, trigger dispute, wait for response", async () => {
-        const round = 1,
-            setStateHash = KitsuneTools.hashForSetState(hashState, round, channelContract.address),
-            sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash)),
-            sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash)),
-            expiryPeriod = disputePeriod + 1;
-        const appointment = {
-            expiryPeriod,
-            type: ChannelType.Kitsune,
-            stateUpdate: {
+        // const round = 1,
+        //     setStateHash = KitsuneTools.hashForSetState(hashState, round, channelContract.address),
+        //     sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash)),
+        //     sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash)),
+        const expiryPeriod = disputePeriod + 1;
+        // const appointment = {
+        //     expiryPeriod,
+        //     type: ChannelType.Kitsune,
+        //     stateUpdate: {
+        //         contractAddress: channelContract.address,
+        //         hashState,
+        //         round,
+        //         signatures: [sig0, sig1]
+        //     }
+        // };
+
+        const round = 1;
+        const setStateHash = KitsuneTools.hashForSetState(hashState, round, channelContract.address);
+        const sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash));
+        const sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash));
+        const data = KitsuneTools.packData(hashState, round, sig0, sig1);
+
+        const appointmentRequest = (data: string, acc: string): IAppointmentRequest => {
+            return {
+                challengePeriod: 20,
                 contractAddress: channelContract.address,
-                hashState,
-                round,
-                signatures: [sig0, sig1]
-            }
+                customerAddress: acc,
+                data,
+                endBlock: 22,
+                eventABI: "event EventDispute(uint256 indexed)",
+                eventArgs: KitsuneTools.eventArgs(),
+                gas: 100000,
+                id: channelContract.address,
+                jobId: 0,
+                mode: 0,
+                postCondition: "0x",
+                refund: 0,
+                startBlock: 0
+            };
         };
 
-        const res = await request.post(`http://${config.hostName}:${config.hostPort}/appointment`, {
-            json: appointment
+        const appRequest = appointmentRequest(data, account0);
+
+        const res = await request.post(`http://${nextConfig.hostName}:${nextConfig.hostPort}/appointment`, {
+            json: appRequest
         });
 
         // now register a callback on the setstate event and trigger a response
@@ -183,7 +225,7 @@ describe("Service end-to-end", () => {
         const startBlock = await provider.getBlockNumber();
         const endBlock = startBlock + appointment.expiryPeriod;
 
-        const res = await request.post(`http://${config.hostName}:${config.hostPort}/appointment`, {
+        const res = await request.post(`http://${nextConfig.hostName}:${nextConfig.hostPort}/appointment`, {
             json: appointment
         });
 
@@ -197,7 +239,7 @@ describe("Service end-to-end", () => {
             ]
         );
         const digest = ethers.utils.keccak256(packedData);
-        const signer = new Wallet(config.receiptKey!);
+        const signer = new Wallet(nextConfig.receiptKey!);
         const sig = await signer.signMessage(digest);
 
         expect(res).to.deep.equal({
@@ -497,7 +539,7 @@ describe("Service end-to-end", () => {
             }
         };
         try {
-            await request.post(`http://${config.hostName}:${config.hostPort}/appointment`, {
+            await request.post(`http://${nextConfig.hostName}:${nextConfig.hostPort}/appointment`, {
                 json: appointment
             });
         } catch (doh) {
@@ -507,7 +549,7 @@ describe("Service end-to-end", () => {
 
     const failWithCode = async (errorMessage: string, appointment: any) => {
         try {
-            await request.post(`http://${config.hostName}:${config.hostPort}/appointment`, {
+            await request.post(`http://${nextConfig.hostName}:${nextConfig.hostPort}/appointment`, {
                 json: appointment
             });
             chai.assert.fail(true, false, "Request was successful when it should have failed.");

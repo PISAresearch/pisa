@@ -1,7 +1,8 @@
-import { IEthereumAppointment, StartStopService, IAppointment, ChannelType, ConfigurationError } from "../dataEntities";
+import { StartStopService, IAppointment, ChannelType, ConfigurationError } from "../dataEntities";
 import { LevelUp } from "levelup";
 import encodingDown from "encoding-down";
 import { LockManager } from "../utils/lock";
+import { Appointment } from "../dataEntities/appointment";
 
 /**
  * The functionality required in an appointment store
@@ -14,19 +15,19 @@ export interface IAppointmentStore {
      * already exist, then appointment is added.
      * @param appointment
      */
-    addOrUpdateByStateLocator(appointment: IEthereumAppointment): Promise<boolean>;
+    addOrUpdateByStateLocator(appointment: Appointment): Promise<boolean>;
 
     /**
      * Remove an appointment which matches this id. Do nothing if that appointment does not exist.
-     * @param appointmentId
+     * @param uniqueJobId
      */
-    removeById(appointmentId: string): Promise<boolean>;
+    removeById(uniqueJobId: string): Promise<boolean>;
 
     /**
      * Find all appointments that have expired at a certain block.
      * @param block
      */
-    getExpiredSince(block: number): IterableIterator<IEthereumAppointment>;
+    getExpiredSince(block: number): IterableIterator<Appointment>;
 }
 
 /**
@@ -36,7 +37,8 @@ export interface IAppointmentStore {
 export class AppointmentStore extends StartStopService implements IAppointmentStore {
     constructor(
         private readonly db: LevelUp<encodingDown<string, any>>,
-        private readonly appointmentConstructors: Map<ChannelType, (obj: any) => IEthereumAppointment>
+        //TODO:173: clean this up
+    //    private readonly appointmentConstructors: Map<ChannelType, (obj: any) => IAppointment2>
     ) {
         super("appointment-store");
     }
@@ -45,14 +47,16 @@ export class AppointmentStore extends StartStopService implements IAppointmentSt
         // access the db and load all state
         for await (const record of this.db.createValueStream()) {
             // the typing here insist this is a string
-            const type = ((record as any) as IAppointment).type;
-            const constrctr = this.appointmentConstructors.get(type);
-            if (!constrctr) throw new ConfigurationError(`Unrecognised channel type: ${type}.`);
+            // TODO:173: clean up this types stuff
+            //const type = ((record as any) as IAppointment2).type;
+            //const constrctr = this.appointmentConstructors.get(type);
+            //if (!constrctr) throw new ConfigurationError(`Unrecognised channel type: ${type}.`);
 
-            const appointment = constrctr(record);
+            //const appointment = constrctr(record);
+            const appointment = Appointment.fromIAppointment((record as any) as IAppointment);
             // // add too the indexes
-            this.mAppointmentsById.set(appointment.id, appointment);
-            this.appointmentsByStateLocator[appointment.getStateLocator()] = appointment;
+            this.mAppointmentsById.set(appointment.uniqueJobId(), appointment);
+            this.appointmentsByStateLocator[appointment.uniqueId()] = appointment;
         }
     }
 
@@ -60,15 +64,15 @@ export class AppointmentStore extends StartStopService implements IAppointmentSt
         // do nothing
     }
 
-    private readonly mAppointmentsById: Map<string, IEthereumAppointment> = new Map();
+    private readonly mAppointmentsById: Map<string, Appointment> = new Map();
     private readonly appointmentsByStateLocator: {
-        [appointmentStateLocator: string]: IEthereumAppointment;
+        [appointmentStateLocator: string]: Appointment;
     } = {};
 
     /**
      * Accessor to the appointments in this store.
      */
-    public get appointmentsById(): ReadonlyMap<string, IEthereumAppointment> {
+    public get appointmentsById(): ReadonlyMap<string, Appointment> {
         return this.mAppointmentsById;
     }
 
@@ -77,6 +81,7 @@ export class AppointmentStore extends StartStopService implements IAppointmentSt
     // Instead, multiple appointments can share the same state locator.
     private stateLocatorLockManager = new LockManager();
 
+    // TODO:173: are these docs still correct?
     /**
      * Checks to see if an appointment with the current state update exists. If it does
      * exist the current appointment is updated iff it has a lower nonce than the supplied
@@ -84,36 +89,33 @@ export class AppointmentStore extends StartStopService implements IAppointmentSt
      * Returns true if the supplied item was added or updated in the store.
      * @param appointment
      */
-    public addOrUpdateByStateLocator(appointment: IEthereumAppointment): Promise<boolean> {
+    public addOrUpdateByStateLocator(appointment: Appointment): Promise<boolean> {
+        // TODO:173: here we dont update by state selector, we update by appointment id
+        // TODO:173: and we dont check the nonce, we check the job id
+
         // As we are accessing data structures by state locator, we make sure to acquire a lock on it
-        return this.stateLocatorLockManager.withLock(appointment.getStateLocator(), async () => {
-            const currentAppointment = this.appointmentsByStateLocator[appointment.getStateLocator()];
+        return this.stateLocatorLockManager.withLock(appointment.uniqueId(), async () => {
+            
+            const currentAppointment = this.appointmentsByStateLocator[appointment.uniqueId()];
             // is there a current appointment
             if (currentAppointment) {
-                if (currentAppointment.getStateNonce() >= appointment.getStateNonce()) {
-                    this.logger.info(
-                        appointment.formatLog(
-                            `Nonce ${appointment.getStateNonce()} is lower than current appointment ${
-                                currentAppointment.id
-                            } nonce ${currentAppointment.getStateNonce()}`
-                        )
-                    );
-
+                if (currentAppointment.jobId >= appointment.jobId) {
+                    this.logger.info(appointment.formatLog(`Nonce ${appointment.jobId} is lower than current appointment ${currentAppointment.uniqueId()} nonce ${currentAppointment.jobId}`)); //prettier-ignore
                     return false;
                 } else {
                     // remove the old appointment
-                    this.mAppointmentsById.delete(currentAppointment.id);
+                    this.mAppointmentsById.delete(currentAppointment.uniqueJobId());
                 }
             }
 
             // update the db
-            const batch = this.db.batch().put(appointment.id, appointment.getDBRepresentation());
-            if (currentAppointment) await batch.del(currentAppointment.id).write();
+            const batch = this.db.batch().put(appointment.uniqueJobId(), Appointment.toIAppointment(appointment));
+            if (currentAppointment) await batch.del(currentAppointment.uniqueJobId()).write();
             else await batch.write();
 
             // add the new appointment
-            this.appointmentsByStateLocator[appointment.getStateLocator()] = appointment;
-            this.mAppointmentsById.set(appointment.id, appointment);
+            this.appointmentsByStateLocator[appointment.uniqueId()] = appointment;
+            this.mAppointmentsById.set(appointment.uniqueJobId(), appointment);
             return true;
         });
     }
@@ -126,7 +128,7 @@ export class AppointmentStore extends StartStopService implements IAppointmentSt
     public async removeById(appointmentId: string): Promise<boolean> {
         const appointment = this.mAppointmentsById.get(appointmentId);
         if (appointment) {
-            const stateLocator = appointment.getStateLocator();
+            const stateLocator = appointment.uniqueId();
             // remove the appointment from the id index
             this.mAppointmentsById.delete(appointmentId);
 
@@ -136,7 +138,7 @@ export class AppointmentStore extends StartStopService implements IAppointmentSt
                 // remove the appointment from the state locator index
                 const currentAppointment = this.appointmentsByStateLocator[stateLocator];
                 // if it has the same id
-                if (currentAppointment.id === appointmentId) {
+                if (currentAppointment.uniqueJobId() === appointmentId) {
                     delete this.appointmentsByStateLocator[stateLocator];
                 }
             });
@@ -160,7 +162,7 @@ export class AppointmentStore extends StartStopService implements IAppointmentSt
      * remain effecient as blocks are removed.
      * @param expiryBlock
      */
-    public *getExpiredSince(expiryBlock: number) {
+    public *getExpiredSince(expiryBlock: number): IterableIterator<Appointment> {
         for (const appointment of this.appointmentsById.values()) {
             if (appointment.endBlock < expiryBlock) {
                 yield appointment;
@@ -171,7 +173,7 @@ export class AppointmentStore extends StartStopService implements IAppointmentSt
     /**
      * Get all the appointments in the store
      */
-    public getAll(): IEthereumAppointment[] {
+    public getAll(): Appointment[] {
         // all appointments must have expired by the time block number reaches max int
         return [...this.getExpiredSince(Number.MAX_SAFE_INTEGER)];
     }

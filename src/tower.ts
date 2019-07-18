@@ -1,9 +1,9 @@
-import { EthereumAppointment, PublicDataValidationError, ChannelType } from "./dataEntities";
-import { Inspector } from "./inspector";
-import { IChannelConfig } from "./integrations";
+import { PublicDataValidationError } from "./dataEntities";
+// import { Inspector } from "./inspector";
+// import { IChannelConfig } from "./integrations";
 import { AppointmentStore } from "./watcher";
 import { ethers } from "ethers";
-import { SignedAppointment } from "./dataEntities/appointment";
+import { SignedAppointment, IAppointmentRequest, IAppointment, Appointment } from "./dataEntities/appointment";
 
 /**
  * A PISA tower, configured to watch for specified appointment types
@@ -12,15 +12,14 @@ export class PisaTower {
     constructor(
         public readonly provider: ethers.providers.Provider,
         private readonly store: AppointmentStore,
-        private readonly appointmentSigner: EthereumAppointmentSigner,
-        channelConfigs: IChannelConfig<EthereumAppointment, Inspector<EthereumAppointment>>[]
+        private readonly appointmentSigner: EthereumAppointmentSigner //TODO:173: remove these configs //channelConfigs: IChannelConfig<EthereumAppointment, Inspector<EthereumAppointment>>[]
     ) {
-        channelConfigs.forEach(c => (this.configs[c.channelType] = c));
+        //channelConfigs.forEach(c => (this.configs[c.channelType] = c));
     }
 
-    public configs: {
-        [type: string]: IChannelConfig<EthereumAppointment, Inspector<EthereumAppointment>>;
-    } = {};
+    // public configs: {
+    //     [type: string]: IChannelConfig<EthereumAppointment, Inspector<EthereumAppointment>>;
+    // } = {};
 
     /**
      * Checks that the object is well formed, that it meets the conditions necessary for watching and assigns it to be watched.
@@ -30,16 +29,26 @@ export class PisaTower {
         if (!obj) throw new PublicDataValidationError("No content specified.");
 
         // look for a type argument
-        const type = obj["type"];
-        const config = this.configs[type];
-        if (!config) throw new PublicDataValidationError(`Unknown appointment type ${type}.`);
+        // const type = obj["type"];
+        // const config = this.configs[type];
+        // if (!config) throw new PublicDataValidationError(`Unknown appointment type ${type}.`);
 
         // parse the appointment
-        const appointment = config.appointment(obj);
 
-        const inspector = config.inspector(config.minimumDisputePeriod, this.provider);
+        // TODO:173: need to a) parse correctly b) inspect
+        //const appointment = config.appointment(obj);
+
+        //const inspector = config.inspector(config.minimumDisputePeriod, this.provider);
         // inspect this appointment, an error is thrown if inspection is failed
-        await inspector.inspectAndPass(appointment);
+        //await inspector.inspectAndPass(appointment);
+
+        const request = obj as IAppointmentRequest;
+        //TODO:173: do this elsewhere
+        //TODO:173: also we should put this string in config so that we can revoke freemium
+        const appointment: Appointment = Appointment.fromIAppointment({
+            ...request,
+            paymentHash: ethers.utils.keccak256(ethers.utils.toUtf8Bytes("on-the-house"))
+        });
 
         // add this to the store so that other components can pick up on it
         await this.store.addOrUpdateByStateLocator(appointment);
@@ -58,7 +67,7 @@ export abstract class EthereumAppointmentSigner {
      *
      * @param appointment
      */
-    public abstract signAppointment(appointment: EthereumAppointment): Promise<string>;
+    public abstract signAppointment(appointment: IAppointment): Promise<string>;
 }
 
 /**
@@ -74,14 +83,9 @@ export class HotEthereumAppointmentSigner extends EthereumAppointmentSigner {
      *
      * @param appointment
      */
-    public signAppointment(appointment: EthereumAppointment): Promise<string> {
-        const packedData = ethers.utils.solidityPack(
-            ["string", "uint", "uint", "uint"],
-            [appointment.getStateLocator(), appointment.getStateNonce(), appointment.startBlock, appointment.endBlock]
-        );
-
+    public signAppointment(appointment: Appointment): Promise<string> {
+        const packedData = appointment.solidityPacked()
         const digest = ethers.utils.keccak256(packedData);
-
         return this.signer.signMessage(digest);
     }
 }

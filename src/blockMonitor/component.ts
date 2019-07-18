@@ -37,7 +37,7 @@ export class MappedStateReducer<
     TState extends AnchorState,
     TMappedState extends AnchorState,
     TBlock extends IBlockStub,
-    TMappedType extends { id: string }
+    TMappedType extends AnchorState
 > implements StateReducer<MappedState<TMappedState>, TBlock> {
     /**
      * Creates a new reducer for the given collection of objects.
@@ -51,6 +51,7 @@ export class MappedStateReducer<
     constructor(
         public readonly getItems: () => Iterable<TMappedType>,
         public readonly getBaseReducer: (obj: TMappedType) => StateReducer<TMappedState, TBlock>,
+        public readonly idSelector: (obj: TMappedType) => string,
         public readonly reducer: StateReducer<TState, TBlock>
     ) {}
 
@@ -62,7 +63,8 @@ export class MappedStateReducer<
         const items: Map<string, TMappedState> = new Map();
         for (const obj of this.getItems()) {
             const baseReducer = this.getBaseReducer(obj);
-            items.set(obj.id, baseReducer.getInitialState(block));
+            const id = this.idSelector(obj);
+            items.set(id, baseReducer.getInitialState(block));
         }
         const state = this.reducer.getInitialState(block);
 
@@ -79,9 +81,10 @@ export class MappedStateReducer<
         const items: Map<string, TMappedState> = new Map();
         for (const obj of this.getItems()) {
             const baseReducer = this.getBaseReducer(obj);
-            const prevObjState = prevState.items.get(obj.id);
+            const id = this.idSelector(obj)
+            const prevObjState = prevState.items.get(id);
             items.set(
-                obj.id,
+                id,
                 prevObjState
                     ? baseReducer.reduce(prevObjState, block) // reduce from previous state
                     : baseReducer.getInitialState(block) // no previous state
