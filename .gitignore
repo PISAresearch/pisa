@@ -11,4 +11,8 @@ logs/
 dbcopy.db
 pisa-db
 raiden_demo/.raiden
+
 coverage
+
+zeroconf-ui/node_modules
+zeroconf-ui/build
