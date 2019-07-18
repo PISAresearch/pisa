@@ -147,10 +147,7 @@ export class Appointment implements IAppointment {
     // TODO:173: this should be run when we accept an appointment to make sure it doesnt throw
     public getEventFilter(): ethers.EventFilter {
         // first generate the interface from the abi
-        console.log(this.eventABI);
-        ethers.utils.from
-        const iFace = new ethers.utils.Interface(this.eventABI);
-        console.log(iFace);
+        const iFace = new ethers.utils.Interface([this.eventABI]);
         // name of the event
         // TODO:173: also make sure that this is the only, and it is event etc
         const name = iFace.abi[0].name;
@@ -163,12 +160,13 @@ export class Appointment implements IAppointment {
             .map((input, index) => (indexes.includes(index) ? input : undefined))
             .filter(i => i !== undefined)
             .map(i => i!);
+
         const params: any[] = [
             ...ethers.utils.defaultAbiCoder.decode(["uint256[]"].concat(namedInputs.map(i => i.type)), this.eventArgs)
         ];
-
-        const topics = iFace.events[name].encodeTopics(params);
-
+        const topics = namedInputs.length
+            ? iFace.events[name].encodeTopics(params)
+            : iFace.events[name].encodeTopics([]);
         return {
             address: this.contractAddress,
             // TODO:173: this could be empty no?
@@ -206,14 +204,13 @@ export class Appointment implements IAppointment {
                 this.refund,
                 this.gas,
                 this.mode,
-                this.eventABI,
+                ethers.utils.toUtf8Bytes(this.eventABI),
                 this.eventArgs,
                 this.postCondition,
                 this.paymentHash
             ]
         );
     }
-    public asArray() {}
 }
 
 // /**
