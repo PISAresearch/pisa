@@ -33,6 +33,7 @@ type WatcherAppointmentAnchorState =
     |
       {
         state: AppointmentState.AUTOTRIGGERED;
+        blockObserved: number; // block number in which the event was observed
       };
 
 /** The complete anchor state for the watcher, that also includes the block number */
@@ -55,7 +56,8 @@ class AppointmentStateReducer implements StateReducer<WatcherAppointmentAnchorSt
         if (this.appointment.eventABI  === 'autotriggerable'){
             logger.info(`Auto-triggerable appointment ${this.appointment.uniqueJobId()}.`); // prettier-ignore
             return {
-                state: AppointmentState.AUTOTRIGGERED
+                state: AppointmentState.AUTOTRIGGERED,
+                blockObserved: block.number
             };
         } else {
             const eventAncestor = this.cache.findAncestor(block.hash, ancestor => hasLogMatchingEvent(ancestor, filter));
@@ -129,21 +131,23 @@ export class Watcher extends Component<WatcherAnchorState, Block> {
     private shouldHaveStartedResponder = (
         state: WatcherAnchorState,
         appointmentState: WatcherAppointmentAnchorState | undefined
-    ): boolean =>
-        appointmentState != undefined &&
+    ): boolean => {
+
+        return appointmentState != undefined &&
         (
-            (appointmentState.state === AppointmentState.OBSERVED &&
-            state.blockNumber - appointmentState.blockObserved + 1 >= this.confirmationsBeforeResponse) 
-        ||
             appointmentState.state === AppointmentState.AUTOTRIGGERED
+        ||
+            (appointmentState.state === AppointmentState.OBSERVED &&
+            state.blockNumber - appointmentState.blockObserved + 1 >= this.confirmationsBeforeResponse)   
         );
+    }
 
     private shouldRemoveAppointment = (
         state: WatcherAnchorState,
         appointmentState: WatcherAppointmentAnchorState | undefined
     ): boolean =>
         appointmentState != undefined &&
-        appointmentState.state === AppointmentState.OBSERVED &&
+        (appointmentState.state === AppointmentState.OBSERVED || appointmentState.state === AppointmentState.AUTOTRIGGERED) &&
         state.blockNumber - appointmentState.blockObserved + 1 >= this.confirmationsBeforeRemoval;
 
     public async handleChanges(prevState: WatcherAnchorState, state: WatcherAnchorState) {
