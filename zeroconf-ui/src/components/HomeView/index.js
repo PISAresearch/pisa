@@ -12,6 +12,7 @@ class HomeView extends Component {
       <ZeroconfContext.Consumer>
       { ({
           ready,
+          done,
           handlePayClicked
         }) =>
         {
@@ -22,6 +23,9 @@ class HomeView extends Component {
           return (
             <React.Fragment>
               <Button variant="contained" onClick={handlePayClicked}>Pay 0.01 Ξ</Button> and get the good stuff!
+              { done && (
+                <p>✓</p>
+              )}
             </React.Fragment>
           )
         }
