@@ -34,24 +34,15 @@ class App extends Component {
     };
 
 
-    if (typeof window.web3 != 'undefined') {
-      this.web3Provider = window.web3.currentProvider;
-    } else {
-      this.web3Provider = new Web3.providers.HttpProvider('http://localhost:8545');
-    }
-    this.web3 = new Web3(this.web3Provider);
+    const web3 = new Web3(Web3.givenProvider || "http://localhost:8545")
+
+    this.web3 = web3;
+    window.web3 = web3;
   }
 
-  reloadStatus = () => {
-    this.setState({
-      ready: false
-    });
-    this.web3.eth.getCoinbase((err, account) => {
-      this.setState({
-        account,
-        ready: true
-      });
-    });
+  reloadStatus = async () => {
+    const accounts = await web3.eth.getAccounts()
+    this.setState({ ready: true, account: accounts[0] })
   };
 
   componentDidMount() {
@@ -59,9 +50,9 @@ class App extends Component {
   }
 
   handlePayClicked = async () => {
-    const web3 = window.web3;
-    const account = web3.eth.accounts[0];
-    console.log(web3.eth.accounts);
+    const web3 = this.web3;  // use local Web3 instead  of Metamask's
+
+    const account = this.state.account;
     if (account == null) {
       alert("Please unlock your MetaMask first.");
       return;
@@ -77,13 +68,13 @@ class App extends Component {
 
     const chainId = parseInt(web3.version.network, 10);
 
-    const hash = ethers.utils.keccak256(ethers.utils.solidityPack([ 'address', 'address', 'uint', 'uint' ], [ receiver, tokenAddress, amount, t ]));
-    // const message = web3.eth.abi.encodeParameters(['address', 'address','uint','uint'], [receiver, tokenAddress, amount, t]);
-    // const hash = web3.utils.keccak256(message);
-    // console.log("Message:", message);
+    const message = web3.eth.abi.encodeParameters(['address', 'address','uint','uint'], [receiver, tokenAddress, amount, t]);
+    const hash = web3.utils.keccak256(message);
+    console.log("Message:", message);
     console.log("Message hash:", hash);
+
     const signature = await new Promise((resolve, reject) => {
-      web3.eth.sign(account, hash, (err, sig) => {
+      web3.eth.sign(hash, account, (err, sig) => {
         if (err) reject(err);
         resolve(sig);
       });  
@@ -105,7 +96,7 @@ class App extends Component {
       startBlock: 0,
       endBlock: 10000000,
       eventABI: "autotriggerable",
-      eventArgs: "10",
+      eventArgs: "0x",
       gas: 100000,
       id: 23456789, // TODO
       jobId: 0,
@@ -113,6 +104,7 @@ class App extends Component {
       postCondition: "0x",
       refund: amount
     };
+    console.log(appointmentRequest);
 
     const res = await fetch(`${PISA_URL}/appointment`, {
       method: "POST",
