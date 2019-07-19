@@ -69,7 +69,7 @@ class App extends Component {
     const merchantPrivKey = "e3bcabc3b29956d94a87a8c75630785f1198cc661f41eedd8028a9dc2e534c6f";
     const merchantPubKey = "0x333c1941A0833FBBf348C4718faf14D0B26991b1";
 
-    const pisaWalletContractAddress = "0x61037d3e1c4558e7ee16e25992ecf4d0eed0788e"; // PISA wallet contract address
+    // const pisaWalletContractAddress = "0x61037d3e1c4558e7ee16e25992ecf4d0eed0788e"; // PISA wallet contract address
     // const pisaWalletContractAddress = "0xdad44d2660da95b210f966689bb54eb0a4a03a05"; // PISA wallet contract address
     const pisaWalletContractAddress = "0x249bc21E97450cF7E21EB03490FdE58cD4110e3D"; // PISA wallet contract address
 
