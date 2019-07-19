@@ -71,6 +71,7 @@ class App extends Component {
 
     const pisaWalletContractAddress = "0x61037d3e1c4558e7ee16e25992ecf4d0eed0788e"; // PISA wallet contract address
     // const pisaWalletContractAddress = "0xdad44d2660da95b210f966689bb54eb0a4a03a05"; // PISA wallet contract address
+    const pisaWalletContractAddress = "0x249bc21E97450cF7E21EB03490FdE58cD4110e3D"; // PISA wallet contract address
 
     const chainId = parseInt(web3.version.network, 10);
 
