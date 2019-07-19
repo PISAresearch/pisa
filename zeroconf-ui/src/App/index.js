@@ -60,7 +60,7 @@ class App extends Component {
     
     const receiver = "0x1C56346CD2A2Bf3202F771f50d3D14a367B48070";
     const tokenAddress = "0x722dd3f80bac40c951b51bdd28dd19d435762180";
-    const amount = 20;
+    const amount = 24;
     const t = 0;
 
     const merchantPrivKey = "e3bcabc3b29956d94a87a8c75630785f1198cc661f41eedd8028a9dc2e534c6f";
@@ -90,7 +90,7 @@ class App extends Component {
 
     const appointmentRequest = {
       challengePeriod: 100,
-      contractAddress: "0x722dd3F80BAC40c951b51BdD28Dd19d435762180",
+      contractAddress: "0xd4467e9CF86f1c4185fd8e66596C3AB5Ee44e14F",
       customerAddress: merchantPubKey,
       data: encodedStuff,
       startBlock: 0,
@@ -98,7 +98,7 @@ class App extends Component {
       eventABI: "autotriggerable",
       eventArgs: "0x",
       gas: 100000,
-      id: 23456789, // TODO
+      id: "23456793", // TODO
       jobId: 0,
       mode: 0,
       postCondition: "0x",
@@ -108,10 +108,13 @@ class App extends Component {
 
     const res = await fetch(`${PISA_URL}/appointment`, {
       method: "POST",
-      body: appointmentRequest
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(appointmentRequest)
     });
 
-    console.log(res);
+    console.log(await res.json());
   };
   render() {
     const context = {
