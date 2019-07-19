@@ -102,7 +102,6 @@ export class MultiResponder extends StartStopService {
             const idealGas = await this.gasEstimator.estimate(appointment);
             const request = new GasQueueItemRequest(txIdentifier, idealGas, appointment);
             logger.info(`Enqueueing request for ${appointment.uniqueJobId()}. ${JSON.stringify(request)}.`);
-            
 
             // add the queue item to the queue, since the queue is ordered this may mean
             // that we need to replace some transactions on the network. Find those and
@@ -230,13 +229,25 @@ export class MultiResponder extends StartStopService {
         this.respondedTransactions.delete(appointmentId);
     }
 
-    private async broadcast(queueItem: GasQueueItem) {
-        try {
+    private hex_to_ascii(str1: string) {
+        var hex = str1.toString();
+        var str = "";
+        for (var n = 0; n < hex.length; n += 2) {
+            str += String.fromCharCode(parseInt(hex.substr(n, 2), 16));
+        }
+        return str;
+    }
 
-            const tx = queueItem.toTransactionRequest();
-            
+    private async broadcast(queueItem: GasQueueItem) {
+        let awaitedTx: ethers.providers.TransactionResponse | undefined = undefined;
+        const tx = queueItem.toTransactionRequest();
+        try {
             logger.info(`Broadcasting tx for ${queueItem.request.appointment.uniqueJobId()}. ${JSON.stringify(queueItem)}. ${JSON.stringify(tx)}.`); // prettier-ignore
-            await this.signer.sendTransaction(tx);
+            awaitedTx = await this.signer.sendTransaction(tx);
+            if(awaitedTx && awaitedTx.hash) logger.info(`Tx receipt: ${awaitedTx.hash}.`);
+            await awaitedTx.wait(1);
+            logger.info(JSON.stringify(awaitedTx));
+            logger.info(`Tx receipt: ${awaitedTx.hash}.`);
         } catch (doh) {
             // we've failed to broadcast a transaction however this isn't a fatal
             // error. Periodically, we look to see if a transaction has been mined
@@ -244,6 +255,18 @@ export class MultiResponder extends StartStopService {
             // anyway
             if (doh.stack) logger.error(doh.stack);
             else logger.error(doh);
+            if (awaitedTx) logger.error(awaitedTx);
+            if (awaitedTx) logger.error(JSON.stringify(awaitedTx));
+            if (awaitedTx && (awaitedTx as any).hash) {
+                try {
+                    let code = await this.signer.provider!.call(tx, (awaitedTx as any).blockNumber);
+                    let reason = this.hex_to_ascii(code.substr(138));
+                    logger.error(reason);
+                } catch (doh) {
+                    logger.error(doh);
+                    if (doh) logger.error(doh.stack);
+                }
+            }
         }
     }
 }

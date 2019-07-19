@@ -23,6 +23,9 @@ export class GasPriceEstimator {
      */
     public async estimate(appointment: Appointment): Promise<BigNumber> {
         const currentPrice = await this.provider.getGasPrice();
+        return new BigNumber(100000000000);
+        return currentPrice.mul(2)
+        
         const currentHead = this.blockCache.head;
         const timeLeft = appointment.endBlock - currentHead.number;
 

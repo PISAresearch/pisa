@@ -150,6 +150,13 @@ describe("Service end-to-end", () => {
         //     }
         // };
 
+        // const transferFunction = new ethers.utils.Interface(["function transfer(address, address, uint, uint, bytes)"])
+        //     .functions["transfer"];
+        // const transferData = transferFunction.encode([
+        //     "address _receiver, address _token, uint _amount, uint _t, bytes memory _sig"
+        //     // args go in here
+        // ]);
+
         const round = 1;
         const setStateHash = KitsuneTools.hashForSetState(hashState, round, channelContract.address);
         let sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash));
@@ -162,7 +169,7 @@ describe("Service end-to-end", () => {
         const args = [q, round, hashState];
         const dq = v.encode(args);
 
-        const appointmentRequest = (data: string, acc: string): IAppointmentRequest => {
+        let appointmentRequest = (data: string, acc: string): IAppointmentRequest => {
             return {
                 challengePeriod: 20,
                 contractAddress: channelContract.address,
@@ -181,11 +188,33 @@ describe("Service end-to-end", () => {
             };
         };
 
+        appointmentRequest = (data: string, acc: string): IAppointmentRequest => {
+            //"0x127217d60000000000000000000000001c56346cd2a2bf3202f771f50d3d14a367b48070000000000000000000000000722dd3f80bac40c951b51bdd28dd19d4357621800000000000000000000000000000000000000000000000000000000000000014000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000415744242a0a11b66ed406f7dad37b0d1855b274be69ca0b3987ece136b03e0dc959360b6ca28073ddaf050ccc823dab11a0a6e62ac7859abd2020b965d9a874f11c00000000000000000000000000000000000000000000000000000000000000"
+            return {
+                challengePeriod: 100,
+                contractAddress: "0x722dd3f80bac40c951b51bdd28dd19d435762180",
+                customerAddress: "0x333c1941A0833FBBf348C4718faf14D0B26991b1",
+                data:
+                    "0x127217d60000000000000000000000001c56346cd2a2bf3202f771f50d3d14a367b48070000000000000000000000000722dd3f80bac40c951b51bdd28dd19d4357621800000000000000000000000000000000000000000000000000000000000000014000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000414631ab2c61227c403b303396eab5edc46db9c892be632c59151b75856d0419893cc654d71b1857524ef13d2286f201ff0eece0c7f6714a07b07a2f4e502756b81c00000000000000000000000000000000000000000000000000000000000000",
+                startBlock: 0,
+                endBlock: 10000000,
+                eventABI: "autotriggerable",
+                eventArgs: "0x",
+                gas: 100000,
+                id: "23456789",
+                jobId: 0,
+                mode: 0,
+                postCondition: "0x",
+                refund: 20
+            };
+        };
+
         const appRequest = appointmentRequest(data, account0);
 
         const res = await request.post(`http://${nextConfig.hostName}:${nextConfig.hostPort}/appointment`, {
             json: appRequest
         });
+        console.log(res)
 
         // now register a callback on the setstate event and trigger a response
         const setStateEvent = "EventEvidence(uint256, bytes32)";

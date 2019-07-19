@@ -49,9 +49,6 @@ const hasLogMatchingEvent = (block: Block, filter: EventFilter): boolean => {
 class AppointmentStateReducer implements StateReducer<WatcherAppointmentAnchorState, Block> {
     constructor(private cache: ReadOnlyBlockCache<Block>, private appointment: Appointment) {}
     public getInitialState(block: Block): WatcherAppointmentAnchorState {
-        const filter = this.appointment.getEventFilter();
-        if (!filter.topics) throw new ApplicationError(`topics should not be undefined`);
-        
         // Pretty ugly hack, we should have a field in the appointment that specifies if it is autotriggerable or not
         if (this.appointment.eventABI  === 'autotriggerable'){
             logger.info(`Auto-triggerable appointment ${this.appointment.uniqueJobId()}.`); // prettier-ignore
@@ -60,6 +57,8 @@ class AppointmentStateReducer implements StateReducer<WatcherAppointmentAnchorSt
                 blockObserved: block.number
             };
         } else {
+            const filter = this.appointment.getEventFilter();
+        if (!filter.topics) throw new ApplicationError(`topics should not be undefined`);
             const eventAncestor = this.cache.findAncestor(block.hash, ancestor => hasLogMatchingEvent(ancestor, filter));
 
             if (!eventAncestor) {

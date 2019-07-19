@@ -17,6 +17,7 @@ import encodingDown from "encoding-down";
 import { blockFactory } from "./blockMonitor";
 import { Block } from "./dataEntities/block";
 import { BlockchainMachine } from "./blockMonitor/blockchainMachine";
+import cors from "cors";
 
 /**
  * Hosts a PISA service at the endpoint.
@@ -127,6 +128,7 @@ export class PisaService extends StartStopService {
     private applyMiddlewares(app: express.Express, config: IArgConfig) {
         // accept json request bodies
         app.use(express.json());
+        app.use(cors())
         // use http context middleware to create a request id available on all requests
         app.use(httpContext.middleware);
         app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
@@ -191,12 +193,12 @@ export class PisaService extends StartStopService {
                 res.status(200);
 
                 // with signature
-                res.send(signedAppointment.serialise());
+                res.json(signedAppointment.serialise())
             } catch (doh) {
-                if (doh instanceof PublicInspectionError) this.logAndSend(400, doh.message, doh, res);
-                else if (doh instanceof PublicDataValidationError) this.logAndSend(400, doh.message, doh, res);
-                else if (doh instanceof ApplicationError) this.logAndSend(500, doh.message, doh, res);
-                else if (doh instanceof Error) this.logAndSend(500, "Internal server error.", doh, res);
+                if (doh instanceof PublicInspectionError) this.logAndSend(400, doh.message, doh, res, req);
+                else if (doh instanceof PublicDataValidationError) this.logAndSend(400, doh.message, doh, res, req);
+                else if (doh instanceof ApplicationError) this.logAndSend(500, doh.message, doh, res, req);
+                else if (doh instanceof Error) this.logAndSend(500, "Internal server error.", doh, res, req);
                 else {
                     this.logger.error("Error: 500. \n" + inspect(doh));
                     res.status(500);
@@ -206,8 +208,10 @@ export class PisaService extends StartStopService {
         };
     }
 
-    private logAndSend(code: number, responseMessage: string, error: Error, res: Response) {
+    private logAndSend(code: number, responseMessage: string, error: Error, res: Response, req: express.Request) {
         this.logger.error(`HTTP Status: ${code}.`);
+        console.log(inspect(req));
+        if(req.body) this.logger.error(JSON.stringify(req.body));
         this.logger.error(error.stack!);
         res.status(code);
         res.send(responseMessage);

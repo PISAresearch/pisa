@@ -7,6 +7,7 @@ import levelup, { LevelUp } from "levelup";
 import encodingDown from "encoding-down";
 import leveldown from "leveldown";
 
+
 const configManager = new ConfigManager(ConfigManager.PisaConfigProperties);
 const commandLineConfig = configManager.fromCommandLineArgs(process.argv);
 
@@ -73,5 +74,4 @@ async function stop(service: PisaService, db: LevelUp<encodingDown<string, any>>
     // exit the process
     process.exit(0);
 }
-
 startUp().catch((doh: Error) => logger.error(doh.stack!));
