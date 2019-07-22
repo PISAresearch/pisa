@@ -76,7 +76,7 @@ export abstract class StartStopService extends EventEmitter {
                 throw new Error ('Is this code /ever/ reached? (construct)')
                 // (apparently not :/ )
                 // Maybe it only would be if 'new StartStopService()' were to be instantiated, rather than children...
-                return asProtectedMethod (target, prop, receiver);
+                return asProtectedMethod (target, prop, receiver) ();
             },
 
             /**
