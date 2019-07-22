@@ -1,15 +1,23 @@
 import "mocha";
 import { expect } from "chai";
-import mockito, { mock, instance, when, resetCalls } from "ts-mockito";
-import uuid from "uuid/v4";
+import { mock, instance, when, resetCalls, verify, anything } from "ts-mockito";
 import { AppointmentStore } from "../../../src/watcher";
-import { KitsuneAppointment } from "../../../src/integrations/kitsune";
 import { ethers } from "ethers";
-import * as Ganache from "ganache-core";
 import { MultiResponder } from "../../../src/responder";
-import { BlockProcessor, BlockCache } from "../../../src/blockMonitor";
-import { Logs, EthereumAppointment, ChannelType, Block, ApplicationError } from "../../../src/dataEntities";
-import { AppointmentStateReducer, AppointmentState } from "../../../src/watcher/watcher";
+import { BlockCache } from "../../../src/blockMonitor";
+import {
+    EthereumAppointment,
+    ChannelType,
+    Block,
+    ApplicationError,
+    IEthereumAppointment
+} from "../../../src/dataEntities";
+import {
+    AppointmentStateReducer,
+    AppointmentState,
+    Watcher,
+    WatcherAppointmentAnchorState
+} from "../../../src/watcher/watcher";
 
 const blocks: Block[] = [
     {
@@ -45,15 +53,16 @@ const blocks: Block[] = [
     }
 ];
 
+// Mock of an appointment, in several tests
 class MockAppointment extends EthereumAppointment {
     public getStateLocator(): string {
         throw new Error("Method not implemented.");
     }
     public getContractAbi() {
-        throw new Error("Method not implemented.");
+        return [];
     }
     public getContractAddress(): string {
-        throw new Error("Method not implemented.");
+        return "0xaaaabbbbccccdddd";
     }
     public getEventFilter(): ethers.EventFilter {
         return {
@@ -68,10 +77,10 @@ class MockAppointment extends EthereumAppointment {
         throw new Error("Method not implemented.");
     }
     public getResponseFunctionName(): string {
-        throw new Error("Method not implemented.");
+        return "responseFnName";
     }
     public getResponseFunctionArgs(): any[] {
-        throw new Error("Method not implemented.");
+        return [];
     }
 }
 
@@ -82,13 +91,10 @@ class MockAppointmentWithEmptyFilter extends MockAppointment {
 }
 
 describe("AppointmentStateReducer", () => {
-    let blockCache: BlockCache<Block & Logs>;
     const appointment = new MockAppointment(10, ChannelType.None, 0, 100);
 
-    beforeEach(() => {
-        blockCache = new BlockCache<Block & Logs>(100);
-        blocks.forEach(b => blockCache.addBlock(b));
-    });
+    const blockCache = new BlockCache<Block>(100);
+    blocks.forEach(b => blockCache.addBlock(b));
 
     it("constructor throws ApplicationError if the topics are not set in the filter", () => {
         const mockAppointmentWithEmptyFilter = new MockAppointmentWithEmptyFilter(10, ChannelType.None, 0, 10);
@@ -148,7 +154,7 @@ describe("AppointmentStateReducer", () => {
         });
     });
 
-    it("reduce does change from OBSERVED", () => {
+    it("reduce does not change from OBSERVED when new blocks come", () => {
         const asr = new AppointmentStateReducer(blockCache, appointment);
 
         const result = asr.reduce(
@@ -167,234 +173,205 @@ describe("AppointmentStateReducer", () => {
 });
 
 describe("Watcher", () => {
-    const ganache = Ganache.provider({});
-    const provider = new ethers.providers.Web3Provider(ganache);
+    const CONFIRMATIONS_BEFORE_RESPONSE = 4;
+    const CONFIRMATIONS_BEFORE_REMOVAL = 20;
 
-    // appointment mocks
-    const appointmentId1 = uuid();
-    const appointmentId2 = uuid();
-    const appointmentErrorUpdateStateId = uuid();
-    const appointmentErrorUnsubscribeId = uuid();
-    const appointmentErrorSubscribeOnceId = uuid();
-    const eventFilter = {
-        address: "fake address",
-        topics: ["topic1", "topic2"]
-    };
-    const errorEventFilter = {
-        address: "error address",
-        topics: ["topic1", "topic2"]
-    };
-    const createMockAppointment = (id: string, ethersEventFilter: ethers.EventFilter, passedInspection: boolean) => {
-        const mockedAppointment = mockito.mock(KitsuneAppointment);
-        mockito.when(mockedAppointment.id).thenReturn(id);
-        mockito.when(mockedAppointment.getEventFilter()).thenReturn(ethersEventFilter);
-        mockito.when(mockedAppointment.passedInspection).thenReturn(passedInspection);
-        mockito.when(mockedAppointment.getResponseData()).thenReturn({
-            contractAbi: "abi",
-            contractAddress: "address",
-            endBlock: 10,
-            functionArgs: [],
-            functionName: "fnName"
-        });
-        return mockito.instance(mockedAppointment);
-    };
-    const appointmentCanBeUpdated = createMockAppointment(appointmentId1, eventFilter, true);
-    const appointmentNotUpdated = createMockAppointment(appointmentId2, eventFilter, true);
-    const appointmentNotInspected = createMockAppointment(appointmentId1, eventFilter, false);
-    const appointmentErrorUpdate = createMockAppointment(appointmentErrorUpdateStateId, eventFilter, true);
-    const appointmentErrorUnsubscribe = createMockAppointment(appointmentErrorUnsubscribeId, errorEventFilter, true);
-    const appointmentErrorSubscribeOnce = createMockAppointment(appointmentErrorSubscribeOnceId, eventFilter, true);
-
-    // BlockProcessor mock
-    const mockedBlockProcessor = mock(BlockProcessor);
-    const blockProcessor = instance(mockedBlockProcessor);
-
-    // store mock
-    const mockedStore = mock(AppointmentStore);
-    when(mockedStore.addOrUpdateByStateLocator(appointmentCanBeUpdated)).thenResolve(true);
-    when(mockedStore.addOrUpdateByStateLocator(appointmentNotUpdated)).thenResolve(false);
-    when(mockedStore.addOrUpdateByStateLocator(appointmentErrorSubscribeOnce)).thenResolve(true);
-    when(mockedStore.addOrUpdateByStateLocator(appointmentErrorUnsubscribe)).thenResolve(true);
-    when(mockedStore.addOrUpdateByStateLocator(appointmentErrorUpdate)).thenReject(new Error("Store update failure."));
-    const store = instance(mockedStore);
+    const blockCache = new BlockCache<Block>(100);
+    blocks.forEach(b => blockCache.addBlock(b));
 
     const mockedResponder = mock(MultiResponder);
-    when(mockedResponder.startResponse(appointmentCanBeUpdated.id, appointmentCanBeUpdated.getResponseData()));
-    const responderInstance = instance(mockedResponder);
+    const responder = instance(mockedResponder);
 
-    const mockedResponderThatThrows = mock(MultiResponder);
-    when(
-        mockedResponderThatThrows.startResponse(appointmentCanBeUpdated.id, appointmentCanBeUpdated.getResponseData())
-    ).thenThrow(new Error("Responder error."));
-    const responderInstanceThrow = instance(mockedResponderThatThrows);
+    let mockedStore: AppointmentStore;
+    let store: AppointmentStore;
 
-    const mockedStoreThatThrows = mock(AppointmentStore);
-    when(mockedStoreThatThrows.removeById(appointmentCanBeUpdated.id)).thenReject(new Error("Store error."));
-    when(mockedStoreThatThrows.getAll()).thenReturn([appointmentCanBeUpdated, appointmentNotUpdated]);
-    const storeInstanceThrow = instance(mockedStoreThatThrows);
+    let appointment: IEthereumAppointment;
 
-    const event = {
-        blockNumber: 10
-    } as ethers.Event;
+    beforeEach(() => {
+        appointment = new MockAppointment(100, ChannelType.None, 0, 100);
+
+        mockedStore = mock(AppointmentStore);
+        when(mockedStore.getAll()).thenReturn([appointment]);
+        when(mockedStore.getById(appointment.id)).thenReturn(appointment);
+        store = instance(mockedStore);
+    });
+
+    function makeMap(appId: string, appState: WatcherAppointmentAnchorState) {
+        return new Map<string, WatcherAppointmentAnchorState>([[appId, appState]]);
+    }
 
     afterEach(() => {
         resetCalls(mockedStore);
-        resetCalls(mockedResponder);
-        resetCalls(mockedStore);
-        resetCalls(mockedResponderThatThrows);
-        resetCalls(mockedStoreThatThrows);
     });
 
-    // it("add appointment updates store and subscriptions", async () => {
-    //     const watcher = new Watcher(responderInstance, blockProcessor, store, 0, 20);
+    it("handleChanges calls startResponse after event is OBSERVED for long enough", async () => {
+        const watcher = new Watcher(
+            responder,
+            blockCache,
+            store,
+            CONFIRMATIONS_BEFORE_RESPONSE,
+            CONFIRMATIONS_BEFORE_REMOVAL
+        );
 
-    //     assert.strictEqual(await watcher.addAppointment(appointmentCanBeUpdated), true);
+        await watcher.handleChanges(
+            {
+                items: makeMap(appointment.id, {
+                    state: AppointmentState.OBSERVED,
+                    blockObserved: 1
+                }),
+                blockNumber: 1 + CONFIRMATIONS_BEFORE_RESPONSE - 2
+            },
+            {
+                items: makeMap(appointment.id, {
+                    state: AppointmentState.OBSERVED,
+                    blockObserved: 1
+                }),
+                blockNumber: 1 + CONFIRMATIONS_BEFORE_RESPONSE - 1
+            }
+        );
 
-    //     verify(mockedStore.addOrUpdateByStateLocator(appointmentCanBeUpdated)).once();
-    // });
+        verify(mockedResponder.startResponse(appointment.id, anything())).once();
+    });
 
-    // it("add appointment without update does not update subscriptions and returns false", async () => {
-    //     const watcher = new Watcher(responderInstance, blockProcessor, store, 0, 20);
+    it("handleChanges does not call startResponse before event is OBSERVED for long enough", async () => {
+        const watcher = new Watcher(
+            responder,
+            blockCache,
+            store,
+            CONFIRMATIONS_BEFORE_RESPONSE,
+            CONFIRMATIONS_BEFORE_REMOVAL
+        );
 
-    //     assert.strictEqual(await watcher.addAppointment(appointmentNotUpdated), false);
+        await watcher.handleChanges(
+            {
+                items: makeMap(appointment.id, {
+                    state: AppointmentState.OBSERVED,
+                    blockObserved: 1
+                }),
+                blockNumber: 1 + CONFIRMATIONS_BEFORE_RESPONSE - 3
+            },
+            {
+                items: makeMap(appointment.id, {
+                    state: AppointmentState.OBSERVED,
+                    blockObserved: 1
+                }),
+                blockNumber: 1 + CONFIRMATIONS_BEFORE_RESPONSE - 2
+            }
+        );
 
-    //     verify(mockedStore.addOrUpdateByStateLocator(appointmentNotUpdated)).once();
-    // });
-    // it("add appointment not passed inspection throws error", async () => {
-    //     const watcher = new Watcher(responderInstance, blockProcessor, store, 0, 20);
+        verify(mockedResponder.startResponse(appointment.id, anything())).never();
+    });
 
-    //     try {
-    //         await watcher.addAppointment(appointmentNotInspected);
-    //         assert(false);
-    //     } catch (doh) {
-    //         verify(mockedStore.addOrUpdateByStateLocator(appointmentNotInspected)).never();
-    //     }
-    // });
-    // it("add appointment throws error when update store throws error", async () => {
-    //     const watcher = new Watcher(responderInstance, blockProcessor, store, 0, 20);
+    it("handleChanges calls startResponse immediately after event is OBSERVED for long enough even if just added to the store", async () => {
+        const watcher = new Watcher(
+            responder,
+            blockCache,
+            store,
+            CONFIRMATIONS_BEFORE_RESPONSE,
+            CONFIRMATIONS_BEFORE_REMOVAL
+        );
 
-    //     try {
-    //         await watcher.addAppointment(appointmentErrorUpdate);
-    //         assert(false);
-    //     } catch (doh) {
-    //         verify(mockedStore.addOrUpdateByStateLocator(appointmentErrorUpdate)).once();
-    //     }
-    // });
-    // it("add appointment throws error when subscribe unsubscribeall throws error", async () => {
-    //     const watcher = new Watcher(responderInstance, blockProcessor, store, 0, 20);
+        await watcher.handleChanges(
+            {
+                items: new Map<string, WatcherAppointmentAnchorState>(),
+                blockNumber: 0
+            },
+            {
+                items: makeMap(appointment.id, {
+                    state: AppointmentState.OBSERVED,
+                    blockObserved: 1
+                }),
+                blockNumber: 1 + CONFIRMATIONS_BEFORE_RESPONSE - 1
+            }
+        );
 
-    //     try {
-    //         await watcher.addAppointment(appointmentErrorUnsubscribe);
-    //         assert(false);
-    //     } catch (doh) {
-    //         verify(mockedStore.addOrUpdateByStateLocator(appointmentErrorUnsubscribe)).once();
-    //     }
-    // });
-    // it("add appointment throws error when subscriber once throw error", async () => {
-    //     const watcher = new Watcher(responderInstance, blockProcessor, store, 0, 20);
+        verify(mockedResponder.startResponse(appointment.id, anything())).once();
+    });
 
-    //     try {
-    //         await watcher.addAppointment(appointmentErrorSubscribeOnce);
-    //         assert(false);
-    //     } catch (doh) {
-    //         verify(mockedStore.addOrUpdateByStateLocator(appointmentErrorSubscribeOnce)).once();
-    //     }
-    // });
+    it("handleChanges does not call startResponse again if a previous state already caused startResponse", async () => {
+        const watcher = new Watcher(
+            responder,
+            blockCache,
+            store,
+            CONFIRMATIONS_BEFORE_RESPONSE,
+            CONFIRMATIONS_BEFORE_REMOVAL
+        );
 
-    // it("observe successfully responds and updates store", async () => {
-    //     const watcher = new Watcher(responderInstance, blockProcessor, store, 0, 20);
+        await watcher.handleChanges(
+            {
+                items: makeMap(appointment.id, {
+                    state: AppointmentState.OBSERVED,
+                    blockObserved: 1
+                }),
+                blockNumber: 1 + CONFIRMATIONS_BEFORE_RESPONSE - 1
+            },
+            {
+                items: makeMap(appointment.id, {
+                    state: AppointmentState.OBSERVED,
+                    blockObserved: 1
+                }),
+                blockNumber: 1 + CONFIRMATIONS_BEFORE_RESPONSE
+            }
+        );
 
-    //     await watcher.observe(appointmentCanBeUpdated, event);
+        verify(mockedResponder.startResponse(appointment.id, anything())).never();
+    });
 
-    //     // respond, reorg and remove were called in that order
-    //     verify(mockedResponder.respond(appointmentCanBeUpdated)).once();
-    //     verify(mockedStore.removeById(appointmentCanBeUpdated.id)).once();
-    //     verify(mockedReorgEmitter.addReorgHeightListener(anyNumber(), anything())).once();
-    //     verify(mockedResponder.respond(appointmentCanBeUpdated)).calledBefore(
-    //         mockedStore.removeById(appointmentCanBeUpdated.id)
-    //     );
-    //     verify(mockedReorgEmitter.addReorgHeightListener(anyNumber(), anything())).calledBefore(
-    //         mockedStore.removeById(appointmentCanBeUpdated.id)
-    //     );
-    //     verify(mockedAppointmentSubscriber.unsubscribe(appointmentCanBeUpdated.id, anything())).once();
-    //     verify(mockedAppointmentSubscriber.unsubscribe(appointmentCanBeUpdated.id, anything())).calledBefore(
-    //         mockedStore.removeById(appointmentCanBeUpdated.id)
-    //     );
-    //     const [firstArg, _] = capture(mockedReorgEmitter.addReorgHeightListener).last();
-    //     assert.strictEqual(firstArg, event.blockNumber, "Event block height incorrect.");
-    // });
+    it("handleChanges calls removeById after event is OBSERVED for long enough", async () => {
+        const watcher = new Watcher(
+            responder,
+            blockCache,
+            store,
+            CONFIRMATIONS_BEFORE_RESPONSE,
+            CONFIRMATIONS_BEFORE_REMOVAL
+        );
 
-    // it("observe doesnt propagate errors from responder", async () => {
-    //     const watcher = new Watcher(responderInstanceThrow, reorgEmitterInstance, appointmentSubscriber, store);
-    //     await watcher.observe(appointmentCanBeUpdated, event);
+        await watcher.handleChanges(
+            {
+                items: makeMap(appointment.id, {
+                    state: AppointmentState.OBSERVED,
+                    blockObserved: 1
+                }),
+                blockNumber: 1 + CONFIRMATIONS_BEFORE_REMOVAL - 2
+            },
+            {
+                items: makeMap(appointment.id, {
+                    state: AppointmentState.OBSERVED,
+                    blockObserved: 1
+                }),
+                blockNumber: 1 + CONFIRMATIONS_BEFORE_REMOVAL - 1
+            }
+        );
 
-    //     verify(mockedResponderThatThrows.respond(appointmentCanBeUpdated)).once();
-    //     verify(mockedStore.removeById(appointmentCanBeUpdated.id)).never();
-    //     verify(mockedAppointmentSubscriber.unsubscribe(appointmentCanBeUpdated.id, anything())).never();
-    //     verify(mockedReorgEmitter.addReorgHeightListener(anyNumber(), anything())).never();
-    // });
+        verify(mockedStore.removeById(appointment.id)).once();
+    });
 
-    // it("observe doesnt propagate errors from store", async () => {
-    //     const watcher = new Watcher(responderInstance, reorgEmitterInstance, appointmentSubscriber, storeInstanceThrow);
-    //     await watcher.observe(appointmentCanBeUpdated, event);
+    it("handleChanges does not call removeById before event is OBSERVED for long enough", async () => {
+        const watcher = new Watcher(
+            responder,
+            blockCache,
+            store,
+            CONFIRMATIONS_BEFORE_RESPONSE,
+            CONFIRMATIONS_BEFORE_REMOVAL
+        );
 
-    //     verify(mockedResponder.respond(appointmentCanBeUpdated)).once();
-    //     verify(mockedReorgEmitter.addReorgHeightListener(anyNumber(), anything())).once();
-    //     verify(mockedAppointmentSubscriber.unsubscribe(appointmentCanBeUpdated.id, anything())).once();
-    //     verify(mockedStoreThatThrows.removeById(anything())).once();
-    // });
+        await watcher.handleChanges(
+            {
+                items: makeMap(appointment.id, {
+                    state: AppointmentState.OBSERVED,
+                    blockObserved: 1
+                }),
+                blockNumber: 1 + CONFIRMATIONS_BEFORE_REMOVAL - 3
+            },
+            {
+                items: makeMap(appointment.id, {
+                    state: AppointmentState.OBSERVED,
+                    blockObserved: 1
+                }),
+                blockNumber: 1 + CONFIRMATIONS_BEFORE_REMOVAL - 2
+            }
+        );
 
-    // it("observe does nothing during a reorg", async () => {
-    //     const blockCache = new BlockCache<IBlockStub & TransactionHashes>(200);
-    //     const blockProcessor = new BlockProcessor<IBlockStub & TransactionHashes>(
-    //         provider,
-    //         blockStubAndTxFactory,
-    //         blockCache
-    //     );
-    //     const reorgDetect = new ReorgEmitter(provider, blockProcessor, new ReorgHeightListenerStore());
-    //     const spiedReorgDetect = spy(reorgDetect);
-    //     const watcher = new Watcher(responderInstance, reorgDetect, appointmentSubscriber, storeInstanceThrow);
-    //     await watcher.start();
-
-    //     reorgDetect.emit(ReorgEmitter.REORG_START_EVENT);
-    //     await watcher.observe(appointmentCanBeUpdated, event);
-    //     reorgDetect.emit(ReorgEmitter.REORG_END_EVENT);
-
-    //     verify(mockedResponder.respond(appointmentCanBeUpdated)).never();
-    //     verify(spiedReorgDetect.addReorgHeightListener(anyNumber(), anything())).never();
-    //     verify(mockedAppointmentSubscriber.unsubscribe(appointmentCanBeUpdated.id, anything())).never();
-    //     verify(mockedStoreThatThrows.removeById(anything())).never();
-
-    //     await watcher.observe(appointmentCanBeUpdated, event);
-
-    //     verify(mockedResponder.respond(appointmentCanBeUpdated)).once();
-    //     verify(spiedReorgDetect.addReorgHeightListener(anyNumber(), anything())).once();
-    //     verify(mockedAppointmentSubscriber.unsubscribe(appointmentCanBeUpdated.id, anything())).once();
-    //     verify(mockedStoreThatThrows.removeById(anything())).once();
-
-    //     await watcher.stop();
-    // });
-
-    // it("start correctly adds existing appointments to subscriber", async () => {
-    //     const watcher = new Watcher(responderInstance, blockProcessor, storeInstanceThrow, 0);
-    //     await watcher.start();
-
-    //     storeInstanceThrow.getAll()
-
-    //     verify(
-    //         mockedAppointmentSubscriber.subscribe(
-    //             appointmentCanBeUpdated.id,
-    //             appointmentCanBeUpdated.getEventFilter(),
-    //             anything()
-    //         )
-    //     ).once();
-    //     verify(
-    //         mockedAppointmentSubscriber.subscribe(
-    //             appointmentNotUpdated.id,
-    //             appointmentCanBeUpdated.getEventFilter(),
-    //             anything()
-    //         )
-    //     ).once();
-    //     await watcher.stop();
-    // });
+        verify(mockedStore.removeById(appointment.id)).never();
+    });
 });

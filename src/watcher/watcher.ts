@@ -21,7 +21,7 @@ export enum AppointmentState {
 }
 
 /** Portion of the anchor state for a single appointment */
-type WatcherAppointmentAnchorState =
+export type WatcherAppointmentAnchorState =
     | {
           state: AppointmentState.WATCHING;
       }
