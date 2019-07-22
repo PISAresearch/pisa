@@ -9,7 +9,7 @@ import * as Ganache from "ganache-core";
 import { MultiResponder } from "../../../src/responder";
 import { BlockProcessor, BlockCache } from "../../../src/blockMonitor";
 import { Logs, EthereumAppointment, ChannelType, Block, ApplicationError } from "../../../src/dataEntities";
-import { AppointmentStateReducer } from "../../../src/watcher/watcher";
+import { AppointmentStateReducer, AppointmentState } from "../../../src/watcher/watcher";
 
 const blocks: Block[] = [
     {
@@ -24,7 +24,14 @@ const blocks: Block[] = [
         hash: "hash1",
         number: 1,
         parentHash: "hash0",
-        logs: [],
+        logs: [
+            {
+                address: "0x1234abcd",
+                data: "",
+                topics: ["0x1234"]
+            }
+        ],
+
         transactionHashes: [],
         transactions: []
     },
@@ -50,6 +57,7 @@ class MockAppointment extends EthereumAppointment {
     }
     public getEventFilter(): ethers.EventFilter {
         return {
+            address: "0x1234abcd",
             topics: ["0x1234"]
         };
     }
@@ -75,7 +83,7 @@ class MockAppointmentWithEmptyFilter extends MockAppointment {
 
 describe("AppointmentStateReducer", () => {
     let blockCache: BlockCache<Block & Logs>;
-    const appointment = new MockAppointment(10, ChannelType.None, 2, 100);
+    const appointment = new MockAppointment(10, ChannelType.None, 0, 100);
 
     beforeEach(() => {
         blockCache = new BlockCache<Block & Logs>(100);
@@ -83,18 +91,79 @@ describe("AppointmentStateReducer", () => {
     });
 
     it("constructor throws ApplicationError if the topics are not set in the filter", () => {
-        const mockAppointmentWithEmptyFilter = new MockAppointmentWithEmptyFilter(10, ChannelType.None, 2, 10);
+        const mockAppointmentWithEmptyFilter = new MockAppointmentWithEmptyFilter(10, ChannelType.None, 0, 10);
         expect(() => new AppointmentStateReducer(blockCache, mockAppointmentWithEmptyFilter)).to.throw(
             ApplicationError
         );
     });
 
-    // it("getInitialState ", () => {
-    //     const mockAppointmentWithEmptyFilter = new MockAppointmentWithEmptyFilter(10, ChannelType.None, 2, 10);
-    //     expect(() => new AppointmentStateReducer(blockCache, mockAppointmentWithEmptyFilter)).to.throw(
-    //         ApplicationError
-    //     );
-    // });
+    it("getInitialState initializes to WATCHING if event not present in ancestry", () => {
+        const asr = new AppointmentStateReducer(blockCache, appointment);
+
+        expect(asr.getInitialState(blocks[0])).to.deep.equal({ state: AppointmentState.WATCHING });
+    });
+
+    it("getInitialState initializes to OBSERVED if event is present in the last block", () => {
+        const asr = new AppointmentStateReducer(blockCache, appointment);
+        expect(asr.getInitialState(blocks[1])).to.deep.equal({
+            state: AppointmentState.OBSERVED,
+            blockObserved: blocks[1].number
+        });
+    });
+
+    it("getInitialState initializes to OBSERVED if event is present in ancestry, updates blockObserved", () => {
+        const asr = new AppointmentStateReducer(blockCache, appointment);
+        expect(asr.getInitialState(blocks[2])).to.deep.equal({
+            state: AppointmentState.OBSERVED,
+            blockObserved: blocks[1].number
+        });
+    });
+
+    it("reduce does not change state if event is not observed in new block", () => {
+        const asr = new AppointmentStateReducer(blockCache, appointment);
+
+        const result = asr.reduce(
+            {
+                state: AppointmentState.WATCHING
+            },
+            blocks[0]
+        );
+
+        expect(result).to.deep.equal({ state: AppointmentState.WATCHING });
+    });
+
+    it("reduce does change state if event is observed in new block", () => {
+        const asr = new AppointmentStateReducer(blockCache, appointment);
+
+        const result = asr.reduce(
+            {
+                state: AppointmentState.WATCHING
+            },
+            blocks[1]
+        );
+
+        expect(result).to.deep.equal({
+            state: AppointmentState.OBSERVED,
+            blockObserved: blocks[1].number
+        });
+    });
+
+    it("reduce does change from OBSERVED", () => {
+        const asr = new AppointmentStateReducer(blockCache, appointment);
+
+        const result = asr.reduce(
+            {
+                state: AppointmentState.OBSERVED,
+                blockObserved: blocks[1].number
+            },
+            blocks[2]
+        );
+
+        expect(result).to.deep.equal({
+            state: AppointmentState.OBSERVED,
+            blockObserved: blocks[1].number
+        });
+    });
 });
 
 describe("Watcher", () => {

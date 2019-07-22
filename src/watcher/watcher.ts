@@ -15,7 +15,7 @@ import {
 import logger from "../logger";
 import { MultiResponder } from "../responder";
 
-enum AppointmentState {
+export enum AppointmentState {
     WATCHING,
     OBSERVED
 }
