@@ -51,12 +51,10 @@ export class AppointmentStateReducer implements StateReducer<WatcherAppointmentA
         const eventAncestor = this.cache.findAncestor(block.hash, ancestor => hasLogMatchingEvent(ancestor, filter));
 
         if (!eventAncestor) {
-            logger.info(`Watching for appointment ${this.appointment.id}.`);
             return {
                 state: AppointmentState.WATCHING
             };
         } else {
-            logger.info(`Initial observed appointment ${this.appointment.id} in block ${eventAncestor.number}.`);
             return {
                 state: AppointmentState.OBSERVED,
                 blockObserved: eventAncestor.number
@@ -68,7 +66,6 @@ export class AppointmentStateReducer implements StateReducer<WatcherAppointmentA
             prevState.state === AppointmentState.WATCHING &&
             hasLogMatchingEvent(block, this.appointment.getEventFilter())
         ) {
-            logger.info(`Observed appointment ${this.appointment.id} in block ${block.number}.`);
             return {
                 state: AppointmentState.OBSERVED,
                 blockObserved: block.number
@@ -131,26 +128,41 @@ export class Watcher extends Component<WatcherAnchorState, Block> {
         state.blockNumber - appointmentState.blockObserved + 1 >= this.confirmationsBeforeRemoval;
 
     public async handleChanges(prevState: WatcherAnchorState, state: WatcherAnchorState) {
-        for (const [objId, appointmentState] of state.items.entries()) {
-            const prevAppointmentState = prevState.items.get(objId);
+        for (const [appointmentId, appointmentState] of state.items.entries()) {
+            const prevAppointmentState = prevState.items.get(appointmentId);
 
+            // Log if started watching a new appointment
+            if (!prevAppointmentState && appointmentState.state === AppointmentState.WATCHING) {
+                logger.info(`Watching for appointment ${appointmentId}.`);
+            }
+
+            // Log if an appointment was observed, wether it is a new one or a previously watched one
+            if (
+                (!prevAppointmentState || prevAppointmentState.state === AppointmentState.WATCHING) &&
+                appointmentState.state === AppointmentState.OBSERVED
+            ) {
+                logger.info(`Observed appointment ${appointmentId} in block ${appointmentState.blockObserved}.`);
+            }
+
+            // Start response if necessary
             if (
                 !this.shouldHaveStartedResponder(prevState, prevAppointmentState) &&
                 this.shouldHaveStartedResponder(state, appointmentState)
             ) {
-                const appointment = this.store.getById(objId);
-                logger.info(`Responding to appointment ${objId}, block ${state.blockNumber}.`);
+                const appointment = this.store.getById(appointmentId);
+                logger.info(`Responding to appointment ${appointmentId}, block ${state.blockNumber}.`);
                 // pass the appointment to the responder to complete. At this point the job has completed as far as
                 // the watcher is concerned, therefore although respond is an async function we do not need to await it for a result
                 await this.responder.startResponse(appointment.id, appointment.getResponseData());
             }
 
+            // Cleanup if done with appointment
             if (
                 !this.shouldRemoveAppointment(prevState, prevAppointmentState) &&
                 this.shouldRemoveAppointment(state, appointmentState)
             ) {
-                logger.info(`Removing appointment ${objId}, block ${state.blockNumber} from watcher.`);
-                await this.store.removeById(objId);
+                logger.info(`Removing appointment ${appointmentId}, block ${state.blockNumber} from watcher.`);
+                await this.store.removeById(appointmentId);
             }
         }
     }
