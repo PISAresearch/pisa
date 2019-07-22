@@ -40,11 +40,13 @@ const hasLogMatchingEvent = (block: Block, filter: EventFilter): boolean => {
     );
 };
 
-class AppointmentStateReducer implements StateReducer<WatcherAppointmentAnchorState, Block> {
-    constructor(private cache: ReadOnlyBlockCache<Block>, private appointment: IEthereumAppointment) {}
-    public getInitialState(block: Block): WatcherAppointmentAnchorState {
+export class AppointmentStateReducer implements StateReducer<WatcherAppointmentAnchorState, Block> {
+    constructor(private cache: ReadOnlyBlockCache<Block>, private appointment: IEthereumAppointment) {
         const filter = this.appointment.getEventFilter();
         if (!filter.topics) throw new ApplicationError(`topics should not be undefined`);
+    }
+    public getInitialState(block: Block): WatcherAppointmentAnchorState {
+        const filter = this.appointment.getEventFilter();
 
         const eventAncestor = this.cache.findAncestor(block.hash, ancestor => hasLogMatchingEvent(ancestor, filter));
 

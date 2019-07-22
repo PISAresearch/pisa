@@ -1,4 +1,5 @@
 import "mocha";
+import { expect } from "chai";
 import mockito, { mock, instance, when, resetCalls } from "ts-mockito";
 import uuid from "uuid/v4";
 import { AppointmentStore } from "../../../src/watcher";
@@ -6,7 +7,95 @@ import { KitsuneAppointment } from "../../../src/integrations/kitsune";
 import { ethers } from "ethers";
 import * as Ganache from "ganache-core";
 import { MultiResponder } from "../../../src/responder";
-import { BlockProcessor } from "../../../src/blockMonitor";
+import { BlockProcessor, BlockCache } from "../../../src/blockMonitor";
+import { Logs, EthereumAppointment, ChannelType, Block, ApplicationError } from "../../../src/dataEntities";
+import { AppointmentStateReducer } from "../../../src/watcher/watcher";
+
+const blocks: Block[] = [
+    {
+        hash: "hash0",
+        number: 0,
+        parentHash: "hash",
+        logs: [],
+        transactionHashes: [],
+        transactions: []
+    },
+    {
+        hash: "hash1",
+        number: 1,
+        parentHash: "hash0",
+        logs: [],
+        transactionHashes: [],
+        transactions: []
+    },
+    {
+        hash: "hash2",
+        number: 2,
+        parentHash: "hash1",
+        logs: [],
+        transactionHashes: [],
+        transactions: []
+    }
+];
+
+class MockAppointment extends EthereumAppointment {
+    public getStateLocator(): string {
+        throw new Error("Method not implemented.");
+    }
+    public getContractAbi() {
+        throw new Error("Method not implemented.");
+    }
+    public getContractAddress(): string {
+        throw new Error("Method not implemented.");
+    }
+    public getEventFilter(): ethers.EventFilter {
+        return {
+            topics: ["0x1234"]
+        };
+    }
+    public getEventName(): string {
+        throw new Error("Method not implemented.");
+    }
+    public getStateNonce(): number {
+        throw new Error("Method not implemented.");
+    }
+    public getResponseFunctionName(): string {
+        throw new Error("Method not implemented.");
+    }
+    public getResponseFunctionArgs(): any[] {
+        throw new Error("Method not implemented.");
+    }
+}
+
+class MockAppointmentWithEmptyFilter extends MockAppointment {
+    public getEventFilter(): ethers.EventFilter {
+        return {};
+    }
+}
+
+describe("AppointmentStateReducer", () => {
+    let blockCache: BlockCache<Block & Logs>;
+    const appointment = new MockAppointment(10, ChannelType.None, 2, 100);
+
+    beforeEach(() => {
+        blockCache = new BlockCache<Block & Logs>(100);
+        blocks.forEach(b => blockCache.addBlock(b));
+    });
+
+    it("constructor throws ApplicationError if the topics are not set in the filter", () => {
+        const mockAppointmentWithEmptyFilter = new MockAppointmentWithEmptyFilter(10, ChannelType.None, 2, 10);
+        expect(() => new AppointmentStateReducer(blockCache, mockAppointmentWithEmptyFilter)).to.throw(
+            ApplicationError
+        );
+    });
+
+    // it("getInitialState ", () => {
+    //     const mockAppointmentWithEmptyFilter = new MockAppointmentWithEmptyFilter(10, ChannelType.None, 2, 10);
+    //     expect(() => new AppointmentStateReducer(blockCache, mockAppointmentWithEmptyFilter)).to.throw(
+    //         ApplicationError
+    //     );
+    // });
+});
 
 describe("Watcher", () => {
     const ganache = Ganache.provider({});
@@ -31,7 +120,13 @@ describe("Watcher", () => {
         mockito.when(mockedAppointment.id).thenReturn(id);
         mockito.when(mockedAppointment.getEventFilter()).thenReturn(ethersEventFilter);
         mockito.when(mockedAppointment.passedInspection).thenReturn(passedInspection);
-        mockito.when(mockedAppointment.getResponseData()).thenReturn({ contractAbi: "abi", contractAddress: "address", endBlock: 10, functionArgs: [], functionName: "fnName"})
+        mockito.when(mockedAppointment.getResponseData()).thenReturn({
+            contractAbi: "abi",
+            contractAddress: "address",
+            endBlock: 10,
+            functionArgs: [],
+            functionName: "fnName"
+        });
         return mockito.instance(mockedAppointment);
     };
     const appointmentCanBeUpdated = createMockAppointment(appointmentId1, eventFilter, true);
@@ -59,7 +154,9 @@ describe("Watcher", () => {
     const responderInstance = instance(mockedResponder);
 
     const mockedResponderThatThrows = mock(MultiResponder);
-    when(mockedResponderThatThrows.startResponse(appointmentCanBeUpdated.id, appointmentCanBeUpdated.getResponseData())).thenThrow(new Error("Responder error."));
+    when(
+        mockedResponderThatThrows.startResponse(appointmentCanBeUpdated.id, appointmentCanBeUpdated.getResponseData())
+    ).thenThrow(new Error("Responder error."));
     const responderInstanceThrow = instance(mockedResponderThatThrows);
 
     const mockedStoreThatThrows = mock(AppointmentStore);
