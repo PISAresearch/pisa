@@ -19,7 +19,7 @@ contract PreconditionHandlerInterface {
     // Given particular data, is the precondition satisified?
     // Important: PISA should only call function whne external contract is in a special state
     // For example, only authorise transfer is the external contract has the correct balance
-    function hasPISAFailed(bytes memory data) public returns(bool);
+    function canPISARespond(bytes memory _precondition) public returns(bool);
 }
 
 contract PostconditionHandlerInterface {
