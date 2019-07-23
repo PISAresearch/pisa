@@ -38,7 +38,7 @@ contract CommandChannelHandler {
   // CHECKS HASH COMMITMENT
   // Return TRUE if PISA failed
   // Return FALSE if PISA did its job (or if there was a problem with the information)
-  function checkJob(uint[] memory _datashard, address _sc, uint _logid, uint[] memory _dataindex, bytes[] memory _logdata, bytes memory _postcondition, address _dataregistry) public returns (uint[2] memory times, bool) {
+  function hasPISAFailed(address _dataregistry, uint[] memory _datashard, address _sc, uint _logid, uint[] memory _dataindex, bytes[] memory _logdata, bytes memory _postcondition, uint[2] memory appointmentTime) public returns (bool) {
 
       // Check shard information
       basicShardSanityChecks(_datashard, _dataindex, _dataregistry);
@@ -56,33 +56,69 @@ contract CommandChannelHandler {
       return decodeAndCheck(_logdata, _postcondition);
   }
 
-  // Fetches data from the data registry!
+  // CHECKS HASH COMMITMENT
   // Return TRUE if PISA failed
   // Return FALSE if PISA did its job (or if there was a problem with the information)
-  function checkJob(uint[] memory _datashard, address _sc, uint _logid, uint[] memory _dataindex, bytes memory _postcondition, address _dataregistry) public returns (uint[2] memory, bool) {
+  function getTime(address _dataregistry, uint[] memory _datashard, address _sc, uint _logid, uint[] memory _dataindex, bytes[] memory _logdata) public returns (uint[2] memory) {
+
       // Check shard information
       basicShardSanityChecks(_datashard, _dataindex, _dataregistry);
 
-      // Let's fetch the start and resolved dispute result... did PISA do its job?
-      bytes[] memory logdata;
-
       // Fetch the "starting dispute record"
-      logdata[0] = DataRegistryInterface(_dataregistry).fetchRecord(_datashard[0], _sc, _logid, _dataindex[0]);
+      // Does the log data match up with on-chain commitment?
+      bytes32 h = DataRegistryInterface(_dataregistry).fetchHash(_datashard[0], _sc, _logid, _dataindex[0]);
+      require(h == keccak256(_logdata[0]));
 
       // Fetch the "resolved dispute record"
-      logdata[1] = DataRegistryInterface(_dataregistry).fetchRecord(_datashard[1], _sc, _logid, _dataindex[1]);
+      // Does the log data match up with the on-chain commitment?
+      h = DataRegistryInterface(_dataregistry).fetchHash(_datashard[1], _sc, _logid, _dataindex[1]);
+      require(h == keccak256(_logdata[1]));
 
-      return decodeAndCheck(logdata, _postcondition);
+      // Fetch start time and challenge time from log
+      // Also compute the "finish time" of the dispute
+      uint[2] memory times;
+
+      //, startTime, challengePeriod,
+      (, times[0], times[1], ) = abi.decode(_logdata[0], (uint, uint, uint, uint));
+
+      // Compute the "finish time" of the dispute
+      times[1] = times[0] + times[1];
+
+      return times;
 
   }
 
+
+  // // Fetches data from the data registry!
+  // // Return TRUE if PISA failed
+  // // Return FALSE if PISA did its job (or if there was a problem with the information)
+  // function hasPISAFailed(uint[] memory _datashard, address _sc, uint _logid, uint[] memory _dataindex, bytes memory _postcondition, address _dataregistry) public returns (bool) {
+  //     // Check shard information
+  //     basicShardSanityChecks(_datashard, _dataindex, _dataregistry);
+  //
+  //     // Let's fetch the start and resolved dispute result... did PISA do its job?
+  //     bytes[] memory logdata;
+  //
+  //     // Fetch the "starting dispute record"
+  //     logdata[0] = DataRegistryInterface(_dataregistry).fetchRecord(_datashard[0], _sc, _logid, _dataindex[0]);
+  //
+  //     // Fetch the "resolved dispute record"
+  //     logdata[1] = DataRegistryInterface(_dataregistry).fetchRecord(_datashard[1], _sc, _logid, _dataindex[1]);
+  //
+  //     return decodeAndCheck(logdata, _postcondition);
+  //
+  // }
+
   // Does all the hard work to decode logs and post condition to check result
-  function decodeAndCheck(bytes[] memory _logdata, bytes memory _postcondition) internal pure returns (uint[2] memory, bool) {
+  function decodeAndCheck(bytes[] memory _logdata, bytes memory _postcondition) internal pure returns (bool) {
 
       // Fetch the "V" we promised to post.
+      // TODO: Add the minimum challenge period here
       uint v = abi.decode(_postcondition, (uint));
       uint triggerMsg; uint startTimestamp; uint challengePeriod; uint startv;
       uint resolveMsg; uint finalv;
+
+
       (triggerMsg, startTimestamp, challengePeriod, startv) = abi.decode(_logdata[0], (uint, uint, uint, uint));
       (resolveMsg, ,finalv) = abi.decode(_logdata[1], (uint, uint, uint));
 
@@ -101,12 +137,12 @@ contract CommandChannelHandler {
 
         // PISA hired for "v" and it finished with a higher  v.
         // Looks like PISA did its job
-        return (times, false);
+        return false;
       } else {
 
         // PISA hired for "v" and it finishes with a lower v.
         // Looks like something went wrong, PISA didn't do its job.
-        return (times, true);
+        return true;
       }
   }
 }
