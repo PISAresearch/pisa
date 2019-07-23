@@ -25,7 +25,7 @@ contract PreconditionHandlerInterface {
 contract PostconditionHandlerInterface {
 
     // Given two disputes (and the receipt) - did we satisfy the postcondition?
-    function hasPISAFailed(address _dataregistry, uint[] memory _datashard, address _sc, uint _logid, uint[] memory _dataindex, bytes[] memory _logdata, bytes memory _postcondition, uint[2] memory appointmentTime) public returns (bool);
+    function hasPISAFailed(address _dataregistry, uint[] memory _datashard, address _sc, uint _logid, uint[] memory _dataindex, bytes[] memory _logdata, bytes memory _postcondition) public returns (bool);
 }
 
 contract ChallengeTimeDecoderInterface {
@@ -197,7 +197,7 @@ contract PISAHash {
           // Yes... lets see if PISA was a good tower and the condition is satisified
           // Results "TRUE" is PISA failed to do its job
           bool outcome;
-          (outcome) = PostconditionHandlerInterface(postconditionHandlers[appointment.mode]).hasPISAFailed(dataregistry, _datashard, appointment.sc, appointment.appointmentid, _dataindex, _logdata, appointment.postcondition, [appointment.startTime, appointment.finishTime]);
+          (outcome) = PostconditionHandlerInterface(postconditionHandlers[appointment.mode]).hasPISAFailed(dataregistry, _datashard, appointment.sc, appointment.appointmentid, _dataindex, _logdata, appointment.postcondition);
 
           // Did PISA fail to do its job?
           require(outcome, "PISA was a good tower");
@@ -354,6 +354,8 @@ contract PISAHash {
       // Send refund (and return their challenge bond)
       uint toRefund = cheated[pisaid].refund;
       cheated[pisaid].refund = 0;
+
+      // Safe to use _cus since that is linked by the pisaid
       _cus.transfer(toRefund);
 
     }

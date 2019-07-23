@@ -38,7 +38,7 @@ contract CommandChannelHandler {
   // CHECKS HASH COMMITMENT
   // Return TRUE if PISA failed
   // Return FALSE if PISA did its job (or if there was a problem with the information)
-  function hasPISAFailed(address _dataregistry, uint[] memory _datashard, address _sc, uint _logid, uint[] memory _dataindex, bytes[] memory _logdata, bytes memory _postcondition, uint[2] memory appointmentTime) public returns (bool) {
+  function hasPISAFailed(address _dataregistry, uint[] memory _datashard, address _sc, uint _logid, uint[] memory _dataindex, bytes[] memory _logdata, bytes memory _postcondition) public returns (bool) {
 
       // Check shard information
       basicShardSanityChecks(_datashard, _dataindex, _dataregistry);
