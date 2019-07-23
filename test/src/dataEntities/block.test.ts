@@ -32,8 +32,9 @@ describe("hasLogMatchingEventFilter", () => {
         expect(hasLogMatchingEventFilter(blockHasLogs, { address, topics })).to.be.true;
     });
 
-    it("returns false if an appropriate log is present", () => {
+    it("returns false if an appropriate log is not present", () => {
         expect(hasLogMatchingEventFilter(blockDoesNotHaveLogs, { address, topics })).to.be.false;
+        expect(hasLogMatchingEventFilter(blockHasLogs, { address: "0xanotheraddress", topics })).to.be.false;
     });
     it("throws ArgumentError if no address is provided", () => {
         expect(() => hasLogMatchingEventFilter(blockHasLogs, { topics })).to.throw(ArgumentError);
