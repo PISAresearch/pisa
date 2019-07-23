@@ -1,5 +1,6 @@
 import { ethers } from "ethers";
 import { BigNumber } from "ethers/utils";
+import { ArgumentError } from "./errors";
 
 export interface IBlockStub {
     hash: string;
@@ -9,6 +10,18 @@ export interface IBlockStub {
 
 export interface Logs {
     logs: ethers.providers.Log[];
+}
+
+/**
+ * Returns true the `block` contains a log that matches `filter`, false otherwise.
+ */
+export function hasLogMatchingEventFilter(block: Logs, filter: ethers.EventFilter): boolean {
+    if (!filter.address) throw new ArgumentError("The filter must provide an address");
+    if (!filter.topics) throw new ArgumentError("The filter must provide the topics");
+
+    return block.logs.some(
+        log => log.address === filter.address && filter.topics!.every((topic, idx) => log.topics[idx] === topic)
+    );
 }
 
 export interface TransactionHashes {

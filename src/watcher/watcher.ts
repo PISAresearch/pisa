@@ -2,8 +2,7 @@ import { IEthereumAppointment } from "../dataEntities";
 import { ApplicationError, ArgumentError } from "../dataEntities/errors";
 import { AppointmentStore } from "./store";
 import { ReadOnlyBlockCache } from "../blockMonitor";
-import { Logs, IBlockStub } from "../dataEntities/block";
-import { EventFilter } from "ethers";
+import { Logs, IBlockStub, hasLogMatchingEventFilter } from "../dataEntities/block";
 import {
     StateReducer,
     MappedStateReducer,
@@ -33,13 +32,6 @@ export type WatcherAppointmentAnchorState =
 /** The complete anchor state for the watcher, that also includes the block number */
 type WatcherAnchorState = MappedState<WatcherAppointmentAnchorState> & BlockNumberState;
 
-// TODO:198: move this to a utility function somewhere
-const hasLogMatchingEvent = (block: IBlockStub & Logs, filter: EventFilter): boolean => {
-    return block.logs.some(
-        log => log.address === filter.address && filter.topics!.every((topic, idx) => log.topics[idx] === topic)
-    );
-};
-
 export class WatcherAppointmentStateReducer implements StateReducer<WatcherAppointmentAnchorState, IBlockStub & Logs> {
     constructor(private cache: ReadOnlyBlockCache<IBlockStub & Logs>, private appointment: IEthereumAppointment) {
         const filter = this.appointment.getEventFilter();
@@ -48,7 +40,9 @@ export class WatcherAppointmentStateReducer implements StateReducer<WatcherAppoi
     public getInitialState(block: IBlockStub & Logs): WatcherAppointmentAnchorState {
         const filter = this.appointment.getEventFilter();
 
-        const eventAncestor = this.cache.findAncestor(block.hash, ancestor => hasLogMatchingEvent(ancestor, filter));
+        const eventAncestor = this.cache.findAncestor(block.hash, ancestor =>
+            hasLogMatchingEventFilter(ancestor, filter)
+        );
 
         if (!eventAncestor) {
             return {
@@ -64,7 +58,7 @@ export class WatcherAppointmentStateReducer implements StateReducer<WatcherAppoi
     public reduce(prevState: WatcherAppointmentAnchorState, block: IBlockStub & Logs): WatcherAppointmentAnchorState {
         if (
             prevState.state === WatcherAppointmentState.WATCHING &&
-            hasLogMatchingEvent(block, this.appointment.getEventFilter())
+            hasLogMatchingEventFilter(block, this.appointment.getEventFilter())
         ) {
             return {
                 state: WatcherAppointmentState.OBSERVED,
