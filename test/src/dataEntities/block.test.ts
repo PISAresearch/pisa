@@ -5,8 +5,10 @@ import { hasLogMatchingEventFilter, Logs } from "../../../src/dataEntities/block
 import { ArgumentError } from "../../../src/dataEntities";
 
 describe("hasLogMatchingEventFilter", () => {
-    const address = "0x1234";
+    const address = "0x1234abcd";
+    const addressDifferentCase = "0x1234AbCd"; // should match anyway
     const topics = ["0xaabbccdd"];
+    const topicsDifferentCase = ["0xAaBbCcDd"]; // should match anyway
 
     const blockHasLogs: Logs = {
         logs: [
@@ -30,6 +32,14 @@ describe("hasLogMatchingEventFilter", () => {
 
     it("returns true if an appropriate log is present", () => {
         expect(hasLogMatchingEventFilter(blockHasLogs, { address, topics })).to.be.true;
+        expect(
+            hasLogMatchingEventFilter(blockHasLogs, { address: addressDifferentCase, topics }),
+            "matches even if address' case is different"
+        ).to.be.true;
+        expect(
+            hasLogMatchingEventFilter(blockHasLogs, { address, topics: topicsDifferentCase }),
+            "matches even if topics' case is different"
+        ).to.be.true;
     });
 
     it("returns false if an appropriate log is not present", () => {

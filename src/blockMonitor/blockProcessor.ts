@@ -52,9 +52,6 @@ export class BlockProcessor<T extends IBlockStub> extends StartStopService {
     // for set of blocks currently emitted as head block
     private emittedBlocks: WeakSet<Readonly<T>> = new WeakSet();
 
-    // keeps track of the latest known head received
-    private headHash: string | null = null;
-
     private mBlockCache: BlockCache<T>;
 
     private getBlock: (blockNumberOrHash: string | number) => Promise<T>;
@@ -113,9 +110,8 @@ export class BlockProcessor<T extends IBlockStub> extends StartStopService {
         return this.lastBlockHashReceived === blockHash;
     }
 
-    // update the new headHash and emit the appropriate events
+    // updates the new head block in the cache and emits the appropriate events
     private processNewHead(headBlock: Readonly<T>) {
-        this.headHash = headBlock.hash;
         this.mBlockCache.setHead(headBlock.hash);
         const nearestEmittedBlockInAncestry = this.blockCache.findAncestor(headBlock.hash, block =>
             this.emittedBlocks.has(block)
@@ -142,7 +138,7 @@ export class BlockProcessor<T extends IBlockStub> extends StartStopService {
                 blocksToAdd.push(curBlock);
             }
             blocksToAdd.reverse(); // add blocks from the oldest
-            
+
             // populate fetched blocks into cache, starting from the deepest
             for (const block of blocksToAdd) {
                 this.mBlockCache.addBlock(block);
