@@ -13,8 +13,8 @@ import {
     IEthereumAppointment
 } from "../../../src/dataEntities";
 import {
-    AppointmentStateReducer,
-    AppointmentState,
+    WatcherAppointmentStateReducer,
+    WatcherAppointmentState,
     Watcher,
     WatcherAppointmentAnchorState
 } from "../../../src/watcher/watcher";
@@ -101,7 +101,7 @@ class MockAppointmentWithEmptyFilter extends MockAppointment {
     }
 }
 
-describe("AppointmentStateReducer", () => {
+describe("WatcherAppointmentStateReducer", () => {
     const appointment = new MockAppointment(10, ChannelType.None, 0, 100);
 
     const blockCache = new BlockCache<Block>(100);
@@ -109,75 +109,75 @@ describe("AppointmentStateReducer", () => {
 
     it("constructor throws ApplicationError if the topics are not set in the filter", () => {
         const mockAppointmentWithEmptyFilter = new MockAppointmentWithEmptyFilter(10, ChannelType.None, 0, 10);
-        expect(() => new AppointmentStateReducer(blockCache, mockAppointmentWithEmptyFilter)).to.throw(
+        expect(() => new WatcherAppointmentStateReducer(blockCache, mockAppointmentWithEmptyFilter)).to.throw(
             ApplicationError
         );
     });
 
     it("getInitialState initializes to WATCHING if event not present in ancestry", () => {
-        const asr = new AppointmentStateReducer(blockCache, appointment);
+        const asr = new WatcherAppointmentStateReducer(blockCache, appointment);
 
-        expect(asr.getInitialState(blocks[1])).to.deep.equal({ state: AppointmentState.WATCHING });
+        expect(asr.getInitialState(blocks[1])).to.deep.equal({ state: WatcherAppointmentState.WATCHING });
     });
 
     it("getInitialState initializes to OBSERVED if event is present in the last block", () => {
-        const asr = new AppointmentStateReducer(blockCache, appointment);
+        const asr = new WatcherAppointmentStateReducer(blockCache, appointment);
         expect(asr.getInitialState(blocks[2])).to.deep.equal({
-            state: AppointmentState.OBSERVED,
+            state: WatcherAppointmentState.OBSERVED,
             blockObserved: blocks[2].number
         });
     });
 
     it("getInitialState initializes to OBSERVED if event is present in ancestry, updates blockObserved", () => {
-        const asr = new AppointmentStateReducer(blockCache, appointment);
+        const asr = new WatcherAppointmentStateReducer(blockCache, appointment);
         expect(asr.getInitialState(blocks[3])).to.deep.equal({
-            state: AppointmentState.OBSERVED,
+            state: WatcherAppointmentState.OBSERVED,
             blockObserved: blocks[2].number
         });
     });
 
     it("reduce does not change state if event is not observed in new block", () => {
-        const asr = new AppointmentStateReducer(blockCache, appointment);
+        const asr = new WatcherAppointmentStateReducer(blockCache, appointment);
 
         const result = asr.reduce(
             {
-                state: AppointmentState.WATCHING
+                state: WatcherAppointmentState.WATCHING
             },
             blocks[1]
         );
 
-        expect(result).to.deep.equal({ state: AppointmentState.WATCHING });
+        expect(result).to.deep.equal({ state: WatcherAppointmentState.WATCHING });
     });
 
     it("reduce does change state if event is observed in new block", () => {
-        const asr = new AppointmentStateReducer(blockCache, appointment);
+        const asr = new WatcherAppointmentStateReducer(blockCache, appointment);
 
         const result = asr.reduce(
             {
-                state: AppointmentState.WATCHING
+                state: WatcherAppointmentState.WATCHING
             },
             blocks[2]
         );
 
         expect(result).to.deep.equal({
-            state: AppointmentState.OBSERVED,
+            state: WatcherAppointmentState.OBSERVED,
             blockObserved: blocks[2].number
         });
     });
 
     it("reduce does not change from OBSERVED when new blocks come", () => {
-        const asr = new AppointmentStateReducer(blockCache, appointment);
+        const asr = new WatcherAppointmentStateReducer(blockCache, appointment);
 
         const result = asr.reduce(
             {
-                state: AppointmentState.OBSERVED,
+                state: WatcherAppointmentState.OBSERVED,
                 blockObserved: blocks[2].number
             },
             blocks[2]
         );
 
         expect(result).to.deep.equal({
-            state: AppointmentState.OBSERVED,
+            state: WatcherAppointmentState.OBSERVED,
             blockObserved: blocks[2].number
         });
     });
@@ -227,14 +227,14 @@ describe("Watcher", () => {
         await watcher.handleChanges(
             {
                 items: makeMap(appointment.id, {
-                    state: AppointmentState.OBSERVED,
+                    state: WatcherAppointmentState.OBSERVED,
                     blockObserved: 2
                 }),
                 blockNumber: 2 + CONFIRMATIONS_BEFORE_RESPONSE - 2
             },
             {
                 items: makeMap(appointment.id, {
-                    state: AppointmentState.OBSERVED,
+                    state: WatcherAppointmentState.OBSERVED,
                     blockObserved: 2
                 }),
                 blockNumber: 2 + CONFIRMATIONS_BEFORE_RESPONSE - 1
@@ -256,14 +256,14 @@ describe("Watcher", () => {
         await watcher.handleChanges(
             {
                 items: makeMap(appointment.id, {
-                    state: AppointmentState.OBSERVED,
+                    state: WatcherAppointmentState.OBSERVED,
                     blockObserved: 2
                 }),
                 blockNumber: 2 + CONFIRMATIONS_BEFORE_RESPONSE - 3
             },
             {
                 items: makeMap(appointment.id, {
-                    state: AppointmentState.OBSERVED,
+                    state: WatcherAppointmentState.OBSERVED,
                     blockObserved: 2
                 }),
                 blockNumber: 2 + CONFIRMATIONS_BEFORE_RESPONSE - 2
@@ -289,7 +289,7 @@ describe("Watcher", () => {
             },
             {
                 items: makeMap(appointment.id, {
-                    state: AppointmentState.OBSERVED,
+                    state: WatcherAppointmentState.OBSERVED,
                     blockObserved: 2
                 }),
                 blockNumber: 2 + CONFIRMATIONS_BEFORE_RESPONSE - 1
@@ -311,14 +311,14 @@ describe("Watcher", () => {
         await watcher.handleChanges(
             {
                 items: makeMap(appointment.id, {
-                    state: AppointmentState.OBSERVED,
+                    state: WatcherAppointmentState.OBSERVED,
                     blockObserved: 2
                 }),
                 blockNumber: 2 + CONFIRMATIONS_BEFORE_RESPONSE - 1
             },
             {
                 items: makeMap(appointment.id, {
-                    state: AppointmentState.OBSERVED,
+                    state: WatcherAppointmentState.OBSERVED,
                     blockObserved: 2
                 }),
                 blockNumber: 2 + CONFIRMATIONS_BEFORE_RESPONSE
@@ -340,14 +340,14 @@ describe("Watcher", () => {
         await watcher.handleChanges(
             {
                 items: makeMap(appointment.id, {
-                    state: AppointmentState.OBSERVED,
+                    state: WatcherAppointmentState.OBSERVED,
                     blockObserved: 2
                 }),
                 blockNumber: 2 + CONFIRMATIONS_BEFORE_REMOVAL - 2
             },
             {
                 items: makeMap(appointment.id, {
-                    state: AppointmentState.OBSERVED,
+                    state: WatcherAppointmentState.OBSERVED,
                     blockObserved: 2
                 }),
                 blockNumber: 2 + CONFIRMATIONS_BEFORE_REMOVAL - 1
@@ -369,14 +369,14 @@ describe("Watcher", () => {
         await watcher.handleChanges(
             {
                 items: makeMap(appointment.id, {
-                    state: AppointmentState.OBSERVED,
+                    state: WatcherAppointmentState.OBSERVED,
                     blockObserved: 2
                 }),
                 blockNumber: 2 + CONFIRMATIONS_BEFORE_REMOVAL - 3
             },
             {
                 items: makeMap(appointment.id, {
-                    state: AppointmentState.OBSERVED,
+                    state: WatcherAppointmentState.OBSERVED,
                     blockObserved: 2
                 }),
                 blockNumber: 2 + CONFIRMATIONS_BEFORE_REMOVAL - 2
