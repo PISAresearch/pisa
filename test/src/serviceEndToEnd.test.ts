@@ -23,6 +23,7 @@ config.hostPort = 3000;
 config.jsonRpcUrl = "http://localhost:8545";
 config.responderKey = "0x6370fd033278c143179d81c5526140625662b8daa446c22ee2d73db3707e620c";
 config.receiptKey = "0x6370fd033278c143179d81c5526140625662b8daa446c22ee2d73db3707e620c";
+config.watcherResponseConfirmations = 0;
 
 const provider = new ethers.providers.Web3Provider(ganache);
 provider.pollingInterval = 100;
@@ -49,7 +50,7 @@ describe("Service end-to-end", () => {
 
         const signerWallet = new ethers.Wallet(config.receiptKey!, provider);
 
-        service = new PisaService(config, provider, responderWallet, signerWallet, db, 0, 20);
+        service = new PisaService(config, provider, responderWallet, signerWallet, db);
         await service.start();
 
         // accounts
@@ -84,9 +85,7 @@ describe("Service end-to-end", () => {
             provider,
             watcherWallet,
             signerWallet,
-            db,
-            0,
-            20
+            db
         );
 
         const round = 1,

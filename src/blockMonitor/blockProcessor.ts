@@ -69,7 +69,7 @@ export class BlockProcessor<T extends IBlockStub> extends StartStopService {
     /**
      * Event emitted when a new block is mined and has been added to the BlockCache.
      * It is not guaranteed that no block is skipped, especially in case of reorgs.
-     * Emits the block stu.
+     * Emits the block stub of the new head, and the previous emitted block in the ancestry of this block..
      */
     public static readonly NEW_HEAD_EVENT = "new_head";
 

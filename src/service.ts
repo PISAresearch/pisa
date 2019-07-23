@@ -45,17 +45,13 @@ export class PisaService extends StartStopService {
      * @param wallet A signing authority for submitting transactions
      * @param receiptSigner A signing authority for receipts returned from Pisa
      * @param db The instance of the database
-     * @param watcherResponseConfirmations The number of confirmations the watcher should wait before starting a response
-     * @param watcherRemovalConfirmations The number of confirmations the watcher should wait before removing an appointment
      */
     constructor(
         config: IArgConfig,
         provider: ethers.providers.BaseProvider,
         wallet: ethers.Wallet,
         receiptSigner: ethers.Signer,
-        db: LevelUp<encodingDown<string, any>>,
-        watcherResponseConfirmations: number,
-        watcherRemovalConfirmations: number
+        db: LevelUp<encodingDown<string, any>>
     ) {
         super("pisa");
         const app = express();
@@ -66,7 +62,9 @@ export class PisaService extends StartStopService {
         const configs = [Raiden, Kitsune];
 
         // start reorg detector and block monitor
-        const blockCache = new BlockCache<Block>(200);
+        const blockCache = new BlockCache<Block>(
+            config.maximumReorgLimit === undefined ? 200 : config.maximumReorgLimit
+        );
         this.blockProcessor = new BlockProcessor<Block>(provider, blockFactory, blockCache);
 
         // dependencies
@@ -84,19 +82,17 @@ export class PisaService extends StartStopService {
             this.multiResponder,
             this.blockProcessor.blockCache,
             this.appointmentStore,
-            watcherResponseConfirmations,
-            watcherRemovalConfirmations
+            config.watcherResponseConfirmations === undefined ? 5 : config.watcherResponseConfirmations,
+            config.maximumReorgLimit === undefined ? 100 : config.maximumReorgLimit
         );
-
+        const responder = new MultiResponderComponent(
+            this.multiResponder,
+            this.blockProcessor.blockCache,
+            config.maximumReorgLimit == undefined ? 100 : config.maximumReorgLimit
+        );
         this.blockchainMachine = new BlockchainMachine<Block>(this.blockProcessor);
         this.blockchainMachine.addComponent(watcher);
-        this.blockchainMachine.addComponent(
-            new MultiResponderComponent(
-                this.multiResponder,
-                this.blockProcessor.blockCache,
-                this.blockProcessor.blockCache.maxDepth - 1
-            )
-        );
+        this.blockchainMachine.addComponent(responder);
 
         // gc
         this.garbageCollector = new AppointmentStoreGarbageCollector(provider, 10, this.appointmentStore);
