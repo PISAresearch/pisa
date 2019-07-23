@@ -268,7 +268,7 @@ export class GasQueue {
      * @param nonce
      */
     public consume(identifier: PisaTransactionIdentifier) {
-        const index = this.queueItems.findIndex(i => identifier.equals(i.request.identifier));
+        const index = this.queueItems.findIndex(item => identifier.equals(item.request.identifier));
         if (index === -1) throw new ArgumentError("Identifier not found in queue.", identifier);
         const clonedArray = this.cloneQueueItems();
         // shift right the range to consume the item at the index
@@ -301,7 +301,7 @@ export class GasQueue {
      * @param queueItem
      */
     public contains(identifier: PisaTransactionIdentifier): boolean {
-        return this.queueItems.findIndex(i => i.request.identifier.equals(identifier)) !== -1;
+        return this.queueItems.findIndex(item => item.request.identifier.equals(identifier)) !== -1;
     }
 
     /**
