@@ -195,7 +195,9 @@ describe("Watcher", () => {
 
         mockedStore = mock(AppointmentStore);
         when(mockedStore.getAll()).thenReturn([appointment]);
-        when(mockedStore.getById(appointment.id)).thenReturn(appointment);
+        const appointmentsById = new Map<string, IEthereumAppointment>();
+        appointmentsById.set(appointment.id, appointment);
+        when(mockedStore.appointmentsById).thenReturn(appointmentsById);
         store = instance(mockedStore);
     });
 

@@ -144,7 +144,7 @@ export class Watcher extends Component<WatcherAnchorState, IBlockStub & Logs> {
                 !this.shouldHaveStartedResponder(prevState, prevWatcherAppointmentState) &&
                 this.shouldHaveStartedResponder(state, appointmentState)
             ) {
-                const appointment = this.store.getById(appointmentId);
+                const appointment = this.store.appointmentsById.get(appointmentId)!;
                 logger.info(`Responding to appointment ${appointmentId}, block ${state.blockNumber}.`);
                 // pass the appointment to the responder to complete. At this point the job has completed as far as
                 // the watcher is concerned, therefore although respond is an async function we do not need to await it for a result

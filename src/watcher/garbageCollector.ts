@@ -61,7 +61,7 @@ export class AppointmentStoreGarbageCollector extends StartStopService {
                 // find all blocks that are expired
                 // we then allow a number of confirmations to ensure that we can safely dispose the block
                 this.logger.info(`Collecting appointments expired since ${blockNumber - this.confirmationCount}.`);
-                const expiredAppointments = this.store.getExpiredSince(blockNumber - this.confirmationCount);
+                const expiredAppointments = [...this.store.getExpiredSince(blockNumber - this.confirmationCount)];
                 if (expiredAppointments.length > 0) {
                     this.logger.info(`Collecting ${expiredAppointments.length} expired appointments.`);
 

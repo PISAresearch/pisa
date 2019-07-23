@@ -26,7 +26,7 @@ export interface IAppointmentStore {
      * Find all appointments that have expired at a certain block.
      * @param block
      */
-    getExpiredSince(block: number): IEthereumAppointment[];
+    getExpiredSince(block: number): IterableIterator<IEthereumAppointment>;
 }
 
 /**
@@ -51,7 +51,7 @@ export class AppointmentStore extends StartStopService implements IAppointmentSt
 
             const appointment = constrctr(record);
             // // add too the indexes
-            this.appointmentsById[appointment.id] = appointment;
+            this.mAppointmentsById.set(appointment.id, appointment);
             this.appointmentsByStateLocator[appointment.getStateLocator()] = appointment;
         }
     }
@@ -60,12 +60,17 @@ export class AppointmentStore extends StartStopService implements IAppointmentSt
         // do nothing
     }
 
-    private readonly appointmentsById: {
-        [appointmentId: string]: IEthereumAppointment;
-    } = {};
+    private readonly mAppointmentsById: Map<string, IEthereumAppointment> = new Map();
     private readonly appointmentsByStateLocator: {
         [appointmentStateLocator: string]: IEthereumAppointment;
     } = {};
+
+    /**
+     * Accessor to the appointments in this store.
+     */
+    public get appointmentsById(): ReadonlyMap<string, IEthereumAppointment> {
+        return this.mAppointmentsById;
+    }
 
     // Every time we access the state locator, we need to make sure that this happens atomically.
     // This is not necessary for appointmentId, as they are unique for each appointment and generated internally.
@@ -97,7 +102,7 @@ export class AppointmentStore extends StartStopService implements IAppointmentSt
                     return false;
                 } else {
                     // remove the old appointment
-                    delete this.appointmentsById[currentAppointment.id];
+                    this.mAppointmentsById.delete(currentAppointment.id);
                 }
             }
 
@@ -108,7 +113,7 @@ export class AppointmentStore extends StartStopService implements IAppointmentSt
 
             // add the new appointment
             this.appointmentsByStateLocator[appointment.getStateLocator()] = appointment;
-            this.appointmentsById[appointment.id] = appointment;
+            this.mAppointmentsById.set(appointment.id, appointment);
             return true;
         });
     }
@@ -119,11 +124,11 @@ export class AppointmentStore extends StartStopService implements IAppointmentSt
      * @param appointmentId
      */
     public async removeById(appointmentId: string): Promise<boolean> {
-        const appointment = this.appointmentsById[appointmentId];
+        const appointment = this.mAppointmentsById.get(appointmentId);
         if (appointment) {
             const stateLocator = appointment.getStateLocator();
             // remove the appointment from the id index
-            delete this.appointmentsById[appointmentId];
+            this.mAppointmentsById.delete(appointmentId);
 
             // All updates related to resources related to stateLocator should happen atomically.
             // While the current code is blocking, we acquire a lock until we are done for clarity.
@@ -143,10 +148,6 @@ export class AppointmentStore extends StartStopService implements IAppointmentSt
         return false;
     }
 
-    public getById(id: string) {
-        return this.appointmentsById[id];
-    }
-
     /**
      * Find all appointments that have an end block less than the supplied block.
      *
@@ -159,8 +160,12 @@ export class AppointmentStore extends StartStopService implements IAppointmentSt
      * remain effecient as blocks are removed.
      * @param expiryBlock
      */
-    public getExpiredSince(expiryBlock: number): IEthereumAppointment[] {
-        return Object.values(this.appointmentsById).filter(a => a.endBlock < expiryBlock);
+    public *getExpiredSince(expiryBlock: number) {
+        for (const appointment of this.appointmentsById.values()) {
+            if (appointment.endBlock < expiryBlock) {
+                yield appointment;
+            }
+        }
     }
 
     /**
@@ -168,6 +173,6 @@ export class AppointmentStore extends StartStopService implements IAppointmentSt
      */
     public getAll(): IEthereumAppointment[] {
         // all appointments must have expired by the time block number reaches max int
-        return this.getExpiredSince(Number.MAX_SAFE_INTEGER);
+        return [...this.getExpiredSince(Number.MAX_SAFE_INTEGER)];
     }
 }

@@ -56,14 +56,17 @@ describe("GarbageCollector", () => {
     when(mockedStore.removeById(appointmentInstance1.id)).thenResolve(true);
     when(mockedStore.removeById(appointmentInstance2.id)).thenResolve(true);
     when(mockedStore.removeById(errorStoreRemoveByIdAppointment.id)).thenReject(new Error("Remove failed."));
-    when(mockedStore.getExpiredSince(appointment1Expired - confirmationCount)).thenReturn([appointmentInstance1]);
+    when(mockedStore.getExpiredSince(appointment1Expired - confirmationCount)).thenCall(() =>
+        [appointmentInstance1].values()
+    );
 
-    when(mockedStore.getExpiredSince(appointment2Expired - confirmationCount)).thenReturn([appointmentInstance2]);
-    when(mockedStore.getExpiredSince(bothAppointmentsExpired - confirmationCount)).thenReturn([
-        appointmentInstance1,
-        appointmentInstance2
-    ]);
-    when(mockedStore.getExpiredSince(nothingExpired - confirmationCount)).thenReturn([]);
+    when(mockedStore.getExpiredSince(appointment2Expired - confirmationCount)).thenCall(() =>
+        [appointmentInstance2].values()
+    );
+    when(mockedStore.getExpiredSince(bothAppointmentsExpired - confirmationCount)).thenCall(() =>
+        [appointmentInstance1, appointmentInstance2].values()
+    );
+    when(mockedStore.getExpiredSince(nothingExpired - confirmationCount)).thenCall(() => [].values());
     // wait some time, then call then return the appointment
     when(mockedStore.removeById(appointmentInstance1.id)).thenCall(async () => {
         await wait(slowExpiredTime);
@@ -72,12 +75,12 @@ describe("GarbageCollector", () => {
     when(mockedStore.getExpiredSince(errorStoreExpired - confirmationCount)).thenThrow(
         new Error("Exceptional expired error.")
     );
-    when(mockedStore.getExpiredSince(errorSubscriberAppointmentExpired - confirmationCount)).thenReturn([
-        errorSubscriberAppointment
-    ]);
-    when(mockedStore.getExpiredSince(errorRemoveByIdExpiredBlock - confirmationCount)).thenReturn([
-        errorStoreRemoveByIdAppointment
-    ]);
+    when(mockedStore.getExpiredSince(errorSubscriberAppointmentExpired - confirmationCount)).thenCall(() =>
+        [errorSubscriberAppointment].values()
+    );
+    when(mockedStore.getExpiredSince(errorRemoveByIdExpiredBlock - confirmationCount)).thenCall(() =>
+        [errorStoreRemoveByIdAppointment].values()
+    );
 
     const storeInstance = instance(mockedStore);
 
