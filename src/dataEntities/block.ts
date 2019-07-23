@@ -20,7 +20,9 @@ export function hasLogMatchingEventFilter(block: Logs, filter: ethers.EventFilte
     if (!filter.topics) throw new ArgumentError("The filter must provide the topics");
 
     return block.logs.some(
-        log => log.address === filter.address && filter.topics!.every((topic, idx) => log.topics[idx] === topic)
+        log =>
+            log.address.toLowerCase() === filter.address!.toLowerCase() &&
+            filter.topics!.every((topic, idx) => log.topics[idx].toLowerCase() === topic.toLowerCase())
     );
 }
 
