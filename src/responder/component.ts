@@ -8,10 +8,11 @@ import {
     BlockNumberReducer
 } from "../blockMonitor/component";
 import { ReadOnlyBlockCache } from "../blockMonitor";
-import { Block } from "../dataEntities";
+import { Block, ApplicationError } from "../dataEntities";
 import { MultiResponder } from "./multiResponder";
 import { ResponderBlock } from "../dataEntities/block";
 import logger from "../logger";
+import { UnreachableCaseError } from "../dataEntities/errors";
 
 export enum ResponderStateKind {
     Pending = 1,
@@ -78,25 +79,19 @@ export class ResponderAppointmentReducer implements StateReducer<ResponderAppoin
         const minedTx = this.getMinedTransaction(block.hash, this.identifier);
 
         if (minedTx) {
-            const minedTxState: MinedResponseState = {
+            return {
                 appointmentId: this.appointmentId,
                 kind: ResponderStateKind.Mined,
                 blockMined: minedTx.blockNumber,
                 identifier: this.identifier,
                 nonce: minedTx.nonce
             };
-            // TODO:198: Move logging side effects to component
-            logger.info(`Initial mined transaction ${JSON.stringify(minedTxState)}.`);
-            return minedTxState;
         } else {
-            const pendingTxState: PendingResponseState = {
+            return {
                 appointmentId: this.appointmentId,
                 kind: ResponderStateKind.Pending,
                 identifier: this.identifier
             };
-            // TODO:198: Move logging side effects to component
-            logger.info(`Pending transaction ${JSON.stringify(pendingTxState)}.`);
-            return pendingTxState;
         }
     }
 
@@ -104,18 +99,16 @@ export class ResponderAppointmentReducer implements StateReducer<ResponderAppoin
         if (prevState.kind === ResponderStateKind.Pending) {
             const transaction = this.txIdentifierInBlock(block, prevState.identifier);
             if (transaction) {
-                const minedTxState: MinedResponseState = {
+                return {
                     appointmentId: prevState.appointmentId,
                     identifier: prevState.identifier,
                     blockMined: block.number,
                     nonce: transaction.nonce,
                     kind: ResponderStateKind.Mined
                 };
-                // TODO:198: Move logging side effects to component
-                logger.info(`Mined transaction ${JSON.stringify(minedTxState)}.`);
-                return minedTxState;
-            } else return prevState;
-        } else return prevState;
+            }
+        }
+        return prevState;
     }
 }
 
@@ -167,9 +160,23 @@ export class MultiResponderComponent extends Component<ResponderAnchorState, Blo
                 .map(q => q.appointmentId)
         );
 
-        for (const appointmentId of state.items.keys()) {
+        for (const [appointmentId, currentItem] of state.items.entries()) {
             const prevItem = prevState.items.get(appointmentId);
-            const currentItem = state.items.get(appointmentId);
+
+            if (!prevItem) {
+                // New item, log initial state
+                if (currentItem.kind === ResponderStateKind.Mined) {
+                    logger.info(`Initial mined transaction ${JSON.stringify(currentItem)}.`);
+                } else if (currentItem.kind === ResponderStateKind.Pending) {
+                    logger.info(`Pending transaction ${JSON.stringify(currentItem)}.`);
+                } else {
+                    throw new UnreachableCaseError(currentItem);
+                }
+            } else {
+                if (prevItem.kind === ResponderStateKind.Pending && currentItem.kind === ResponderStateKind.Mined) {
+                    logger.info(`Mined transaction ${JSON.stringify(currentItem)}.`);
+                }
+            }
 
             // if a transaction has been mined we need to inform the responder
             if (!this.hasResponseBeenMined(prevItem) && this.hasResponseBeenMined(currentItem)) {
