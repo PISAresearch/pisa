@@ -143,7 +143,7 @@ export class MultiResponder extends StartStopService {
                     `Transaction mined for empty queue at nonce ${nonce}. ${inspect(txIdentifier)}`
                 );
             }
-            if (this.mQueue.queueItems.findIndex(i => i.request.identifier.equals(txIdentifier)) === -1) {
+            if (this.mQueue.queueItems.findIndex(item => item.request.identifier.equals(txIdentifier)) === -1) {
                 throw new QueueConsistencyError(`Transaction identifier not found in queue. ${inspect(txIdentifier)}`);
             }
             const frontItem = this.mQueue.queueItems[0];
@@ -211,7 +211,7 @@ export class MultiResponder extends StartStopService {
                 if (!txRecord) throw new ArgumentError("No record of appointment in responder.", txRecord);
                 else return txRecord.queueItem;
             })
-            .filter(i => !this.mQueue.contains(i.request.identifier));
+            .filter(item => !this.mQueue.contains(item.request.identifier));
 
         // no need to unlock anything if we dont have any missing items
         if (missingQueueItems.length !== 0) {
