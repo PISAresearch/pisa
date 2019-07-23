@@ -56,14 +56,17 @@ describe("GarbageCollector", () => {
     when(mockedStore.removeById(appointmentInstance1.id)).thenResolve(true);
     when(mockedStore.removeById(appointmentInstance2.id)).thenResolve(true);
     when(mockedStore.removeById(errorStoreRemoveByIdAppointment.id)).thenReject(new Error("Remove failed."));
-    when(mockedStore.getExpiredSince(appointment1Expired - confirmationCount)).thenReturn([appointmentInstance1]);
+    when(mockedStore.getExpiredSince(appointment1Expired - confirmationCount)).thenCall(() =>
+        [appointmentInstance1].values()
+    );
 
-    when(mockedStore.getExpiredSince(appointment2Expired - confirmationCount)).thenReturn([appointmentInstance2]);
-    when(mockedStore.getExpiredSince(bothAppointmentsExpired - confirmationCount)).thenReturn([
-        appointmentInstance1,
-        appointmentInstance2
-    ]);
-    when(mockedStore.getExpiredSince(nothingExpired - confirmationCount)).thenReturn([]);
+    when(mockedStore.getExpiredSince(appointment2Expired - confirmationCount)).thenCall(() =>
+        [appointmentInstance2].values()
+    );
+    when(mockedStore.getExpiredSince(bothAppointmentsExpired - confirmationCount)).thenCall(() =>
+        [appointmentInstance1, appointmentInstance2].values()
+    );
+    when(mockedStore.getExpiredSince(nothingExpired - confirmationCount)).thenCall(() => [].values());
     // wait some time, then call then return the appointment
     when(mockedStore.removeById(appointmentInstance1.id)).thenCall(async () => {
         await wait(slowExpiredTime);
@@ -72,41 +75,25 @@ describe("GarbageCollector", () => {
     when(mockedStore.getExpiredSince(errorStoreExpired - confirmationCount)).thenThrow(
         new Error("Exceptional expired error.")
     );
-    when(mockedStore.getExpiredSince(errorSubscriberAppointmentExpired - confirmationCount)).thenReturn([
-        errorSubscriberAppointment
-    ]);
-    when(mockedStore.getExpiredSince(errorRemoveByIdExpiredBlock - confirmationCount)).thenReturn([
-        errorStoreRemoveByIdAppointment
-    ]);
+    when(mockedStore.getExpiredSince(errorSubscriberAppointmentExpired - confirmationCount)).thenCall(() =>
+        [errorSubscriberAppointment].values()
+    );
+    when(mockedStore.getExpiredSince(errorRemoveByIdExpiredBlock - confirmationCount)).thenCall(() =>
+        [errorStoreRemoveByIdAppointment].values()
+    );
 
     const storeInstance = instance(mockedStore);
 
-    // mock subscriptions
-    const mockedAppointmentSubscriber = mock(AppointmentSubscriber);
-    when(mockedAppointmentSubscriber.unsubscribe(appointmentId1, eventFilter));
-    when(mockedAppointmentSubscriber.unsubscribe(appointmentId1, eventFilter));
-    when(mockedAppointmentSubscriber.unsubscribe(errorAppointmentID, eventFilter)).thenThrow(
-        new Error("Exception subscriber error.")
-    );
-    const appointmentSubscriberInstance = instance(mockedAppointmentSubscriber);
-
     afterEach(() => {
         resetCalls(mockedStore);
-        resetCalls(mockedAppointmentSubscriber);
     });
 
     it("remove by expired successfully updates store and subscriber", async () => {
-        const gc = new AppointmentStoreGarbageCollector(
-            provider,
-            confirmationCount,
-            storeInstance,
-            appointmentSubscriberInstance
-        );
+        const gc = new AppointmentStoreGarbageCollector(provider, confirmationCount, storeInstance);
         // trigger the block event
         await gc.removeExpiredSince(appointment1Expired);
 
         verify(mockedStore.removeById(appointmentId1)).once();
-        verify(mockedAppointmentSubscriber.unsubscribe(appointmentId1, eventFilter)).once();
     });
 
     it("start correctly adds listener", async () => {
@@ -114,12 +101,7 @@ describe("GarbageCollector", () => {
         when(mockedProvider.on("block", anything()));
         const onProviderInstance = instance(mockedProvider);
 
-        const gc = new AppointmentStoreGarbageCollector(
-            onProviderInstance,
-            confirmationCount,
-            storeInstance,
-            appointmentSubscriberInstance
-        );
+        const gc = new AppointmentStoreGarbageCollector(onProviderInstance, confirmationCount, storeInstance);
 
         // call start twice
         await gc.start();
@@ -133,12 +115,7 @@ describe("GarbageCollector", () => {
         when(mockedProvider.on("block", anything()));
         const onProviderInstance = instance(mockedProvider);
 
-        const gc = new AppointmentStoreGarbageCollector(
-            onProviderInstance,
-            confirmationCount,
-            storeInstance,
-            appointmentSubscriberInstance
-        );
+        const gc = new AppointmentStoreGarbageCollector(onProviderInstance, confirmationCount, storeInstance);
 
         // call start twice
         await gc.start();
@@ -159,12 +136,7 @@ describe("GarbageCollector", () => {
         when(mockedProvider.removeListener("block", anything()));
         const onProviderInstance = instance(mockedProvider);
 
-        const gc = new AppointmentStoreGarbageCollector(
-            onProviderInstance,
-            confirmationCount,
-            storeInstance,
-            appointmentSubscriberInstance
-        );
+        const gc = new AppointmentStoreGarbageCollector(onProviderInstance, confirmationCount, storeInstance);
 
         await gc.start();
         await gc.stop();
@@ -180,12 +152,7 @@ describe("GarbageCollector", () => {
         when(mockedProvider.removeListener("block", anything()));
         const onProviderInstance = instance(mockedProvider);
 
-        const gc = new AppointmentStoreGarbageCollector(
-            onProviderInstance,
-            confirmationCount,
-            storeInstance,
-            appointmentSubscriberInstance
-        );
+        const gc = new AppointmentStoreGarbageCollector(onProviderInstance, confirmationCount, storeInstance);
 
         // call stop twice
         await gc.start();
@@ -198,12 +165,7 @@ describe("GarbageCollector", () => {
     });
 
     it("can collect two appointments on two events", async () => {
-        const gc = new AppointmentStoreGarbageCollector(
-            provider,
-            confirmationCount,
-            storeInstance,
-            appointmentSubscriberInstance
-        );
+        const gc = new AppointmentStoreGarbageCollector(provider, confirmationCount, storeInstance);
 
         await gc.removeExpiredSince(appointment1Expired);
         await gc.removeExpiredSince(appointment2Expired);
@@ -211,47 +173,27 @@ describe("GarbageCollector", () => {
 
         verify(mockedStore.removeById(appointmentId1)).once();
         verify(mockedStore.removeById(appointmentId2)).once();
-        verify(mockedAppointmentSubscriber.unsubscribe(appointmentId1, eventFilter)).once();
-        verify(mockedAppointmentSubscriber.unsubscribe(appointmentId2, eventFilter)).once();
     });
 
     it("can collect multiple appointments on one event", async () => {
-        const gc = new AppointmentStoreGarbageCollector(
-            provider,
-            confirmationCount,
-            storeInstance,
-            appointmentSubscriberInstance
-        );
+        const gc = new AppointmentStoreGarbageCollector(provider, confirmationCount, storeInstance);
 
         await gc.removeExpiredSince(bothAppointmentsExpired);
 
         verify(mockedStore.removeById(appointmentId1)).once();
         verify(mockedStore.removeById(appointmentId2)).once();
-        verify(mockedAppointmentSubscriber.unsubscribe(appointmentId1, eventFilter)).once();
-        verify(mockedAppointmentSubscriber.unsubscribe(appointmentId2, eventFilter)).once();
     });
 
     it("does nothing when no appointments to collect", async () => {
-        const gc = new AppointmentStoreGarbageCollector(
-            provider,
-            confirmationCount,
-            storeInstance,
-            appointmentSubscriberInstance
-        );
+        const gc = new AppointmentStoreGarbageCollector(provider, confirmationCount, storeInstance);
 
         await gc.removeExpiredSince(nothingExpired);
 
         verify(mockedStore.removeById(anyString())).never();
-        verify(mockedAppointmentSubscriber.unsubscribe(anyString(), anything())).never();
     });
 
     it("only collects from one of two simultaneous blocks", async () => {
-        const gc = new AppointmentStoreGarbageCollector(
-            provider,
-            confirmationCount,
-            storeInstance,
-            appointmentSubscriberInstance
-        );
+        const gc = new AppointmentStoreGarbageCollector(provider, confirmationCount, storeInstance);
 
         gc.removeExpiredSince(appointment1Expired);
         // wait for less than the slow expired timeout
@@ -260,51 +202,31 @@ describe("GarbageCollector", () => {
         await wait(slowExpiredTime + 1);
 
         verify(mockedStore.removeById(appointmentId1)).once();
-        verify(mockedAppointmentSubscriber.unsubscribe(appointmentId1, eventFilter)).once();
         // the second appointment should not be collected -it would be collected in later runs
         verify(mockedStore.removeById(appointmentId2)).never();
-        verify(mockedAppointmentSubscriber.unsubscribe(appointmentId2, eventFilter)).never();
     });
 
     it("safely catches when subcriber throws error", async () => {
-        const gc = new AppointmentStoreGarbageCollector(
-            provider,
-            confirmationCount,
-            storeInstance,
-            appointmentSubscriberInstance
-        );
+        const gc = new AppointmentStoreGarbageCollector(provider, confirmationCount, storeInstance);
 
         await gc.removeExpiredSince(errorSubscriberAppointmentExpired);
 
         verify(mockedStore.removeById(errorAppointmentID)).once();
-        verify(mockedAppointmentSubscriber.unsubscribe(anything(), eventFilter)).once();
     });
 
     it("safely catches when store throws error on expired since", async () => {
-        const gc = new AppointmentStoreGarbageCollector(
-            provider,
-            confirmationCount,
-            storeInstance,
-            appointmentSubscriberInstance
-        );
+        const gc = new AppointmentStoreGarbageCollector(provider, confirmationCount, storeInstance);
 
         await gc.removeExpiredSince(errorStoreExpired);
 
         verify(mockedStore.removeById(anything())).never();
-        verify(mockedAppointmentSubscriber.unsubscribe(anything(), eventFilter)).never();
     });
 
     it("safely catches when store throws error on remove", async () => {
-        const gc = new AppointmentStoreGarbageCollector(
-            provider,
-            confirmationCount,
-            storeInstance,
-            appointmentSubscriberInstance
-        );
+        const gc = new AppointmentStoreGarbageCollector(provider, confirmationCount, storeInstance);
 
         await gc.removeExpiredSince(errorRemoveByIdExpiredBlock);
 
         verify(mockedStore.removeById(errorRemoveByIdId)).once();
-        verify(mockedAppointmentSubscriber.unsubscribe(anything(), eventFilter)).never();
     });
 });

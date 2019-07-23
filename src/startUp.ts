@@ -46,17 +46,14 @@ async function startUp() {
     setLogLevel(logLevelInfo);
 
     const provider = getJsonRPCProvider(config.jsonRpcUrl);
-    const delayedProvider = getJsonRPCProvider(config.jsonRpcUrl);
-    withDelay(delayedProvider, 2);
     await validateProvider(provider);
-    await validateProvider(delayedProvider);
 
     const watcherWallet = new ethers.Wallet(config.responderKey, provider);
     const receiptSigner = new ethers.Wallet(config.receiptKey);
     const db = levelup(encodingDown(leveldown(config.dbDir), { valueEncoding: "json" }));
 
     // start the pisa service
-    const service = new PisaService(config, provider, watcherWallet, receiptSigner, delayedProvider, db);
+    const service = new PisaService(config, provider, watcherWallet, receiptSigner, db);
     service.start();
 
     // listen for stop events

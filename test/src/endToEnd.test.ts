@@ -3,23 +3,18 @@ import { Watcher } from "../../src/watcher/watcher";
 import { KitsuneInspector, KitsuneAppointment, KitsuneTools } from "../../src/integrations/kitsune";
 import { ethers } from "ethers";
 import Ganache from "ganache-core";
-import { EthereumResponderManager, GasPriceEstimator, TransactionTracker } from "../../src/responder";
-import { ChannelType, IBlockStub, Transactions } from "../../src/dataEntities";
+import { GasPriceEstimator, MultiResponder } from "../../src/responder";
+import { ChannelType, Block } from "../../src/dataEntities";
 import { AppointmentStore } from "../../src/watcher/store";
-import { AppointmentSubscriber } from "../../src/watcher/appointmentSubscriber";
 import { wait } from "../../src/utils";
 import {
     BlockProcessor,
-    ReorgHeightListenerStore,
     BlockCache,
-    BlockTimeoutDetector,
-    ConfirmationObserver,
     blockFactory
 } from "../../src/blockMonitor";
 import levelup from "levelup";
 import MemDown from "memdown";
-import { ReorgEmitter, blockStubAndTxFactory } from "../../src/blockMonitor";
-import { Block } from "../../src/dataEntities/block";
+import { BlockchainMachine } from "../../src/blockMonitor/blockchainMachine";
 
 const ganache = Ganache.provider({
     mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect"
@@ -78,33 +73,13 @@ describe("End to end", () => {
         await inspector.inspectAndPass(appointment);
 
         const blockCache = new BlockCache<Block>(200);
-        const blockProcessor = new BlockProcessor<Block>(
-            provider,
-            blockFactory,
-            blockCache
-        );
-        const reorgEmitter = new ReorgEmitter(provider, blockProcessor, new ReorgHeightListenerStore());
+        const blockProcessor = new BlockProcessor<Block>(provider, blockFactory, blockCache);
         await blockProcessor.start();
-        await reorgEmitter.start();
 
         // 2. pass this appointment to the watcher
-        const blockTimeoutDetector = new BlockTimeoutDetector(blockProcessor, 120 * 1000);
-        await blockTimeoutDetector.start();
-        const confirmationObserver = new ConfirmationObserver(blockProcessor);
-        await confirmationObserver.start();
-
         const gasPriceEstimator = new GasPriceEstimator(provider, blockProcessor.blockCache);
-        const transactionTracker = new TransactionTracker(blockProcessor);
-        await transactionTracker.start();
 
-        const responderManager = new EthereumResponderManager(
-            false,
-            provider.getSigner(pisaAccount),
-            blockTimeoutDetector,
-            confirmationObserver,
-            gasPriceEstimator,
-            transactionTracker
-        );
+        const multiResponder = new MultiResponder(provider.getSigner(pisaAccount), gasPriceEstimator);
 
         let db = levelup(MemDown());
         const store = new AppointmentStore(
@@ -112,22 +87,23 @@ describe("End to end", () => {
             new Map([[ChannelType.Kitsune, (obj: any) => new KitsuneAppointment(obj)]])
         );
         await store.start();
-        const watcher = new Watcher(responderManager, reorgEmitter, new AppointmentSubscriber(provider), store);
-        await watcher.start();
+        await store.addOrUpdateByStateLocator(appointment);
+        const watcher = new Watcher(multiResponder, blockProcessor.blockCache, store, 0, 20);
         const player0Contract = channelContract.connect(provider.getSigner(player0));
 
-        await watcher.addAppointment(appointment);
+        const blockchainMachine = new BlockchainMachine<Block>(blockProcessor);
+
+        blockchainMachine.addComponent(watcher);
+        await blockchainMachine.start();
+        await multiResponder.start();
 
         // 3. Trigger a dispute
         const tx = await player0Contract.triggerDispute();
         await tx.wait();
 
-        await watcher.stop();
+        await blockchainMachine.stop();
+        await multiResponder.stop();
         await store.stop();
-        await transactionTracker.stop();
-        await confirmationObserver.stop();
-        await blockTimeoutDetector.stop();
-        await reorgEmitter.stop();
         await blockProcessor.stop();
         await db.close();
         await wait(2000);
