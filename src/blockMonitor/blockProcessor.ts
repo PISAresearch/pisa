@@ -74,14 +74,6 @@ export class BlockProcessor<T extends IBlockStub> extends StartStopService {
     public static readonly NEW_HEAD_EVENT = "new_head";
 
     /**
-     * Event emitted when a new block is mined that does not seem to be part of the chain the current head is part of.
-     * It is emitted before the corresponding NEW_HEAD_EVENT.
-     * Emits the hash of the common ancestor block (or null if the reorg is deeper than maxDepth), the hash of the current new head,
-     * and the hash of the previous head block (null if never previously set).
-     */
-    public static readonly REORG_EVENT = "reorg";
-
-    /**
      * Event that is emitted for all blocks that have not previously been observed. If
      * a block is the new head it will also be emitted via the NEW_HEAD_EVENT, however
      * NEW_BLOCK_EVENT is guaranteed to emit first. Since this event emits for all new
@@ -122,21 +114,9 @@ export class BlockProcessor<T extends IBlockStub> extends StartStopService {
     }
 
     // update the new headHash and emit the appropriate events
-    private processNewHead(headBlock: Readonly<T>, commonAncestorBlock: T | null) {
-        const oldHeadHash = this.headHash; // we need to remember the old head for proper Reorg event handling
+    private processNewHead(headBlock: Readonly<T>) {
         this.headHash = headBlock.hash;
-
         this.mBlockCache.setHead(headBlock.hash);
-
-        // Emit the appropriate events, but only if the service is already started
-        if (!commonAncestorBlock) {
-            // reorg beyond the depth of the cache; no common ancestor found
-            this.emit(BlockProcessor.REORG_EVENT, null, this.headHash, oldHeadHash);
-        } else if (oldHeadHash !== commonAncestorBlock.hash) {
-            // reorg with a known common ancestor in cache
-            this.emit(BlockProcessor.REORG_EVENT, commonAncestorBlock.hash, this.headHash, oldHeadHash);
-        }
-
         const nearestEmittedBlockInAncestry = this.blockCache.findAncestor(headBlock.hash, block =>
             this.emittedBlocks.has(block)
         );
@@ -162,12 +142,7 @@ export class BlockProcessor<T extends IBlockStub> extends StartStopService {
                 blocksToAdd.push(curBlock);
             }
             blocksToAdd.reverse(); // add blocks from the oldest
-
-            // Last block in cache in the same chain as the new head
-            const commonAncestorBlock = !this.blockCache.hasBlock(blocksToAdd[0].parentHash)
-                ? null
-                : this.blockCache.getBlockStub(blocksToAdd[0].parentHash);
-
+            
             // populate fetched blocks into cache, starting from the deepest
             for (const block of blocksToAdd) {
                 this.mBlockCache.addBlock(block);
@@ -179,7 +154,7 @@ export class BlockProcessor<T extends IBlockStub> extends StartStopService {
 
             // is the observed block still the last block received (or the first block during startup)?
             if (this.isBlockHashLastReceived(observedBlock.hash)) {
-                this.processNewHead(observedBlock, commonAncestorBlock);
+                this.processNewHead(observedBlock);
             }
         } catch (doh) {
             const error = doh as Error;
