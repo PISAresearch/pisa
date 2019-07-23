@@ -19,6 +19,9 @@ import {
     WatcherAppointmentAnchorState
 } from "../../../src/watcher/watcher";
 
+const observedEventAddress = "0x1234abcd";
+const observedEventTopics = ["0x1234"];
+
 const blocks: Block[] = [
     {
         hash: "hash0",
@@ -32,13 +35,7 @@ const blocks: Block[] = [
         hash: "hash1",
         number: 1,
         parentHash: "hash0",
-        logs: [
-            {
-                address: "0x1234abcd",
-                data: "",
-                topics: ["0x1234"]
-            }
-        ],
+        logs: [],
 
         transactionHashes: [],
         transactions: []
@@ -47,6 +44,20 @@ const blocks: Block[] = [
         hash: "hash2",
         number: 2,
         parentHash: "hash1",
+        logs: [
+            {
+                address: observedEventAddress,
+                data: "",
+                topics: observedEventTopics
+            }
+        ],
+        transactionHashes: [],
+        transactions: []
+    },
+    {
+        hash: "hash3",
+        number: 3,
+        parentHash: "hash2",
         logs: [],
         transactionHashes: [],
         transactions: []
@@ -66,8 +77,8 @@ class MockAppointment extends EthereumAppointment {
     }
     public getEventFilter(): ethers.EventFilter {
         return {
-            address: "0x1234abcd",
-            topics: ["0x1234"]
+            address: observedEventAddress,
+            topics: observedEventTopics
         };
     }
     public getEventName(): string {
@@ -106,22 +117,22 @@ describe("AppointmentStateReducer", () => {
     it("getInitialState initializes to WATCHING if event not present in ancestry", () => {
         const asr = new AppointmentStateReducer(blockCache, appointment);
 
-        expect(asr.getInitialState(blocks[0])).to.deep.equal({ state: AppointmentState.WATCHING });
+        expect(asr.getInitialState(blocks[1])).to.deep.equal({ state: AppointmentState.WATCHING });
     });
 
     it("getInitialState initializes to OBSERVED if event is present in the last block", () => {
         const asr = new AppointmentStateReducer(blockCache, appointment);
-        expect(asr.getInitialState(blocks[1])).to.deep.equal({
+        expect(asr.getInitialState(blocks[2])).to.deep.equal({
             state: AppointmentState.OBSERVED,
-            blockObserved: blocks[1].number
+            blockObserved: blocks[2].number
         });
     });
 
     it("getInitialState initializes to OBSERVED if event is present in ancestry, updates blockObserved", () => {
         const asr = new AppointmentStateReducer(blockCache, appointment);
-        expect(asr.getInitialState(blocks[2])).to.deep.equal({
+        expect(asr.getInitialState(blocks[3])).to.deep.equal({
             state: AppointmentState.OBSERVED,
-            blockObserved: blocks[1].number
+            blockObserved: blocks[2].number
         });
     });
 
@@ -132,7 +143,7 @@ describe("AppointmentStateReducer", () => {
             {
                 state: AppointmentState.WATCHING
             },
-            blocks[0]
+            blocks[1]
         );
 
         expect(result).to.deep.equal({ state: AppointmentState.WATCHING });
@@ -145,12 +156,12 @@ describe("AppointmentStateReducer", () => {
             {
                 state: AppointmentState.WATCHING
             },
-            blocks[1]
+            blocks[2]
         );
 
         expect(result).to.deep.equal({
             state: AppointmentState.OBSERVED,
-            blockObserved: blocks[1].number
+            blockObserved: blocks[2].number
         });
     });
 
@@ -160,14 +171,14 @@ describe("AppointmentStateReducer", () => {
         const result = asr.reduce(
             {
                 state: AppointmentState.OBSERVED,
-                blockObserved: blocks[1].number
+                blockObserved: blocks[2].number
             },
             blocks[2]
         );
 
         expect(result).to.deep.equal({
             state: AppointmentState.OBSERVED,
-            blockObserved: blocks[1].number
+            blockObserved: blocks[2].number
         });
     });
 });
@@ -201,7 +212,7 @@ describe("Watcher", () => {
     }
 
     afterEach(() => {
-        resetCalls(mockedStore);
+        resetCalls(mockedResponder);
     });
 
     it("handleChanges calls startResponse after event is OBSERVED for long enough", async () => {
@@ -217,16 +228,16 @@ describe("Watcher", () => {
             {
                 items: makeMap(appointment.id, {
                     state: AppointmentState.OBSERVED,
-                    blockObserved: 1
+                    blockObserved: 2
                 }),
-                blockNumber: 1 + CONFIRMATIONS_BEFORE_RESPONSE - 2
+                blockNumber: 2 + CONFIRMATIONS_BEFORE_RESPONSE - 2
             },
             {
                 items: makeMap(appointment.id, {
                     state: AppointmentState.OBSERVED,
-                    blockObserved: 1
+                    blockObserved: 2
                 }),
-                blockNumber: 1 + CONFIRMATIONS_BEFORE_RESPONSE - 1
+                blockNumber: 2 + CONFIRMATIONS_BEFORE_RESPONSE - 1
             }
         );
 
@@ -246,16 +257,16 @@ describe("Watcher", () => {
             {
                 items: makeMap(appointment.id, {
                     state: AppointmentState.OBSERVED,
-                    blockObserved: 1
+                    blockObserved: 2
                 }),
-                blockNumber: 1 + CONFIRMATIONS_BEFORE_RESPONSE - 3
+                blockNumber: 2 + CONFIRMATIONS_BEFORE_RESPONSE - 3
             },
             {
                 items: makeMap(appointment.id, {
                     state: AppointmentState.OBSERVED,
-                    blockObserved: 1
+                    blockObserved: 2
                 }),
-                blockNumber: 1 + CONFIRMATIONS_BEFORE_RESPONSE - 2
+                blockNumber: 2 + CONFIRMATIONS_BEFORE_RESPONSE - 2
             }
         );
 
@@ -279,9 +290,9 @@ describe("Watcher", () => {
             {
                 items: makeMap(appointment.id, {
                     state: AppointmentState.OBSERVED,
-                    blockObserved: 1
+                    blockObserved: 2
                 }),
-                blockNumber: 1 + CONFIRMATIONS_BEFORE_RESPONSE - 1
+                blockNumber: 2 + CONFIRMATIONS_BEFORE_RESPONSE - 1
             }
         );
 
@@ -301,16 +312,16 @@ describe("Watcher", () => {
             {
                 items: makeMap(appointment.id, {
                     state: AppointmentState.OBSERVED,
-                    blockObserved: 1
+                    blockObserved: 2
                 }),
-                blockNumber: 1 + CONFIRMATIONS_BEFORE_RESPONSE - 1
+                blockNumber: 2 + CONFIRMATIONS_BEFORE_RESPONSE - 1
             },
             {
                 items: makeMap(appointment.id, {
                     state: AppointmentState.OBSERVED,
-                    blockObserved: 1
+                    blockObserved: 2
                 }),
-                blockNumber: 1 + CONFIRMATIONS_BEFORE_RESPONSE
+                blockNumber: 2 + CONFIRMATIONS_BEFORE_RESPONSE
             }
         );
 
@@ -330,16 +341,16 @@ describe("Watcher", () => {
             {
                 items: makeMap(appointment.id, {
                     state: AppointmentState.OBSERVED,
-                    blockObserved: 1
+                    blockObserved: 2
                 }),
-                blockNumber: 1 + CONFIRMATIONS_BEFORE_REMOVAL - 2
+                blockNumber: 2 + CONFIRMATIONS_BEFORE_REMOVAL - 2
             },
             {
                 items: makeMap(appointment.id, {
                     state: AppointmentState.OBSERVED,
-                    blockObserved: 1
+                    blockObserved: 2
                 }),
-                blockNumber: 1 + CONFIRMATIONS_BEFORE_REMOVAL - 1
+                blockNumber: 2 + CONFIRMATIONS_BEFORE_REMOVAL - 1
             }
         );
 
@@ -359,16 +370,16 @@ describe("Watcher", () => {
             {
                 items: makeMap(appointment.id, {
                     state: AppointmentState.OBSERVED,
-                    blockObserved: 1
+                    blockObserved: 2
                 }),
-                blockNumber: 1 + CONFIRMATIONS_BEFORE_REMOVAL - 3
+                blockNumber: 2 + CONFIRMATIONS_BEFORE_REMOVAL - 3
             },
             {
                 items: makeMap(appointment.id, {
                     state: AppointmentState.OBSERVED,
-                    blockObserved: 1
+                    blockObserved: 2
                 }),
-                blockNumber: 1 + CONFIRMATIONS_BEFORE_REMOVAL - 2
+                blockNumber: 2 + CONFIRMATIONS_BEFORE_REMOVAL - 2
             }
         );
 
