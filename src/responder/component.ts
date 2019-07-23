@@ -85,6 +85,7 @@ export class ResponderAppointmentReducer implements StateReducer<ResponderAppoin
                 identifier: this.identifier,
                 nonce: minedTx.nonce
             };
+            // TODO:198: Move logging side effects to component
             logger.info(`Initial mined transaction ${JSON.stringify(minedTxState)}.`);
             return minedTxState;
         } else {
@@ -93,6 +94,7 @@ export class ResponderAppointmentReducer implements StateReducer<ResponderAppoin
                 kind: ResponderStateKind.Pending,
                 identifier: this.identifier
             };
+            // TODO:198: Move logging side effects to component
             logger.info(`Pending transaction ${JSON.stringify(pendingTxState)}.`);
             return pendingTxState;
         }
@@ -109,6 +111,7 @@ export class ResponderAppointmentReducer implements StateReducer<ResponderAppoin
                     nonce: transaction.nonce,
                     kind: ResponderStateKind.Mined
                 };
+                // TODO:198: Move logging side effects to component
                 logger.info(`Mined transaction ${JSON.stringify(minedTxState)}.`);
                 return minedTxState;
             } else return prevState;

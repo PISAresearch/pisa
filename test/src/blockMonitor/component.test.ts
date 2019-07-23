@@ -169,8 +169,7 @@ describe("BlockNumberReducer", () => {
     it("reduce sets current block number", () => {
         const reducer = new BlockNumberReducer();
 
-        const prevAnchorState = reducer.getInitialState(blocks[0]);
-        const nextAnchorState = reducer.reduce(prevAnchorState, blocks[2]);
+        const nextAnchorState = reducer.reduce({ blockNumber: 0 }, blocks[2]);
 
         expect(nextAnchorState.blockNumber).to.equal(blocks[2].number);
     });
