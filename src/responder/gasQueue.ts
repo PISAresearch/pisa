@@ -292,7 +292,8 @@ export class GasQueue {
      * @param otherQueue
      */
     public difference(otherQueue: GasQueue): GasQueueItem[] {
-        return this.queueItems.filter(tx => !otherQueue.queueItems.includes(tx));
+        const otherSet = new Set(otherQueue.queueItems);
+        return this.queueItems.filter(tx => !otherSet.has(tx));
     }
 
     /**
@@ -303,7 +304,6 @@ export class GasQueue {
         return this.queueItems.findIndex(i => i.request.identifier.equals(identifier)) !== -1;
     }
 
-    
     /**
      * Re-add some items that have lower nonces than any in the current queue.
      * These items will be added to the front of the qeueue, then the queue will
