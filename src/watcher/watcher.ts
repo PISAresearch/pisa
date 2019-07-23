@@ -2,7 +2,7 @@ import { IEthereumAppointment } from "../dataEntities";
 import { ApplicationError, ArgumentError } from "../dataEntities/errors";
 import { AppointmentStore } from "./store";
 import { ReadOnlyBlockCache } from "../blockMonitor";
-import { Block } from "../dataEntities/block";
+import { Logs, IBlockStub } from "../dataEntities/block";
 import { EventFilter } from "ethers";
 import {
     StateReducer,
@@ -34,18 +34,18 @@ export type WatcherAppointmentAnchorState =
 type WatcherAnchorState = MappedState<WatcherAppointmentAnchorState> & BlockNumberState;
 
 // TODO:198: move this to a utility function somewhere
-const hasLogMatchingEvent = (block: Block, filter: EventFilter): boolean => {
+const hasLogMatchingEvent = (block: IBlockStub & Logs, filter: EventFilter): boolean => {
     return block.logs.some(
         log => log.address === filter.address && filter.topics!.every((topic, idx) => log.topics[idx] === topic)
     );
 };
 
-export class WatcherAppointmentStateReducer implements StateReducer<WatcherAppointmentAnchorState, Block> {
-    constructor(private cache: ReadOnlyBlockCache<Block>, private appointment: IEthereumAppointment) {
+export class WatcherAppointmentStateReducer implements StateReducer<WatcherAppointmentAnchorState, IBlockStub & Logs> {
+    constructor(private cache: ReadOnlyBlockCache<IBlockStub & Logs>, private appointment: IEthereumAppointment) {
         const filter = this.appointment.getEventFilter();
         if (!filter.topics) throw new ApplicationError(`topics should not be undefined`);
     }
-    public getInitialState(block: Block): WatcherAppointmentAnchorState {
+    public getInitialState(block: IBlockStub & Logs): WatcherAppointmentAnchorState {
         const filter = this.appointment.getEventFilter();
 
         const eventAncestor = this.cache.findAncestor(block.hash, ancestor => hasLogMatchingEvent(ancestor, filter));
@@ -61,7 +61,7 @@ export class WatcherAppointmentStateReducer implements StateReducer<WatcherAppoi
             };
         }
     }
-    public reduce(prevState: WatcherAppointmentAnchorState, block: Block): WatcherAppointmentAnchorState {
+    public reduce(prevState: WatcherAppointmentAnchorState, block: IBlockStub & Logs): WatcherAppointmentAnchorState {
         if (
             prevState.state === WatcherAppointmentState.WATCHING &&
             hasLogMatchingEvent(block, this.appointment.getEventFilter())
@@ -81,7 +81,7 @@ export class WatcherAppointmentStateReducer implements StateReducer<WatcherAppoi
  * observe method to complete the task. The watcher is not responsible for ensuring that observed events are properly
  * acted upon, that is the responsibility of the responder.
  */
-export class Watcher extends Component<WatcherAnchorState, Block> {
+export class Watcher extends Component<WatcherAnchorState, IBlockStub & Logs> {
     /**
      * Watches the chain for events related to the supplied appointments. When an event is noticed data is forwarded to the
      * observe method to complete the task. The watcher is not responsible for ensuring that observed events are properly
@@ -89,7 +89,7 @@ export class Watcher extends Component<WatcherAnchorState, Block> {
      */
     constructor(
         private readonly responder: MultiResponder,
-        blockCache: ReadOnlyBlockCache<Block>,
+        blockCache: ReadOnlyBlockCache<IBlockStub & Logs>,
         private readonly store: AppointmentStore,
         private readonly confirmationsBeforeResponse: number,
         private readonly confirmationsBeforeRemoval: number

@@ -8,9 +8,10 @@ import { BlockCache } from "../../../src/blockMonitor";
 import {
     EthereumAppointment,
     ChannelType,
-    Block,
     ApplicationError,
-    IEthereumAppointment
+    IEthereumAppointment,
+    IBlockStub,
+    Logs
 } from "../../../src/dataEntities";
 import {
     WatcherAppointmentStateReducer,
@@ -22,23 +23,18 @@ import {
 const observedEventAddress = "0x1234abcd";
 const observedEventTopics = ["0x1234"];
 
-const blocks: Block[] = [
+const blocks: (IBlockStub & Logs)[] = [
     {
         hash: "hash0",
         number: 0,
         parentHash: "hash",
-        logs: [],
-        transactionHashes: [],
-        transactions: []
+        logs: []
     },
     {
         hash: "hash1",
         number: 1,
         parentHash: "hash0",
-        logs: [],
-
-        transactionHashes: [],
-        transactions: []
+        logs: []
     },
     {
         hash: "hash2",
@@ -50,17 +46,13 @@ const blocks: Block[] = [
                 data: "",
                 topics: observedEventTopics
             }
-        ],
-        transactionHashes: [],
-        transactions: []
+        ]
     },
     {
         hash: "hash3",
         number: 3,
         parentHash: "hash2",
-        logs: [],
-        transactionHashes: [],
-        transactions: []
+        logs: []
     }
 ];
 
@@ -104,7 +96,7 @@ class MockAppointmentWithEmptyFilter extends MockAppointment {
 describe("WatcherAppointmentStateReducer", () => {
     const appointment = new MockAppointment(10, ChannelType.None, 0, 100);
 
-    const blockCache = new BlockCache<Block>(100);
+    const blockCache = new BlockCache<IBlockStub & Logs>(100);
     blocks.forEach(b => blockCache.addBlock(b));
 
     it("constructor throws ApplicationError if the topics are not set in the filter", () => {
@@ -187,7 +179,7 @@ describe("Watcher", () => {
     const CONFIRMATIONS_BEFORE_RESPONSE = 4;
     const CONFIRMATIONS_BEFORE_REMOVAL = 20;
 
-    const blockCache = new BlockCache<Block>(100);
+    const blockCache = new BlockCache<IBlockStub & Logs>(100);
     blocks.forEach(b => blockCache.addBlock(b));
 
     const mockedResponder = mock(MultiResponder);
