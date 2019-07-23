@@ -172,7 +172,7 @@ export class BlockProcessor<T extends IBlockStub> extends StartStopService {
             for (const block of blocksToAdd) {
                 this.mBlockCache.addBlock(block);
 
-                // we've added this block and it's ancestors
+                // we've added this block and its ancestors
                 // to the cache, so we we're safe to inform subscribers
                 this.emit(BlockProcessor.NEW_BLOCK_EVENT, block);
             }
