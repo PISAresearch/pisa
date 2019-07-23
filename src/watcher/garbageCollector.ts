@@ -1,5 +1,4 @@
 import { IAppointmentStore } from "./store";
-import { AppointmentSubscriber } from "./appointmentSubscriber";
 import { ethers } from "ethers";
 import { StartStopService } from "../dataEntities";
 
@@ -19,8 +18,7 @@ export class AppointmentStoreGarbageCollector extends StartStopService {
     constructor(
         private readonly provider: ethers.providers.Provider,
         private readonly confirmationCount: number,
-        private readonly store: IAppointmentStore,
-        private readonly appointmentSubscriber: AppointmentSubscriber
+        private readonly store: IAppointmentStore
     ) {
         super("garbage-collector");
     }
@@ -63,7 +61,7 @@ export class AppointmentStoreGarbageCollector extends StartStopService {
                 // find all blocks that are expired
                 // we then allow a number of confirmations to ensure that we can safely dispose the block
                 this.logger.info(`Collecting appointments expired since ${blockNumber - this.confirmationCount}.`);
-                const expiredAppointments = this.store.getExpiredSince(blockNumber - this.confirmationCount);
+                const expiredAppointments = [...this.store.getExpiredSince(blockNumber - this.confirmationCount)];
                 if (expiredAppointments.length > 0) {
                     this.logger.info(`Collecting ${expiredAppointments.length} expired appointments.`);
 
@@ -71,7 +69,6 @@ export class AppointmentStoreGarbageCollector extends StartStopService {
                     await Promise.all(
                         expiredAppointments.map(async a => {
                             await this.store.removeById(a.id);
-                            this.appointmentSubscriber.unsubscribe(a.id, a.getEventFilter());
                             this.logger.info(a.formatLog(`Collected appointment with end: ${a.endBlock}.`));
                         })
                     );

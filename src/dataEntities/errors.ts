@@ -9,6 +9,18 @@ export class ApplicationError extends Error {
 }
 
 /**
+ * Thrown when code that is not supposed to be reached was actually reached. It can be used to make sure that a series of if-then-else or
+ * cases in a switch statement over an enum or union types is exhaustive, in a type-safe way.
+ * Errors of this kind represent a bug.
+ */
+export class UnreachableCaseError extends Error {
+    constructor(val: never) {
+        super(`Unreachable code: ${val}`);
+        this.name = "UnreachableCaseError";
+    }
+}
+
+/**
  * Thrown when startup configuration is incorrect.
  */
 export class ConfigurationError extends ApplicationError {
@@ -27,7 +39,6 @@ export class TimeoutError extends Error {
         this.name = "TimeoutError";
     }
 }
-
 
 /**
  * Thrown when data does not match a specified format
@@ -102,6 +113,6 @@ export class ReorgError extends Error {
 export class QueueConsistencyError extends ApplicationError {
     constructor(message: string) {
         super(message);
-        this.name = "QueueConsistencyError"
+        this.name = "QueueConsistencyError";
     }
 }

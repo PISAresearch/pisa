@@ -1,7 +1,7 @@
 import { EthereumAppointment, PublicDataValidationError, ChannelType } from "./dataEntities";
 import { Inspector } from "./inspector";
 import { IChannelConfig } from "./integrations";
-import { Watcher } from "./watcher";
+import { AppointmentStore } from "./watcher";
 import { ethers } from "ethers";
 import { SignedAppointment } from "./dataEntities/appointment";
 
@@ -11,7 +11,7 @@ import { SignedAppointment } from "./dataEntities/appointment";
 export class PisaTower {
     constructor(
         public readonly provider: ethers.providers.Provider,
-        public readonly watcher: Watcher,
+        private readonly store: AppointmentStore,
         private readonly appointmentSigner: EthereumAppointmentSigner,
         channelConfigs: IChannelConfig<EthereumAppointment, Inspector<EthereumAppointment>>[]
     ) {
@@ -41,8 +41,8 @@ export class PisaTower {
         // inspect this appointment, an error is thrown if inspection is failed
         await inspector.inspectAndPass(appointment);
 
-        // start watching it if it passed inspection
-        await this.watcher.addAppointment(appointment);
+        // add this to the store so that other components can pick up on it
+        await this.store.addOrUpdateByStateLocator(appointment);
 
         const signature = await this.appointmentSigner.signAppointment(appointment);
         return new SignedAppointment(appointment, signature);

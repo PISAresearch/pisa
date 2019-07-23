@@ -1,9 +1,7 @@
 import "mocha";
 import { expect } from "chai";
 import { BlockCache, getConfirmations } from "../../../src/blockMonitor";
-import { ethers } from "ethers";
 import { ArgumentError, IBlockStub, TransactionHashes, ApplicationError } from "../../../src/dataEntities";
-import {} from "../../../src/dataEntities/block";
 
 function generateBlocks(
     nBlocks: number,
@@ -140,6 +138,21 @@ describe("BlockCache", () => {
         blocks.forEach(block => bc.addBlock(block));
 
         expect(() => bc.getBlockStub(blocks[0].hash)).to.throw(ApplicationError);
+    });
+
+    it("ancestry iterates over all the ancestors", () => {
+        const bc = new BlockCache(maxDepth);
+        const blocks = generateBlocks(10, 0, "main");
+        blocks.forEach(block => bc.addBlock(block));
+        const headBlock = blocks[blocks.length - 1];
+
+        // Add some other blocks in a forked chain at height 3
+        generateBlocks(5, 3, "fork", blocks[1].hash).forEach(block => bc.addBlock(block));
+
+        const result = [...bc.ancestry(headBlock.hash)];
+        result.reverse();
+
+        expect(result).to.deep.equal(blocks);
     });
 
     it("findAncestor returns the nearest ancestor that satisfies the predicate", () => {
