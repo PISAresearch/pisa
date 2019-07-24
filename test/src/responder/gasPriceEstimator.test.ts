@@ -118,7 +118,7 @@ describe("GasPriceEstimator", () => {
             eventABI: "eventABI",
             eventArgs: "eventArgs",
             gas: 100,
-            id: "id",
+            customerChosenId: "id",
             jobId: 1,
             mode: 1,
             paymentHash: "paymentHash",

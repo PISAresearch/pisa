@@ -38,7 +38,7 @@ export interface IAppointmentRequest {
     readonly challengePeriod: number;
 
     // an appointment id, supplied by the customer
-    readonly id: string;
+    readonly customerChosenId: string;
 
     // a counter that allows users to replace existing jobs
     // TODO:173: should this be set by the customer or pisa?
@@ -81,7 +81,7 @@ export class Appointment implements IAppointment {
         public readonly startBlock: number,
         public readonly endBlock: number,
         public readonly challengePeriod: number,
-        public readonly id: string,
+        public readonly customerChosenId: string,
         public readonly jobId: number,
         public readonly data: string,
         public readonly refund: number,
@@ -101,7 +101,7 @@ export class Appointment implements IAppointment {
             appointment.startBlock,
             appointment.endBlock,
             appointment.challengePeriod,
-            appointment.id,
+            appointment.customerChosenId,
             appointment.jobId,
             appointment.data,
             appointment.refund,
@@ -121,7 +121,7 @@ export class Appointment implements IAppointment {
             startBlock: appointment.startBlock,
             endBlock: appointment.endBlock,
             challengePeriod: appointment.challengePeriod,
-            id: appointment.id,
+            customerChosenId: appointment.customerChosenId,
             jobId: appointment.jobId,
             data: appointment.data,
             refund: appointment.refund,
@@ -133,16 +133,15 @@ export class Appointment implements IAppointment {
             paymentHash: appointment.paymentHash
         };
     }
-
-    // TODO:173: the ids on this object are a mess - rename + sort them out
-    public uniqueId() {
-        return `${this.id}|${this.customerAddress}`;
+    
+    public get locator() {
+        return `${this.customerChosenId}|${this.customerAddress}`;
     }
-    public uniqueJobId() {
-        return `${this.uniqueId()}|${this.jobId}`;
+    public get id() {
+        return `${this.locator}|${this.jobId}`;
     }
     public formatLog(message: string): string {
-        return `|${this.uniqueJobId()}| ${message}`;
+        return `|${this.id}| ${message}`;
     }
     // TODO:173: this should be run when we accept an appointment to make sure it doesnt throw
     public getEventFilter(): ethers.EventFilter {
@@ -198,7 +197,7 @@ export class Appointment implements IAppointment {
                 this.startBlock,
                 this.endBlock,
                 this.challengePeriod,
-                this.id,
+                this.customerChosenId,
                 this.jobId,
                 this.data,
                 this.refund,

@@ -4,7 +4,7 @@ import { KitsuneTools } from "../../src/integrations/kitsune/tools";
 import { ethers } from "ethers";
 import Ganache from "ganache-core";
 import { GasPriceEstimator, MultiResponder } from "../../src/responder";
-import { ChannelType, Block, Appointment, IAppointmentRequest } from "../../src/dataEntities";
+import { Block, Appointment } from "../../src/dataEntities";
 import { AppointmentStore } from "../../src/watcher/store";
 import { wait } from "../../src/utils";
 import { BlockProcessor, BlockCache, blockFactory } from "../../src/blockMonitor";
@@ -79,14 +79,13 @@ describe("End to end", () => {
             eventABI: "event EventDispute(uint256 indexed)",
             eventArgs: KitsuneTools.eventArgs(),
             gas: 100000,
-            id: channelContract.address,
+            customerChosenId: channelContract.address,
             jobId: 0,
             mode: 0,
             postCondition: "0x",
             refund: 0,
             startBlock: 0,
-            paymentHash: "freebie"
-            
+            paymentHash: "on-the-house"
         });
 
         // await inspector.inspectAndPass(appointment);

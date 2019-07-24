@@ -55,8 +55,8 @@ export class AppointmentStore extends StartStopService implements IAppointmentSt
             //const appointment = constrctr(record);
             const appointment = Appointment.fromIAppointment((record as any) as IAppointment);
             // // add too the indexes
-            this.mAppointmentsById.set(appointment.uniqueJobId(), appointment);
-            this.appointmentsByStateLocator[appointment.uniqueId()] = appointment;
+            this.mAppointmentsById.set(appointment.id, appointment);
+            this.appointmentsByStateLocator[appointment.locator] = appointment;
         }
     }
 
@@ -94,28 +94,28 @@ export class AppointmentStore extends StartStopService implements IAppointmentSt
         // TODO:173: and we dont check the nonce, we check the job id
 
         // As we are accessing data structures by state locator, we make sure to acquire a lock on it
-        return this.stateLocatorLockManager.withLock(appointment.uniqueId(), async () => {
+        return this.stateLocatorLockManager.withLock(appointment.locator, async () => {
             
-            const currentAppointment = this.appointmentsByStateLocator[appointment.uniqueId()];
+            const currentAppointment = this.appointmentsByStateLocator[appointment.locator];
             // is there a current appointment
             if (currentAppointment) {
                 if (currentAppointment.jobId >= appointment.jobId) {
-                    this.logger.info(appointment.formatLog(`Nonce ${appointment.jobId} is lower than current appointment ${currentAppointment.uniqueId()} nonce ${currentAppointment.jobId}`)); //prettier-ignore
+                    this.logger.info(appointment.formatLog(`Nonce ${appointment.jobId} is lower than current appointment ${currentAppointment.locator} nonce ${currentAppointment.jobId}`)); //prettier-ignore
                     return false;
                 } else {
                     // remove the old appointment
-                    this.mAppointmentsById.delete(currentAppointment.uniqueJobId());
+                    this.mAppointmentsById.delete(currentAppointment.id);
                 }
             }
 
             // update the db
-            const batch = this.db.batch().put(appointment.uniqueJobId(), Appointment.toIAppointment(appointment));
-            if (currentAppointment) await batch.del(currentAppointment.uniqueJobId()).write();
+            const batch = this.db.batch().put(appointment.id, Appointment.toIAppointment(appointment));
+            if (currentAppointment) await batch.del(currentAppointment.id).write();
             else await batch.write();
 
             // add the new appointment
-            this.appointmentsByStateLocator[appointment.uniqueId()] = appointment;
-            this.mAppointmentsById.set(appointment.uniqueJobId(), appointment);
+            this.appointmentsByStateLocator[appointment.locator] = appointment;
+            this.mAppointmentsById.set(appointment.id, appointment);
             return true;
         });
     }
@@ -128,7 +128,7 @@ export class AppointmentStore extends StartStopService implements IAppointmentSt
     public async removeById(appointmentId: string): Promise<boolean> {
         const appointment = this.mAppointmentsById.get(appointmentId);
         if (appointment) {
-            const stateLocator = appointment.uniqueId();
+            const stateLocator = appointment.locator;
             // remove the appointment from the id index
             this.mAppointmentsById.delete(appointmentId);
 
@@ -138,7 +138,7 @@ export class AppointmentStore extends StartStopService implements IAppointmentSt
                 // remove the appointment from the state locator index
                 const currentAppointment = this.appointmentsByStateLocator[stateLocator];
                 // if it has the same id
-                if (currentAppointment.uniqueJobId() === appointmentId) {
+                if (currentAppointment.id === appointmentId) {
                     delete this.appointmentsByStateLocator[stateLocator];
                 }
             });

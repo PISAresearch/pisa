@@ -92,7 +92,7 @@ export class Watcher extends Component<WatcherAnchorState, IBlockStub & Logs> {
             new MappedStateReducer(
                 () => store.getAll(),
                 appointment => new WatcherAppointmentStateReducer(blockCache, appointment),
-                appointment => appointment.uniqueJobId(),
+                appointment => appointment.id,
                 new BlockNumberReducer()
             )
         );

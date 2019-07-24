@@ -16,7 +16,7 @@ const getAppointment = (id: string, endBlock: number, jobId: number) => {
         eventABI: "eventABI",
         eventArgs: "eventArgs",
         gas: 100,
-        id,
+        customerChosenId: id,
         jobId,
         mode: 1,
         paymentHash: "paymentHash",
@@ -52,7 +52,7 @@ describe("Store", () => {
         const storedAppointments = [...store.getExpiredSince(appointment1.endBlock + 1)];
         expect(storedAppointments).to.deep.equal([appointment1]);
 
-        const dbApp = await db.get(appointment1.uniqueJobId());
+        const dbApp = await db.get(appointment1.id);
         expect(dbApp).to.deep.equal(Appointment.toIAppointment(appointment1));
     });
 
@@ -68,9 +68,9 @@ describe("Store", () => {
         const storedAppointments = [...store.getExpiredSince(appointment1.endBlock + 1)];
         expect(storedAppointments).to.deep.equal([appointment1, appointment2]);
 
-        const dbAppointment1 = await db.get(appointment1.uniqueJobId());
+        const dbAppointment1 = await db.get(appointment1.id);
         expect(dbAppointment1).to.deep.equal(Appointment.toIAppointment(appointment1));
-        const dbAppointment2 = await db.get(appointment2.uniqueJobId());
+        const dbAppointment2 = await db.get(appointment2.id);
         expect(dbAppointment2).to.deep.equal(Appointment.toIAppointment(appointment2));
     });
 
@@ -89,7 +89,7 @@ describe("Store", () => {
         const storedAppointments = [...store.getExpiredSince(appointment2.endBlock + 1)];
         expect(storedAppointments).to.deep.equal([appointment2]);
 
-        const dbAppointment2 = await db.get(appointment2.uniqueJobId());
+        const dbAppointment2 = await db.get(appointment2.id);
         expect(dbAppointment2).to.deep.equal(Appointment.toIAppointment(appointment2));
     });
 
@@ -108,7 +108,7 @@ describe("Store", () => {
         const storedAppointments = [...store.getExpiredSince(appointment2.endBlock + 1)];
         expect(storedAppointments).to.deep.equal([appointment2]);
 
-        const dbAppointment2 = await db.get(appointment2.uniqueJobId());
+        const dbAppointment2 = await db.get(appointment2.id);
         expect(dbAppointment2).to.deep.equal(Appointment.toIAppointment(appointment2));
     });
 
@@ -125,21 +125,21 @@ describe("Store", () => {
 
         // second is added
         await store.addOrUpdateByStateLocator(appointment1);
-        const result = await store.removeById(appointment1.uniqueJobId());
+        const result = await store.removeById(appointment1.id);
         expect(result).to.be.true;
 
         expect([...(await store.getExpiredSince(appointment1.endBlock + 1))]).to.deep.equal([]);
 
-        expectNotFound(() => db.get(appointment1.uniqueJobId()));
+        expectNotFound(() => db.get(appointment1.id));
     });
     it("removeById does not remove appointment already removed", async () => {
         const appointment1 = getAppointment("id1", 1, 1);
 
         // second is added
         await store.addOrUpdateByStateLocator(appointment1);
-        const result = await store.removeById(appointment1.uniqueJobId());
+        const result = await store.removeById(appointment1.id);
         expect(result).to.be.true;
-        const result2 = await store.removeById(appointment1.uniqueJobId());
+        const result2 = await store.removeById(appointment1.id);
         expect(result2).to.be.false;
 
         expect([...(await store.getExpiredSince(appointment1.endBlock + 1))]).to.deep.equal([]);
@@ -151,7 +151,7 @@ describe("Store", () => {
         const appointment2 = getAppointment("id2", 1, 1);
 
         await store.addOrUpdateByStateLocator(appointment1);
-        const result = await store.removeById(appointment2.uniqueJobId());
+        const result = await store.removeById(appointment2.id);
         expect(result).to.be.false;
 
         expect([...(await store.getExpiredSince(appointment1.endBlock + 1))]).to.deep.equal([
@@ -165,7 +165,7 @@ describe("Store", () => {
         const appointment1 = getAppointment("id1", 1, 1);
 
         await store.addOrUpdateByStateLocator(appointment1);
-        await store.removeById(appointment1.uniqueJobId());
+        await store.removeById(appointment1.id);
         const result = await store.addOrUpdateByStateLocator(appointment1);
         expect(result).to.be.true;
 
@@ -182,10 +182,10 @@ describe("Store", () => {
 
         await store.addOrUpdateByStateLocator(appointment1);
         await store.addOrUpdateByStateLocator(appointment2);
-        const result = await store.removeById(appointment1.uniqueJobId());
+        const result = await store.removeById(appointment1.id);
         expect(result).to.be.true;
 
-        expectNotFound(() => db.get(appointment1.uniqueJobId()));
+        expectNotFound(() => db.get(appointment1.id));
 
         const dbAppointment2 = await db.get(appointment2.id);
         expect(dbAppointment2).to.deep.equal(Appointment.toIAppointment(appointment2));
@@ -219,9 +219,9 @@ describe("Store", () => {
         );
 
         // add items to the store
-        await testDB.put(appointment1.uniqueJobId(), Appointment.toIAppointment(appointment1));
-        await testDB.put(appointment2.uniqueJobId(), Appointment.toIAppointment(appointment2));
-        await testDB.put(appointment3.uniqueJobId(), Appointment.toIAppointment(appointment3));
+        await testDB.put(appointment1.id, Appointment.toIAppointment(appointment1));
+        await testDB.put(appointment2.id, Appointment.toIAppointment(appointment2));
+        await testDB.put(appointment3.id, Appointment.toIAppointment(appointment3));
 
         const testStore = new AppointmentStore(testDB);
         await testStore.start();

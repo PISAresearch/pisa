@@ -20,23 +20,15 @@ logger.transports.forEach(l => (l.level = "max"));
 const ganache = Ganache.provider({
     mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect"
 });
-<<<<<<< HEAD
-config.hostName = "localhost";
-config.hostPort = 3000;
-config.jsonRpcUrl = "http://localhost:8545";
-config.responderKey = "0x6370fd033278c143179d81c5526140625662b8daa446c22ee2d73db3707e620c";
-config.receiptKey = "0x6370fd033278c143179d81c5526140625662b8daa446c22ee2d73db3707e620c";
-config.watcherResponseConfirmations = 0;
-=======
 const nextConfig = {
     ...config,
     hostName: "localhost",
     hostPort: 3000,
     jsonRpcUrl: "http://localhost:8545",
     responderKey: "0x6370fd033278c143179d81c5526140625662b8daa446c22ee2d73db3707e620c",
-    receiptKey: "0x6370fd033278c143179d81c5526140625662b8daa446c22ee2d73db3707e620c"
+    receiptKey: "0x6370fd033278c143179d81c5526140625662b8daa446c22ee2d73db3707e620c",
+    watcherResponseConfirmations: 0
 };
->>>>>>> First step towards generalising appointment type
 
 const provider = new ethers.providers.Web3Provider(ganache);
 provider.pollingInterval = 100;
@@ -64,11 +56,7 @@ describe("Service end-to-end", () => {
         const signerWallet = new ethers.Wallet(nextConfig.receiptKey!, provider);
         signerWallet.connect(provider);
 
-<<<<<<< HEAD
-        service = new PisaService(config, provider, responderWallet, signerWallet, db);
-=======
-        service = new PisaService(nextConfig, provider, responderWallet, signerWallet, db, 0, 20);
->>>>>>> First step towards generalising appointment type
+        service = new PisaService(nextConfig, provider, responderWallet, signerWallet, db);
         await service.start();
 
         // accounts
@@ -183,7 +171,7 @@ describe("Service end-to-end", () => {
                 eventABI: "event EventDispute(uint256 indexed)",
                 eventArgs: KitsuneTools.eventArgs(),
                 gas: 100000,
-                id: channelContract.address,
+                customerChosenId: channelContract.address,
                 jobId: 0,
                 mode: 0,
                 postCondition: "0x",

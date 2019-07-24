@@ -101,7 +101,7 @@ export class MultiResponder extends StartStopService {
             );
             const idealGas = await this.gasEstimator.estimate(appointment);
             const request = new GasQueueItemRequest(txIdentifier, idealGas, appointment);
-            logger.info(`Enqueueing request for ${appointment.uniqueJobId()}. ${JSON.stringify(request)}.`);
+            logger.info(`Enqueueing request for ${appointment.id}. ${JSON.stringify(request)}.`);
             
 
             // add the queue item to the queue, since the queue is ordered this may mean
@@ -112,12 +112,12 @@ export class MultiResponder extends StartStopService {
             this.mQueue = replacedQueue;
 
             // and update the local list of tx identifiers for the latest data, then broadcast
-            replacedTransactions.forEach(q => this.respondedTransactions.set(q.request.appointment.uniqueJobId(), q));
+            replacedTransactions.forEach(q => this.respondedTransactions.set(q.request.appointment.id, q));
             await Promise.all(replacedTransactions.map(b => this.broadcast(b)));
         } catch (doh) {
             if (doh instanceof QueueConsistencyError) logger.error(doh.stack!);
             else {
-                logger.error(`Unexpected error trying to respond for: ${appointment.uniqueJobId()}.`);
+                logger.error(`Unexpected error trying to respond for: ${appointment.id}.`);
                 if (doh.stack) logger.error(doh.stack);
                 else logger.error(doh);
             }
@@ -173,7 +173,7 @@ export class MultiResponder extends StartStopService {
                 const replacedTransactions = reducedQueue.difference(this.mQueue);
                 this.mQueue = reducedQueue;
                 replacedTransactions.forEach(q =>
-                    this.respondedTransactions.set(q.request.appointment.uniqueJobId(), q)
+                    this.respondedTransactions.set(q.request.appointment.id, q)
                 );
 
                 // since we had to bump up some transactions - change their nonces
@@ -216,7 +216,7 @@ export class MultiResponder extends StartStopService {
             const unlockedQueue = this.mQueue.prepend(missingQueueItems);
             const replacedTransactions = unlockedQueue.difference(this.mQueue);
             this.mQueue = unlockedQueue;
-            replacedTransactions.forEach(q => this.respondedTransactions.set(q.request.appointment.uniqueJobId(), q));
+            replacedTransactions.forEach(q => this.respondedTransactions.set(q.request.appointment.id, q));
             await Promise.all(replacedTransactions.map(b => this.broadcast(b)));
         }
     }
@@ -235,7 +235,7 @@ export class MultiResponder extends StartStopService {
 
             const tx = queueItem.toTransactionRequest();
             
-            logger.info(`Broadcasting tx for ${queueItem.request.appointment.uniqueJobId()}. ${JSON.stringify(queueItem)}. ${JSON.stringify(tx)}.`); // prettier-ignore
+            logger.info(`Broadcasting tx for ${queueItem.request.appointment.id}. ${JSON.stringify(queueItem)}. ${JSON.stringify(tx)}.`); // prettier-ignore
             await this.signer.sendTransaction(tx);
         } catch (doh) {
             // we've failed to broadcast a transaction however this isn't a fatal

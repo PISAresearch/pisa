@@ -24,7 +24,7 @@ const createAppointment = (id: string): Appointment => {
         eventABI: "eventABI",
         eventArgs: "eventArgs",
         gas: 100,
-        id,
+        customerChosenId: id,
         jobId: 1,
         mode: 1,
         paymentHash: "paymentHash",

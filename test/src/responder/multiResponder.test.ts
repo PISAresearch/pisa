@@ -24,7 +24,7 @@ const createAppointment = (id: string, data: string): Appointment => {
         eventABI: "eventABI",
         eventArgs: "eventArgs",
         gas: 100,
-        id,
+        customerChosenId: id,
         jobId: 1,
         mode: 1,
         paymentHash: "paymentHash",
@@ -96,7 +96,7 @@ describe("MultiResponder", () => {
         await responder.startResponse(appointment);
         const issuedTransactions = responder.queue.difference(queueBefore);
 
-        expect(responder.respondedTransactions.get(appointment.uniqueJobId())).to.not.be.empty;
+        expect(responder.respondedTransactions.get(appointment.id)).to.not.be.empty;
         expect(issuedTransactions.length).to.equal(1);
 
         await responder.stop();
@@ -118,15 +118,15 @@ describe("MultiResponder", () => {
         const queueBefore = responder.queue;
         await responder.startResponse(appointment1);
         const issuedTransactions = responder.queue.difference(queueBefore);
-        expect(responder.respondedTransactions.get(appointment1.uniqueJobId())!.request.appointment).to.deep.equal(appointment1);
+        expect(responder.respondedTransactions.get(appointment1.id)!.request.appointment).to.deep.equal(appointment1);
         expect(issuedTransactions.length).to.equal(1);
         // because the gas price is increasing this should result in a replacement
         // therefor two additional transactions are issued, rather than just one
         const queueBefore2 = responder.queue;
         await responder.startResponse(appointment2);
         const issuedTransactions2 = responder.queue.difference(queueBefore2);
-        expect(responder.respondedTransactions.get(appointment1.uniqueJobId())!.request.appointment).to.deep.equal(appointment1);
-        expect(responder.respondedTransactions.get(appointment2.uniqueJobId())!.request.appointment).to.deep.equal(appointment2);
+        expect(responder.respondedTransactions.get(appointment1.id)!.request.appointment).to.deep.equal(appointment1);
+        expect(responder.respondedTransactions.get(appointment2.id)!.request.appointment).to.deep.equal(appointment2);
         expect(issuedTransactions2.length).to.equal(2);
 
         await responder.stop();
@@ -150,7 +150,7 @@ describe("MultiResponder", () => {
         const queueBefore = responder.queue;
         await responder.startResponse(appointment);
         const issuedTransactions = responder.queue.difference(queueBefore);
-        expect(responder.respondedTransactions.get(appointment.uniqueJobId())).to.not.be.empty;
+        expect(responder.respondedTransactions.get(appointment.id)).to.not.be.empty;
         expect(issuedTransactions.length).to.equal(1);
 
         // because the gas price is decreasing this should result not result in a replacement
@@ -158,8 +158,8 @@ describe("MultiResponder", () => {
         const queueBefore2 = responder.queue;
         await responder.startResponse(appointment2);
         const issuedTransactions2 = responder.queue.difference(queueBefore2);
-        expect(responder.respondedTransactions.get(appointment.uniqueJobId())).to.not.be.empty;
-        expect(responder.respondedTransactions.get(appointment2.uniqueJobId())).to.not.be.empty;
+        expect(responder.respondedTransactions.get(appointment.id)).to.not.be.empty;
+        expect(responder.respondedTransactions.get(appointment2.id)).to.not.be.empty;
         expect(issuedTransactions2.length).to.equal(1);
 
         await responder.stop();
@@ -331,11 +331,11 @@ describe("MultiResponder", () => {
         await responder.startResponse(appointment);
         await responder.startResponse(appointment2);
 
-        const item = responder.respondedTransactions.get(appointment.uniqueJobId())!;
+        const item = responder.respondedTransactions.get(appointment.id)!;
         await responder.txMined(item.request.identifier, item.nonce);
 
         const queueBefore = responder.queue;
-        await responder.reEnqueueMissingItems([appointment.uniqueJobId(), appointment2.uniqueJobId()]);
+        await responder.reEnqueueMissingItems([appointment.id, appointment2.id]);
         const replacedTransactions = responder.queue.difference(queueBefore);
         expect(replacedTransactions.length).to.equal(1);
         expect(replacedTransactions[0].request.identifier).to.equal(item.request.identifier);
@@ -357,17 +357,17 @@ describe("MultiResponder", () => {
         );
         await responder.start();
         await responder.startResponse(appointment);
-        const item = responder.respondedTransactions.get(appointment.uniqueJobId())!;
+        const item = responder.respondedTransactions.get(appointment.id)!;
         await responder.txMined(item.request.identifier, item.nonce);
 
         await responder.startResponse(appointment2);
-        const item2 = responder.respondedTransactions.get(appointment2.uniqueJobId())!;
+        const item2 = responder.respondedTransactions.get(appointment2.id)!;
 
         // should only be one item in the queue
         expect(responder.queue.queueItems.length).to.equal(1);
 
         const queueBefore = responder.queue;
-        await responder.reEnqueueMissingItems([appointment.uniqueJobId(), appointment2.uniqueJobId()]);
+        await responder.reEnqueueMissingItems([appointment.id, appointment2.id]);
         const replacedTransactions = responder.queue.difference(queueBefore);
         expect(replacedTransactions.length).to.equal(2);
         expect(replacedTransactions[0].request.identifier).to.equal(item2.request.identifier);
@@ -407,11 +407,11 @@ describe("MultiResponder", () => {
         await responder.startResponse(appointment);
         await responder.startResponse(appointment2);
 
-        const item = responder.respondedTransactions.get(appointment.uniqueJobId())!;
+        const item = responder.respondedTransactions.get(appointment.id)!;
         await responder.txMined(item.request.identifier, item.nonce);
 
         const queueBefore = responder.queue;
-        await responder.reEnqueueMissingItems([appointment2.uniqueJobId()]);
+        await responder.reEnqueueMissingItems([appointment2.id]);
         const replacedTransactions = responder.queue.difference(queueBefore);
         expect(replacedTransactions.length).to.equal(0);
 
@@ -428,9 +428,9 @@ describe("MultiResponder", () => {
         );
         await responder.start();
         await responder.startResponse(appointment);
-        expect(responder.respondedTransactions.has(appointment.uniqueJobId())).to.be.true;
-        await responder.endResponse(appointment.uniqueJobId());
-        expect(responder.respondedTransactions.has(appointment.uniqueJobId())).to.be.false;
+        expect(responder.respondedTransactions.has(appointment.id)).to.be.true;
+        await responder.endResponse(appointment.id);
+        expect(responder.respondedTransactions.has(appointment.id)).to.be.false;
         await responder.stop();
     });
 });

@@ -5,14 +5,7 @@ import { AppointmentStore } from "../../../src/watcher";
 import { ethers } from "ethers";
 import { MultiResponder } from "../../../src/responder";
 import { BlockCache } from "../../../src/blockMonitor";
-import {
-    EthereumAppointment,
-    ChannelType,
-    ApplicationError,
-    IEthereumAppointment,
-    IBlockStub,
-    Logs
-} from "../../../src/dataEntities";
+import { ApplicationError, IBlockStub, Logs, Appointment } from "../../../src/dataEntities";
 import {
     WatcherAppointmentStateReducer,
     WatcherAppointmentState,
@@ -57,7 +50,7 @@ const blocks: (IBlockStub & Logs)[] = [
 ];
 
 // Mock of an appointment, in several tests
-class MockAppointment extends EthereumAppointment {
+class MockAppointment extends Appointment {
     public getStateLocator(): string {
         throw new Error("Method not implemented.");
     }
@@ -94,16 +87,24 @@ class MockAppointmentWithEmptyFilter extends MockAppointment {
 }
 
 describe("WatcherAppointmentStateReducer", () => {
-    const appointment = new MockAppointment(10, ChannelType.None, 0, 100);
+    const appMock = mock(Appointment);
+    when(appMock.getEventFilter()).thenReturn({
+        address: observedEventAddress,
+        topics: observedEventTopics
+    });
+    when(appMock.id).thenReturn("app1");
+    const appointment = instance(appMock);
 
     const blockCache = new BlockCache<IBlockStub & Logs>(100);
     blocks.forEach(b => blockCache.addBlock(b));
 
     it("constructor throws ApplicationError if the topics are not set in the filter", () => {
-        const mockAppointmentWithEmptyFilter = new MockAppointmentWithEmptyFilter(10, ChannelType.None, 0, 10);
-        expect(() => new WatcherAppointmentStateReducer(blockCache, mockAppointmentWithEmptyFilter)).to.throw(
-            ApplicationError
-        );
+        const emptyAppMock = mock(Appointment);
+        when(emptyAppMock.getEventFilter()).thenReturn({});
+        when(appMock.id).thenReturn("app1");
+        const emptyAppointment = instance(emptyAppMock);
+
+        expect(() => new WatcherAppointmentStateReducer(blockCache, emptyAppointment)).to.throw(ApplicationError);
     });
 
     it("getInitialState initializes to WATCHING if event not present in ancestry", () => {
@@ -188,10 +189,16 @@ describe("Watcher", () => {
     let mockedStore: AppointmentStore;
     let store: AppointmentStore;
 
-    let appointment: IEthereumAppointment;
+    let appointment: Appointment;
 
     beforeEach(() => {
-        appointment = new MockAppointment(100, ChannelType.None, 0, 100);
+        const appMock = mock(Appointment);
+        when(appMock.getEventFilter()).thenReturn({
+            address: observedEventAddress,
+            topics: observedEventTopics
+        });
+        when(appMock.id).thenReturn("app1");
+        appointment = instance(appMock);
 
         mockedStore = mock(AppointmentStore);
         when(mockedStore.getAll()).thenReturn([appointment]);
@@ -235,7 +242,7 @@ describe("Watcher", () => {
             }
         );
 
-        verify(mockedResponder.startResponse(appointment.id, anything())).once();
+        verify(mockedResponder.startResponse(appointment)).once();
     });
 
     it("handleChanges does not call startResponse before event is OBSERVED for long enough", async () => {
@@ -264,7 +271,7 @@ describe("Watcher", () => {
             }
         );
 
-        verify(mockedResponder.startResponse(appointment.id, anything())).never();
+        verify(mockedResponder.startResponse(appointment)).never();
     });
 
     it("handleChanges calls startResponse immediately after event is OBSERVED for long enough even if just added to the store", async () => {
@@ -290,7 +297,7 @@ describe("Watcher", () => {
             }
         );
 
-        verify(mockedResponder.startResponse(appointment.id, anything())).once();
+        verify(mockedResponder.startResponse(appointment)).once();
     });
 
     it("handleChanges does not call startResponse again if a previous state already caused startResponse", async () => {
@@ -319,7 +326,7 @@ describe("Watcher", () => {
             }
         );
 
-        verify(mockedResponder.startResponse(appointment.id, anything())).never();
+        verify(mockedResponder.startResponse(appointment)).never();
     });
 
     it("handleChanges calls removeById after event is OBSERVED for long enough", async () => {
