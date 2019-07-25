@@ -37,7 +37,7 @@ describe("BlockCache", () => {
         const blocks = generateBlocks(1, 0, "main");
 
         bc.addBlock(blocks[0]);
-        expect(blocks[0]).to.deep.include(bc.getBlockStub(blocks[0].hash));
+        expect(blocks[0]).to.deep.include(bc.getBlock(blocks[0].hash));
     });
 
     it("minHeight is equal to the initial block height if less then maxDepth blocks are added", () => {
@@ -129,7 +129,7 @@ describe("BlockCache", () => {
         const blocks = generateBlocks(maxDepth, 0, "main");
         blocks.forEach(block => bc.addBlock(block));
 
-        expect(blocks[0]).to.deep.include(bc.getBlockStub(blocks[0].hash));
+        expect(blocks[0]).to.deep.include(bc.getBlock(blocks[0].hash));
     });
 
     it("forgets blocks past the maximum depth", () => {
@@ -137,7 +137,7 @@ describe("BlockCache", () => {
         const blocks = generateBlocks(maxDepth + 2, 0, "main"); // head is depth 0, so first pruned is maxDepth + 2
         blocks.forEach(block => bc.addBlock(block));
 
-        expect(() => bc.getBlockStub(blocks[0].hash)).to.throw(ApplicationError);
+        expect(() => bc.getBlock(blocks[0].hash)).to.throw(ApplicationError);
     });
 
     it("ancestry iterates over all the ancestors", () => {
