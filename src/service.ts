@@ -17,7 +17,6 @@ import { Watcher, AppointmentStore } from "./watcher";
 import { PisaTower, HotEthereumAppointmentSigner } from "./tower";
 import { setRequestId } from "./customExpressHttpContext";
 import { GasPriceEstimator, MultiResponder, MultiResponderComponent } from "./responder";
-import { AppointmentStoreGarbageCollector } from "./watcher/garbageCollector";
 import { IArgConfig } from "./dataEntities/config";
 import { BlockProcessor, BlockCache } from "./blockMonitor";
 import { LevelUp } from "levelup";
@@ -31,7 +30,6 @@ import { BlockchainMachine } from "./blockMonitor/blockchainMachine";
  */
 export class PisaService extends StartStopService {
     private readonly server: Server;
-    private readonly garbageCollector: AppointmentStoreGarbageCollector;
     private readonly blockProcessor: BlockProcessor<Block>;
     private readonly multiResponder: MultiResponder;
     private readonly appointmentStore: AppointmentStore;
@@ -94,9 +92,6 @@ export class PisaService extends StartStopService {
         this.blockchainMachine.addComponent(watcher);
         this.blockchainMachine.addComponent(responder);
 
-        // gc
-        this.garbageCollector = new AppointmentStoreGarbageCollector(provider, 10, this.appointmentStore);
-
         // if a key to sign receipts was provided, create an EthereumAppointmentSigner
         const appointmentSigner = new HotEthereumAppointmentSigner(receiptSigner);
 
@@ -113,7 +108,6 @@ export class PisaService extends StartStopService {
     protected async startInternal() {
         await this.blockchainMachine.start();
         await this.blockProcessor.start();
-        await this.garbageCollector.start();
         await this.appointmentStore.start();
         await this.multiResponder.start();
     }
@@ -121,7 +115,6 @@ export class PisaService extends StartStopService {
     protected async stopInternal() {
         await this.multiResponder.stop();
         await this.appointmentStore.stop();
-        await this.garbageCollector.stop();
         await this.blockProcessor.stop();
         await this.blockchainMachine.stop();
 

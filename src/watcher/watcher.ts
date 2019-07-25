@@ -121,6 +121,15 @@ export class Watcher extends Component<WatcherAnchorState, IBlockStub & Logs> {
         appointmentState.state === WatcherAppointmentState.OBSERVED &&
         state.blockNumber - appointmentState.blockObserved + 1 >= this.confirmationsBeforeRemoval;
 
+    private shouldRemoveExpiredAppointment = (
+        state: WatcherAnchorState,
+        appointmentState: WatcherAppointmentAnchorState | undefined,
+        endBlock : number 
+    ): boolean =>
+        appointmentState != undefined &&
+        appointmentState.state === WatcherAppointmentState.WATCHING &&
+        state.blockNumber - endBlock  > this.confirmationsBeforeRemoval
+
     public async handleChanges(prevState: WatcherAnchorState, state: WatcherAnchorState) {
         for (const [appointmentId, appointmentState] of state.items.entries()) {
             const prevWatcherAppointmentState = prevState.items.get(appointmentId);
@@ -159,6 +168,19 @@ export class Watcher extends Component<WatcherAnchorState, IBlockStub & Logs> {
                 logger.info(`Removing appointment ${appointmentId}, block ${state.blockNumber} from watcher.`);
                 await this.store.removeById(appointmentId);
             }
+
+            //Find endBlock for current appointment
+            let endBlock = this.store.appointmentsById.get(appointmentId)!.endBlock;
+            // Cleanup if appointment expired
+            if (
+                !this.shouldRemoveExpiredAppointment(prevState, prevWatcherAppointmentState,endBlock) && 
+                this.shouldRemoveExpiredAppointment(state, appointmentState,endBlock)
+            )
+            {
+                logger.info(`Removing appointment ${appointmentId}, block ${state.blockNumber} from watcher.`);
+                await this.store.removeById(appointmentId);
+            }
+
         }
     }
 }
