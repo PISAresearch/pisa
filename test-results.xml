@@ -256,31 +256,6 @@
     <testcase name="AppointmentSubscriber unsubscribeAll removes all subscriptions that match an event" time="0" classname="unsubscribeAll removes all subscriptions that match an event">
     </testcase>
   </testsuite>
-  <testsuite name="GarbageCollector" timestamp="2019-05-14T10:31:34" tests="12" file="/home/chris/dev/pisa/test/src/watcher/garbageCollector.test.ts" failures="0" time="0.11400000000000002">
-    <testcase name="GarbageCollector remove by expired successfully updates store and subscriber" time="0.022" classname="remove by expired successfully updates store and subscriber">
-    </testcase>
-    <testcase name="GarbageCollector start correctly adds listener" time="0.001" classname="start correctly adds listener">
-    </testcase>
-    <testcase name="GarbageCollector start can only be called once" time="0.002" classname="start can only be called once">
-    </testcase>
-    <testcase name="GarbageCollector stop correctly removes listener" time="0.002" classname="stop correctly removes listener">
-    </testcase>
-    <testcase name="GarbageCollector stop does nothing if called twice" time="0.002" classname="stop does nothing if called twice">
-    </testcase>
-    <testcase name="GarbageCollector can collect two appointments on two events" time="0.028" classname="can collect two appointments on two events">
-    </testcase>
-    <testcase name="GarbageCollector can collect multiple appointments on one event" time="0.021" classname="can collect multiple appointments on one event">
-    </testcase>
-    <testcase name="GarbageCollector does nothing when no appointments to collect" time="0.001" classname="does nothing when no appointments to collect">
-    </testcase>
-    <testcase name="GarbageCollector only collects from one of two simultaneous blocks" time="0.033" classname="only collects from one of two simultaneous blocks">
-    </testcase>
-    <testcase name="GarbageCollector safely catches when subcriber throws error" time="0.001" classname="safely catches when subcriber throws error">
-    </testcase>
-    <testcase name="GarbageCollector safely catches when store throws error on expired since" time="0.001" classname="safely catches when store throws error on expired since">
-    </testcase>
-    <testcase name="GarbageCollector safely catches when store throws error on remove" time="0" classname="safely catches when store throws error on remove">
-    </testcase>
   </testsuite>
   <testsuite name="Store" timestamp="2019-05-14T10:31:34" tests="11" file="/home/chris/dev/pisa/test/src/watcher/store.test.ts" failures="0" time="0.019000000000000003">
     <testcase name="Store addOrUpdate does add appointment" time="0.002" classname="addOrUpdate does add appointment">
