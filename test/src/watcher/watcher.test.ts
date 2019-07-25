@@ -379,4 +379,85 @@ describe("Watcher", () => {
 
         verify(mockedStore.removeById(appointment.id)).never();
     });
+
+    it("handleChanges calls removeById after an appointment has expired for long enough", async () => {
+        const watcher = new Watcher(
+            responder,
+            blockCache,
+            store,
+            CONFIRMATIONS_BEFORE_RESPONSE,
+            CONFIRMATIONS_BEFORE_REMOVAL
+        );
+
+        await watcher.handleChanges(
+            {
+                items: makeMap(appointment.id, {
+                    state: WatcherAppointmentState.WATCHING
+                }),
+                blockNumber: 101 + CONFIRMATIONS_BEFORE_REMOVAL - 1
+            },
+            {
+                items: makeMap(appointment.id, {
+                    state: WatcherAppointmentState.WATCHING
+                }),
+                blockNumber: 101 + CONFIRMATIONS_BEFORE_REMOVAL
+            }
+        );
+
+        verify(mockedStore.removeById(appointment.id)).once();
+    });
+
+    it("handleChanges dooes not call removeById before an appointment has expired for long enough", async () => {
+        const watcher = new Watcher(
+            responder,
+            blockCache,
+            store,
+            CONFIRMATIONS_BEFORE_RESPONSE,
+            CONFIRMATIONS_BEFORE_REMOVAL
+        );
+
+        await watcher.handleChanges(
+            {
+                items: makeMap(appointment.id, {
+                    state: WatcherAppointmentState.WATCHING
+                }),
+                blockNumber: 101 + CONFIRMATIONS_BEFORE_REMOVAL - 2
+            },
+            {
+                items: makeMap(appointment.id, {
+                    state: WatcherAppointmentState.WATCHING
+                }),
+                blockNumber: 101 + CONFIRMATIONS_BEFORE_REMOVAL - 1
+            }
+        );
+
+        verify(mockedStore.removeById(appointment.id)).never();
+    });
+
+    it("handleChanges dooes not call removeById if an appointment is already expired for long enough", async () => {
+        const watcher = new Watcher(
+            responder,
+            blockCache,
+            store,
+            CONFIRMATIONS_BEFORE_RESPONSE,
+            CONFIRMATIONS_BEFORE_REMOVAL
+        );
+
+        await watcher.handleChanges(
+            {
+                items: makeMap(appointment.id, {
+                    state: WatcherAppointmentState.WATCHING
+                }),
+                blockNumber: 101 + CONFIRMATIONS_BEFORE_REMOVAL 
+            },
+            {
+                items: makeMap(appointment.id, {
+                    state: WatcherAppointmentState.WATCHING
+                }),
+                blockNumber: 101 + CONFIRMATIONS_BEFORE_REMOVAL + 1
+            }
+        );
+
+        verify(mockedStore.removeById(appointment.id)).never();
+    });
 });
