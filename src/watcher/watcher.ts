@@ -113,7 +113,7 @@ export class Watcher extends Component<WatcherAnchorState, IBlockStub & Logs> {
         appointmentState.state === WatcherAppointmentState.OBSERVED &&
         state.blockNumber - appointmentState.blockObserved + 1 >= this.confirmationsBeforeResponse;
 
-    private shouldRemoveAppointment = (
+    private shouldRemoveObservedAppointment = (
         state: WatcherAnchorState,
         appointmentState: WatcherAppointmentAnchorState | undefined
     ): boolean =>
@@ -162,8 +162,8 @@ export class Watcher extends Component<WatcherAnchorState, IBlockStub & Logs> {
 
             // Cleanup if done with appointment
             if (
-                !this.shouldRemoveAppointment(prevState, prevWatcherAppointmentState) &&
-                this.shouldRemoveAppointment(state, appointmentState)
+                !this.shouldRemoveObservedAppointment(prevState, prevWatcherAppointmentState) &&
+                this.shouldRemoveObservedAppointment(state, appointmentState)
             ) {
                 logger.info(`Removing appointment ${appointmentId}, block ${state.blockNumber} from watcher.`);
                 await this.store.removeById(appointmentId);
