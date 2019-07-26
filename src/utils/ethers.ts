@@ -38,7 +38,9 @@ export async function validateProvider(provider: ethers.providers.Provider) {
  */
 export function groupTuples(tupleArray: [string, any][]): [string[], any[]] {
     return tupleArray.reduce(
-        (prev, cur) => {
+        // for some reason the ts compiler wont accept the proper types here
+        // so we have to use 'any' instead of [string[], any[]] for 'prev'
+        (prev: any, cur: [string, any]) => {
             prev[0].push(cur[0]);
             prev[1].push(cur[1]);
             return prev;

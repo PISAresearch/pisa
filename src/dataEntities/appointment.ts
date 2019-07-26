@@ -4,7 +4,7 @@ import Ajv from "ajv";
 import { PublicDataValidationError } from "./errors";
 import logger from "../logger";
 import { BigNumber } from "ethers/utils";
-import { groupTuples } from "../utils/ethers.js";
+import { groupTuples } from "../utils/ethers";
 const ajv = new Ajv();
 const appointmentRequestValidation = ajv.compile(appointmentRequestSchemaJson);
 
