@@ -48,9 +48,6 @@ export class PisaService extends StartStopService {
 
         this.applyMiddlewares(app, config);
 
-        // choose configs
-        //const configs = [Raiden, Kitsune];
-
         // start reorg detector and block monitor
         const blockCache = new BlockCache<Block>(
             config.maximumReorgLimit === undefined ? 200 : config.maximumReorgLimit
