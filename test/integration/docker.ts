@@ -92,7 +92,7 @@ export class PisaContainer extends DockerContainer {
         config: IArgConfig,
         hostPort: number,
         hostLogsDir: string,
-        network: string
+        network: string,
     ) {
         const configManager = new ConfigManager(ConfigManager.PisaConfigProperties);
         const commandLineArgs = configManager.toCommandLineArgs(config);

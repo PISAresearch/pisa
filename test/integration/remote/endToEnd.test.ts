@@ -63,8 +63,9 @@ describe("Integration", function() {
             hostPort: 3000,
             loglevel: "info",
             jsonRpcUrl: `http://${parity.name}:${parityPort}`,
-            responderKey: "0x549a24a594a51f0bea8655a80c01689206a811120e2b28683d6b202f096a2049",
-            receiptKey: "0x549a24a594a51f0bea8655a80c01689206a811120e2b28683d6b202f096a2049"
+            responderKey: KeyStore.theKeyStore.account1.wallet.privateKey,
+            receiptKey: KeyStore.theKeyStore.account1.wallet.privateKey,
+            watcherResponseConfirmations: 0
         };
         pisa = new PisaContainer(dockerClient, `pisa-${newId()}`, config, 3000, logsDirectory, networkName);
 
@@ -133,7 +134,7 @@ describe("Integration", function() {
         const res = await request.post(`http://localhost:${pisa.config.hostPort}/appointment`, {
             json: appointment
         });
-
+        
         // now register a callback on the setstate event and trigger a response
         const setStateEvent = "EventEvidence(uint256, bytes32)";
         let successResult = { success: false };
@@ -146,7 +147,7 @@ describe("Integration", function() {
         const tx = await channelContract.triggerDispute();
         await tx.wait();
 
-        await mineBlocks(3, wallet1);
+        await mineBlocks(5, wallet1);
 
         try {
             // wait for the success result

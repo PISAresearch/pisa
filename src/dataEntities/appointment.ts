@@ -304,8 +304,22 @@ export class Appointment implements IAppointment {
 export class SignedAppointment {
     constructor(public readonly appointment: IAppointment, public readonly signature: string) {}
     public serialise() {
-        const signedAppointment = {
-            ...this.appointment,
+        const signedAppointment: IAppointmentRequest & { signature: string } = {
+            challengePeriod: this.appointment.challengePeriod,
+            contractAddress: this.appointment.contractAddress,
+            customerAddress: this.appointment.customerAddress,
+            data: this.appointment.data,
+            endBlock: this.appointment.endBlock,
+            eventABI: this.appointment.eventABI,
+            eventArgs: this.appointment.eventArgs,
+            gas: this.appointment.gas,
+            id: this.appointment.customerChosenId,
+            jobId: this.appointment.jobId,
+            mode: this.appointment.mode,
+            paymentHash: this.appointment.paymentHash,
+            postCondition: this.appointment.postCondition,
+            refund: this.appointment.refund,
+            startBlock: this.appointment.startBlock,
             signature: this.signature
         };
 
