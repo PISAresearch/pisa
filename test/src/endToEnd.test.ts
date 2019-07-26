@@ -1,6 +1,6 @@
 import "mocha";
 import { Watcher } from "../../src/watcher/watcher";
-import { KitsuneTools } from "../../src/integrations/kitsune/tools";
+import { KitsuneTools } from "../external/kitsune/tools";
 import { ethers } from "ethers";
 import Ganache from "ganache-core";
 import { GasPriceEstimator, MultiResponder } from "../../src/responder";

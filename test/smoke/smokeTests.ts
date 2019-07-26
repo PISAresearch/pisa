@@ -1,8 +1,9 @@
 import request from "request-promise";
-import { KitsuneTools } from "../../src/integrations/kitsune/tools";
+import { KitsuneTools } from "../external/kitsune/tools";
 import { ethers } from "ethers";
 import config from "../../src/dataEntities/config";
 import { getJsonRPCProvider } from "../../src/utils";
+import { IAppointmentRequest, Appointment } from "../../src/dataEntities";
 let account0: string, account1: string, channelContract: ethers.Contract, hashState: string, disputePeriod: number;
 
 const mineBlock = async (wallet: ethers.Signer) => {
@@ -38,20 +39,33 @@ let setup = async () => {
 let execute = async () => {
     const provider = getJsonRPCProvider(config.jsonRpcUrl);
     const wallet = new ethers.Wallet(config.responderKey, provider);
-    const round = 1,
-        setStateHash = KitsuneTools.hashForSetState(hashState, round, channelContract.address),
-        sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash)),
-        sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash)),
-        expiryPeriod = disputePeriod + 1;
-    const appointmentRequest = {
-        expiryPeriod,
-        stateUpdate: {
+
+    const round = 1;
+    const setStateHash = KitsuneTools.hashForSetState(hashState, round, channelContract.address);
+    const sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash));
+    const sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash));
+    const data = KitsuneTools.encodeSetStateData(hashState, round, sig0, sig1);
+
+    const createAppointmentRequest = (data: string, acc: string): IAppointmentRequest => {
+        return {
+            challengePeriod: 20,
             contractAddress: channelContract.address,
-            hashState,
-            round,
-            signatures: [sig0, sig1]
-        }
+            customerAddress: acc,
+            data,
+            endBlock: 22,
+            eventABI: KitsuneTools.eventABI(),
+            eventArgs: KitsuneTools.eventArgs(),
+            gas: 100000,
+            id: 1,
+            jobId: 0,
+            mode: 0,
+            postCondition: "0x",
+            refund: 0,
+            startBlock: 0,
+            paymentHash: Appointment.FreeHash
+        };
     };
+    const appointmentRequest = createAppointmentRequest(data, account0);
 
     await request.post(`http://${config.hostName}:${config.hostPort}/appointment`, {
         json: appointmentRequest

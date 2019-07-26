@@ -1,12 +1,6 @@
 import { AppointmentStore } from "./watcher";
 import { ethers } from "ethers";
-import {
-    SignedAppointment,
-    IAppointment,
-    Appointment,
-    PublicDataValidationError,
-    ApplicationError
-} from "./dataEntities";
+import { SignedAppointment, IAppointment, Appointment, PublicDataValidationError } from "./dataEntities";
 
 /**
  * A PISA tower, configured to watch for specified appointment types

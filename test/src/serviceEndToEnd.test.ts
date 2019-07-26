@@ -1,19 +1,17 @@
 import * as chai from "chai";
 import "mocha";
 import request from "request-promise";
-import { KitsuneTools } from "../../src/integrations/kitsune/tools";
+import { KitsuneTools } from "../external/kitsune/tools";
 import { ethers } from "ethers";
 import { PisaService } from "../../src/service";
 import config from "../../src/dataEntities/config";
 import Ganache from "ganache-core";
-import { ChannelType, IAppointment, Appointment } from "../../src/dataEntities";
+import { Appointment, IAppointmentRequest } from "../../src/dataEntities";
 import logger from "../../src/logger";
 import levelup, { LevelUp } from "levelup";
 import MemDown from "memdown";
 import encodingDown from "encoding-down";
 import { StatusCodeError } from "request-promise/errors";
-import { wait } from "../../src/utils";
-import { BigNumber } from "ethers/utils";
 logger.transports.forEach(l => (l.level = "max"));
 
 const ganache = Ganache.provider({
@@ -33,6 +31,26 @@ const provider = new ethers.providers.Web3Provider(ganache);
 provider.pollingInterval = 100;
 
 const expect = chai.expect;
+
+        const appointmentRequest = (data: string, acc: string, contractAddress: string): IAppointmentRequest => {
+            return {
+                challengePeriod: 20,
+                contractAddress,
+                customerAddress: acc,
+                data,
+                endBlock: 22,
+                eventABI: KitsuneTools.eventABI(),
+                eventArgs: KitsuneTools.eventArgs(),
+                gas: 100000,
+                id: 1,
+                jobId: 0,
+                mode: 0,
+                postCondition: "0x",
+                refund: 0,
+                startBlock: 0,
+                paymentHash: Appointment.FreeHash
+            };
+        };
 
 describe("Service end-to-end", () => {
     let account0: string,
@@ -93,26 +111,16 @@ describe("Service end-to-end", () => {
             db
         );
 
-        const round = 1,
-            setStateHash = KitsuneTools.hashForSetState(hashState, round, channelContract.address),
-            sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash)),
-            sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash)),
-            expiryPeriod = disputePeriod + 1;
-        const appointment = {
-            expiryPeriod,
-            type: ChannelType.Kitsune,
-            stateUpdate: {
-                contractAddress: channelContract.address,
-                hashState,
-                round,
-                signatures: [sig0, sig1]
-            }
-        };
+        const round = 1;
+        const setStateHash = KitsuneTools.hashForSetState(hashState, round, channelContract.address);
+        const sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash));
+        const sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash));
+        const data = KitsuneTools.encodeSetStateData(hashState, round, sig0, sig1);
+        const appRequest = appointmentRequest(data, account0, channelContract.address);
 
-        let res;
         try {
-            res = await request.post(`http://${nextConfig.hostName}:${nextConfig.hostPort + 1}/appointment`, {
-                json: appointment
+            await request.post(`http://${nextConfig.hostName}:${nextConfig.hostPort + 1}/appointment`, {
+                json: appRequest
             });
 
             chai.assert.fail();
@@ -136,29 +144,8 @@ describe("Service end-to-end", () => {
         const setStateHash = KitsuneTools.hashForSetState(hashState, round, channelContract.address);
         const sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash));
         const sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash));
-        const data = KitsuneTools.encodeSetStateData(hashState, round, sig0, sig1)
-
-        const appointmentRequest = (data: string, acc: string): IAppointment => {
-            return {
-                challengePeriod: 20,
-                contractAddress: channelContract.address,
-                customerAddress: acc,
-                data,
-                endBlock: 22,
-                eventABI: KitsuneTools.eventABI(),
-                eventArgs: KitsuneTools.eventArgs(),
-                gas: 100000,
-                customerChosenId: 1,
-                jobId: 0,
-                mode: 0,
-                postCondition: "0x",
-                refund: 0,
-                startBlock: 0,
-                paymentHash: Appointment.FreeHash
-            };
-        };
-
-        const appRequest = appointmentRequest(data, account0);
+        const data = KitsuneTools.encodeSetStateData(hashState, round, sig0, sig1);
+        const appRequest = appointmentRequest(data, account0, channelContract.address);
 
         const res = await request.post(`http://${nextConfig.hostName}:${nextConfig.hostPort}/appointment`, {
             json: appRequest

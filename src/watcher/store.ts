@@ -1,4 +1,4 @@
-import { StartStopService, IAppointment, ChannelType, ConfigurationError, ApplicationError } from "../dataEntities";
+import { StartStopService, IAppointment, ApplicationError } from "../dataEntities";
 import { LevelUp } from "levelup";
 import encodingDown from "encoding-down";
 import { LockManager } from "../utils/lock";

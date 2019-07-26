@@ -6,14 +6,14 @@ import uuid from "uuid/v4";
 import fs from "fs";
 import path from "path";
 import { ethers } from "ethers";
-import { KitsuneTools } from "../../../src/integrations/kitsune/tools";
+import { KitsuneTools } from "../../external/kitsune/tools";
 import request from "request-promise";
-import { ChannelType } from "../../../src/dataEntities";
 import { wait } from "../../../src/utils";
 import { PisaContainer, ParityContainer } from "../docker";
 import { FileUtils } from "../fileUtil";
 import { ChainData } from "../chainData";
 import { KeyStore } from "../keyStore";
+import { Appointment, IAppointmentRequest } from "../../../src/dataEntities";
 
 const newId = () => {
     return uuid().substr(0, 8);
@@ -106,17 +106,29 @@ describe("Integration", function() {
         const setStateHash = KitsuneTools.hashForSetState(hashState, round, channelContract.address);
         const sig0 = await key0.wallet.signMessage(ethers.utils.arrayify(setStateHash));
         const sig1 = await key1.wallet.signMessage(ethers.utils.arrayify(setStateHash));
-        const expiryPeriod = disputePeriod + 1;
-        const appointment = {
-            expiryPeriod,
-            type: ChannelType.Kitsune,
-            stateUpdate: {
+        const data = KitsuneTools.encodeSetStateData(hashState, round, sig0, sig1);
+
+        const createAppointmentRequest = (data: string, acc: string): IAppointmentRequest => {
+            return {
+                challengePeriod: 20,
                 contractAddress: channelContract.address,
-                hashState,
-                round,
-                signatures: [sig0, sig1]
-            }
+                customerAddress: acc,
+                data,
+                endBlock: 22,
+                eventABI: KitsuneTools.eventABI(),
+                eventArgs: KitsuneTools.eventArgs(),
+                gas: 100000,
+                id: 1,
+                jobId: 0,
+                mode: 0,
+                postCondition: "0x",
+                refund: 0,
+                startBlock: 0,
+                paymentHash: Appointment.FreeHash
+            };
         };
+
+        const appointment = createAppointmentRequest(data, key0.account)
 
         const res = await request.post(`http://localhost:${pisa.config.hostPort}/appointment`, {
             json: appointment

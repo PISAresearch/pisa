@@ -7,7 +7,7 @@ import { BigNumber } from "ethers/utils";
 const ajv = new Ajv();
 const appointmentRequestValidation = ajv.compile(appointmentRequestSchemaJson);
 
-export interface IAppointment {
+export interface IAppointmentBase {
     /**
      * The address of the external contract to which the data will be submitted
      */
@@ -27,17 +27,12 @@ export interface IAppointment {
      * The block at which the appointment ends
      */
     readonly endBlock: number;
- 
+
     /**
      * if the trigger event is noticed, then this is the number of blocks which
      * PISA has to respond
      */
     readonly challengePeriod: number;
-
-    /**
-     * an appointment id, supplied by the customer
-     */
-    readonly customerChosenId: number;
 
     /**
      * A counter that allows users to replace existing jobs
@@ -73,7 +68,7 @@ export interface IAppointment {
      * ABI encoded event arguments for the event
      */
     readonly eventArgs: string;
- 
+
     /**
      * The post-condition data to be passed to the dispute handler to verify whether
      * recouse is required
@@ -85,6 +80,20 @@ export interface IAppointment {
      * reveal the pre-image of this to seek recourse, which will only be given to them upon payment
      */
     readonly paymentHash: string;
+}
+
+export interface IAppointmentRequest extends IAppointmentBase {
+    /**
+     * an appointment id, supplied by the customer
+     */
+    readonly id: number;
+}
+
+export interface IAppointment extends IAppointmentBase {
+    /**
+     * an appointment id, supplied by the customer
+     */
+    readonly customerChosenId: number;
 }
 
 /**
@@ -156,21 +165,27 @@ export class Appointment implements IAppointment {
 
     /**
      * Parse the appointment and check that it's valid
-     * @param obj 
+     * @param obj
      */
     public static validate(obj: any) {
         const valid = appointmentRequestValidation(obj);
         if (!valid) throw new PublicDataValidationError(appointmentRequestValidation.errors!.map(e => `${e.propertyName}:${e.message}`).join("\n")); // prettier-ignore
+        const request = obj as IAppointmentRequest;
 
-        const appointment = Appointment.fromIAppointment(obj as IAppointment);
+        const appointmentData: IAppointment = {
+            ...request,
+            customerChosenId: request.id
+        };
+
+        const appointment = Appointment.fromIAppointment(appointmentData);
         if (appointment.paymentHash !== Appointment.FreeHash) throw new PublicDataValidationError("Invalid payment hash."); // prettier-ignore
 
         try {
             appointment.getEventFilter();
         } catch (doh) {
-            const dohError = doh as Error
+            const dohError = doh as Error;
             logger.error(doh);
-            if(dohError.stack) logger.error(dohError.stack);
+            if (dohError.stack) logger.error(dohError.stack);
             throw new PublicDataValidationError("Invalid event arguments for ABI.");
         }
 
@@ -187,7 +202,7 @@ export class Appointment implements IAppointment {
     }
     /**
      * A unique id for this appointment. Many appointments can have the same locator
-     * but they must all have unique ids. Generated from concatenating the locator with 
+     * but they must all have unique ids. Generated from concatenating the locator with
      * the job id. Appointments with the same locator can be replaced by incrementing the
      * job id.
      */
@@ -241,7 +256,7 @@ export class Appointment implements IAppointment {
         };
     }
     /**
-     * Th packed representation for the 
+     * Th packed representation for the
      */
     public solidityPacked() {
         return ethers.utils.solidityPack(
