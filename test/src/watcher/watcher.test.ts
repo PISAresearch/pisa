@@ -160,6 +160,7 @@ describe("Watcher", () => {
             topics: observedEventTopics
         });
         when(appMock.id).thenReturn("app1");
+        when(appMock.endBlock).thenReturn(100);
         appointment = instance(appMock);
 
         mockedStore = mock(AppointmentStore);

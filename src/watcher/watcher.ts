@@ -156,8 +156,6 @@ export class Watcher extends Component<WatcherAnchorState, IBlockStub & Logs> {
             ) {
                 const appointment = this.store.appointmentsById.get(appointmentId)!;
                 logger.info(`Responding to appointment ${appointmentId}, block ${state.blockNumber}.`);
-                // pass the appointment to the responder to complete. At this point the job has completed as far as
-                // the watcher is concerned, therefore although respond is an async function we do not need to await it for a result
                 await this.responder.startResponse(appointment);
             }
 
@@ -170,9 +168,8 @@ export class Watcher extends Component<WatcherAnchorState, IBlockStub & Logs> {
                 await this.store.removeById(appointmentId);
             }
 
-            //Find endBlock for current appointment
-            let endBlock = this.store.appointmentsById.get(appointmentId)!.endBlock;
             // Cleanup if appointment expired
+            let endBlock = this.store.appointmentsById.get(appointmentId)!.endBlock;
             if (
                 !this.shouldRemoveExpiredAppointment(prevState, prevWatcherAppointmentState,endBlock) && 
                 this.shouldRemoveExpiredAppointment(state, appointmentState,endBlock)

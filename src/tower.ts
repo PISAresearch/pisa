@@ -1,6 +1,12 @@
 import { AppointmentStore } from "./watcher";
 import { ethers } from "ethers";
-import { SignedAppointment, IAppointment, Appointment, PublicDataValidationError } from "./dataEntities";
+import {
+    SignedAppointment,
+    IAppointment,
+    Appointment,
+    PublicDataValidationError,
+    ApplicationError
+} from "./dataEntities";
 
 /**
  * A PISA tower, configured to watch for specified appointment types
@@ -22,8 +28,10 @@ export class PisaTower {
         const appointment = Appointment.validate(obj);
 
         // add this to the store so that other components can pick up on it
-        this.store.getById()
-        await this.store.addOrUpdateByLocator(appointment);
+        const currentAppointment = this.store.appointmentsByLocator.get(appointment.locator);
+        if (!currentAppointment || currentAppointment.jobId >= appointment.jobId) {
+            await this.store.addOrUpdateByLocator(appointment);
+        } else throw new PublicDataValidationError(`Job id too low. Should be greater than ${appointment.jobId}.`);
 
         const signature = await this.appointmentSigner.signAppointment(appointment);
         return new SignedAppointment(appointment, signature);

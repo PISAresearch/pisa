@@ -1,4 +1,4 @@
-import { StartStopService, IAppointment, ChannelType, ConfigurationError } from "../dataEntities";
+import { StartStopService, IAppointment, ChannelType, ConfigurationError, ApplicationError } from "../dataEntities";
 import { LevelUp } from "levelup";
 import encodingDown from "encoding-down";
 import { LockManager } from "../utils/lock";
@@ -45,7 +45,7 @@ export class AppointmentStore extends StartStopService implements IAppointmentSt
             const appointment = Appointment.fromIAppointment((record as any) as IAppointment);
             // // add too the indexes
             this.mAppointmentsById.set(appointment.id, appointment);
-            this.appointmentsByStateLocator[appointment.locator] = appointment;
+            this.mAppointmentsByLocator.set(appointment.locator, appointment);
         }
     }
 
@@ -53,10 +53,10 @@ export class AppointmentStore extends StartStopService implements IAppointmentSt
         // do nothing
     }
 
-    private readonly mAppointmentsById: Map<string, Appointment> = new Map();
-    private readonly appointmentsByStateLocator: {
-        [appointmentStateLocator: string]: Appointment;
-    } = {};
+    public get appointmentsByLocator(): ReadonlyMap<string, Appointment> {
+        return this.mAppointmentsByLocator;
+    }
+    private readonly mAppointmentsByLocator: Map<string, Appointment> = new Map();
 
     /**
      * Accessor to the appointments in this store.
@@ -64,6 +64,7 @@ export class AppointmentStore extends StartStopService implements IAppointmentSt
     public get appointmentsById(): ReadonlyMap<string, Appointment> {
         return this.mAppointmentsById;
     }
+    private readonly mAppointmentsById: Map<string, Appointment> = new Map();
 
     // Every time we access the state locator, we need to make sure that this happens atomically.
     // This is not necessary for appointmentId, as they are unique for each appointment and generated internally.
@@ -81,7 +82,7 @@ export class AppointmentStore extends StartStopService implements IAppointmentSt
     public addOrUpdateByLocator(appointment: Appointment): Promise<boolean> {
         // As we are accessing data structures by state locator, we make sure to acquire a lock on it
         return this.stateLocatorLockManager.withLock(appointment.locator, async () => {
-            const currentAppointment = this.appointmentsByStateLocator[appointment.locator];
+            const currentAppointment = this.mAppointmentsByLocator.get(appointment.locator);
             // is there a current appointment
             if (currentAppointment) {
                 if (currentAppointment.jobId >= appointment.jobId) {
@@ -100,7 +101,7 @@ export class AppointmentStore extends StartStopService implements IAppointmentSt
             else await batch.write();
 
             // add the new appointment
-            this.appointmentsByStateLocator[appointment.locator] = appointment;
+            this.mAppointmentsByLocator.set(appointment.locator, appointment);
             this.mAppointmentsById.set(appointment.id, appointment);
             return true;
         });
@@ -122,10 +123,11 @@ export class AppointmentStore extends StartStopService implements IAppointmentSt
             // While the current code is blocking, we acquire a lock until we are done for clarity.
             await this.stateLocatorLockManager.withLock(stateLocator, async () => {
                 // remove the appointment from the state locator index
-                const currentAppointment = this.appointmentsByStateLocator[stateLocator];
+                const currentAppointment = this.mAppointmentsByLocator.get(stateLocator);
+                if (!currentAppointment) throw new ApplicationError(`Missing locator ${stateLocator} for id ${appointmentId}.`); // prettier-ignore
                 // if it has the same id
                 if (currentAppointment.id === appointmentId) {
-                    delete this.appointmentsByStateLocator[stateLocator];
+                    this.mAppointmentsByLocator.delete(stateLocator);
                 }
             });
 
