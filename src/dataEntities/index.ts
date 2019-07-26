@@ -19,4 +19,4 @@ export {
     isArrayOfStrings
 } from "./checkAppointment";
 export { StartStopService } from "./startStop";
-export { IBlockStub, TransactionHashes, Logs, Transactions } from "./block";
+export { IBlockStub, TransactionHashes, Logs, Transactions, Block } from "./block";

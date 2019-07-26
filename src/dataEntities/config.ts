@@ -16,6 +16,8 @@ export interface IArgConfig {
     rateLimitGlobalMax?: number;
     rateLimitGlobalMessage?: string;
     dbDir: string;
+    watcherResponseConfirmations?: number;
+    maximumReorgLimit?: number;
 }
 
 class ConfigProperty {
@@ -83,6 +85,14 @@ export class ConfigManager {
         new ConfigProperty("rate-limit-global-message", config => config.rateLimitGlobalMessage, {
             description: "Global message to emit when limit is reached",
             string: true
+        }),
+        new ConfigProperty("maximum-reorg-limit", config => config.rateLimitGlobalMessage, {
+            description: "The maximum depth of reorg that the application can handle. Eg. 100. Max is 200.",
+            number: true
+        }),
+        new ConfigProperty("watcher-response-confirmations", config => config.rateLimitGlobalMessage, {
+            description: "The number of confirmations on an event before the watcher responds.",
+            number: true
         })
     ];
 

@@ -104,7 +104,7 @@ contract MultiChannelContract {
         // Ideally some "action" or "evidence" is sent here
         // And potentially processed via the blockchain.
         // We ignore it... because it doesn't matter for us.
-        
+
         channels[_id].challengeExpiry = channels[_id].challengeExpiry + challengePeriod;
     }
 
@@ -151,7 +151,7 @@ contract MultiChannelContract {
       return channels[_id].open;
     }
 
-    function getChannelID(address _user1, address _user2) public returns(uint) {
+    function getChannelID(address _user1, address _user2) public view returns(uint) {
       bytes32 h = keccak256(abi.encode(_user1, _user2, address(this)));
       return uint(h);
     }

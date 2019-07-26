@@ -2,6 +2,8 @@ const PISAHash = artifacts.require("PISAHash");
 const MultiChannelContract = artifacts.require("MultiChannelContract");
 const DataRegistry = artifacts.require("DataRegistry");
 const CommandChannelHandler = artifacts.require("CommandChannelHandler");
+const MockAuction = artifacts.require("MockAuction");
+const MockAuctionHandler = artifacts.require("MockAuctionHandler");
 const assert = require("chai").assert;
 const truffleAssert = require('truffle-assertions');
 
@@ -100,25 +102,47 @@ function createToCall(_mode, _v) {
   if(_mode == 2) {
     return web3.eth.abi.encodeParameters(['uint'], [42]);
   }
+
+  if(_mode == 10) {
+    return web3.eth.abi.encodeFunctionCall(
+      {
+          "constant": false,
+          "inputs": [{
+            type: 'uint256',
+            name: '_value'
+          },{
+            type: 'uint256',
+            name: '_r'
+          }],
+          "name": "revealBid",
+          "outputs": [],
+          "payable": false,
+          "stateMutability": "nonpayable",
+          "type": "function"
+      }, [200, 123]
+    );
+  }
+
 }
 
+// function createAppointment(_sc, _blockNo, _cus, _v, _jobid, _mode) {
+//
+//
 
-function createAppointment(_sc, _blockNo, _cus, _v, _jobid, _toCall) {
+function createAppointment(_sc, _blockNo, _cus, _v, _jobid, _mode, _precondition, _postcondition) {
 
   let appointmentFinishTime = _blockNo + 100;
   let minChallengePeriod = 50;
-  let toCall = createToCall(_toCall, _v);
+  let mode = _mode; // We know what dispute handler to use!
+  let toCall = createToCall(mode, _v);
   let refund = 100; // 100 wei
   let gas = 1000000; // PISA will allocate up to 1m gas for this jobs
-  let mode = 0; // We know what dispute handler to use!
-  let postcondition = web3.eth.abi.encodeParameter('uint', _v); // Should be "v=3" or more
   let h = web3.utils.keccak256(web3.eth.abi.encodeParameter('uint', 123));
 
   appointment = new Array();
   appointment['starttime'] = _blockNo;
   appointment['finishtime'] = appointmentFinishTime;
   appointment['cus'] = _cus;
-  appointment['minChallengePeriod'] = minChallengePeriod;
   appointment['id'] = channelid;
   appointment['jobid'] = _jobid;
   appointment['toCall'] = toCall;
@@ -127,7 +151,7 @@ function createAppointment(_sc, _blockNo, _cus, _v, _jobid, _toCall) {
   appointment['mode'] = mode;
   appointment['eventDesc'] = "doEvent(uint,uint,uint)";
   appointment['eventVals'] = [1,2,3];
-  appointment['postcondition'] = postcondition;
+  appointment['postcondition'] = _postcondition;
   appointment['h'] = h;
   appointment['r'] = web3.eth.abi.encodeParameter('uint', 123);
   appointment['v'] = _v;
@@ -144,7 +168,6 @@ function createAppointment(_sc, _blockNo, _cus, _v, _jobid, _toCall) {
 
   timersArray[0] = _blockNo;
   timersArray[1] = appointmentFinishTime;
-  timersArray[2] = minChallengePeriod;
 
   let appointmentinfoArray = new Array();
   // Workaround from https://github.com/ethereum/web3.js/issues/2077#issuecomment-468526280
@@ -154,7 +177,8 @@ function createAppointment(_sc, _blockNo, _cus, _v, _jobid, _toCall) {
 
   let jobdata = new Array();
   jobdata[0] = toCall;
-  jobdata[1] = postcondition;
+  jobdata[1] = _precondition;
+  jobdata[2] = _postcondition;
 
   let extraData = new Array();
   extraData[0] = refund;
@@ -167,7 +191,7 @@ function createAppointment(_sc, _blockNo, _cus, _v, _jobid, _toCall) {
   eventData[0] = encodeEventDesc;
   eventData[1] = encodeEventVal;
 
-  encodedAppointment = web3.eth.abi.encodeParameters(['address','address','uint[3]', "uint[2]", "bytes[2]", "uint[3]","bytes[2]","bytes32"],
+  encodedAppointment = web3.eth.abi.encodeParameters(['address','address','uint[2]', "uint[2]", "bytes[3]", "uint[3]","bytes[2]","bytes32"],
                                              [_sc, _cus, timersArray, appointmentinfoArray, jobdata, extraData, eventData, h]);
 
 }
@@ -205,7 +229,7 @@ contract('PISAHash', (accounts) => {
     var accounts =  await web3.eth.getAccounts();
     pisaHashInstance = await PISAHash.deployed();
     // Make sure it is set to OK
-    let flag = await pisaHashInstance.getFlag.call();
+    let flag = await pisaHashInstance.flag.call();
     assert.equal(flag.toNumber(), 0 ,"Flag should be OK = 0");
 
     // Some time in the future
@@ -231,12 +255,12 @@ contract('PISAHash', (accounts) => {
     await truffleAssert.reverts(pisaHashInstance.installWatcher(accounts[2], blockNo, sig, {from: accounts[3]}), "too late to install");
   });
 
-  it('Install Command Dispute Handler', async () => {
-      var disputeHandler = await CommandChannelHandler.deployed();
+  it('Install Condition Handlers', async () => {
+      var postconditionHandler = await CommandChannelHandler.deployed();
       var accounts =  await web3.eth.getAccounts();
 
       // Make sure it is set to OK
-      let flag = await pisaHashInstance.getFlag.call();
+      let flag = await pisaHashInstance.flag.call();
       assert.equal(flag.toNumber(), 0 ,"Flag should be OK = 0");
 
       // Some time in the future
@@ -244,18 +268,18 @@ contract('PISAHash', (accounts) => {
       blockNo = blockNo + 10;
 
       // Install a watcher using the cold-storage admin key
-      let toSign = web3.eth.abi.encodeParameters(['address','uint','uint', 'address'], [disputeHandler.address, 0, blockNo, pisaHashInstance.address]);
+      let toSign = web3.eth.abi.encodeParameters(['address', 'address', 'address', 'uint','uint', 'address'], ["0x0000000000000000000000000000000000000000", postconditionHandler.address, postconditionHandler.address, 1, blockNo, pisaHashInstance.address]);
       let hash = web3.utils.keccak256(toSign);
       let sig =  await web3.eth.sign(hash,accounts[0]);
       let signerAddr = await pisaHashInstance.recoverEthereumSignedMessage.call(hash,sig);
       assert.equal(signerAddr, accounts[0], "Signer address should be the same");
 
       // Ready to install handler
-      await pisaHashInstance.installDisputeHandler(disputeHandler.address, 0, blockNo, sig, {from: accounts[2]});
+      await pisaHashInstance.installMode("0x0000000000000000000000000000000000000000", postconditionHandler.address, postconditionHandler.address, 1, blockNo, sig, {from: accounts[2]});
 
       // Was the handler installed ok?
-      let getHandler = await pisaHashInstance.getHandler.call(0);
-      assert.equal(getHandler, disputeHandler.address);
+      let getMode = await pisaHashInstance.getMode.call(1);
+      assert.equal(getMode[0][1], postconditionHandler.address);
     });
 
     it('Trigger in MultiChannelContract (PISA will resolve)', async () => {
@@ -300,7 +324,7 @@ contract('PISAHash', (accounts) => {
 
       // Accounts[3] = customer
       // Accounts[1] = watcher
-      createAppointment(challengeInstance.address, blockNo, accounts[3], 50, 10, 1);
+      createAppointment(challengeInstance.address, blockNo, accounts[3], 50, 10, 1, "0x0000000000000000000000000000000000000000", web3.eth.abi.encodeParameter('uint', 50));
 
       appointmentToSign = web3.eth.abi.encodeParameters(['bytes','address'],[encodedAppointment, pisaHashInstance.address]);
       let hash = web3.utils.keccak256(appointmentToSign);
@@ -323,17 +347,15 @@ contract('PISAHash', (accounts) => {
       let shard = await registryInstance.getDataShardIndex.call(timenow);
 
       // PISA MUST RESPOND. Should not fail!
-      await pisaHashInstance.respond(encodedAppointment, cussig, {from: accounts[1]});
-      let pisaidEncoded= web3.eth.abi.encodeParameters(['address', 'address', 'uint'], [challengeInstance.address, appointment['cus'], channelid.toString()]);
+      await pisaHashInstance.respond(challengeInstance.address, accounts[3], appointment['id'], appointment['jobid'], appointment['mode'], appointment['toCall'], appointment['gas'], "0x0000000000000000000000000000000000000000", {from: accounts[1]});
+      let pisaidEncoded= web3.eth.abi.encodeParameters(['address', 'address', 'uint', 'uint'], [challengeInstance.address, appointment['cus'], channelid.toString(), appointment['jobid']]);
       let pisaid = web3.utils.keccak256(pisaidEncoded);
-
       let pisaRecord = await registryInstance.fetchRecord.call(shard, pisaHashInstance.address, pisaid, 0);
       assert.isTrue(pisaRecord.length != 0, "Data should be stored!");
 
-      let pisa_decoded_record = web3.eth.abi.decodeParameters(["uint", "uint", "uint"], pisaRecord);
-      assert.equal(pisa_decoded_record[0], blockNo+1, "Correct block number");
-      assert.equal(pisa_decoded_record[1], appointment['jobid'], "Job ID for the appointment should match");
-      assert.equal(pisa_decoded_record[2], appointment['gas'], "Allocated gas for call should be here");
+      // TODO: We should decode to "bytes" not "bytes32", getting a 53 bits error.
+      let pisa_decoded_record = web3.eth.abi.decodeParameters(["uint", "bytes32"], pisaRecord);
+      assert.equal(pisa_decoded_record[0], blockNo+1, "Response block number");
 
       let v = await challengeInstance.getV.call(channelid.toString());
       assert.equal(v, appointment['v'],"v should be 50");
@@ -406,7 +428,7 @@ contract('PISAHash', (accounts) => {
 
       // Accounts[3] = customer
       // Accounts[1] = watcher
-      createAppointment(challengeInstance.address, blockNo-110, accounts[3], 100, 20, 1);
+      createAppointment(challengeInstance.address, blockNo-110, accounts[3], 100, 20, 1, "0x0000000000000000000000000000000000000000", web3.eth.abi.encodeParameter('uint', 100));
 
       appointmentToSign = web3.eth.abi.encodeParameters(['bytes','address'],[encodedAppointment, pisaHashInstance.address]);
 
@@ -462,4 +484,475 @@ contract('PISAHash', (accounts) => {
       await truffleAssert.reverts(pisaHashInstance.recourse(encodedAppointment, sigs, appointment['r'], logdata, datashard, dataindex), "Recourse was already successful");
 
     });
+
+    it('Refund customer 100 wei', async () => {
+      // Really we should NEVER be in this situation....
+      // accepting a much larger "v" in an earlier receipt... but
+      // bugs can happen and we should be protected from it becuase the _jobid
+      // remains acceptable
+      let accounts =  await web3.eth.getAccounts();
+      let challengeInstance = await MultiChannelContract.deployed();
+      let registryInstance  = await DataRegistry.deployed();
+
+      let pisaidEncoded= web3.eth.abi.encodeParameters(['address', 'address', 'uint', 'uint'], [challengeInstance.address, appointment['cus'], channelid.toString(), appointment['jobid']]);
+      let pisaid = web3.utils.keccak256(pisaidEncoded);
+
+      await truffleAssert.reverts(pisaHashInstance.forfeit(pisaid), "Time has not yet passed since refund was due by PISA");
+
+      await pisaHashInstance.refundCustomer(challengeInstance.address, appointment['cus'], channelid.toString(), appointment['jobid'], {value: 100});
+
+      let pendingRefunds = await pisaHashInstance.getPendingRefunds.call();
+      assert.equal(pendingRefunds, 0, "No more pending refunds... all good!");
+
+      let cheatedlog = await pisaHashInstance.cheated.call(pisaid);
+
+      // Cheated log should be eresolved!
+      assert.isTrue(cheatedlog['resolved']);
+
+      // Again, issuing the same evidence should fail too
+      let triggerRecord = await registryInstance.fetchHash.call(datashard[0], challengeInstance.address, channelid.toString(), dataindex[0]);
+      assert.isTrue(triggerRecord.length != 0, "Trigger data should be stored!");
+
+      let resolveRecord = await registryInstance.fetchHash.call(datashard[1], challengeInstance.address, channelid.toString(), dataindex[1]);
+      assert.isTrue(resolveRecord.length != 0, "Resolve data should be stored!");
+
+      let sigs = [pisasig, cussig];
+      let logdata = new Array();
+      logdata[0] = encodedLogTrigger;
+      logdata[1] = encodedLogResolve;
+      await truffleAssert.reverts(pisaHashInstance.recourse(encodedAppointment, sigs, appointment['r'], logdata, datashard, dataindex), "Recourse was already successful");
+
+
+    });
+
+    it('Try recourse again with same evidence, it should fail as it was already issued', async () => {
+      // Really we should NEVER be in this situation....
+      // accepting a much larger "v" in an earlier receipt... but
+      // bugs can happen and we should be protected from it becuase the _jobid
+      // remains acceptable
+      let accounts =  await web3.eth.getAccounts();
+      let challengeInstance = await MultiChannelContract.deployed();
+      let registryInstance  = await DataRegistry.deployed();
+
+      let pisaidEncoded= web3.eth.abi.encodeParameters(['address', 'address', 'uint', 'uint'], [challengeInstance.address, appointment['cus'], channelid.toString(), appointment['jobid']]);
+      let pisaid = web3.utils.keccak256(pisaidEncoded);
+
+      // Again, issuing the same evidence should fail too
+      let triggerRecord = await registryInstance.fetchHash.call(datashard[0], challengeInstance.address, channelid.toString(), dataindex[0]);
+      assert.isTrue(triggerRecord.length != 0, "Trigger data should be stored!");
+
+      let resolveRecord = await registryInstance.fetchHash.call(datashard[1], challengeInstance.address, channelid.toString(), dataindex[1]);
+      assert.isTrue(resolveRecord.length != 0, "Resolve data should be stored!");
+
+      let sigs = [pisasig, cussig];
+      let logdata = new Array();
+      logdata[0] = encodedLogTrigger;
+      logdata[1] = encodedLogResolve;
+      await truffleAssert.reverts(pisaHashInstance.recourse(encodedAppointment, sigs, appointment['r'], logdata, datashard, dataindex), "Recourse was already successful");
+    });
+
+    it('Customer withdraws their refund', async () => {
+      // Really we should NEVER be in this situation....
+      // accepting a much larger "v" in an earlier receipt... but
+      // bugs can happen and we should be protected from it becuase the _jobid
+      // remains acceptable
+      let accounts =  await web3.eth.getAccounts();
+      let challengeInstance = await MultiChannelContract.deployed();
+      let registryInstance  = await DataRegistry.deployed();
+
+      await pisaHashInstance.customerWithdrawRefund(challengeInstance.address, appointment['cus'], channelid.toString(), appointment['jobid']);
+
+      let pisaidEncoded= web3.eth.abi.encodeParameters(['address', 'address', 'uint', 'uint'], [challengeInstance.address, appointment['cus'], channelid.toString(), appointment['jobid']]);
+      let pisaid = web3.utils.keccak256(pisaidEncoded);
+
+      let cheatedlog = await pisaHashInstance.cheated.call(pisaid);
+
+      // Cheated log should be eresolved!
+      assert.equal(cheatedlog['refund'], 0);
+
+    });
+
+
+    it('Install mode handler so PISA has to respond between time t1 and t2', async () => {
+        var accounts =  await web3.eth.getAccounts();
+
+        // Make sure it is set to OK
+        let flag = await pisaHashInstance.flag.call();
+        assert.equal(flag.toNumber(), 0 ,"Flag should be OK = 0");
+
+        // Some time in the future
+        let blockNo = await web3.eth.getBlockNumber();
+        blockNo = blockNo + 10;
+
+        // Install a watcher using the cold-storage admin key
+        let toSign = web3.eth.abi.encodeParameters(['address', 'address', 'address', 'uint','uint', 'address'], ["0x0000000000000000000000000000000000000000", "0x0000000000000000000000000000000000000000", "0x0000000000000000000000000000000000000000", 2, blockNo, pisaHashInstance.address]);
+        let hash = web3.utils.keccak256(toSign);
+        let sig =  await web3.eth.sign(hash,accounts[0]);
+        let signerAddr = await pisaHashInstance.recoverEthereumSignedMessage.call(hash,sig);
+        assert.equal(signerAddr, accounts[0], "Signer address should be the same");
+
+        // Ready to install handler
+        await pisaHashInstance.installMode("0x0000000000000000000000000000000000000000", "0x0000000000000000000000000000000000000000", "0x0000000000000000000000000000000000000000", 2, blockNo, sig, {from: accounts[2]});
+
+        // Was the handler installed ok?
+        let getMode;
+        (getMode) = await pisaHashInstance.getMode.call(2);
+
+        assert.equal(getMode[0][0], "0x0000000000000000000000000000000000000000", "No precondition should be installed");
+        assert.equal(getMode[0][1], "0x0000000000000000000000000000000000000000", "No postcondition should be installed");
+        assert.equal(getMode[0][2], "0x0000000000000000000000000000000000000000", "No challenge time should be installed");
+        assert.isTrue(getMode[1]);
+
+      });
+
+      it('Sign appointment to send tx between t1 adn t2', async () => {
+          let challengeInstance = await MultiChannelContract.deployed();
+          var accounts =  await web3.eth.getAccounts();
+          let blockNo = await web3.eth.getBlockNumber();
+
+          // Accounts[3] = customer
+          // Accounts[1] = watcher
+          createAppointment(challengeInstance.address, blockNo, accounts[3], 150, 28, 2, "0x0000000000000000000000000000000000000000", web3.eth.abi.encodeParameter('uint', 150));
+
+          appointmentToSign = web3.eth.abi.encodeParameters(['bytes','address'],[encodedAppointment, pisaHashInstance.address]);
+          let hash = web3.utils.keccak256(appointmentToSign);
+
+          cussig =  await web3.eth.sign(hash,accounts[3]);
+          let signerAddr = await pisaHashInstance.recoverEthereumSignedMessage.call(hash,cussig);
+          assert.equal(signerAddr, accounts[3], "Customer signer address should be the same");
+
+          pisasig =  await web3.eth.sign(hash,accounts[1]);
+          signerAddr = await pisaHashInstance.recoverEthereumSignedMessage.call(hash,pisasig);
+          assert.equal(signerAddr, accounts[1], "PISA signer address should be the same");
+      });
+
+      it('Customer issue recourse for jobid 28 (successful)', async () => {
+          var accounts =  await web3.eth.getAccounts();
+          let challengeInstance = await MultiChannelContract.deployed();
+
+          // Go a few blocks into the future...
+          for(let i=0; i<150; i++) {
+              await advanceBlock();
+          }
+
+          // We really only need signed appointment + both sigs
+          let sigs = [pisasig, cussig];
+          let logdata = new Array()
+          let datashard = new Array();
+          let dataindex = new Array();
+
+          let pisaidEncoded= web3.eth.abi.encodeParameters(['address', 'address', 'uint', 'uint'], [challengeInstance.address, appointment['cus'], channelid.toString(), appointment['jobid']]);
+          let pisaid = web3.utils.keccak256(pisaidEncoded);
+
+          let cheatedlog = await pisaHashInstance.cheated.call(pisaid);
+
+          // Cheated log should be triggered, but not resolved!
+          assert.isTrue(!cheatedlog['triggered']);
+          assert.isTrue(!cheatedlog['resolved']);
+
+          // Recourse should work.... all we care is if PISA called a function between two times.
+          // But it didnt and no log was recorded. Bad PISA.
+          await pisaHashInstance.recourse(encodedAppointment, sigs, appointment['r'], logdata, datashard, dataindex);
+
+          // One refund should be pending
+          let pendingRefunds = await pisaHashInstance.getPendingRefunds.call();
+          assert.equal(pendingRefunds, 1, "Only 1 refund outstanding");
+
+          cheatedlog = await pisaHashInstance.cheated.call(pisaid);
+
+          // Cheated log should be resolved now!
+          assert.isTrue(cheatedlog['triggered']);
+          assert.isTrue(!cheatedlog['resolved']);
+
+      });
+
+      it('PISA provides signed (by customer) appointment with the same jobid, recourse NOT cancelled', async () => {
+          var accounts =  await web3.eth.getAccounts();
+          let challengeInstance = await MultiChannelContract.deployed();
+          let blockNo = await web3.eth.getBlockNumber();
+
+          // Change Job ID to something in the future.
+          createAppointment(challengeInstance.address, blockNo, accounts[3], 200, 28, 2, "0x0000000000000000000000000000000000000000", web3.eth.abi.encodeParameter('uint', 200));
+
+          // OK lets try to compute pisaid locally after creating a new appointment
+          let pisaidEncoded= web3.eth.abi.encodeParameters(['address', 'address', 'uint', 'uint'], [challengeInstance.address, appointment['cus'], channelid.toString(), 28]);
+          let pisaid = web3.utils.keccak256(pisaidEncoded);
+          let cheatedlog = await pisaHashInstance.cheated.call(pisaid);
+          assert.isTrue(cheatedlog['triggered'], "Recourse for job id 28 should be triggered");
+          assert.isTrue(!cheatedlog['resolved'], "Recourse for job id 28 should not already be resolved");
+
+          appointmentToSign = web3.eth.abi.encodeParameters(['bytes','address'],[encodedAppointment, pisaHashInstance.address]);
+          let hash = web3.utils.keccak256(appointmentToSign);
+
+          cussig =  await web3.eth.sign(hash,accounts[3]);
+          let signerAddr = await pisaHashInstance.recoverEthereumSignedMessage.call(hash,cussig);
+          assert.equal(signerAddr, accounts[3], "Customer signer address should be the same");
+
+          // Prove customer has approved a new appointment from us.
+          await truffleAssert.reverts(pisaHashInstance.customerCancelledJob(encodedAppointment, cussig, 28), "Appointment did not have a future jobid");
+
+          // One refund should be pending
+          let pendingRefunds = await pisaHashInstance.getPendingRefunds.call();
+          cheatedlog = await pisaHashInstance.cheated.call(pisaid);
+          assert.equal(pendingRefunds, 1, "1 refund should be outstanding");
+          assert.isTrue(cheatedlog['triggered'], "Recourse for job id 28 should be triggered");
+          assert.isTrue(!cheatedlog['resolved'], "Recourse for job id 28 should NOT be resolved");
+
+      });
+
+      it('PISA provides signed (by customer) appointment with new jobid, cancelling the recourse ', async () => {
+          var accounts =  await web3.eth.getAccounts();
+          let challengeInstance = await MultiChannelContract.deployed();
+          let blockNo = await web3.eth.getBlockNumber();
+
+          // Change Job ID to something in the future.
+          createAppointment(challengeInstance.address, blockNo, accounts[3], 200, 30, 2, "0x0000000000000000000000000000000000000000", web3.eth.abi.encodeParameter('uint', 200));
+
+          // OK lets try to compute pisaid locally after creating a new appointment
+          let pisaidEncoded= web3.eth.abi.encodeParameters(['address', 'address', 'uint', 'uint'], [challengeInstance.address, appointment['cus'], channelid.toString(), 28]);
+          let pisaid = web3.utils.keccak256(pisaidEncoded);
+          let cheatedlog = await pisaHashInstance.cheated.call(pisaid);
+          assert.isTrue(cheatedlog['triggered'], "Recourse for job id 28 should be triggered");
+          assert.isTrue(!cheatedlog['resolved'], "Recourse for job id 28 should not already be resolved");
+
+          appointmentToSign = web3.eth.abi.encodeParameters(['bytes','address'],[encodedAppointment, pisaHashInstance.address]);
+          let hash = web3.utils.keccak256(appointmentToSign);
+
+          cussig =  await web3.eth.sign(hash,accounts[3]);
+          let signerAddr = await pisaHashInstance.recoverEthereumSignedMessage.call(hash,cussig);
+          assert.equal(signerAddr, accounts[3], "Customer signer address should be the same");
+
+          // Prove customer has approved a new appointment from us.
+          await pisaHashInstance.customerCancelledJob(encodedAppointment, cussig, 28);
+
+          // One refund should be pending
+          let pendingRefunds = await pisaHashInstance.getPendingRefunds.call();
+          cheatedlog = await pisaHashInstance.cheated.call(pisaid);
+          assert.equal(pendingRefunds, 0, "No refund outstanding");
+          assert.isTrue(cheatedlog['triggered'], "Recourse for job id 28 should be triggered");
+          assert.isTrue(cheatedlog['resolved'], "Recourse for job id 28 should be resolved");
+
+      });
+
+      it('Install handler for Auctions', async () => {
+          var accounts =  await web3.eth.getAccounts();
+          let mockAuctionHandler = await MockAuctionHandler.deployed();
+          let blockNo = await web3.eth.getBlockNumber();
+
+          // Install a watcher using the cold-storage admin key
+          let toSign = web3.eth.abi.encodeParameters(['address', 'address', 'address', 'uint','uint', 'address'], [mockAuctionHandler.address, "0x0000000000000000000000000000000000000000", "0x0000000000000000000000000000000000000000", 10, blockNo+10, pisaHashInstance.address]);
+          let hash = web3.utils.keccak256(toSign);
+          let sig =  await web3.eth.sign(hash,accounts[0]);
+          let signerAddr = await pisaHashInstance.recoverEthereumSignedMessage.call(hash,sig);
+          assert.equal(signerAddr, accounts[0], "Signer address should be the same");
+
+          await pisaHashInstance.installMode(mockAuctionHandler.address, "0x0000000000000000000000000000000000000000", "0x0000000000000000000000000000000000000000", 10, blockNo+10, sig, {from: accounts[2]});
+
+      });
+
+
+      // Next TWO tests let us check whether the "precondition" functionality works
+      // Really, PISA shouldn't respond until the auction is in "REVEALBID" mode.
+      // So this test should try before the mode and the call fails
+      // In the next call.... we change the mode and the call will work! yay! 
+      it('PISA signs new appointment for AUCTION and tries to respond early', async () => {
+          var accounts =  await web3.eth.getAccounts();
+          let mockAuction = await MockAuction.deployed();
+          let mockAuctionHandler = await MockAuctionHandler.deployed();
+          let blockNo = await web3.eth.getBlockNumber();
+
+          // Change Job ID to something in the future.
+          createAppointment(mockAuction.address, blockNo-10, accounts[3], 500, 37, 10, mockAuctionHandler.address, "0x0000000000000000000000000000000000000000");
+
+          appointmentToSign = web3.eth.abi.encodeParameters(['bytes','address'],[encodedAppointment, pisaHashInstance.address]);
+          let hash = web3.utils.keccak256(appointmentToSign);
+
+          cussig =  await web3.eth.sign(hash,accounts[3]);
+          let signerAddr = await pisaHashInstance.recoverEthereumSignedMessage.call(hash,cussig);
+          assert.equal(signerAddr, accounts[3], "Customer signer address should be the same");
+
+          pisasig =  await web3.eth.sign(hash,accounts[1]);
+          signerAddr = await pisaHashInstance.recoverEthereumSignedMessage.call(hash,pisasig);
+          assert.equal(signerAddr, accounts[1], "PISA signer address should be the same");
+
+          // Go a few blocks into the future...
+          for(let i=0; i<5; i++) {
+              await advanceBlock();
+          }
+
+          await truffleAssert.reverts(pisaHashInstance.respond(mockAuction.address, accounts[3], appointment['id'], appointment['jobid'], appointment['mode'], appointment['toCall'], appointment['gas'], mockAuctionHandler.address, {from: accounts[1]}));
+
+      });
+
+      it('MockAuction flag transitions and PISA response works ', async () => {
+          var accounts =  await web3.eth.getAccounts();
+          let mockAuction = await MockAuction.deployed();
+          let mockAuctionHandler = await MockAuctionHandler.deployed();
+          let blockNo = await web3.eth.getBlockNumber();
+
+          // Transition flag... so we can now start to reveal the big!
+          await mockAuction.transitionFlag();
+
+          let flag = await mockAuction.getAuctionFlag.call();
+
+          assert.equal(flag,1,"Flag should be set to REVEALBID");
+
+          await pisaHashInstance.respond(mockAuction.address, accounts[3], appointment['id'], appointment['jobid'], appointment['mode'], appointment['toCall'], appointment['gas'], mockAuctionHandler.address, {from: accounts[1]});
+
+          let lastSender = await mockAuction.lastSender.call();
+
+          assert.equal(lastSender, pisaHashInstance.address, "PISA should be recorded as the immediate caller...");
+      });
+
+      it('PISA signs new appointment and responds for customer after some time', async () => {
+          var accounts =  await web3.eth.getAccounts();
+          let challengeInstance = await MultiChannelContract.deployed();
+          let registryInstance  = await DataRegistry.deployed();
+          let blockNo = await web3.eth.getBlockNumber();
+
+          // Change Job ID to something in the future.
+          createAppointment(challengeInstance.address, blockNo-10, accounts[3], 500, 40, 2, "0x0000000000000000000000000000000000000000", web3.eth.abi.encodeParameter('uint', 500));
+
+          appointmentToSign = web3.eth.abi.encodeParameters(['bytes','address'],[encodedAppointment, pisaHashInstance.address]);
+          let hash = web3.utils.keccak256(appointmentToSign);
+
+          cussig =  await web3.eth.sign(hash,accounts[3]);
+          let signerAddr = await pisaHashInstance.recoverEthereumSignedMessage.call(hash,cussig);
+          assert.equal(signerAddr, accounts[3], "Customer signer address should be the same");
+
+          pisasig =  await web3.eth.sign(hash,accounts[1]);
+          signerAddr = await pisaHashInstance.recoverEthereumSignedMessage.call(hash,pisasig);
+          assert.equal(signerAddr, accounts[1], "PISA signer address should be the same");
+
+          // Go a few blocks into the future...
+          for(let i=0; i<5; i++) {
+              await advanceBlock();
+          }
+
+          await pisaHashInstance.respond(challengeInstance.address, accounts[3], appointment['id'], appointment['jobid'], appointment['mode'], appointment['toCall'], appointment['gas'], "0x0000000000000000000000000000000000000000", {from: accounts[1]});
+
+          let pisaidEncoded= web3.eth.abi.encodeParameters(['address', 'address', 'uint', 'uint'], [challengeInstance.address, appointment['cus'], channelid.toString(), appointment['jobid']]);
+          let pisaid = web3.utils.keccak256(pisaidEncoded);
+          let timenow = await getCurrentTime();
+          let shard = await registryInstance.getDataShardIndex.call(timenow);
+
+          let pisaRecord = await registryInstance.fetchRecord.call(shard, pisaHashInstance.address, pisaid, 0);
+          assert.isTrue(pisaRecord.length != 0, "Data should be stored!");
+
+      });
+
+      it('Customer issue recourse for jobid 40 (fails as PISA has responded)', async () => {
+          var accounts =  await web3.eth.getAccounts();
+          let challengeInstance = await MultiChannelContract.deployed();
+
+          // Go a few blocks into the future...
+          for(let i=0; i<150; i++) {
+              await advanceBlock();
+          }
+
+          // We really only need signed appointment + both sigs
+          let sigs = [pisasig, cussig];
+          let logdata = new Array()
+          let datashard = new Array();
+          let dataindex = new Array();
+
+          let pisaidEncoded= web3.eth.abi.encodeParameters(['address', 'address', 'uint', 'uint'], [challengeInstance.address, appointment['cus'], channelid.toString(), appointment['jobid']]);
+          let pisaid = web3.utils.keccak256(pisaidEncoded);
+
+          let cheatedlog = await pisaHashInstance.cheated.call(pisaid);
+
+          // Cheated log should be triggered, but not resolved!
+          assert.isTrue(!cheatedlog['triggered']);
+          assert.isTrue(!cheatedlog['resolved']);
+
+          // Recourse should work.... all we care is if PISA called a function between two times.
+          // But it didnt and no log was recorded. Bad PISA.
+          await truffleAssert.reverts(pisaHashInstance.recourse(encodedAppointment, sigs, appointment['r'], logdata, datashard, dataindex));
+
+          // One refund should be pending
+          let pendingRefunds = await pisaHashInstance.getPendingRefunds.call();
+          assert.equal(pendingRefunds, 0, "No refunds outstanding");
+
+          cheatedlog = await pisaHashInstance.cheated.call(pisaid);
+
+          // Cheated log NOT be trigred OR resolved!
+          assert.isTrue(!cheatedlog['triggered']);
+          assert.isTrue(!cheatedlog['resolved']);
+
+      });
+
+      it('PISA signs new appointment, does not respond or refund, and customer forfeits us', async () => {
+          var accounts =  await web3.eth.getAccounts();
+          let challengeInstance = await MultiChannelContract.deployed();
+          let registryInstance  = await DataRegistry.deployed();
+          let blockNo = await web3.eth.getBlockNumber();
+
+          // Change Job ID to something in the future.
+          createAppointment(challengeInstance.address, blockNo-10, accounts[3], 1230, 50, 2, "0x0000000000000000000000000000000000000000", web3.eth.abi.encodeParameter('uint', 1230));
+
+          appointmentToSign = web3.eth.abi.encodeParameters(['bytes','address'],[encodedAppointment, pisaHashInstance.address]);
+          let hash = web3.utils.keccak256(appointmentToSign);
+
+          cussig =  await web3.eth.sign(hash,accounts[3]);
+          let signerAddr = await pisaHashInstance.recoverEthereumSignedMessage.call(hash,cussig);
+          assert.equal(signerAddr, accounts[3], "Customer signer address should be the same");
+
+          pisasig =  await web3.eth.sign(hash,accounts[1]);
+          signerAddr = await pisaHashInstance.recoverEthereumSignedMessage.call(hash,pisasig);
+          assert.equal(signerAddr, accounts[1], "PISA signer address should be the same");
+
+          // Go a few blocks into the future...
+          for(let i=0; i<150; i++) {
+              await advanceBlock();
+          }
+
+          let logdata = new Array();
+          let datashard = new Array();
+          let dataindex = new Array();
+          let sigs = [pisasig, cussig];
+
+          await pisaHashInstance.recourse(encodedAppointment, sigs, appointment['r'], logdata, datashard, dataindex);
+
+          let pendingRefunds = await pisaHashInstance.getPendingRefunds.call();
+          assert.equal(pendingRefunds, 1, "1 refund should be outstanding");
+
+          // Go a few blocks into the future...
+          for(let i=0; i<300; i++) {
+              await advanceBlock();
+          }
+
+          // We have missed the refund period.... make us forfeit!!
+          let pisaidEncoded= web3.eth.abi.encodeParameters(['address', 'address', 'uint', 'uint'], [challengeInstance.address, appointment['cus'], channelid.toString(), appointment['jobid']]);
+          let pisaid = web3.utils.keccak256(pisaidEncoded);
+
+          await pisaHashInstance.forfeit(pisaid);
+
+          let flag = await pisaHashInstance.flag.call();
+          assert.equal(flag, 1, "PISA should be in the cheated state");
+
+      });
+
+      it('PISA fail safe - let us recover with distributed agreement', async () => {
+          var accounts =  await web3.eth.getAccounts();
+          let challengeInstance = await MultiChannelContract.deployed();
+          let registryInstance  = await DataRegistry.deployed();
+          let blockNo = await web3.eth.getBlockNumber();
+
+          let encoded = web3.eth.abi.encodeParameters(['address','string'],[pisaHashInstance.address, "frozen"]);
+          let hash = web3.utils.keccak256(encoded);
+          let sig1 =  await web3.eth.sign(hash,accounts[7]);
+          let signerAddr1 = await pisaHashInstance.recoverEthereumSignedMessage.call(hash,sig1);
+          assert.equal(signerAddr1, accounts[7], "Defender[7] address should be the same");
+
+          let sig2 =  await web3.eth.sign(hash,accounts[9]);
+          let signerAddr2 = await pisaHashInstance.recoverEthereumSignedMessage.call(hash,sig2);
+          assert.equal(signerAddr2, accounts[9], "Defender[9] address should be the same");
+
+          await pisaHashInstance.failSafe([sig1,sig2],[2,4]);
+
+          let flag = await pisaHashInstance.flag.call();
+          assert.equal(flag, 0, "PISA should be back to the OK state");
+
+
+      });
 });

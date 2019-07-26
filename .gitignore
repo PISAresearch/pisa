@@ -12,3 +12,4 @@ dbcopy.db
 pisa-db
 raiden_demo/.raiden
 coverage
+**/.DS_Store

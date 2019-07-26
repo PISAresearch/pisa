@@ -16,40 +16,24 @@ import { Raiden, Kitsune } from "./integrations";
 import { Watcher, AppointmentStore } from "./watcher";
 import { PisaTower, HotEthereumAppointmentSigner } from "./tower";
 import { setRequestId } from "./customExpressHttpContext";
-import {
-    EthereumResponderManager,
-    GasPriceEstimator,
-    TransactionTracker,
-} from "./responder";
-import { AppointmentStoreGarbageCollector } from "./watcher/garbageCollector";
-import { AppointmentSubscriber } from "./watcher/appointmentSubscriber";
+import { GasPriceEstimator, MultiResponder, MultiResponderComponent } from "./responder";
 import { IArgConfig } from "./dataEntities/config";
-import {
-    BlockProcessor,
-    ReorgHeightListenerStore,
-    BlockCache,
-    BlockTimeoutDetector,
-    ConfirmationObserver
-} from "./blockMonitor";
+import { BlockProcessor, BlockCache } from "./blockMonitor";
 import { LevelUp } from "levelup";
 import encodingDown from "encoding-down";
-import { ReorgEmitter, blockFactory } from "./blockMonitor";
+import { blockFactory } from "./blockMonitor";
 import { Block } from "./dataEntities/block";
+import { BlockchainMachine } from "./blockMonitor/blockchainMachine";
 
 /**
  * Hosts a PISA service at the endpoint.
  */
 export class PisaService extends StartStopService {
     private readonly server: Server;
-    private readonly garbageCollector: AppointmentStoreGarbageCollector;
-    private readonly reorgEmitter: ReorgEmitter;
     private readonly blockProcessor: BlockProcessor<Block>;
-    private readonly blockTimeoutDetector: BlockTimeoutDetector;
-    private readonly confirmationObserver: ConfirmationObserver;
-    private readonly ethereumResponderManager: EthereumResponderManager;
-    private readonly watcher: Watcher;
+    private readonly multiResponder: MultiResponder;
     private readonly appointmentStore: AppointmentStore;
-    private readonly transactionTracker: TransactionTracker;
+    private readonly blockchainMachine: BlockchainMachine<Block>;
 
     /**
      *
@@ -58,14 +42,13 @@ export class PisaService extends StartStopService {
      * @param provider A connection to ethereum
      * @param wallet A signing authority for submitting transactions
      * @param receiptSigner A signing authority for receipts returned from Pisa
-     * @param delayedProvider A connection to ethereum that is delayed by a number of confirmations
+     * @param db The instance of the database
      */
     constructor(
         config: IArgConfig,
         provider: ethers.providers.BaseProvider,
         wallet: ethers.Wallet,
         receiptSigner: ethers.Signer,
-        delayedProvider: ethers.providers.BaseProvider,
         db: LevelUp<encodingDown<string, any>>
     ) {
         super("pisa");
@@ -77,47 +60,43 @@ export class PisaService extends StartStopService {
         const configs = [Raiden, Kitsune];
 
         // start reorg detector and block monitor
-        const blockCache = new BlockCache<Block>(200);
-        this.blockProcessor = new BlockProcessor<Block>(delayedProvider, blockFactory, blockCache);
-        this.reorgEmitter = new ReorgEmitter(delayedProvider, this.blockProcessor, new ReorgHeightListenerStore());
+        const blockCache = new BlockCache<Block>(
+            config.maximumReorgLimit === undefined ? 200 : config.maximumReorgLimit
+        );
+        this.blockProcessor = new BlockProcessor<Block>(provider, blockFactory, blockCache);
 
         // dependencies
         this.appointmentStore = new AppointmentStore(
             db,
             new Map(configs.map<[ChannelType, (obj: any) => IEthereumAppointment]>(c => [c.channelType, c.appointment]))
         );
-        this.blockTimeoutDetector = new BlockTimeoutDetector(this.blockProcessor, 120 * 1000);
-        this.confirmationObserver = new ConfirmationObserver(this.blockProcessor);
-        this.transactionTracker = new TransactionTracker(this.blockProcessor);
-        this.ethereumResponderManager = new EthereumResponderManager(
-            false,
+
+        this.multiResponder = new MultiResponder(
             wallet,
-            this.blockTimeoutDetector,
-            this.confirmationObserver,
-            new GasPriceEstimator(wallet.provider, this.blockProcessor.blockCache),
-            this.transactionTracker
-        );
-        const appointmentSubscriber = new AppointmentSubscriber(delayedProvider);
-        this.watcher = new Watcher(
-            this.ethereumResponderManager,
-            this.reorgEmitter,
-            appointmentSubscriber,
-            this.appointmentStore
+            new GasPriceEstimator(wallet.provider, this.blockProcessor.blockCache)
         );
 
-        // gc
-        this.garbageCollector = new AppointmentStoreGarbageCollector(
-            provider,
-            10,
+        const watcher = new Watcher(
+            this.multiResponder,
+            this.blockProcessor.blockCache,
             this.appointmentStore,
-            appointmentSubscriber
+            config.watcherResponseConfirmations === undefined ? 5 : config.watcherResponseConfirmations,
+            config.maximumReorgLimit === undefined ? 100 : config.maximumReorgLimit
         );
+        const responder = new MultiResponderComponent(
+            this.multiResponder,
+            this.blockProcessor.blockCache,
+            config.maximumReorgLimit == undefined ? 100 : config.maximumReorgLimit
+        );
+        this.blockchainMachine = new BlockchainMachine<Block>(this.blockProcessor);
+        this.blockchainMachine.addComponent(watcher);
+        this.blockchainMachine.addComponent(responder);
 
         // if a key to sign receipts was provided, create an EthereumAppointmentSigner
         const appointmentSigner = new HotEthereumAppointmentSigner(receiptSigner);
 
         // tower
-        const tower = new PisaTower(provider, this.watcher, appointmentSigner, configs);
+        const tower = new PisaTower(provider, this.appointmentStore, appointmentSigner, configs);
 
         app.post("/appointment", this.appointment(tower));
 
@@ -127,26 +106,18 @@ export class PisaService extends StartStopService {
     }
 
     protected async startInternal() {
+        await this.blockchainMachine.start();
         await this.blockProcessor.start();
-        await this.transactionTracker.start();
-        await this.reorgEmitter.start();
-        await this.blockTimeoutDetector.start();
-        await this.confirmationObserver.start();
-        await this.garbageCollector.start();
         await this.appointmentStore.start();
-        await this.watcher.start();
+        await this.multiResponder.start();
     }
 
     protected async stopInternal() {
-        // stop in reverse order
-        await this.watcher.stop();
+        await this.multiResponder.stop();
         await this.appointmentStore.stop();
-        await this.garbageCollector.stop();
-        await this.confirmationObserver.stop();
-        await this.blockTimeoutDetector.stop();
-        await this.reorgEmitter.stop();
-        await this.transactionTracker.stop();
         await this.blockProcessor.stop();
+        await this.blockchainMachine.stop();
+
         this.server.close(error => {
             if (error) this.logger.error(error.stack!);
             this.logger.info(`Shutdown.`);

@@ -8,10 +8,11 @@ export interface ReadOnlyBlockCache<TBlock extends IBlockStub> {
     readonly maxDepth: number;
     readonly maxHeight: number;
     readonly minHeight: number;
-    canAddBlock(block: TBlock): boolean;
-    getBlockStub(blockHash: string): TBlock;
+    canAddBlock(block: Readonly<TBlock>): boolean;
+    getBlockStub(blockHash: string): Readonly<TBlock>;
     hasBlock(blockHash: string): boolean;
-    findAncestor(initialBlockHash: string, predicate: (block: TBlock) => boolean): TBlock | null;
+    ancestry(initialBlockHash: string): IterableIterator<Readonly<TBlock>>;
+    findAncestor(initialBlockHash: string, predicate: (block: Readonly<TBlock>) => boolean): Readonly<TBlock> | null;
     getOldestAncestorInCache(blockHash: string): TBlock;
     head: TBlock;
 }
@@ -101,7 +102,7 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
      *   - it is at depth least `this.maxDepth`.
      * @param block
      */
-    public canAddBlock(block: TBlock): boolean {
+    public canAddBlock(block: Readonly<TBlock>): boolean {
         return this.isEmpty || this.hasBlock(block.parentHash) || block.number <= this.minHeight;
     }
 
@@ -110,7 +111,7 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
      * Here we check that the block is not actually already added, and it is not below a height
      * that would be pruned immediately.
      */
-    private shouldAddBlock(block: TBlock) {
+    private shouldAddBlock(block: Readonly<TBlock>) {
         if (this.blockStubsByHash.has(block.hash)) {
             // block already in memory
             return false;
@@ -129,7 +130,7 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
      * @returns `true` if the block was added, `false` if the block was not added (because too deep or already in cache).
      * @throws `ApplicationError` if the block cannot be added because its parent is not in cache.
      */
-    public addBlock(block: TBlock): boolean {
+    public addBlock(block: Readonly<TBlock>): boolean {
         // If the block's parent is above the minimum visible height, it needs to be added first
         if (!this.canAddBlock(block)) {
             throw new ApplicationError("Tried to add a block before its parent block.");
@@ -170,7 +171,7 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
      * Returns the `IBlockStub` for the block with hash `blockHash`, or throws exception if the block is not in cache.
      * @param blockHash
      */
-    public getBlockStub(blockHash: string): TBlock {
+    public getBlockStub(blockHash: string): Readonly<TBlock> {
         const blockStub = this.blockStubsByHash.get(blockHash);
         if (!blockStub) throw new ApplicationError(`Block not found for hash: ${blockHash}.`);
         return blockStub;
@@ -187,7 +188,7 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
      * Iterator over all the blocks in the ancestry of the block with hash `initialBlockHash` (inclusive).
      * @param initialBlockHash
      */
-    private *ancestry(initialBlockHash: string): IterableIterator<TBlock> {
+    public *ancestry(initialBlockHash: string): IterableIterator<Readonly<TBlock>> {
         let curBlock = this.getBlockStub(initialBlockHash);
         while (true) {
             yield curBlock;
@@ -201,7 +202,7 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
      * Finds and returns the nearest ancestor that satisfies `predicate`.
      * Returns `null` if no such ancestor is found.
      */
-    public findAncestor(initialBlockHash: string, predicate: (block: TBlock) => boolean): TBlock | null {
+    public findAncestor(initialBlockHash: string, predicate: (block: Readonly<TBlock>) => boolean): Readonly<TBlock> | null {
         for (const block of this.ancestry(initialBlockHash)) {
             if (predicate(block)) {
                 return block;
@@ -215,7 +216,7 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
      * @throws ArgumentError if `blockHash` is not in the blockCache.
      * @param blockHash
      */
-    public getOldestAncestorInCache(blockHash: string): TBlock {
+    public getOldestAncestorInCache(blockHash: string): Readonly<TBlock> {
         if (!this.hasBlock(blockHash)) {
             throw new ArgumentError(`The block with hash ${blockHash} is not in cache`);
         }

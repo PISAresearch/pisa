@@ -1,191 +1,186 @@
-import { ethers } from "ethers";
-import { inspect } from "util";
-import { IEthereumAppointment, StartStopService } from "../dataEntities";
-import { ConfigurationError } from "../dataEntities/errors";
-import { EthereumResponderManager } from "../responder";
-import { ReorgEmitter } from "../blockMonitor/reorgEmitter";
-import { AppointmentSubscriber } from "./appointmentSubscriber";
+import { IEthereumAppointment } from "../dataEntities";
+import { ApplicationError, ArgumentError } from "../dataEntities/errors";
 import { AppointmentStore } from "./store";
+import { ReadOnlyBlockCache } from "../blockMonitor";
+import { Logs, IBlockStub, hasLogMatchingEventFilter } from "../dataEntities/block";
+import {
+    StateReducer,
+    MappedStateReducer,
+    MappedState,
+    Component,
+    BlockNumberState,
+    BlockNumberReducer
+} from "../blockMonitor/component";
+import logger from "../logger";
+import { MultiResponder } from "../responder";
+
+export enum WatcherAppointmentState {
+    WATCHING,
+    OBSERVED
+}
+
+/** Portion of the anchor state for a single appointment */
+export type WatcherAppointmentAnchorState =
+    | {
+          state: WatcherAppointmentState.WATCHING;
+      }
+    | {
+          state: WatcherAppointmentState.OBSERVED;
+          blockObserved: number; // block number in which the event was observed
+      };
+
+/** The complete anchor state for the watcher, that also includes the block number */
+type WatcherAnchorState = MappedState<WatcherAppointmentAnchorState> & BlockNumberState;
+
+export class WatcherAppointmentStateReducer implements StateReducer<WatcherAppointmentAnchorState, IBlockStub & Logs> {
+    constructor(private cache: ReadOnlyBlockCache<IBlockStub & Logs>, private appointment: IEthereumAppointment) {
+        const filter = this.appointment.getEventFilter();
+        if (!filter.topics) throw new ApplicationError(`topics should not be undefined`);
+    }
+    public getInitialState(block: IBlockStub & Logs): WatcherAppointmentAnchorState {
+        const filter = this.appointment.getEventFilter();
+
+        const eventAncestor = this.cache.findAncestor(block.hash, ancestor =>
+            hasLogMatchingEventFilter(ancestor, filter)
+        );
+
+        if (!eventAncestor) {
+            return {
+                state: WatcherAppointmentState.WATCHING
+            };
+        } else {
+            return {
+                state: WatcherAppointmentState.OBSERVED,
+                blockObserved: eventAncestor.number
+            };
+        }
+    }
+    public reduce(prevState: WatcherAppointmentAnchorState, block: IBlockStub & Logs): WatcherAppointmentAnchorState {
+        if (
+            prevState.state === WatcherAppointmentState.WATCHING &&
+            hasLogMatchingEventFilter(block, this.appointment.getEventFilter())
+        ) {
+            return {
+                state: WatcherAppointmentState.OBSERVED,
+                blockObserved: block.number
+            };
+        } else {
+            return prevState;
+        }
+    }
+}
 
 /**
  * Watches the chain for events related to the supplied appointments. When an event is noticed data is forwarded to the
  * observe method to complete the task. The watcher is not responsible for ensuring that observed events are properly
  * acted upon, that is the responsibility of the responder.
  */
-export class Watcher extends StartStopService {
+export class Watcher extends Component<WatcherAnchorState, IBlockStub & Logs> {
     /**
      * Watches the chain for events related to the supplied appointments. When an event is noticed data is forwarded to the
      * observe method to complete the task. The watcher is not responsible for ensuring that observed events are properly
      * acted upon, that is the responsibility of the responder.
      */
     constructor(
-        private readonly responder: EthereumResponderManager,
-        private readonly reorgEmitter: ReorgEmitter,
-        private readonly appointmentSubscriber: AppointmentSubscriber,
-        private readonly store: AppointmentStore
+        private readonly responder: MultiResponder,
+        blockCache: ReadOnlyBlockCache<IBlockStub & Logs>,
+        private readonly store: AppointmentStore,
+        private readonly confirmationsBeforeResponse: number,
+        private readonly confirmationsBeforeRemoval: number
     ) {
-        super("watcher");
-        this.startReorg = this.startReorg.bind(this);
-        this.endReorg = this.endReorg.bind(this);
-    }
-    private reorgInProgress: boolean;
-    private startReorg() {
-        this.reorgInProgress = true;
-    }
-    private endReorg() {
-        this.reorgInProgress = false;
-    }
-    protected async startInternal() {
-        this.reorgEmitter.on(ReorgEmitter.REORG_START_EVENT, this.startReorg);
-        this.reorgEmitter.on(ReorgEmitter.REORG_END_EVENT, this.endReorg);
+        super(
+            new MappedStateReducer(
+                () => store.getAll(),
+                (appointment: IEthereumAppointment) => new WatcherAppointmentStateReducer(blockCache, appointment),
+                new BlockNumberReducer()
+            )
+        );
 
-        // add any existing appointments in the store to the subscriber
-        for (const appointment of this.store.getAll()) {
-            const filter = appointment.getEventFilter();
-            const listener = async (event: ethers.Event) => await this.observe(appointment, event);
-            this.appointmentSubscriber.subscribe(appointment.id, filter, listener);
-        }
-    }
-    protected async stopInternal() {
-        this.reorgEmitter.removeListener(ReorgEmitter.REORG_START_EVENT, this.startReorg);
-        this.reorgEmitter.removeListener(ReorgEmitter.REORG_END_EVENT, this.endReorg);
-    }
-
-    // there are three separate processes that can run concurrently as part of the watcher
-    // each of them updates the data store.
-    // 1) NEW APPOINTMENTS:
-    //      New appointments are added or updated in the store keyed by appointment.getStateLocator()
-    //        i) If an appointment with that locator exists and has a lower nonce, it is updated to be the new appointment
-    //        ii) If an appointment with that locator exits and it has a higher or equal nonce, the new appointment is rejected
-    //        iii) If it does not exist, it is added
-    //      After the appointment has been added to the store it is then and then subscribed to. We subscribe last
-    //      because if the event to which the appointment is subscribed is fired then that event will try to remove the
-    //      appointment and put the add and remove into a race condition. Therefore we wait until we are certain that the
-    //      appointment has been added before it can become possible for it to be removed.
-    // 2) OBSERVED EVENTS
-    //      When subscribed appointments are observed as events they are first pased to the responder. Then they are
-    //      removed from the remote store, and finally from the local store. When appointments are removed they are
-    //      keyed by appointment id we are sure to try and remove the exact appointment that the listener was subscribed
-    //      against. If the appointment was not in the db, since appointments can be removed in any of these 3 processes:
-    //      (new appointments, observed events, GC) then this should not be considered an error
-    // 3) GARBAGE COLLECTION (GC)
-    //      Periodically appointments will be checked to see if they have expired. To make this process easier we could
-    //      order the appointments by expiry date, then pop the top appointment and see if it has expired. If it hasn't
-    //      then wait until the next poll. If it has then continue popping appointments until the we reach one that has
-    //      not expired. Expired appointment should be removed first from the remote store then the local and unsubsribced,
-    //      either singularly or batched, but the order here does not matter. Again deletes should by keyed by
-    //      appointment id, and it shouldn't matter if an appointment does not exist to be deleted. (Although this
-    //      should be unlikely)
-
-    /**
-     * Starts watching for an event specified by the appointment, and respond if the event is raised.
-     * Returns `true` if the supplied appointment was added or updated by the store, `false` otherwise.
-     * @param appointment Contains information about where to watch for events, and what information to supply as part of a response
-     */
-    public async addAppointment(appointment: IEthereumAppointment): Promise<boolean> {
-        return await this.addAppointmentLog(appointment, async () => {
-            if (!appointment.passedInspection) throw new ConfigurationError(`Inspection not passed.`);
-
-            // update this appointment in the store
-            const updated = await this.store.addOrUpdateByStateLocator(appointment);
-            if (updated) {
-                // remove the subscription, this is blocking code so we don't have to worry that an event will be observed
-                // whilst we remove these listeners and add new ones
-                const filter = appointment.getEventFilter();
-                this.appointmentSubscriber.unsubscribeAll(filter);
-
-                // subscribe the listener
-                const listener = async (event: ethers.Event) => await this.observe(appointment, event);
-                this.appointmentSubscriber.subscribe(appointment.id, filter, listener);
-            }
-
-            return updated;
-        });
-    }
-
-    /** A helper method just for adding some logging */
-    private async addAppointmentLog(
-        appointment: IEthereumAppointment,
-        addAppointment: (appointment: IEthereumAppointment) => Promise<boolean>
-    ) {
-        this.logger.info(appointment.formatLog(`Begin watching for event ${appointment.getEventName()}.`));
-
-        // business logic
-        const result = await addAppointment(appointment);
-
-        if (result) {
-            // the new appointment has a lower nonce than the one we're currently storing, so don't add it
-            this.logger.info(appointment.formatLog(`Appointment added to watcher.`));
-        } else {
-            this.logger.info(
-                appointment.formatLog(
-                    `An appointment with a higher nonce than ${appointment.getStateNonce()} already exists. Appointment not added to watcher.`
-                )
+        if (confirmationsBeforeResponse > confirmationsBeforeRemoval) {
+            throw new ArgumentError(
+                `confirmationsBeforeResponse must be less than or equal to confirmationsBeforeRemoval.`,
+                confirmationsBeforeResponse,
+                confirmationsBeforeRemoval
             );
         }
-
-        return result;
     }
 
-    /**
-     * Calls the responder and removes the appointment from the store
-     * @param appointment
-     * @param event
-     */
-    public async observe(appointment: IEthereumAppointment, event: ethers.Event) {
-        return await this.addObserveLogAndCatch(appointment, event, this.reorgInProgress, async () => {
-            // pass the appointment to the responder to complete. At this point the job has completed as far as
-            // the watcher is concerned, therefore although respond is an async function we do not need to await it for a result
-            await this.responder.respond(appointment);
+    private shouldHaveStartedResponder = (
+        state: WatcherAnchorState,
+        appointmentState: WatcherAppointmentAnchorState | undefined
+    ): boolean =>
+        appointmentState != undefined &&
+        appointmentState.state === WatcherAppointmentState.OBSERVED &&
+        state.blockNumber - appointmentState.blockObserved + 1 >= this.confirmationsBeforeResponse;
 
-            // register a reorg event
-            this.reorgEmitter.addReorgHeightListener(event.blockNumber!, async () => {
-                await this.addAppointment(appointment);
-            });
+    private shouldRemoveObservedAppointment = (
+        state: WatcherAnchorState,
+        appointmentState: WatcherAppointmentAnchorState | undefined
+    ): boolean =>
+        appointmentState != undefined &&
+        appointmentState.state === WatcherAppointmentState.OBSERVED &&
+        state.blockNumber - appointmentState.blockObserved + 1 >= this.confirmationsBeforeRemoval;
 
-            // unsubscribe from the listener
-            this.appointmentSubscriber.unsubscribe(appointment.id, appointment.getEventFilter());
+    private shouldRemoveExpiredAppointment = (
+        state: WatcherAnchorState,
+        appointmentState: WatcherAppointmentAnchorState | undefined,
+        endBlock : number 
+    ): boolean =>
+        appointmentState != undefined &&
+        appointmentState.state === WatcherAppointmentState.WATCHING &&
+        state.blockNumber - endBlock  > this.confirmationsBeforeRemoval
 
-            // after firing a response and adding the reorg event we can remove the appointment from the store
-            await this.store.removeById(appointment.id);
-        });
-    }
+    public async handleChanges(prevState: WatcherAnchorState, state: WatcherAnchorState) {
+        for (const [appointmentId, appointmentState] of state.items.entries()) {
+            const prevWatcherAppointmentState = prevState.items.get(appointmentId);
 
-    /** A helper method for wrapping a block in a catch, and logging relevant info */
-    private async addObserveLogAndCatch(
-        appointment: IEthereumAppointment,
-        event: ethers.Event,
-        reorgInProgress: boolean,
-        observeEvent: () => Promise<void>
-    ) {
-        // this callback should not throw exceptions as they cannot be handled elsewhere
-        try {
-            this.logger.info(
-                appointment.formatLog(
-                    `Observed event ${appointment.getEventName()} in contract ${appointment.getContractAddress()}.`
-                )
-            );
-            this.logger.debug(appointment.formatLog(`Event info: ${inspect(event)}`));
-
-            if (!reorgInProgress) {
-                await observeEvent();
-            } else {
-                this.logger.info(appointment.formatLog(`Reorg in progress, doing nothing.`));
+            // Log if started watching a new appointment
+            if (!prevWatcherAppointmentState && appointmentState.state === WatcherAppointmentState.WATCHING) {
+                logger.info(`Watching for appointment ${appointmentId}.`);
             }
-        } catch (doh) {
-            // an error occured whilst responding to the callback - this is serious and the problem needs to be correctly diagnosed
-            this.logger.error(
-                appointment.formatLog(
-                    `An unexpected errror occured whilst responding to event ${appointment.getEventName()} in contract ${appointment.getContractAddress()}.`
-                )
-            );
-            
-            if(doh instanceof Error) {
-                this.logger.error(appointment.formatLog(doh.stack!));
+
+            // Log if an appointment was observed, wether it is a new one or a previously watched one
+            if (
+                (!prevWatcherAppointmentState ||
+                    prevWatcherAppointmentState.state === WatcherAppointmentState.WATCHING) &&
+                appointmentState.state === WatcherAppointmentState.OBSERVED
+            ) {
+                logger.info(`Observed appointment ${appointmentId} in block ${appointmentState.blockObserved}.`);
             }
-            else {
-                this.logger.error(appointment.formatLog(doh));
+
+            // Start response if necessary
+            if (
+                !this.shouldHaveStartedResponder(prevState, prevWatcherAppointmentState) &&
+                this.shouldHaveStartedResponder(state, appointmentState)
+            ) {
+                const appointment = this.store.appointmentsById.get(appointmentId)!;
+                logger.info(`Responding to appointment ${appointmentId}, block ${state.blockNumber}.`);
+                // pass the appointment to the responder to complete. At this point the job has completed as far as
+                // the watcher is concerned, therefore although respond is an async function we do not need to await it for a result
+                await this.responder.startResponse(appointment.id, appointment.getResponseData());
             }
+
+            // Cleanup if done with appointment
+            if (
+                !this.shouldRemoveObservedAppointment(prevState, prevWatcherAppointmentState) &&
+                this.shouldRemoveObservedAppointment(state, appointmentState)
+            ) {
+                logger.info(`Removing appointment ${appointmentId}, block ${state.blockNumber} from watcher.`);
+                await this.store.removeById(appointmentId);
+            }
+
+            //Find endBlock for current appointment
+            let endBlock = this.store.appointmentsById.get(appointmentId)!.endBlock;
+            // Cleanup if appointment expired
+            if (
+                !this.shouldRemoveExpiredAppointment(prevState, prevWatcherAppointmentState,endBlock) && 
+                this.shouldRemoveExpiredAppointment(state, appointmentState,endBlock)
+            )
+            {
+                logger.info(`Removing appointment ${appointmentId}, block ${state.blockNumber} from watcher.`);
+                await this.store.removeById(appointmentId);
+            }
+
         }
     }
 }
