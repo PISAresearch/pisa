@@ -1,17 +1,13 @@
 import "mocha";
 import { Watcher } from "../../src/watcher/watcher";
-import { KitsuneInspector, KitsuneAppointment, KitsuneTools } from "../../src/integrations/kitsune";
+import { KitsuneTools } from "../external/kitsune/tools";
 import { ethers } from "ethers";
 import Ganache from "ganache-core";
 import { GasPriceEstimator, MultiResponder } from "../../src/responder";
-import { ChannelType, Block } from "../../src/dataEntities";
+import { Block, Appointment } from "../../src/dataEntities";
 import { AppointmentStore } from "../../src/watcher/store";
 import { wait } from "../../src/utils";
-import {
-    BlockProcessor,
-    BlockCache,
-    blockFactory
-} from "../../src/blockMonitor";
+import { BlockProcessor, BlockCache, blockFactory } from "../../src/blockMonitor";
 import levelup from "levelup";
 import MemDown from "memdown";
 import { BlockchainMachine } from "../../src/blockMonitor/blockchainMachine";
@@ -27,9 +23,11 @@ describe("End to end", () => {
         hashState: string,
         sig0: string,
         sig1: string,
+        data: string,
         channelContract: ethers.Contract,
         round: number,
-        provider: ethers.providers.Web3Provider = new ethers.providers.Web3Provider(ganache);
+        provider: ethers.providers.Web3Provider = new ethers.providers.Web3Provider(ganache),
+        challengePeriod: number;
 
     before(async () => {
         provider.pollingInterval = 100;
@@ -45,7 +43,8 @@ describe("End to end", () => {
             KitsuneTools.ContractBytecode,
             provider.getSigner(accounts[3])
         );
-        channelContract = await channelContractFactory.deploy([player0, player1], 11);
+        challengePeriod = 11;
+        channelContract = await channelContractFactory.deploy([player0, player1], challengePeriod);
         // set the round
         round = 1;
         // set the hash state
@@ -54,27 +53,34 @@ describe("End to end", () => {
         const setStateHash = KitsuneTools.hashForSetState(hashState, round, channelContract.address);
         sig0 = await provider.getSigner(player0).signMessage(ethers.utils.arrayify(setStateHash));
         sig1 = await provider.getSigner(player1).signMessage(ethers.utils.arrayify(setStateHash));
+        data = KitsuneTools.encodeSetStateData(hashState, round, sig0, sig1);
+        //data = KitsuneTools.packData(hashState, round, sig0, sig1);
     });
 
     it("inspect and watch a contract", async () => {
-        const inspector = new KitsuneInspector(10, provider);
-        // 1. Verify appointment
-        const appointment = new KitsuneAppointment({
-            stateUpdate: {
-                contractAddress: channelContract.address,
-                hashState: hashState,
-                round: 1,
-                signatures: [sig0, sig1]
-            },
-
-            expiryPeriod: 12,
-            type: ChannelType.Kitsune
+        const appointment : Appointment = Appointment.fromIAppointment({
+            challengePeriod,
+            contractAddress: channelContract.address, 
+            customerAddress: player0, 
+            data, 
+            endBlock: 22, 
+            eventABI: KitsuneTools.eventABI(),
+            eventArgs: KitsuneTools.eventArgs(),
+            gas: 100000,
+            customerChosenId: 10,
+            jobId: 0,
+            mode: 0,
+            postCondition: "0x",
+            refund: 0,
+            startBlock: 0,
+            paymentHash: "on-the-house"
         });
-        await inspector.inspectAndPass(appointment);
+
+        // await inspector.inspectAndPass(appointment);
 
         const blockCache = new BlockCache<Block>(200);
         const blockProcessor = new BlockProcessor<Block>(provider, blockFactory, blockCache);
-        await blockProcessor.start();
+        
 
         // 2. pass this appointment to the watcher
         const gasPriceEstimator = new GasPriceEstimator(provider, blockProcessor.blockCache);
@@ -82,18 +88,17 @@ describe("End to end", () => {
         const multiResponder = new MultiResponder(provider.getSigner(pisaAccount), gasPriceEstimator);
 
         let db = levelup(MemDown());
-        const store = new AppointmentStore(
-            db,
-            new Map([[ChannelType.Kitsune, (obj: any) => new KitsuneAppointment(obj)]])
-        );
-        await store.start();
-        await store.addOrUpdateByStateLocator(appointment);
+        const store = new AppointmentStore(db);
+        
+        await store.addOrUpdateByLocator(appointment);
         const watcher = new Watcher(multiResponder, blockProcessor.blockCache, store, 0, 20);
         const player0Contract = channelContract.connect(provider.getSigner(player0));
 
         const blockchainMachine = new BlockchainMachine<Block>(blockProcessor);
 
         blockchainMachine.addComponent(watcher);
+        await blockProcessor.start();
+        await store.start();
         await blockchainMachine.start();
         await multiResponder.start();
 

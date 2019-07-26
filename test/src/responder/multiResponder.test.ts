@@ -5,30 +5,38 @@ import { ethers } from "ethers";
 import { mock, when, anything, instance } from "ts-mockito";
 import { BigNumber } from "ethers/utils";
 import chai, { expect } from "chai";
-import { ArgumentError, IEthereumResponseData } from "../../../src/dataEntities";
+import { ArgumentError, Appointment } from "../../../src/dataEntities";
 import { PisaTransactionIdentifier } from "../../../src/responder/gasQueue";
 import chaiAsPromised from "chai-as-promised";
-import { wait } from "../../../src/utils";
 chai.use(chaiAsPromised);
 
 const ganache = Ganache.provider({
     mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect"
 });
 
-const createResponseData = (data: string): IEthereumResponseData => {
-    return {
-        contractAbi: ["function setValue(string value)"],
-        contractAddress: "0x2bD9aAa2953F988153c8629926D22A6a5F69b14E",
+const createAppointment = (id: number, data: string): Appointment => {
+    return Appointment.fromIAppointment({
+        challengePeriod: 10,
+        contractAddress: "contractAddress",
+        customerAddress: "customerAddress",
+        data,
         endBlock: 10,
-        functionArgs: [data],
-        functionName: "setValue"
-    };
+        eventABI: "eventABI",
+        eventArgs: "eventArgs",
+        gas: 100,
+        customerChosenId: id,
+        jobId: 1,
+        mode: 1,
+        paymentHash: "paymentHash",
+        postCondition: "postCondition",
+        refund: 3,
+        startBlock: 7
+    });
 };
 
 describe("MultiResponder", () => {
     const provider = new ethers.providers.Web3Provider(ganache);
     const signer = provider.getSigner(0);
-
     let increasingGasPriceEstimator: GasPriceEstimator,
         increasingGasEstimatorMock: GasPriceEstimator,
         decreasingGasPriceEstimator: GasPriceEstimator,
@@ -37,12 +45,6 @@ describe("MultiResponder", () => {
         errorGasEstimatorMock: GasPriceEstimator;
     const maxConcurrentResponses = 3;
     const replacementRate = 15;
-
-    let address: string;
-
-    before(async () => {
-        address = await signer.getAddress();
-    });
 
     beforeEach(() => {
         // set up the mocks each time so that we can check the verifies
@@ -80,8 +82,7 @@ describe("MultiResponder", () => {
     });
 
     it("startResponse can issue transaction", async () => {
-        const appointmentId = "app1";
-        const responseData = createResponseData("app1");
+        const appointment = createAppointment(1, "data1");
 
         const responder = new MultiResponder(
             signer,
@@ -92,20 +93,18 @@ describe("MultiResponder", () => {
         await responder.start();
 
         const queueBefore = responder.queue;
-        await responder.startResponse(appointmentId, responseData);
+        await responder.startResponse(appointment);
         const issuedTransactions = responder.queue.difference(queueBefore);
 
-        expect(responder.respondedTransactions.get(appointmentId)).to.not.be.empty;
+        expect(responder.respondedTransactions.get(appointment.id)).to.not.be.empty;
         expect(issuedTransactions.length).to.equal(1);
 
         await responder.stop();
     });
 
     it("startResponse can issue two transactions and replace", async () => {
-        const appointmentId = "app1";
-        const responseData = createResponseData("app1");
-        const appointmentId2 = "app2";
-        const responseData2 = createResponseData("app2");
+        const appointment1 = createAppointment(1, "data1");
+        const appointment2 = createAppointment(2, "data2");
 
         const responder = new MultiResponder(
             signer,
@@ -117,32 +116,31 @@ describe("MultiResponder", () => {
         await responder.start();
 
         const queueBefore = responder.queue;
-        await responder.startResponse(appointmentId, responseData);
+        await responder.startResponse(appointment1);
         const issuedTransactions = responder.queue.difference(queueBefore);
-        expect(responder.respondedTransactions.get(appointmentId)).to.not.be.empty;
+        expect(responder.respondedTransactions.get(appointment1.id)!.request.appointment).to.deep.equal(appointment1);
         expect(issuedTransactions.length).to.equal(1);
         // because the gas price is increasing this should result in a replacement
         // therefor two additional transactions are issued, rather than just one
         const queueBefore2 = responder.queue;
-        await responder.startResponse(appointmentId2, responseData2);
+        await responder.startResponse(appointment2);
         const issuedTransactions2 = responder.queue.difference(queueBefore2);
-        expect(responder.respondedTransactions.get(appointmentId)).to.not.be.empty;
-        expect(responder.respondedTransactions.get(appointmentId2)).to.not.be.empty;
+        expect(responder.respondedTransactions.get(appointment1.id)!.request.appointment).to.deep.equal(appointment1);
+        expect(responder.respondedTransactions.get(appointment2.id)!.request.appointment).to.deep.equal(appointment2);
         expect(issuedTransactions2.length).to.equal(2);
 
         await responder.stop();
     });
 
     it("startResponse can issue two transactions but not replace", async () => {
-        const appointmentId = "app1";
-        const responseData = createResponseData("app1");
-        const appointmentId2 = "app2";
-        const responseData2 = createResponseData("app2");
+        const appointment = createAppointment(1, "data1");
+        const appointment2 = createAppointment(2, "data2");
 
         const responder = new MultiResponder(
             signer,
             // decreasing
             decreasingGasPriceEstimator,
+
             maxConcurrentResponses,
             replacementRate
         );
@@ -150,57 +148,59 @@ describe("MultiResponder", () => {
         await responder.start();
 
         const queueBefore = responder.queue;
-        await responder.startResponse(appointmentId, responseData);
+        await responder.startResponse(appointment);
         const issuedTransactions = responder.queue.difference(queueBefore);
-        expect(responder.respondedTransactions.get(appointmentId)).to.not.be.empty;
+        expect(responder.respondedTransactions.get(appointment.id)).to.not.be.empty;
         expect(issuedTransactions.length).to.equal(1);
 
         // because the gas price is decreasing this should result not result in a replacement
         // therefore only one new transaction should be issued
         const queueBefore2 = responder.queue;
-        await responder.startResponse(appointmentId2, responseData2);
+        await responder.startResponse(appointment2);
         const issuedTransactions2 = responder.queue.difference(queueBefore2);
-        expect(responder.respondedTransactions.get(appointmentId)).to.not.be.empty;
-        expect(responder.respondedTransactions.get(appointmentId2)).to.not.be.empty;
+        expect(responder.respondedTransactions.get(appointment.id)).to.not.be.empty;
+        expect(responder.respondedTransactions.get(appointment2.id)).to.not.be.empty;
         expect(issuedTransactions2.length).to.equal(1);
 
         await responder.stop();
     });
 
     it("startResponse swallows error", async () => {
-        const appointmentId = "app1";
-        const responseData = createResponseData("app1");
-        const responder = new MultiResponder(signer, errorGasPriceEstimator, maxConcurrentResponses, replacementRate);
+        const appointment = createAppointment(1, "data1");
+        const responder = new MultiResponder(
+            signer,
+            errorGasPriceEstimator,
+
+            maxConcurrentResponses,
+            replacementRate
+        );
         await responder.start();
 
-        await responder.startResponse(appointmentId, responseData);
+        await responder.startResponse(appointment);
         expect(responder.respondedTransactions.size).to.be.equal(0);
 
         await responder.stop();
     });
 
     it("startResponse doesnt queue beyond max depth", async () => {
-        const appointmentId = "app1";
-        const responseData = createResponseData("app1");
-        const appointmentId2 = "app2";
-        const responseData2 = createResponseData("app2");
-        const appointmentId3 = "app3";
-        const responseData3 = createResponseData("app3");
+        const appointment = createAppointment(1, "data1");
+        const appointment2 = createAppointment(2, "data2");
+        const appointment3 = createAppointment(3, "data3");
 
         const responder = new MultiResponder(signer, decreasingGasPriceEstimator, 2, replacementRate);
 
         await responder.start();
 
         const queueBefore = responder.queue;
-        await responder.startResponse(appointmentId, responseData);
-        await responder.startResponse(appointmentId2, responseData2);
+        await responder.startResponse(appointment);
+        await responder.startResponse(appointment2);
         const issuedTransactions = responder.queue.difference(queueBefore);
         expect(responder.respondedTransactions.size).to.equal(2);
         expect(issuedTransactions.length).to.equal(2);
 
         // adding again should do nothing
         const queueBefore2 = responder.queue;
-        await responder.startResponse(appointmentId3, responseData3);
+        await responder.startResponse(appointment3);
         const issuedTransactions2 = responder.queue.difference(queueBefore2);
         expect(responder.respondedTransactions.size).to.equal(2);
         expect(issuedTransactions2.length).to.equal(0);
@@ -209,8 +209,7 @@ describe("MultiResponder", () => {
     });
 
     it("txMined does dequeue", async () => {
-        const appointmentId = "app1";
-        const responseData = createResponseData("app1");
+        const appointment = createAppointment(1, "data1");
         const responder = new MultiResponder(
             signer,
             increasingGasPriceEstimator,
@@ -220,7 +219,7 @@ describe("MultiResponder", () => {
 
         await responder.start();
 
-        await responder.startResponse(appointmentId, responseData);
+        await responder.startResponse(appointment);
         const item = responder.queue.queueItems[0];
 
         await responder.txMined(item.request.identifier, item.nonce);
@@ -230,23 +229,22 @@ describe("MultiResponder", () => {
     });
 
     it("txMined does replace", async () => {
-        const appointmentId = "app1";
-        const responseData = createResponseData("app1");
-        const appointmentId2 = "app2";
-        const responseData2 = createResponseData("app2");
+        const appointment = createAppointment(1, "data1");
+        const appointment2 = createAppointment(2, "data2");
         const responder = new MultiResponder(
             signer,
             increasingGasPriceEstimator,
+
             maxConcurrentResponses,
             replacementRate
         );
 
         await responder.start();
 
-        await responder.startResponse(appointmentId, responseData);
+        await responder.startResponse(appointment);
         const item = responder.queue.queueItems[0];
 
-        await responder.startResponse(appointmentId2, responseData2);
+        await responder.startResponse(appointment2);
         const itemAfterReplace = responder.queue.queueItems[0];
 
         const queueBefore = responder.queue;
@@ -280,8 +278,7 @@ describe("MultiResponder", () => {
     });
 
     it("txMined does nothing when item not in queue", async () => {
-        const appointmentId = "app1";
-        const responseData = createResponseData("app1");
+        const appointment = createAppointment(1, "data1");
         const responder = new MultiResponder(
             signer,
             increasingGasPriceEstimator,
@@ -289,7 +286,7 @@ describe("MultiResponder", () => {
             replacementRate
         );
         await responder.start();
-        await responder.startResponse(appointmentId, responseData);
+        await responder.startResponse(appointment);
         const queueBefore = responder.queue;
         await responder.txMined(new PisaTransactionIdentifier(1, "data", "to", new BigNumber(0), new BigNumber(10)), 1);
         expect(responder.queue).to.equal(queueBefore);
@@ -298,8 +295,7 @@ describe("MultiResponder", () => {
     });
 
     it("txMined does nothing nonce is not front of queue", async () => {
-        const appointmentId = "app1";
-        const responseData = createResponseData("app1");
+        const appointment = createAppointment(1, "data1");
         const responder = new MultiResponder(
             signer,
             increasingGasPriceEstimator,
@@ -308,7 +304,7 @@ describe("MultiResponder", () => {
         );
 
         await responder.start();
-        await responder.startResponse(appointmentId, responseData);
+        await responder.startResponse(appointment);
         const queueBefore = responder.queue;
         const item = responder.queue.queueItems[0];
         await responder.txMined(item.request.identifier, item.nonce + 1);
@@ -319,10 +315,8 @@ describe("MultiResponder", () => {
     });
 
     it("reEnqueueMissingItems does issue new transactions", async () => {
-        const appointmentId = "app1";
-        const responseData = createResponseData("app1");
-        const appointmentId2 = "app2";
-        const responseData2 = createResponseData("app2");
+        const appointment = createAppointment(1, "data1");
+        const appointment2 = createAppointment(2, "data2");
 
         // there are some items that are not in the queue, but are in the multi responder
         // we achieve this by adding the items, the mining them, then insisting they're still in pending
@@ -334,14 +328,14 @@ describe("MultiResponder", () => {
             replacementRate
         );
         await responder.start();
-        await responder.startResponse(appointmentId, responseData);
-        await responder.startResponse(appointmentId2, responseData2);
+        await responder.startResponse(appointment);
+        await responder.startResponse(appointment2);
 
-        const item = responder.respondedTransactions.get(appointmentId)!.queueItem;
+        const item = responder.respondedTransactions.get(appointment.id)!;
         await responder.txMined(item.request.identifier, item.nonce);
 
         const queueBefore = responder.queue;
-        await responder.reEnqueueMissingItems([appointmentId, appointmentId2]);
+        await responder.reEnqueueMissingItems([appointment.id, appointment2.id]);
         const replacedTransactions = responder.queue.difference(queueBefore);
         expect(replacedTransactions.length).to.equal(1);
         expect(replacedTransactions[0].request.identifier).to.equal(item.request.identifier);
@@ -351,11 +345,9 @@ describe("MultiResponder", () => {
     });
 
     it("reEnqueueMissingItems does replace transactions", async () => {
-        const appointmentId = "app1";
         // choose a lower gas fee for the first item - this should cause a double replacement
-        const responseData = createResponseData("app1");
-        const appointmentId2 = "app2";
-        const responseData2 = createResponseData("app2");
+        const appointment = createAppointment(1, "data1");
+        const appointment2 = createAppointment(2, "data2");
 
         const responder = new MultiResponder(
             signer,
@@ -364,18 +356,18 @@ describe("MultiResponder", () => {
             replacementRate
         );
         await responder.start();
-        await responder.startResponse(appointmentId, responseData);
-        const item = responder.respondedTransactions.get(appointmentId)!.queueItem;
+        await responder.startResponse(appointment);
+        const item = responder.respondedTransactions.get(appointment.id)!;
         await responder.txMined(item.request.identifier, item.nonce);
 
-        await responder.startResponse(appointmentId2, responseData2);
-        const item2 = responder.respondedTransactions.get(appointmentId2)!.queueItem;
+        await responder.startResponse(appointment2);
+        const item2 = responder.respondedTransactions.get(appointment2.id)!;
 
         // should only be one item in the queue
         expect(responder.queue.queueItems.length).to.equal(1);
 
         const queueBefore = responder.queue;
-        await responder.reEnqueueMissingItems([appointmentId, appointmentId2]);
+        await responder.reEnqueueMissingItems([appointment.id, appointment2.id]);
         const replacedTransactions = responder.queue.difference(queueBefore);
         expect(replacedTransactions.length).to.equal(2);
         expect(replacedTransactions[0].request.identifier).to.equal(item2.request.identifier);
@@ -387,7 +379,7 @@ describe("MultiResponder", () => {
     });
 
     it("reEnqueueMissingItems throws error for missing transactions", async () => {
-        const appointmentId = "app1";
+        const appointmentId = "id1";
         const responder = new MultiResponder(
             signer,
             decreasingGasPriceEstimator,
@@ -402,10 +394,8 @@ describe("MultiResponder", () => {
     });
 
     it("reEnqueueMissingItems does nothing for no missing transactions", async () => {
-        const appointmentId = "app1";
-        const responseData = createResponseData("app1");
-        const appointmentId2 = "app2";
-        const responseData2 = createResponseData("app2");
+        const appointment = createAppointment(1, "data1");
+        const appointment2 = createAppointment(2, "data2");
 
         const responder = new MultiResponder(
             signer,
@@ -414,14 +404,14 @@ describe("MultiResponder", () => {
             replacementRate
         );
         await responder.start();
-        await responder.startResponse(appointmentId, responseData);
-        await responder.startResponse(appointmentId2, responseData2);
+        await responder.startResponse(appointment);
+        await responder.startResponse(appointment2);
 
-        const item = responder.respondedTransactions.get(appointmentId)!.queueItem;
+        const item = responder.respondedTransactions.get(appointment.id)!;
         await responder.txMined(item.request.identifier, item.nonce);
 
         const queueBefore = responder.queue;
-        await responder.reEnqueueMissingItems([appointmentId2]);
+        await responder.reEnqueueMissingItems([appointment2.id]);
         const replacedTransactions = responder.queue.difference(queueBefore);
         expect(replacedTransactions.length).to.equal(0);
 
@@ -429,8 +419,7 @@ describe("MultiResponder", () => {
     });
 
     it("endResponse removes item from transactions", async () => {
-        const appointmentId = "app1";
-        const responseData = createResponseData("app1");
+        const appointment = createAppointment(1, "data1");
         const responder = new MultiResponder(
             signer,
             decreasingGasPriceEstimator,
@@ -438,10 +427,10 @@ describe("MultiResponder", () => {
             replacementRate
         );
         await responder.start();
-        await responder.startResponse(appointmentId, responseData);
-        expect(responder.respondedTransactions.has(appointmentId)).to.be.true;
-        await responder.endResponse(appointmentId);
-        expect(responder.respondedTransactions.has(appointmentId)).to.be.false;
+        await responder.startResponse(appointment);
+        expect(responder.respondedTransactions.has(appointment.id)).to.be.true;
+        await responder.endResponse(appointment.id);
+        expect(responder.respondedTransactions.has(appointment.id)).to.be.false;
         await responder.stop();
     });
 });
