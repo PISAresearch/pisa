@@ -14,7 +14,7 @@
         "lint": "eslint --ext ts .",
         "test": "NODE_ENV=test mocha -r ts-node/register 'test/src/**/*.test.ts' --exit",
         "test-load": "ts-node test/load/loadTest.ts 10 20000",
-        "test-coverage": "NODE_ENV=test nyc mocha -r ts-node/register --reporter mocha-junit-reporter --reporter-options mochaFile=coverage/mocha/test-results.xml 'test/src/**/*.test.ts' --exit && npm run test-mocked",
+        "test-coverage": "NODE_ENV=test nyc mocha -r ts-node/register --reporter mocha-junit-reporter --reporter-options mochaFile=coverage/mocha/test-results.xml 'test/src/**/*.test.ts' --exit",
         "test-smoke": "ts-node test/smoke/smokeTests.ts",
         "test-integration": "mocha -r ts-node/register 'test/integration/remote/**/*.test.ts' --exit",
         "test-raiden": "mocha -r ts-node/register 'test/integration/raiden.test.ts' --exit"
