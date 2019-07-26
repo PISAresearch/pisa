@@ -24,7 +24,6 @@ export class PisaTower {
      */
     public async addAppointment(obj: any): Promise<SignedAppointment> {
         if (!obj) throw new PublicDataValidationError("Json request body empty.");
-        // TODO:173: still need to inspection - eg checking the signature
         const appointment = Appointment.validate(obj);
 
         // add this to the store so that other components can pick up on it
