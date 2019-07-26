@@ -1,5 +1,3 @@
-import { JsonRpcProvider } from "ethers/providers";
-
 /**
  * Thrown by the application when it encounters an unrecoverable error. Errors of this kind represent a bug.
  */

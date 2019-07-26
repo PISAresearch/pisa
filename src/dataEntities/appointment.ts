@@ -4,6 +4,7 @@ import Ajv from "ajv";
 import { PublicDataValidationError } from "./errors";
 import logger from "../logger";
 import { BigNumber } from "ethers/utils";
+import { groupTuples } from "../utils/ethers.js";
 const ajv = new Ajv();
 const appointmentRequestValidation = ajv.compile(appointmentRequestSchemaJson);
 
@@ -159,7 +160,11 @@ export class Appointment implements IAppointment {
     }
 
     /**
-     * The hash provided for free the access
+     * Currently we dont charge access to the API. But when we payment will be proved
+     * by being able to reveal the pre-image of the payment hash. Even though the API is
+     * free we'll use payment hash now to keep the same structure of appointment as we'll
+     * use when we add payment. For now clients can gain access to the API by putting the 
+     * hash of 'on-the-house' as the payment hash.
      */
     public static FreeHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("on-the-house"));
 
@@ -255,45 +260,29 @@ export class Appointment implements IAppointment {
             topics
         };
     }
+
     /**
-     * Th packed representation for the
+     * The ABI encoded tightly packed representation for this appointment
      */
     public solidityPacked() {
         return ethers.utils.solidityPack(
-            [
-                "address",
-                "address",
-                "uint",
-                "uint",
-                "uint",
-                "uint",
-                "uint",
-                "bytes",
-                "uint",
-                "uint",
-                "uint",
-                "bytes",
-                "bytes",
-                "bytes",
-                "bytes32"
-            ],
-            [
-                this.contractAddress,
-                this.customerAddress,
-                this.startBlock,
-                this.endBlock,
-                this.challengePeriod,
-                this.customerChosenId,
-                this.jobId,
-                this.data,
-                this.refund,
-                this.gas,
-                this.mode,
-                ethers.utils.toUtf8Bytes(this.eventABI),
-                this.eventArgs,
-                this.postCondition,
-                this.paymentHash
-            ]
+            ...groupTuples([
+                ["address", this.contractAddress],
+                ["address", this.customerAddress],
+                ["uint", this.startBlock],
+                ["uint", this.endBlock],
+                ["uint", this.challengePeriod],
+                ["uint", this.customerChosenId],
+                ["uint", this.jobId],
+                ["bytes", this.data],
+                ["uint", this.refund],
+                ["uint", this.gas],
+                ["uint", this.mode],
+                ["bytes", ethers.utils.toUtf8Bytes(this.eventABI)],
+                ["bytes", this.eventArgs],
+                ["bytes", this.postCondition],
+                ["bytes32", this.paymentHash]
+            ])
         );
     }
 }

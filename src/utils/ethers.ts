@@ -31,3 +31,18 @@ export async function validateProvider(provider: ethers.providers.Provider) {
     }
 }
 
+/**
+ * Groupts an array of key value tuples into two arrays, one of keys
+ * one of values
+ * @param tupleArray
+ */
+export function groupTuples(tupleArray: [string, any][]): [string[], any[]] {
+    return tupleArray.reduce(
+        (prev, cur) => {
+            prev[0].push(cur[0]);
+            prev[1].push(cur[1]);
+            return prev;
+        },
+        [[] as string[], [] as any[]]
+    );
+}
