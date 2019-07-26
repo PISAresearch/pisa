@@ -56,7 +56,7 @@ export abstract class StartStopService extends EventEmitter {
 
         let proxyHandler = {
             construct (target: any, prop: string) {
-                throw new ApplicationError ("StartStopService was instantiated without inheriting.")
+                throw new ApplicationError ("StartStopService was instantiated without inheriting, eg by running as a function (This code should never run).");
                 // return asProtectedMethod (target, prop) ();
             },
 
@@ -71,10 +71,11 @@ export abstract class StartStopService extends EventEmitter {
                 if (typeof target[prop] !== "function" || prop==="start" || prop==="stop")
                     return target[prop];
 
+                // Intercept these...
                 if (prop==="startInternal" || prop==="stopInternal")
                     return asProtectedMethod (target, prop);
 
-                // NB check if the second test is shortcircuited - test >0 is correct.
+                // Don't throw notStarted error if service is started or starting.
                 if (instance.mStarted || (instance.suppressNotStartedError >0) )
                     return target[prop];
 
