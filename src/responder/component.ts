@@ -8,7 +8,7 @@ import {
     BlockNumberReducer
 } from "../blockMonitor/component";
 import { ReadOnlyBlockCache } from "../blockMonitor";
-import { Block, ApplicationError } from "../dataEntities";
+import { Block } from "../dataEntities";
 import { MultiResponder } from "./multiResponder";
 import { ResponderBlock } from "../dataEntities/block";
 import logger from "../logger";
