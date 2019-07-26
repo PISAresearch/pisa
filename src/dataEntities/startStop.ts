@@ -35,33 +35,16 @@ export abstract class StartStopService extends EventEmitter {
     protected callsLog : string[] = [];
     protected constructor(protected readonly name: string) {
         super();
-
         let instance = this;
-
-        function detailsOfNotStartedError (instance: any, prop : string) :string {
-            let message : string = `Attempt was: ${instance.constructor.name}.${prop}`;
-            message += `\nstart states are: .mStarted: ${instance.mStarted}, called internally: ${instance.suppressNotStartedError>1 ? instance.suppressNotStartedError : !!instance.suppressNotStartedError}`
-            message += (instance.callsLog.length>1) ?
-                `\nPrevious call chain on instance was: ${instance.callsLog.join('; ')}`
-                : `\nNo previous calls on this instance` ;
-            if (instance.callsLog.indexOf('start') ===-1)
-                message += `\n!! Cannot find any previous call to start !!`;
-            if (instance.callsLog.indexOf('stop') >-1)
-                message += `\n!! Found call to stop, previous to this call !!`;
-            return message;
-        };
 
         /**
         * protected methods are:
         * construct (= constructor) ; startInternal; stopInternal; start; stop
         * They, and their internals, can use public methods without start having yet been called.
         */
-        function asProtectedMethod (target: any, prop: string, receiver: any) {
+        function asProtectedMethod (target: any, prop: string) {
             return function (...args: any[]) {
                 instance.suppressNotStartedError++;
-                // Remove this - it's not an error, it's just to show that the flag incremented case is reachable
-                // if (instance.suppressNotStartedError >=1)
-                //     throw new Error (`supppressor was incremented in getting ${prop} \n. Previous calls: ${instance.callsLog.join('; ')}`)
                 // This could better be a warn, for debugging.
                 if (instance.suppressNotStartedError >=2)
                     throw new Error (`Multiple (${instance.suppressNotStartedError}) protected methods suppressing the NotStartedError on ${instance.constructor.name}`)
@@ -72,11 +55,9 @@ export abstract class StartStopService extends EventEmitter {
         }
 
         let proxyHandler = {
-            construct (target: any, prop: string, receiver: any) {
-                throw new Error ('Is this code /ever/ reached? (construct)')
-                // (apparently not :/ )
-                // Maybe it only would be if 'new StartStopService()' were to be instantiated, rather than children...
-                return asProtectedMethod (target, prop, receiver) ();
+            construct (target: any, prop: string) {
+                throw new ApplicationError ("StartStopService was instantiated without inheriting.")
+                // return asProtectedMethod (target, prop) ();
             },
 
             /**
@@ -86,21 +67,18 @@ export abstract class StartStopService extends EventEmitter {
             * that flag is set or service is started - else error.
             **/
             get (target: any, prop: string, receiver: any) {
-                instance.callsLog.push (instance.suppressNotStartedError? `(prop(${instance.suppressNotStartedError}))` : prop);
-
                 // Do not intercept these
-                if (typeof target[prop] !== 'function' || prop==='start' || prop==='stop')
+                if (typeof target[prop] !== "function" || prop==="start" || prop==="stop")
                     return target[prop];
 
-                if (prop==='startInternal' || prop==='stopInternal')
-                    return asProtectedMethod (target, prop, receiver);
+                if (prop==="startInternal" || prop==="stopInternal")
+                    return asProtectedMethod (target, prop);
 
                 // NB check if the second test is shortcircuited - test >0 is correct.
                 if (instance.mStarted || (instance.suppressNotStartedError >0) )
                     return target[prop];
 
-                throw new ApplicationError (`Service not started.\n${detailsOfNotStartedError (instance, prop)}`);
-
+                throw new ApplicationError ("Service not started.");
             }
         };
 
