@@ -78,7 +78,7 @@ describe("BlockCache", () => {
         expect(bc.maxHeight).to.equal(lastBlockAdded);
     });
 
-    it("canAddBlock returns true for blocks whose height is lower or equal than the initial height", () => {
+    it("canAddBlock returns true for blocks whose height is equal than the initial height", () => {
         const bc = new BlockCache(maxDepth);
 
         const blocks = generateBlocks(10, 5, "main");
@@ -86,12 +86,22 @@ describe("BlockCache", () => {
 
         bc.addBlock(blocks[3]);
 
-        expect(bc.canAddBlock(blocks[2])).to.be.true;
         expect(bc.canAddBlock(blocks[3])).to.be.true;
         expect(bc.canAddBlock(otherBlocks[3])).to.be.true;
     });
 
-    it("canAddBlock returns true for blocks whose height is lower or equal than the maximum depth", () => {
+    it("canAddBlock returns false for blocks whose height is lower than the initial height", () => {
+        const bc = new BlockCache(maxDepth);
+
+        const blocks = generateBlocks(10, 5, "main");
+        const otherBlocks = generateBlocks(10, 5, "other");
+
+        bc.addBlock(blocks[3]);
+
+        expect(bc.canAddBlock(blocks[2])).to.be.false;
+    });
+
+    it("canAddBlock returns true for blocks whose height is equal than the maximum depth", () => {
         const bc = new BlockCache(maxDepth);
         const initialHeight = 3;
         const blocksAdded = maxDepth + 1;
@@ -100,8 +110,19 @@ describe("BlockCache", () => {
 
         const otherBlocks = generateBlocks(2, initialHeight - 1, "main");
 
-        expect(bc.canAddBlock(otherBlocks[0])).to.be.true;
         expect(bc.canAddBlock(otherBlocks[1])).to.be.true;
+    });
+
+    it("canAddBlock returns false for blocks whose height is lower than the maximum depth", () => {
+        const bc = new BlockCache(maxDepth);
+        const initialHeight = 3;
+        const blocksAdded = maxDepth + 1;
+        const blocks = generateBlocks(blocksAdded, initialHeight, "main");
+        blocks.forEach(block => bc.addBlock(block));
+
+        const otherBlocks = generateBlocks(2, initialHeight - 1, "main");
+
+        expect(bc.canAddBlock(otherBlocks[0])).to.be.false;
     });
 
     it("canAddBlock returns true for a block whose parent is in the BlockCache", () => {
