@@ -132,22 +132,6 @@ describe("Service end-to-end", () => {
     };
 
     it("create channel, submit appointment, trigger dispute, wait for response", async () => {
-        // const round = 1,
-        //     setStateHash = KitsuneTools.hashForSetState(hashState, round, channelContract.address),
-        //     sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash)),
-        //     sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash)),
-        const expiryPeriod = disputePeriod + 1;
-        // const appointment = {
-        //     expiryPeriod,
-        //     type: ChannelType.Kitsune,
-        //     stateUpdate: {
-        //         contractAddress: channelContract.address,
-        //         hashState,
-        //         round,
-        //         signatures: [sig0, sig1]
-        //     }
-        // };
-
         const round = 1;
         const setStateHash = KitsuneTools.hashForSetState(hashState, round, channelContract.address);
         const sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash));
@@ -235,7 +219,7 @@ describe("Service end-to-end", () => {
     //         ]
     //     );
     //     const digest = ethers.utils.keccak256(packedData);
-    //     const signer = new Wallet(nextConfig.receiptKey!);
+    //     const signer = new ethers.Wallet(nextConfig.receiptKey!);
     //     const sig = await signer.signMessage(digest);
 
     //     expect(res).to.deep.equal({

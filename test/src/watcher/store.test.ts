@@ -1,10 +1,12 @@
 import "mocha";
-import { expect } from "chai";
+import chai, { expect } from "chai";
+import chaiAsPromised from "chai-as-promised"
 import { AppointmentStore } from "../../../src/watcher";
 import levelup, { LevelUp } from "levelup";
 import MemDown from "memdown";
 import encodingDown from "encoding-down";
-import { Appointment } from "../../../src/dataEntities";
+import { Appointment, ApplicationError } from "../../../src/dataEntities";
+chai.use(chaiAsPromised)
 
 const getAppointment = (id: number, endBlock: number, jobId: number) => {
     return Appointment.fromIAppointment({
@@ -46,8 +48,7 @@ describe("Store", () => {
 
     it("addOrUpdate does add appointment", async () => {
         const appointment1 = getAppointment(1, 5, 1);
-        const result = await store.addOrUpdateByLocator(appointment1);
-        expect(result).to.be.true;
+        await store.addOrUpdateByLocator(appointment1);
 
         const storedAppointments = [...store.getExpiredSince(appointment1.endBlock + 1)];
         expect(storedAppointments).to.deep.equal([appointment1]);
@@ -60,10 +61,8 @@ describe("Store", () => {
         const appointment1 = getAppointment(1, 1, 1);
         const appointment2 = getAppointment(2, 1, 1);
 
-        const result = await store.addOrUpdateByLocator(appointment1);
-        expect(result).to.be.true;
-        const result2 = await store.addOrUpdateByLocator(appointment2);
-        expect(result2).to.be.true;
+        await store.addOrUpdateByLocator(appointment1);
+        await store.addOrUpdateByLocator(appointment2);
 
         const storedAppointments = [...store.getExpiredSince(appointment1.endBlock + 1)];
         expect(storedAppointments).to.deep.equal([appointment1, appointment2]);
@@ -79,12 +78,10 @@ describe("Store", () => {
         const appointment2 = getAppointment(1, 1, 2);
 
         // first appointment is accepted
-        const result1 = await store.addOrUpdateByLocator(appointment1);
-        expect(result1).to.be.true;
+        await store.addOrUpdateByLocator(appointment1);
 
         // second is also
-        const result2 = await store.addOrUpdateByLocator(appointment2);
-        expect(result2).to.be.true;
+        await store.addOrUpdateByLocator(appointment2);
 
         const storedAppointments = [...store.getExpiredSince(appointment2.endBlock + 1)];
         expect(storedAppointments).to.deep.equal([appointment2]);
@@ -98,12 +95,10 @@ describe("Store", () => {
         const appointment2 = getAppointment(1, 1, 2);
 
         // second is added
-        const result2 = await store.addOrUpdateByLocator(appointment2);
-        expect(result2).to.be.true;
+        await store.addOrUpdateByLocator(appointment2);
 
         // first is not accepted
-        const result1 = await store.addOrUpdateByLocator(appointment1);
-        expect(result1).to.be.false;
+        expect(store.addOrUpdateByLocator(appointment1)).to.eventually.be.rejectedWith(ApplicationError);
 
         const storedAppointments = [...store.getExpiredSince(appointment2.endBlock + 1)];
         expect(storedAppointments).to.deep.equal([appointment2]);
@@ -166,8 +161,7 @@ describe("Store", () => {
 
         await store.addOrUpdateByLocator(appointment1);
         await store.removeById(appointment1.id);
-        const result = await store.addOrUpdateByLocator(appointment1);
-        expect(result).to.be.true;
+        await store.addOrUpdateByLocator(appointment1);
 
         const dbAppointment1 = await db.get(appointment1.id);
         expect(dbAppointment1).to.deep.equal(Appointment.toIAppointment(appointment1));

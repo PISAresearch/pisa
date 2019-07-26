@@ -5,36 +5,10 @@ import { LockManager } from "../utils/lock";
 import { Appointment } from "../dataEntities/appointment";
 
 /**
- * The functionality required in an appointment store
- */
-export interface IAppointmentStore {
-    /**
-     * Add an appointment to the store. If an appointment with the same state
-     * locator already exists, it is updated if the supplied appointment has a higher nonce,
-     * otherwise this does nothing. If an appointment with the same state locator does not
-     * already exist, then appointment is added.
-     * @param appointment
-     */
-    addOrUpdateByLocator(appointment: Appointment): Promise<boolean>;
-
-    /**
-     * Remove an appointment which matches this id. Do nothing if that appointment does not exist.
-     * @param uniqueJobId
-     */
-    removeById(uniqueJobId: string): Promise<boolean>;
-
-    /**
-     * Find all appointments that have expired at a certain block.
-     * @param block
-     */
-    getExpiredSince(block: number): IterableIterator<Appointment>;
-}
-
-/**
  * Stores all appointments in memory and in the db. Has an inefficient processes for
  * determining expired appointments so this function should not be used in a loop.
  */
-export class AppointmentStore extends StartStopService implements IAppointmentStore {
+export class AppointmentStore extends StartStopService {
     constructor(private readonly db: LevelUp<encodingDown<string, any>>) {
         super("appointment-store");
     }
@@ -71,27 +45,23 @@ export class AppointmentStore extends StartStopService implements IAppointmentSt
     // Instead, multiple appointments can share the same state locator.
     private stateLocatorLockManager = new LockManager();
 
-    // TODO:173: are these docs still correct?
     /**
-     * Checks to see if an appointment with the current state update exists. If it does
-     * exist the current appointment is updated iff it has a lower nonce than the supplied
+     * Checks to see if an appointment with the current locator exists. If it does
+     * exist the current appointment is updated iff it has a lower job id than the supplied
      * appointment. If it does not exist a new appointment is added in the store.
-     * Returns true if the supplied item was added or updated in the store.
+     * Throws exception if the suppled appointment had the same locator as an existing appointment
+     * but lower job id.
      * @param appointment
      */
-    public addOrUpdateByLocator(appointment: Appointment): Promise<boolean> {
+    public addOrUpdateByLocator(appointment: Appointment): Promise<void> {
         // As we are accessing data structures by state locator, we make sure to acquire a lock on it
         return this.stateLocatorLockManager.withLock(appointment.locator, async () => {
             const currentAppointment = this.mAppointmentsByLocator.get(appointment.locator);
             // is there a current appointment
             if (currentAppointment) {
-                if (currentAppointment.jobId >= appointment.jobId) {
-                    // TODO:173: consider throwing an exception here and alerting the user - since we needed a sig to be sure anyways
-                    this.logger.info(appointment.formatLog(`Nonce ${appointment.jobId} is lower than current appointment ${currentAppointment.locator} nonce ${currentAppointment.jobId}`)); //prettier-ignore
-                    return false;
-                } else {
-                    // remove the old appointment
-                    this.mAppointmentsById.delete(currentAppointment.id);
+                if (appointment.jobId > currentAppointment.jobId) this.mAppointmentsById.delete(currentAppointment.id);
+                else {
+                    throw new ApplicationError(appointment.formatLog(`Nonce ${appointment.jobId} is lower than current appointment ${currentAppointment.locator} nonce ${currentAppointment.jobId}`)) //prettier-ignore
                 }
             }
 
@@ -103,7 +73,6 @@ export class AppointmentStore extends StartStopService implements IAppointmentSt
             // add the new appointment
             this.mAppointmentsByLocator.set(appointment.locator, appointment);
             this.mAppointmentsById.set(appointment.id, appointment);
-            return true;
         });
     }
 

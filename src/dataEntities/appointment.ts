@@ -5,84 +5,93 @@ import { PublicDataValidationError } from "./errors";
 import logger from "../logger";
 import { BigNumber } from "ethers/utils";
 const ajv = new Ajv();
-const appoitmentRequestValidation = ajv.compile(appointmentRequestSchemaJson);
-
-// /**
-//  * An appointment that has been accepted by PISA
-//  *
-//  * @member startBlock: start block, when the appointment begins.
-//  * @member endBlock: end time, when the appointment ends.
-//  * @member passedInspection: true iff this appointment passed the inspection.
-//  * @member expiryPeriod: duration of the appointment in blocks.
-//  * @member type: one of the supported channel types.
-//  */
-// export interface IAppointment {
-//     startBlock: number;
-//     endBlock: number;
-//     passedInspection: boolean;
-//     expiryPeriod: number;
-//     type: ChannelType;
-//     id: string;
-// }
-
-// TODO:173: check the types of these in JSON schema - and improve the type checking
-// TODO:173: perhaps need big numbers
+const appointmentRequestValidation = ajv.compile(appointmentRequestSchemaJson);
 
 export interface IAppointment {
-    // the address of the external contract to which the data will be submitted
+    /**
+     * The address of the external contract to which the data will be submitted
+     */
     readonly contractAddress: string;
 
-    // the address of the customer hiring PISA
+    /**
+     * The address of the customer hiring PISA
+     */
     readonly customerAddress: string;
 
-    // the block at which the appointment starts
+    /**
+     * The block at which the appointment starts
+     */
     readonly startBlock: number;
 
-    // the block at which the appointment ends
+    /**
+     * The block at which the appointment ends
+     */
     readonly endBlock: number;
-
-    // if the trigger event is noticed, then this is the number of blocks which
-    // PISA has to respond
+ 
+    /**
+     * if the trigger event is noticed, then this is the number of blocks which
+     * PISA has to respond
+     */
     readonly challengePeriod: number;
 
-    // an appointment id, supplied by the customer
+    /**
+     * an appointment id, supplied by the customer
+     */
     readonly customerChosenId: number;
 
-    // a counter that allows users to replace existing jobs
+    /**
+     * A counter that allows users to replace existing jobs
+     */
     readonly jobId: number;
 
-    // the data to supply when calling the external address from inside the contract
+    /**
+     * The data to supply when calling the external address from inside the contract
+     */
     readonly data: string;
 
-    // how much to refund the customer by, in wei
+    /**
+     * How much to refund the customer by, in wei
+     */
     readonly refund: number;
 
-    // the amount of gas to use when calling the external contract with the provided data
+    /**
+     * The amount of gas to use when calling the external contract with the provided data
+     */
     readonly gas: number;
 
-    // an identifier for the dispute handler to be used in checking state during recourse
+    /**
+     * An identifier for the dispute handler to be used in checking state during recourse
+     */
     readonly mode: number;
 
-    // a human readable (https://blog.ricmoo.com/human-readable-contract-abis-in-ethers-js-141902f4d917) event abi
+    /**
+     * A human readable (https://blog.ricmoo.com/human-readable-contract-abis-in-ethers-js-141902f4d917) event abi
+     */
     readonly eventABI: string;
 
-    // ABI encoded event arguments for the event
+    /**
+     * ABI encoded event arguments for the event
+     */
     readonly eventArgs: string;
-
-    // the post-condition data to be passed to the dispute handler to verify whether
-    // recourse is required
+ 
+    /**
+     * The post-condition data to be passed to the dispute handler to verify whether
+     * recouse is required
+     */
     readonly postCondition: string;
 
-    // the hash used for fair exchange of the appointment. The customer will be required to
-    // reveal the pre-image of this to seek recourse, which will only be given to them upon payment
-    paymentHash: string;
+    /**
+     * the hash used for fair exchange of the appointment. The customer will be required to
+     * reveal the pre-image of this to seek recourse, which will only be given to them upon payment
+     */
+    readonly paymentHash: string;
 }
 
-export class AppointmentRequest {}
-
+/**
+ * A customer appointment, detailing what event to be watched for and data to submit.
+ */
 export class Appointment implements IAppointment {
     constructor(
-        // the address of the external contract to which the data will be submitted
         public readonly contractAddress: string,
         public readonly customerAddress: string,
         public readonly startBlock: number,
@@ -99,7 +108,6 @@ export class Appointment implements IAppointment {
         public readonly postCondition: string,
         public readonly paymentHash: string
     ) {}
-    // TODO:173: docs in this whole file need reviewing
 
     public static fromIAppointment(appointment: IAppointment): Appointment {
         return new Appointment(
@@ -141,12 +149,18 @@ export class Appointment implements IAppointment {
         };
     }
 
+    /**
+     * The hash provided for free the access
+     */
     public static FreeHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("on-the-house"));
 
+    /**
+     * Parse the appointment and check that it's valid
+     * @param obj 
+     */
     public static validate(obj: any) {
-        // TODO:173: this requires tests
-        const valid = appoitmentRequestValidation(obj);
-        if (!valid) throw new PublicDataValidationError(appoitmentRequestValidation.errors!.map(e => `${e.propertyName}:${e.message}`).join("\n")); // prettier-ignore
+        const valid = appointmentRequestValidation(obj);
+        if (!valid) throw new PublicDataValidationError(appointmentRequestValidation.errors!.map(e => `${e.propertyName}:${e.message}`).join("\n")); // prettier-ignore
 
         const appointment = Appointment.fromIAppointment(obj as IAppointment);
         if (appointment.paymentHash !== Appointment.FreeHash) throw new PublicDataValidationError("Invalid payment hash."); // prettier-ignore
@@ -154,33 +168,48 @@ export class Appointment implements IAppointment {
         try {
             appointment.getEventFilter();
         } catch (doh) {
-            console.log(doh);
+            const dohError = doh as Error
             logger.error(doh);
+            if(dohError.stack) logger.error(dohError.stack);
             throw new PublicDataValidationError("Invalid event arguments for ABI.");
         }
 
         return appointment;
     }
 
+    /**
+     * A non-unique identifier for an appointment. Many appointments from the same customer
+     * can have the same locator, but appointments with the same locator must have different job
+     * ids.
+     */
     public get locator() {
         return `${this.customerChosenId}|${this.customerAddress}`;
     }
+    /**
+     * A unique id for this appointment. Many appointments can have the same locator
+     * but they must all have unique ids. Generated from concatenating the locator with 
+     * the job id. Appointments with the same locator can be replaced by incrementing the
+     * job id.
+     */
     public get id() {
         return `${this.locator}|${this.jobId}`;
     }
+
     public formatLog(message: string): string {
         return `|${this.id}| ${message}`;
     }
 
+    /**
+     * An event filter for this appointment. Created by combining the provided
+     * eventABI and the eventArgs
+     */
     public get eventFilter() {
-        if(!this.mEventFilter) {
+        if (!this.mEventFilter) {
             this.mEventFilter = this.getEventFilter();
         }
         return this.mEventFilter;
     }
     private mEventFilter: ethers.EventFilter;
-
-    // TODO:173: this should be run when we accept an appointment to make sure it doesnt throw
     private getEventFilter(): ethers.EventFilter {
         // the abi is in human readable format, we can parse it with ethersjs
         // then check that it's of the right form before separating the name and inputs
@@ -199,7 +228,6 @@ export class Appointment implements IAppointment {
         // so the first thing encoded is an array of integers representing the
         // indexes of the arguments that will be used in the filter.
         // non specified indexes will be null
-        // TODO:173: tests for this whole function
         const indexes: BigNumber[] = ethers.utils.defaultAbiCoder.decode(["uint256[]"], this.eventArgs)[0];
         const namedInputs = indexes.map(i => i.toNumber()).map(i => inputs[i]);
         const decodedInputs = ethers.utils.defaultAbiCoder
@@ -212,6 +240,9 @@ export class Appointment implements IAppointment {
             topics
         };
     }
+    /**
+     * Th packed representation for the 
+     */
     public solidityPacked() {
         return ethers.utils.solidityPack(
             [
@@ -252,105 +283,6 @@ export class Appointment implements IAppointment {
     }
 }
 
-// /**
-//  * Ethereum variant of IAppointment
-//  */
-// export interface IEthereumAppointment extends IAppointment {
-//     getStateLocator(): string;
-//     getContractAbi(): any;
-//     getContractAddress(): string;
-//     getEventFilter(): ethers.EventFilter;
-//     getEventName(): string;
-//     getStateIdentifier(): string;
-//     getStateNonce(): number;
-//     formatLog(message: string): string;
-//     getResponseFunctionName(): string;
-//     getResponseFunctionArgs(): any[];
-//     getResponseData(): IEthereumResponseData;
-//     getDBRepresentation(): any;
-// }
-
-// /**
-//  * An appointment that has been accepted by PISA
-//  */
-// export abstract class EthereumAppointment implements IEthereumAppointment {
-//     public readonly id: string;
-
-//     constructor(readonly expiryPeriod: number, readonly type: ChannelType, startBlock: number, endBlock: number) {
-//         this.id = uuid();
-//         if (startBlock) this.mStartBlock = startBlock;
-//         if (endBlock) this.mEndBlock = endBlock;
-//     }
-
-//     private mStartBlock: number;
-//     public get startBlock() {
-//         return this.mStartBlock;
-//     }
-//     private mEndBlock: number;
-//     public get endBlock() {
-//         return this.mEndBlock;
-//     }
-//     private mPassedInspection: boolean;
-//     public get passedInspection() {
-//         return this.mPassedInspection;
-//     }
-//     public passInspection(startBlock: number) {
-//         this.mPassedInspection = true;
-//         this.mStartBlock = startBlock;
-//         this.mEndBlock = startBlock + this.expiryPeriod;
-//     }
-//     public formatLog(message: string): string {
-//         return `|${this.getStateIdentifier()}| ${message}`;
-//     }
-
-//     /**
-//      * A combination of the state locator and the nonce for this state update
-//      */
-//     public getStateIdentifier() {
-//         return `${this.getStateLocator()}:${this.getStateNonce()}`;
-//     }
-
-//     /**
-//      * The minimum unique information required to identify the on-chain location of this state update
-//      */
-//     public abstract getStateLocator(): string;
-//     public abstract getContractAbi(): any;
-//     public abstract getContractAddress(): string;
-//     public abstract getEventFilter(): ethers.EventFilter;
-//     public abstract getEventName(): string;
-//     public abstract getStateNonce(): number;
-
-//     /**
-//      * The minimum unique information required form a response
-//      */
-//     public abstract getResponseFunctionName(): string;
-//     public abstract getResponseFunctionArgs(): any[];
-
-//     /**
-//      * Returns the IEthereumResponseData object for this appointment
-//      */
-//     public getResponseData(): IEthereumResponseData {
-//         return {
-//             contractAddress: this.getContractAddress(),
-//             contractAbi: this.getContractAbi(),
-//             functionName: this.getResponseFunctionName(),
-//             functionArgs: this.getResponseFunctionArgs(),
-//             endBlock: this.endBlock
-//         };
-//     }
-
-//     /**
-//      * All the information we need to save in the db
-//      */
-//     public getDBRepresentation() {
-//         return {
-//             ...this,
-//             startBlock: this.startBlock,
-//             endBlock: this.endBlock
-//         };
-//     }
-// }
-
 /**
  * An appointment signed by PISA
  */
@@ -365,14 +297,3 @@ export class SignedAppointment {
         return JSON.stringify(signedAppointment);
     }
 }
-
-// /**
-//  * Represents the necessary data for an on-chain response from Pisa on the Ethereum blockchain.
-//  */
-// export interface IEthereumResponseData {
-//     contractAddress: string;
-//     contractAbi: any;
-//     functionName: string;
-//     functionArgs: any[];
-//     endBlock: number;
-// }
