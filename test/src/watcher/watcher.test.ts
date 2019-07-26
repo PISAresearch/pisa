@@ -1,8 +1,7 @@
 import "mocha";
 import { expect } from "chai";
-import { mock, instance, when, resetCalls, verify, anything, spy } from "ts-mockito";
+import { mock, instance, when, resetCalls, verify } from "ts-mockito";
 import { AppointmentStore } from "../../../src/watcher";
-import { ethers } from "ethers";
 import { MultiResponder } from "../../../src/responder";
 import { BlockCache } from "../../../src/blockMonitor";
 import { ApplicationError, IBlockStub, Logs, Appointment } from "../../../src/dataEntities";
@@ -165,7 +164,7 @@ describe("Watcher", () => {
 
         mockedStore = mock(AppointmentStore);
         when(mockedStore.getAll()).thenReturn([appointment]);
-        const appointmentsById = new Map<string, IEthereumAppointment>();
+        const appointmentsById = new Map<string, Appointment>();
         appointmentsById.set(appointment.id, appointment);
         when(mockedStore.appointmentsById).thenReturn(appointmentsById);
         store = instance(mockedStore);
