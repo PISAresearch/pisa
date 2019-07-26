@@ -91,9 +91,6 @@ export class MultiResponder extends StartStopService {
             // form a queue item request
             const txIdentifier = new PisaTransactionIdentifier(
                 this.chainId,
-                // TODO:173: we should be calling solidity packed on the whole appointnment
-                // TODO:173: then sending it to the pisa contract not the contractAddress
-                // TODO:173: we should also put this stuff somewhere else so that we can test
                 appointment.data,
                 appointment.contractAddress,
                 new BigNumber(0),
@@ -102,7 +99,6 @@ export class MultiResponder extends StartStopService {
             const idealGas = await this.gasEstimator.estimate(appointment);
             const request = new GasQueueItemRequest(txIdentifier, idealGas, appointment);
             logger.info(`Enqueueing request for ${appointment.id}. ${JSON.stringify(request)}.`);
-            
 
             // add the queue item to the queue, since the queue is ordered this may mean
             // that we need to replace some transactions on the network. Find those and
@@ -172,9 +168,7 @@ export class MultiResponder extends StartStopService {
                 const reducedQueue = this.mQueue.consume(txIdentifier);
                 const replacedTransactions = reducedQueue.difference(this.mQueue);
                 this.mQueue = reducedQueue;
-                replacedTransactions.forEach(q =>
-                    this.respondedTransactions.set(q.request.appointment.id, q)
-                );
+                replacedTransactions.forEach(q => this.respondedTransactions.set(q.request.appointment.id, q));
 
                 // since we had to bump up some transactions - change their nonces
                 // we'll have to issue new transactions to the network
@@ -232,9 +226,8 @@ export class MultiResponder extends StartStopService {
 
     private async broadcast(queueItem: GasQueueItem) {
         try {
-
             const tx = queueItem.toTransactionRequest();
-            
+
             logger.info(`Broadcasting tx for ${queueItem.request.appointment.id}. ${JSON.stringify(queueItem)}. ${JSON.stringify(tx)}.`); // prettier-ignore
             await this.signer.sendTransaction(tx);
         } catch (doh) {

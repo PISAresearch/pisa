@@ -15,7 +15,7 @@ export interface IAppointmentStore {
      * already exist, then appointment is added.
      * @param appointment
      */
-    addOrUpdateByStateLocator(appointment: Appointment): Promise<boolean>;
+    addOrUpdateByLocator(appointment: Appointment): Promise<boolean>;
 
     /**
      * Remove an appointment which matches this id. Do nothing if that appointment does not exist.
@@ -35,24 +35,13 @@ export interface IAppointmentStore {
  * determining expired appointments so this function should not be used in a loop.
  */
 export class AppointmentStore extends StartStopService implements IAppointmentStore {
-    constructor(
-        private readonly db: LevelUp<encodingDown<string, any>>,
-        //TODO:173: clean this up
-    //    private readonly appointmentConstructors: Map<ChannelType, (obj: any) => IAppointment2>
-    ) {
+    constructor(private readonly db: LevelUp<encodingDown<string, any>>) {
         super("appointment-store");
     }
 
     protected async startInternal() {
         // access the db and load all state
         for await (const record of this.db.createValueStream()) {
-            // the typing here insist this is a string
-            // TODO:173: clean up this types stuff
-            //const type = ((record as any) as IAppointment2).type;
-            //const constrctr = this.appointmentConstructors.get(type);
-            //if (!constrctr) throw new ConfigurationError(`Unrecognised channel type: ${type}.`);
-
-            //const appointment = constrctr(record);
             const appointment = Appointment.fromIAppointment((record as any) as IAppointment);
             // // add too the indexes
             this.mAppointmentsById.set(appointment.id, appointment);
@@ -89,17 +78,14 @@ export class AppointmentStore extends StartStopService implements IAppointmentSt
      * Returns true if the supplied item was added or updated in the store.
      * @param appointment
      */
-    public addOrUpdateByStateLocator(appointment: Appointment): Promise<boolean> {
-        // TODO:173: here we dont update by state selector, we update by appointment id
-        // TODO:173: and we dont check the nonce, we check the job id
-
+    public addOrUpdateByLocator(appointment: Appointment): Promise<boolean> {
         // As we are accessing data structures by state locator, we make sure to acquire a lock on it
         return this.stateLocatorLockManager.withLock(appointment.locator, async () => {
-            
             const currentAppointment = this.appointmentsByStateLocator[appointment.locator];
             // is there a current appointment
             if (currentAppointment) {
                 if (currentAppointment.jobId >= appointment.jobId) {
+                    // TODO:173: consider throwing an exception here and alerting the user - since we needed a sig to be sure anyways
                     this.logger.info(appointment.formatLog(`Nonce ${appointment.jobId} is lower than current appointment ${currentAppointment.locator} nonce ${currentAppointment.jobId}`)); //prettier-ignore
                     return false;
                 } else {

@@ -2,13 +2,12 @@ import * as chai from "chai";
 import "mocha";
 import request from "request-promise";
 import { KitsuneTools } from "../../src/integrations/kitsune/tools";
-import { ethers, Wallet, Contract } from "ethers";
+import { ethers } from "ethers";
 import { PisaService } from "../../src/service";
 import config from "../../src/dataEntities/config";
 import Ganache from "ganache-core";
-import { ChannelType, IAppointmentRequest } from "../../src/dataEntities";
+import { ChannelType, IAppointment, Appointment } from "../../src/dataEntities";
 import logger from "../../src/logger";
-import StateChannelFactory from "../../src/integrations/kitsune/StateChannelFactory.json";
 import levelup, { LevelUp } from "levelup";
 import MemDown from "memdown";
 import encodingDown from "encoding-down";
@@ -151,32 +150,27 @@ describe("Service end-to-end", () => {
 
         const round = 1;
         const setStateHash = KitsuneTools.hashForSetState(hashState, round, channelContract.address);
-        let sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash));
+        const sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash));
         const sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash));
-        const data = KitsuneTools.packData(hashState, round, sig0, sig1);
-        const v = channelContract.interface.functions["setstate"];
-        const s0 = ethers.utils.splitSignature(sig0);
-        const s1 = ethers.utils.splitSignature(sig1);
-        const q = [s0.v! - 27, s0.r, s0.s, s1.v! - 27, s1.r, s1.s];
-        const args = [q, round, hashState];
-        const dq = v.encode(args);
+        const data = KitsuneTools.encodeSetStateData(hashState, round, sig0, sig1)
 
-        const appointmentRequest = (data: string, acc: string): IAppointmentRequest => {
+        const appointmentRequest = (data: string, acc: string): IAppointment => {
             return {
                 challengePeriod: 20,
                 contractAddress: channelContract.address,
                 customerAddress: acc,
-                data: dq,
+                data,
                 endBlock: 22,
-                eventABI: "event EventDispute(uint256 indexed)",
+                eventABI: KitsuneTools.eventABI(),
                 eventArgs: KitsuneTools.eventArgs(),
                 gas: 100000,
-                customerChosenId: channelContract.address,
+                customerChosenId: 1,
                 jobId: 0,
                 mode: 0,
                 postCondition: "0x",
                 refund: 0,
-                startBlock: 0
+                startBlock: 0,
+                paymentHash: Appointment.FreeHash
             };
         };
 

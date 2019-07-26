@@ -6,7 +6,7 @@ import MemDown from "memdown";
 import encodingDown from "encoding-down";
 import { Appointment } from "../../../src/dataEntities";
 
-const getAppointment = (id: string, endBlock: number, jobId: number) => {
+const getAppointment = (id: number, endBlock: number, jobId: number) => {
     return Appointment.fromIAppointment({
         challengePeriod: 10,
         contractAddress: "contractAddress",
@@ -45,8 +45,8 @@ describe("Store", () => {
     });
 
     it("addOrUpdate does add appointment", async () => {
-        const appointment1 = getAppointment("id1", 5, 1);
-        const result = await store.addOrUpdateByStateLocator(appointment1);
+        const appointment1 = getAppointment(1, 5, 1);
+        const result = await store.addOrUpdateByLocator(appointment1);
         expect(result).to.be.true;
 
         const storedAppointments = [...store.getExpiredSince(appointment1.endBlock + 1)];
@@ -57,12 +57,12 @@ describe("Store", () => {
     });
 
     it("addOrUpdate does add multiple appointments", async () => {
-        const appointment1 = getAppointment("id1", 1, 1);
-        const appointment2 = getAppointment("id2", 1, 1);
+        const appointment1 = getAppointment(1, 1, 1);
+        const appointment2 = getAppointment(2, 1, 1);
 
-        const result = await store.addOrUpdateByStateLocator(appointment1);
+        const result = await store.addOrUpdateByLocator(appointment1);
         expect(result).to.be.true;
-        const result2 = await store.addOrUpdateByStateLocator(appointment2);
+        const result2 = await store.addOrUpdateByLocator(appointment2);
         expect(result2).to.be.true;
 
         const storedAppointments = [...store.getExpiredSince(appointment1.endBlock + 1)];
@@ -75,15 +75,15 @@ describe("Store", () => {
     });
 
     it("addOrUpdate does update older appointment", async () => {
-        const appointment1 = getAppointment("id1", 1, 1);
-        const appointment2 = getAppointment("id1", 1, 2);
+        const appointment1 = getAppointment(1, 1, 1);
+        const appointment2 = getAppointment(1, 1, 2);
 
         // first appointment is accepted
-        const result1 = await store.addOrUpdateByStateLocator(appointment1);
+        const result1 = await store.addOrUpdateByLocator(appointment1);
         expect(result1).to.be.true;
 
         // second is also
-        const result2 = await store.addOrUpdateByStateLocator(appointment2);
+        const result2 = await store.addOrUpdateByLocator(appointment2);
         expect(result2).to.be.true;
 
         const storedAppointments = [...store.getExpiredSince(appointment2.endBlock + 1)];
@@ -94,15 +94,15 @@ describe("Store", () => {
     });
 
     it("addOrUpdate does not update newer appointment", async () => {
-        const appointment1 = getAppointment("id1", 1, 1);
-        const appointment2 = getAppointment("id1", 1, 2);
+        const appointment1 = getAppointment(1, 1, 1);
+        const appointment2 = getAppointment(1, 1, 2);
 
         // second is added
-        const result2 = await store.addOrUpdateByStateLocator(appointment2);
+        const result2 = await store.addOrUpdateByLocator(appointment2);
         expect(result2).to.be.true;
 
         // first is not accepted
-        const result1 = await store.addOrUpdateByStateLocator(appointment1);
+        const result1 = await store.addOrUpdateByLocator(appointment1);
         expect(result1).to.be.false;
 
         const storedAppointments = [...store.getExpiredSince(appointment2.endBlock + 1)];
@@ -121,10 +121,10 @@ describe("Store", () => {
         }
     };
     it("removeById does remove appointment", async () => {
-        const appointment1 = getAppointment("id1", 1, 1);
+        const appointment1 = getAppointment(1, 1, 1);
 
         // second is added
-        await store.addOrUpdateByStateLocator(appointment1);
+        await store.addOrUpdateByLocator(appointment1);
         const result = await store.removeById(appointment1.id);
         expect(result).to.be.true;
 
@@ -133,10 +133,10 @@ describe("Store", () => {
         expectNotFound(() => db.get(appointment1.id));
     });
     it("removeById does not remove appointment already removed", async () => {
-        const appointment1 = getAppointment("id1", 1, 1);
+        const appointment1 = getAppointment(1, 1, 1);
 
         // second is added
-        await store.addOrUpdateByStateLocator(appointment1);
+        await store.addOrUpdateByLocator(appointment1);
         const result = await store.removeById(appointment1.id);
         expect(result).to.be.true;
         const result2 = await store.removeById(appointment1.id);
@@ -147,10 +147,10 @@ describe("Store", () => {
     });
 
     it("removeById does not remove non-existant appointment", async () => {
-        const appointment1 = getAppointment("id1", 1, 1);
-        const appointment2 = getAppointment("id2", 1, 1);
+        const appointment1 = getAppointment(1, 1, 1);
+        const appointment2 = getAppointment(2, 1, 1);
 
-        await store.addOrUpdateByStateLocator(appointment1);
+        await store.addOrUpdateByLocator(appointment1);
         const result = await store.removeById(appointment2.id);
         expect(result).to.be.false;
 
@@ -162,11 +162,11 @@ describe("Store", () => {
     });
 
     it("removeById does allow add after remove", async () => {
-        const appointment1 = getAppointment("id1", 1, 1);
+        const appointment1 = getAppointment(1, 1, 1);
 
-        await store.addOrUpdateByStateLocator(appointment1);
+        await store.addOrUpdateByLocator(appointment1);
         await store.removeById(appointment1.id);
-        const result = await store.addOrUpdateByStateLocator(appointment1);
+        const result = await store.addOrUpdateByLocator(appointment1);
         expect(result).to.be.true;
 
         const dbAppointment1 = await db.get(appointment1.id);
@@ -177,11 +177,11 @@ describe("Store", () => {
     });
 
     it("removeById does not remove other appointments", async () => {
-        const appointment1 = getAppointment("id1", 1, 1);
-        const appointment2 = getAppointment("id2", 1, 1);
+        const appointment1 = getAppointment(1, 1, 1);
+        const appointment2 = getAppointment(2, 1, 1);
 
-        await store.addOrUpdateByStateLocator(appointment1);
-        await store.addOrUpdateByStateLocator(appointment2);
+        await store.addOrUpdateByLocator(appointment1);
+        await store.addOrUpdateByLocator(appointment2);
         const result = await store.removeById(appointment1.id);
         expect(result).to.be.true;
 
@@ -195,22 +195,22 @@ describe("Store", () => {
     });
 
     it("expiredSince fetches items with end block less than supplied", async () => {
-        const appointment1 = getAppointment("id1", 1, 1);
-        const appointment2 = getAppointment("id2", 5, 1);
-        const appointment3 = getAppointment("id3", 10, 1);
+        const appointment1 = getAppointment(1, 1, 1);
+        const appointment2 = getAppointment(2, 5, 1);
+        const appointment3 = getAppointment(3, 10, 1);
 
-        await store.addOrUpdateByStateLocator(appointment1);
-        await store.addOrUpdateByStateLocator(appointment2);
-        await store.addOrUpdateByStateLocator(appointment3);
+        await store.addOrUpdateByLocator(appointment1);
+        await store.addOrUpdateByLocator(appointment2);
+        await store.addOrUpdateByLocator(appointment3);
 
         expect([...(await store.getExpiredSince(5))]).to.deep.equal([appointment1]);
     });
 
     it("startup does load all appointments", async () => {
-        const appointment1 = getAppointment("id1", 1, 1);
-        const appointment2 = getAppointment("id2", 5, 1);
-        const appointment3 = getAppointment("id3", 10, 1);
-        const appointment4 = getAppointment("id3", 10, 2);
+        const appointment1 = getAppointment(1, 1, 1);
+        const appointment2 = getAppointment(2, 5, 1);
+        const appointment3 = getAppointment(3, 10, 1);
+        const appointment4 = getAppointment(3, 10, 2);
 
         const testDB = levelup(
             encodingDown<string, any>(MemDown(), {
@@ -231,7 +231,7 @@ describe("Store", () => {
         expect(expired[1]).to.deep.equal(appointment2);
         expect(expired[2]).to.deep.equal(appointment3);
         // now check an update
-        await testStore.addOrUpdateByStateLocator(appointment4);
+        await testStore.addOrUpdateByLocator(appointment4);
 
         expired = [...(await testStore.getExpiredSince(appointment3.endBlock + 1))];
         expect(expired[0]).to.deep.equal(appointment1);
@@ -241,15 +241,15 @@ describe("Store", () => {
     });
 
     it("getAll returns all appointments", async () => {
-        const appointment1 = getAppointment("id1", 1, 1);
-        const appointment2 = getAppointment("id2", 500000000000, 1);
-        const appointment3 = getAppointment("id3", 10, 1);
-        const appointment3A = getAppointment("id3", 1000000000000000, 2);
+        const appointment1 = getAppointment(1, 1, 1);
+        const appointment2 = getAppointment(2, 500000000000, 1);
+        const appointment3 = getAppointment(3, 10, 1);
+        const appointment3A = getAppointment(3, 1000000000000000, 2);
 
-        await store.addOrUpdateByStateLocator(appointment1);
-        await store.addOrUpdateByStateLocator(appointment2);
-        await store.addOrUpdateByStateLocator(appointment3);
-        await store.addOrUpdateByStateLocator(appointment3A);
+        await store.addOrUpdateByLocator(appointment1);
+        await store.addOrUpdateByLocator(appointment2);
+        await store.addOrUpdateByLocator(appointment3);
+        await store.addOrUpdateByLocator(appointment3A);
 
         const appointments = store.getAll();
 

@@ -1,6 +1,11 @@
 import { ethers } from "ethers";
-import { ChannelType } from "./channelType";
-import uuid from "uuid/v4";
+import appointmentRequestSchemaJson from "./appointmentRequestSchema.json";
+import Ajv from "ajv";
+import { PublicDataValidationError } from "./errors";
+import logger from "../logger";
+import { BigNumber } from "ethers/utils";
+const ajv = new Ajv();
+const appoitmentRequestValidation = ajv.compile(appointmentRequestSchemaJson);
 
 // /**
 //  * An appointment that has been accepted by PISA
@@ -20,7 +25,10 @@ import uuid from "uuid/v4";
 //     id: string;
 // }
 
-export interface IAppointmentRequest {
+// TODO:173: check the types of these in JSON schema - and improve the type checking
+// TODO:173: perhaps need big numbers
+
+export interface IAppointment {
     // the address of the external contract to which the data will be submitted
     readonly contractAddress: string;
 
@@ -38,10 +46,9 @@ export interface IAppointmentRequest {
     readonly challengePeriod: number;
 
     // an appointment id, supplied by the customer
-    readonly customerChosenId: string;
+    readonly customerChosenId: number;
 
     // a counter that allows users to replace existing jobs
-    // TODO:173: should this be set by the customer or pisa?
     readonly jobId: number;
 
     // the data to supply when calling the external address from inside the contract
@@ -65,13 +72,13 @@ export interface IAppointmentRequest {
     // the post-condition data to be passed to the dispute handler to verify whether
     // recourse is required
     readonly postCondition: string;
-}
 
-export interface IAppointment extends IAppointmentRequest {
     // the hash used for fair exchange of the appointment. The customer will be required to
     // reveal the pre-image of this to seek recourse, which will only be given to them upon payment
     paymentHash: string;
 }
+
+export class AppointmentRequest {}
 
 export class Appointment implements IAppointment {
     constructor(
@@ -81,7 +88,7 @@ export class Appointment implements IAppointment {
         public readonly startBlock: number,
         public readonly endBlock: number,
         public readonly challengePeriod: number,
-        public readonly customerChosenId: string,
+        public readonly customerChosenId: number,
         public readonly jobId: number,
         public readonly data: string,
         public readonly refund: number,
@@ -133,7 +140,28 @@ export class Appointment implements IAppointment {
             paymentHash: appointment.paymentHash
         };
     }
-    
+
+    public static FreeHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("on-the-house"));
+
+    public static validate(obj: any) {
+        // TODO:173: this requires tests
+        const valid = appoitmentRequestValidation(obj);
+        if (!valid) throw new PublicDataValidationError(appoitmentRequestValidation.errors!.map(e => `${e.propertyName}:${e.message}`).join("\n")); // prettier-ignore
+
+        const appointment = Appointment.fromIAppointment(obj as IAppointment);
+        if (appointment.paymentHash !== Appointment.FreeHash) throw new PublicDataValidationError("Invalid payment hash."); // prettier-ignore
+
+        try {
+            appointment.getEventFilter();
+        } catch (doh) {
+            console.log(doh);
+            logger.error(doh);
+            throw new PublicDataValidationError("Invalid event arguments for ABI.");
+        }
+
+        return appointment;
+    }
+
     public get locator() {
         return `${this.customerChosenId}|${this.customerAddress}`;
     }
@@ -143,32 +171,44 @@ export class Appointment implements IAppointment {
     public formatLog(message: string): string {
         return `|${this.id}| ${message}`;
     }
+
+    public get eventFilter() {
+        if(!this.mEventFilter) {
+            this.mEventFilter = this.getEventFilter();
+        }
+        return this.mEventFilter;
+    }
+    private mEventFilter: ethers.EventFilter;
+
     // TODO:173: this should be run when we accept an appointment to make sure it doesnt throw
-    public getEventFilter(): ethers.EventFilter {
-        // first generate the interface from the abi
-        const iFace = new ethers.utils.Interface([this.eventABI]);
-        // name of the event
-        // TODO:173: also make sure that this is the only, and it is event etc
-        const name = iFace.abi[0].name;
-        const inputs = iFace.abi[0].inputs;
+    private getEventFilter(): ethers.EventFilter {
+        // the abi is in human readable format, we can parse it with ethersjs
+        // then check that it's of the right form before separating the name and inputs
+        // to form topics
 
-        //TODO:173: need a way to encode nulls
-        // TODO:173: at the moment we do it by specifying indexes of non null items as the first point
-        const indexes: number[] = ethers.utils.defaultAbiCoder.decode(["uint256[]"], this.eventArgs);
-        const namedInputs = inputs
-            .map((input, index) => (indexes.includes(index) ? input : undefined))
-            .filter(i => i !== undefined)
-            .map(i => i!);
+        const eventInterface = new ethers.utils.Interface([this.eventABI]);
+        if (eventInterface.abi.length !== 1) throw new PublicDataValidationError("Invalid ABI. ABI must specify a single event."); // prettier-ignore
+        const event = eventInterface.abi[0];
 
-        const params: any[] = [
-            ...ethers.utils.defaultAbiCoder.decode(["uint256[]"].concat(namedInputs.map(i => i.type)), this.eventArgs)
-        ];
-        const topics = namedInputs.length
-            ? iFace.events[name].encodeTopics(params)
-            : iFace.events[name].encodeTopics([]);
+        if (event.type !== "event") throw new PublicDataValidationError("Invalid ABI. ABI must specify an event.");
+
+        const name = eventInterface.abi[0].name;
+        const inputs = eventInterface.abi[0].inputs;
+
+        // we encode within the data which inputs we'll be filtering on
+        // so the first thing encoded is an array of integers representing the
+        // indexes of the arguments that will be used in the filter.
+        // non specified indexes will be null
+        // TODO:173: tests for this whole function
+        const indexes: BigNumber[] = ethers.utils.defaultAbiCoder.decode(["uint256[]"], this.eventArgs)[0];
+        const namedInputs = indexes.map(i => i.toNumber()).map(i => inputs[i]);
+        const decodedInputs = ethers.utils.defaultAbiCoder
+            .decode(["uint256[]"].concat(namedInputs.map(i => i.type)), this.eventArgs)
+            .slice(1);
+
+        const topics = eventInterface.events[name].encodeTopics(decodedInputs);
         return {
             address: this.contractAddress,
-            // TODO:173: this could be empty no?
             topics
         };
     }

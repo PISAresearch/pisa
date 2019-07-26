@@ -14,7 +14,7 @@ const ganache = Ganache.provider({
     mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect"
 });
 
-const createAppointment = (id: string, data: string): Appointment => {
+const createAppointment = (id: number, data: string): Appointment => {
     return Appointment.fromIAppointment({
         challengePeriod: 10,
         contractAddress: "contractAddress",
@@ -82,7 +82,7 @@ describe("MultiResponder", () => {
     });
 
     it("startResponse can issue transaction", async () => {
-        const appointment = createAppointment("app1", "data1");
+        const appointment = createAppointment(1, "data1");
 
         const responder = new MultiResponder(
             signer,
@@ -103,8 +103,8 @@ describe("MultiResponder", () => {
     });
 
     it("startResponse can issue two transactions and replace", async () => {
-        const appointment1 = createAppointment("app1", "data1");
-        const appointment2 = createAppointment("app2", "data2");
+        const appointment1 = createAppointment(1, "data1");
+        const appointment2 = createAppointment(2, "data2");
 
         const responder = new MultiResponder(
             signer,
@@ -133,8 +133,8 @@ describe("MultiResponder", () => {
     });
 
     it("startResponse can issue two transactions but not replace", async () => {
-        const appointment = createAppointment("app1", "data1");
-        const appointment2 = createAppointment("app2", "data2");
+        const appointment = createAppointment(1, "data1");
+        const appointment2 = createAppointment(2, "data2");
 
         const responder = new MultiResponder(
             signer,
@@ -166,7 +166,7 @@ describe("MultiResponder", () => {
     });
 
     it("startResponse swallows error", async () => {
-        const appointment = createAppointment("app1", "data1");
+        const appointment = createAppointment(1, "data1");
         const responder = new MultiResponder(
             signer,
             errorGasPriceEstimator,
@@ -183,9 +183,9 @@ describe("MultiResponder", () => {
     });
 
     it("startResponse doesnt queue beyond max depth", async () => {
-        const appointment = createAppointment("app1", "data1");
-        const appointment2 = createAppointment("app2", "data2");
-        const appointment3 = createAppointment("app3", "data3");
+        const appointment = createAppointment(1, "data1");
+        const appointment2 = createAppointment(2, "data2");
+        const appointment3 = createAppointment(3, "data3");
 
         const responder = new MultiResponder(signer, decreasingGasPriceEstimator, 2, replacementRate);
 
@@ -209,7 +209,7 @@ describe("MultiResponder", () => {
     });
 
     it("txMined does dequeue", async () => {
-        const appointment = createAppointment("app1", "data1");
+        const appointment = createAppointment(1, "data1");
         const responder = new MultiResponder(
             signer,
             increasingGasPriceEstimator,
@@ -229,8 +229,8 @@ describe("MultiResponder", () => {
     });
 
     it("txMined does replace", async () => {
-        const appointment = createAppointment("app1", "data1");
-        const appointment2 = createAppointment("app2", "data2");
+        const appointment = createAppointment(1, "data1");
+        const appointment2 = createAppointment(2, "data2");
         const responder = new MultiResponder(
             signer,
             increasingGasPriceEstimator,
@@ -278,7 +278,7 @@ describe("MultiResponder", () => {
     });
 
     it("txMined does nothing when item not in queue", async () => {
-        const appointment = createAppointment("app1", "data1");
+        const appointment = createAppointment(1, "data1");
         const responder = new MultiResponder(
             signer,
             increasingGasPriceEstimator,
@@ -295,7 +295,7 @@ describe("MultiResponder", () => {
     });
 
     it("txMined does nothing nonce is not front of queue", async () => {
-        const appointment = createAppointment("app1", "data1");
+        const appointment = createAppointment(1, "data1");
         const responder = new MultiResponder(
             signer,
             increasingGasPriceEstimator,
@@ -315,8 +315,8 @@ describe("MultiResponder", () => {
     });
 
     it("reEnqueueMissingItems does issue new transactions", async () => {
-        const appointment = createAppointment("app1", "data1");
-        const appointment2 = createAppointment("app2", "data2");
+        const appointment = createAppointment(1, "data1");
+        const appointment2 = createAppointment(2, "data2");
 
         // there are some items that are not in the queue, but are in the multi responder
         // we achieve this by adding the items, the mining them, then insisting they're still in pending
@@ -346,8 +346,8 @@ describe("MultiResponder", () => {
 
     it("reEnqueueMissingItems does replace transactions", async () => {
         // choose a lower gas fee for the first item - this should cause a double replacement
-        const appointment = createAppointment("app1", "data1");
-        const appointment2 = createAppointment("app2", "data2");
+        const appointment = createAppointment(1, "data1");
+        const appointment2 = createAppointment(2, "data2");
 
         const responder = new MultiResponder(
             signer,
@@ -379,7 +379,7 @@ describe("MultiResponder", () => {
     });
 
     it("reEnqueueMissingItems throws error for missing transactions", async () => {
-        const appointmentId = "app1";
+        const appointmentId = "id1";
         const responder = new MultiResponder(
             signer,
             decreasingGasPriceEstimator,
@@ -394,8 +394,8 @@ describe("MultiResponder", () => {
     });
 
     it("reEnqueueMissingItems does nothing for no missing transactions", async () => {
-        const appointment = createAppointment("app1", "data1");
-        const appointment2 = createAppointment("app2", "data2");
+        const appointment = createAppointment(1, "data1");
+        const appointment2 = createAppointment(2, "data2");
 
         const responder = new MultiResponder(
             signer,
@@ -419,7 +419,7 @@ describe("MultiResponder", () => {
     });
 
     it("endResponse removes item from transactions", async () => {
-        const appointment = createAppointment("app1", "data1");
+        const appointment = createAppointment(1, "data1");
         const responder = new MultiResponder(
             signer,
             decreasingGasPriceEstimator,

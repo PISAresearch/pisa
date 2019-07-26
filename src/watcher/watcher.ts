@@ -34,11 +34,11 @@ type WatcherAnchorState = MappedState<WatcherAppointmentAnchorState> & BlockNumb
 
 export class WatcherAppointmentStateReducer implements StateReducer<WatcherAppointmentAnchorState, IBlockStub & Logs> {
     constructor(private cache: ReadOnlyBlockCache<IBlockStub & Logs>, private appointment: Appointment) {
-        const filter = this.appointment.getEventFilter();
+        const filter = this.appointment.eventFilter;
         if (!filter.topics) throw new ApplicationError(`topics should not be undefined`);
     }
     public getInitialState(block: IBlockStub & Logs): WatcherAppointmentAnchorState {
-        const filter = this.appointment.getEventFilter();
+        const filter = this.appointment.eventFilter;
 
         const eventAncestor = this.cache.findAncestor(block.hash, ancestor =>
             hasLogMatchingEventFilter(ancestor, filter)
@@ -58,7 +58,7 @@ export class WatcherAppointmentStateReducer implements StateReducer<WatcherAppoi
     public reduce(prevState: WatcherAppointmentAnchorState, block: IBlockStub & Logs): WatcherAppointmentAnchorState {
         if (
             prevState.state === WatcherAppointmentState.WATCHING &&
-            hasLogMatchingEventFilter(block, this.appointment.getEventFilter())
+            hasLogMatchingEventFilter(block, this.appointment.eventFilter)
         ) {
             return {
                 state: WatcherAppointmentState.OBSERVED,

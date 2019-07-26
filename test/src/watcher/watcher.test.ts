@@ -1,6 +1,6 @@
 import "mocha";
 import { expect } from "chai";
-import { mock, instance, when, resetCalls, verify, anything } from "ts-mockito";
+import { mock, instance, when, resetCalls, verify, anything, spy } from "ts-mockito";
 import { AppointmentStore } from "../../../src/watcher";
 import { ethers } from "ethers";
 import { MultiResponder } from "../../../src/responder";
@@ -49,46 +49,9 @@ const blocks: (IBlockStub & Logs)[] = [
     }
 ];
 
-// Mock of an appointment, in several tests
-class MockAppointment extends Appointment {
-    public getStateLocator(): string {
-        throw new Error("Method not implemented.");
-    }
-    public getContractAbi() {
-        return [];
-    }
-    public getContractAddress(): string {
-        return "0xaaaabbbbccccdddd";
-    }
-    public getEventFilter(): ethers.EventFilter {
-        return {
-            address: observedEventAddress,
-            topics: observedEventTopics
-        };
-    }
-    public getEventName(): string {
-        throw new Error("Method not implemented.");
-    }
-    public getStateNonce(): number {
-        throw new Error("Method not implemented.");
-    }
-    public getResponseFunctionName(): string {
-        return "responseFnName";
-    }
-    public getResponseFunctionArgs(): any[] {
-        return [];
-    }
-}
-
-class MockAppointmentWithEmptyFilter extends MockAppointment {
-    public getEventFilter(): ethers.EventFilter {
-        return {};
-    }
-}
-
 describe("WatcherAppointmentStateReducer", () => {
     const appMock = mock(Appointment);
-    when(appMock.getEventFilter()).thenReturn({
+    when(appMock.eventFilter).thenReturn({
         address: observedEventAddress,
         topics: observedEventTopics
     });
@@ -100,7 +63,7 @@ describe("WatcherAppointmentStateReducer", () => {
 
     it("constructor throws ApplicationError if the topics are not set in the filter", () => {
         const emptyAppMock = mock(Appointment);
-        when(emptyAppMock.getEventFilter()).thenReturn({});
+        when(emptyAppMock.eventFilter).thenReturn({});
         when(appMock.id).thenReturn("app1");
         const emptyAppointment = instance(emptyAppMock);
 
@@ -193,7 +156,7 @@ describe("Watcher", () => {
 
     beforeEach(() => {
         const appMock = mock(Appointment);
-        when(appMock.getEventFilter()).thenReturn({
+        when(appMock.eventFilter).thenReturn({
             address: observedEventAddress,
             topics: observedEventTopics
         });

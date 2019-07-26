@@ -53,33 +53,21 @@ describe("End to end", () => {
         const setStateHash = KitsuneTools.hashForSetState(hashState, round, channelContract.address);
         sig0 = await provider.getSigner(player0).signMessage(ethers.utils.arrayify(setStateHash));
         sig1 = await provider.getSigner(player1).signMessage(ethers.utils.arrayify(setStateHash));
-        data = KitsuneTools.packData(hashState, round, sig0, sig1);
+        data = KitsuneTools.encodeSetStateData(hashState, round, sig0, sig1);
+        //data = KitsuneTools.packData(hashState, round, sig0, sig1);
     });
 
     it("inspect and watch a contract", async () => {
-        
-        // // 1. Verify appointment
-        // const appointment = new KitsuneAppointment({
-        //     stateUpdate: {
-        //         contractAddress: channelContract.address,
-        //         hashState: hashState,
-        //         round,
-        //         signatures: [sig0, sig1]
-        //     },
-
-        //     expiryPeriod: 12,
-        //     type: ChannelType.Kitsune
-        // });
         const appointment : Appointment = Appointment.fromIAppointment({
             challengePeriod,
             contractAddress: channelContract.address, 
             customerAddress: player0, 
             data, 
             endBlock: 22, 
-            eventABI: "event EventDispute(uint256 indexed)",
+            eventABI: KitsuneTools.eventABI(),
             eventArgs: KitsuneTools.eventArgs(),
             gas: 100000,
-            customerChosenId: channelContract.address,
+            customerChosenId: 10,
             jobId: 0,
             mode: 0,
             postCondition: "0x",
@@ -102,7 +90,7 @@ describe("End to end", () => {
         let db = levelup(MemDown());
         const store = new AppointmentStore(db);
         
-        await store.addOrUpdateByStateLocator(appointment);
+        await store.addOrUpdateByLocator(appointment);
         const watcher = new Watcher(multiResponder, blockProcessor.blockCache, store, 0, 20);
         const player0Contract = channelContract.connect(provider.getSigner(player0));
 

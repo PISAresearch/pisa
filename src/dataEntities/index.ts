@@ -1,4 +1,4 @@
-export { IAppointment, IAppointmentRequest, Appointment } from "./appointment";
+export { IAppointment, Appointment, SignedAppointment } from "./appointment";
 export {
     ArgumentError,
     TimeoutError,
