@@ -21,20 +21,13 @@ export interface ReadOnlyBlockCache<TBlock extends IBlockStub> {
  * Utility class to store and query info on full blocks up to a given maximum depth `maxDepth`, compared to the current
  * maximum height ever seen.
  * It prunes all the blocks at depth bigger than `maxDepth`, or with height smaller than the first block that was added.
- * It does not allow to add blocks without adding their parent first, except if they are at depth `maxDepth`.
+ * Added blocks are considered `complete` if they are at depth `maxDepth`, or if their parent is `complete`.
  *
  * The following invariants are guaranteed:
- * 1) Adding a block after the parent was added will never throw an exception.
- * 2) No block at depth more than `maxDepth` is still found in the structure.
- * 3) No block is retained if its height is smaller than the first block ever added.
- * 4) All blocks added are never pruned if their depth is less then `maxDepth`.
- * 5) No block can be added before their parent, unless their height is equal to the height of the first added block, or
- *    their depth is `maxDepth`.
- *
- * Note that in order to guarantee the invariant (1), `addBlock` can be safely called even for blocks that will not
- * actually be added (for example because they are already too deep); in that case, it will return `false`.
- *
- * TODO:227: update documentation
+ * 1) No complete or pending block at depth more than `maxDepth` is still found in the structure, where the depth is computed
+ *    with respect to the highest block number of a complete block.
+ * 2) No block is retained if its height is smaller than the first block ever added.
+ * 3) All added blocks are never pruned if their depth is less then `maxDepth`.
  **/
 export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache<TBlock> {
     // Blocks that are already
@@ -195,27 +188,25 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
     }
 
     /**
-     * Returns the block with hash `blockHash`, or throws exception if the block is not in cache.
+     * Returns the block with hash `blockHash`, or throws exception if the block is not in cache (complete nor pending).
      * @param blockHash
-     * TODO:227: do we want to allow pending blocks?
      */
     public getBlock(blockHash: string): Readonly<TBlock> {
-        const block = this.blocksByHash.get(blockHash);
+        const block = this.blocksByHash.get(blockHash) || this.pendingBlocksByHash.get(blockHash);
         if (!block) throw new ApplicationError(`Block not found for hash: ${blockHash}.`);
         return block;
     }
 
     /**
-     * Returns true if the block with hash `blockHash` is currently in cache.
-     * TODO:227: do we want to allow pending blocks?
+     * Returns true if the block with hash `blockHash` is currently in cache; if `includePending` is `true`, pending blocks are also considered.
      **/
-    public hasBlock(blockHash: string): boolean {
-        return this.blocksByHash.has(blockHash);
+    public hasBlock(blockHash: string, includePending: boolean = false): boolean {
+        return this.blocksByHash.has(blockHash) || (includePending && this.pendingBlocksByHash.has(blockHash));
     }
 
     /**
      * Iterator over all the blocks in the ancestry of the block with hash `initialBlockHash` (inclusive).
-     * The block needs to be complete.
+     * The block with hash `initialBlockHash` must be complete.
      * @param initialBlockHash
      */
     public *ancestry(initialBlockHash: string): IterableIterator<Readonly<TBlock>> {
@@ -231,7 +222,7 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
     /**
      * Finds and returns the nearest ancestor that satisfies `predicate`.
      * Returns `null` if no such ancestor is found.
-     * The block needs to be complete.
+     * The block with hash `initialBlockHash` must be complete.
      */
     public findAncestor(
         initialBlockHash: string,
@@ -249,7 +240,7 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
      * Returns the oldest ancestor of `blockHash` that is stored in the blockCache.
      * @throws `ArgumentError` if `blockHash` is not in the blockCache.
      * @param blockHash
-     * The block needs to be complete.
+     * The block with hash `blockHash` must be complete.
      */
     public getOldestAncestorInCache(blockHash: string): Readonly<TBlock> {
         if (!this.hasBlock(blockHash)) {
@@ -269,7 +260,7 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
 
     /**
      * Sets the head block in the cache. AddBlock must be called before setHead can be
-     * called for that hash.
+     * called for that hash, and the block must be complete.
      * @param blockHash
      */
     public setHead(blockHash: string) {
@@ -300,7 +291,7 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
  * @param cache
  * @param headHash
  * @param txHash
- * @throws `ArgumentError` if the block with hash `headHash` is not in the cache (or is pending).
+ * @throws `ArgumentError` if the block with hash `headHash` is not in the cache or is not complete.
  */
 export function getConfirmations<T extends IBlockStub & TransactionHashes>(
     cache: ReadOnlyBlockCache<T>,

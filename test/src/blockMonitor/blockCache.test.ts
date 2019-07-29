@@ -40,6 +40,96 @@ describe("BlockCache", () => {
         expect(blocks[0]).to.deep.include(bc.getBlock(blocks[0].hash));
     });
 
+    it("addBlock adds blocks that are complete and returns true", () => {
+        const bc = new BlockCache(maxDepth);
+        const blocks = generateBlocks(10, 5, "main");
+        expect(bc.addBlock(blocks[0])).to.be.true;
+        expect(bc.addBlock(blocks[1])).to.be.true;
+        expect(bc.addBlock(blocks[2])).to.be.true;
+    });
+    it("addBlock adds pending blocks and returns false", () => {
+        const bc = new BlockCache(maxDepth);
+        const blocks = generateBlocks(10, 5, "main");
+        bc.addBlock(blocks[0]);
+        expect(bc.addBlock(blocks[3])).to.be.false;
+        expect(bc.addBlock(blocks[2])).to.be.false;
+    });
+
+    it("hasBlock returns true for an existing complete block", () => {
+        const bc = new BlockCache(maxDepth);
+        const blocks = generateBlocks(10, 5, "main");
+        bc.addBlock(blocks[0]);
+        bc.addBlock(blocks[1]);
+        expect(bc.hasBlock(blocks[1].hash)).to.be.true;
+    });
+    it("hasBlock returns false for a non-existing block", () => {
+        const bc = new BlockCache(maxDepth);
+        const blocks = generateBlocks(10, 5, "main");
+        bc.addBlock(blocks[0]);
+        bc.addBlock(blocks[1]);
+        expect(bc.hasBlock("someNonExistingHash")).to.be.false;
+    });
+    it("hasBlock( , false) returns false for a pending block", () => {
+        const bc = new BlockCache(maxDepth);
+        const blocks = generateBlocks(10, 5, "main");
+        bc.addBlock(blocks[0]);
+        bc.addBlock(blocks[1]);
+        bc.addBlock(blocks[3]);
+        expect(bc.hasBlock(blocks[3].hash, false)).to.be.false;
+    });
+    it("hasBlock( , true) returns true for a pending block", () => {
+        const bc = new BlockCache(maxDepth);
+        const blocks = generateBlocks(10, 5, "main");
+        bc.addBlock(blocks[0]);
+        bc.addBlock(blocks[1]);
+        bc.addBlock(blocks[3]);
+        expect(bc.hasBlock(blocks[3].hash, true)).to.be.true;
+    });
+
+    it("addBlock makes sure that previously pending block become complete if appropriate", () => {
+        const bc = new BlockCache(maxDepth);
+        const blocks = generateBlocks(10, 5, "main");
+        bc.addBlock(blocks[0]);
+        bc.addBlock(blocks[3]);
+        bc.addBlock(blocks[2]);
+        expect(bc.addBlock(blocks[1])).to.be.true;
+        expect(bc.maxHeight).to.equal(blocks[3].number);
+        expect(bc.hasBlock(blocks[3].hash)).to.be.true;
+    });
+
+    it("maxHeight does not change for pending blocks", () => {
+        const bc = new BlockCache(maxDepth);
+        const blocks = generateBlocks(10, 5, "main");
+        bc.addBlock(blocks[0]);
+        bc.addBlock(blocks[3]);
+        expect(bc.maxHeight).to.equal(blocks[0].number);
+    });
+
+    it("getBlock returns a complete block", () => {
+        const bc = new BlockCache(maxDepth);
+        const blocks = generateBlocks(10, 5, "main");
+        bc.addBlock(blocks[0]);
+        bc.addBlock(blocks[1]);
+        bc.addBlock(blocks[3]);
+        expect(bc.getBlock(blocks[1].hash)).to.deep.equal(blocks[1]);
+    });
+    it("getBlock returns a pending block", () => {
+        const bc = new BlockCache(maxDepth);
+        const blocks = generateBlocks(10, 5, "main");
+        bc.addBlock(blocks[0]);
+        bc.addBlock(blocks[1]);
+        bc.addBlock(blocks[3]);
+        expect(bc.getBlock(blocks[3].hash)).to.deep.equal(blocks[3]);
+    });
+    it("getBlock throws ApplicationError for an unknown block", () => {
+        const bc = new BlockCache(maxDepth);
+        const blocks = generateBlocks(10, 5, "main");
+        bc.addBlock(blocks[0]);
+        bc.addBlock(blocks[1]);
+        bc.addBlock(blocks[3]);
+        expect(() => bc.getBlock("someNonExistingHash")).to.throw(ApplicationError);
+    });
+
     it("minHeight is equal to the initial block height if less then maxDepth blocks are added", () => {
         const bc = new BlockCache(maxDepth);
         const initialHeight = 3;
@@ -90,7 +180,6 @@ describe("BlockCache", () => {
         expect(bc.canAddBlock(otherBlocks[3])).to.be.true;
     });
 
-    //TODO:227: check this test
     it("canAddBlock returns false for blocks whose height is lower than the initial height", () => {
         const bc = new BlockCache(maxDepth);
 
@@ -100,6 +189,7 @@ describe("BlockCache", () => {
         bc.addBlock(blocks[3]);
 
         expect(bc.canAddBlock(blocks[2])).to.be.false;
+        expect(bc.canAddBlock(otherBlocks[2])).to.be.false;
     });
 
     it("canAddBlock returns true for blocks whose height is equal than the maximum depth", () => {
