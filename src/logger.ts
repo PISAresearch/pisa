@@ -1,6 +1,6 @@
-import { createLogger, format, transports } from "winston";
-import { getRequestId } from "./customExpressHttpContext";
+import { createLogger, Stream } from "bunyan";
 import fs from "fs";
+import path from "path";
 
 const logDir = "logs";
 
@@ -56,15 +56,6 @@ if (!fs.existsSync("./" + logDir)) {
     fs.mkdirSync("./" + logDir);
 }
 
-const myFormat = format.printf(info => {
-    // get the current request id
-    const requestId = getRequestId();
-    const requestString = requestId ? `[${requestId}] ` : "";
-    return `${info.timestamp} ${requestString}${info.level}: ${info.message}`;
-});
-
-const combinedFormats = format.combine(format.timestamp(), myFormat);
-
 // Default logger
 const logger = createNamedLogger(null);
 export default logger;
@@ -85,27 +76,25 @@ export function setLogLevel(level: LogLevelInfo) {
  * @param name
  */
 export function createNamedLogger(name: string | null) {
-    const prefix = name !== null ? name + "-" : "";
+    const prefix = name !== null ? name + "-" : "app";
 
-    const selectedTransports: transports.FileTransportInstance[] = [];
+    const streams: Stream[] = [];
     for (const levelInfo of currentLogLevelInfo.getLevelsBelow()) {
-        const level = levelInfo.logLevel;
-        selectedTransports.push(new transports.File({ dirname: logDir, filename: `${prefix}${level}.log`, level }));
+        streams.push({ path: path.join(logDir, `${prefix}${levelInfo.logLevel}.log`), level: levelInfo.logLevel });
     }
-
-    const newLogger = createLogger({
-        format: combinedFormats,
-        transports: selectedTransports
-    });
 
     // console log if we're not in production
     if (process.env.NODE_ENV !== "production" && process.env.NODE_ENV !== "test") {
-        newLogger.add(
-            new transports.Console({
-                format: combinedFormats
-            })
-        );
+        streams.push({
+            stream: process.stdout,
+            level: LogLevel.Info
+        });
     }
+
+    const newLogger = createLogger({
+        name: prefix,
+        streams
+    });
 
     return newLogger;
 }
