@@ -8,6 +8,10 @@ import { groupTuples } from "../utils/ethers";
 const ajv = new Ajv();
 const appointmentRequestValidation = ajv.compile(appointmentRequestSchemaJson);
 
+export enum AppointmentMode {
+    Relay = 0
+}
+
 export interface IAppointmentBase {
     /**
      * The address of the external contract to which the data will be submitted
@@ -56,11 +60,6 @@ export interface IAppointmentBase {
     readonly gas: number;
 
     /**
-     * An identifier for the dispute handler to be used in checking state during recourse
-     */
-    readonly mode: number;
-
-    /**
      * A human readable (https://blog.ricmoo.com/human-readable-contract-abis-in-ethers-js-141902f4d917) event abi
      */
     readonly eventABI: string;
@@ -88,6 +87,12 @@ export interface IAppointmentRequest extends IAppointmentBase {
      * an appointment id, supplied by the customer
      */
     readonly id: number;
+
+
+    /**
+     * An identifier for the dispute handler to be used in checking state during recourse
+     */
+    readonly mode: number;
 }
 
 export interface IAppointment extends IAppointmentBase {
@@ -95,6 +100,12 @@ export interface IAppointment extends IAppointmentBase {
      * an appointment id, supplied by the customer
      */
     readonly customerChosenId: number;
+
+
+    /**
+     * An identifier for the dispute handler to be used in checking state during recourse
+     */
+    readonly mode: AppointmentMode;
 }
 
 /**
@@ -159,6 +170,26 @@ export class Appointment implements IAppointment {
         };
     }
 
+    public static fromIAppointmentRequest(appointmentRequest: IAppointmentRequest): Appointment {
+        return new Appointment(
+            appointmentRequest.contractAddress,
+            appointmentRequest.customerAddress,
+            appointmentRequest.startBlock,
+            appointmentRequest.endBlock,
+            appointmentRequest.challengePeriod,
+            appointmentRequest.id,
+            appointmentRequest.jobId,
+            appointmentRequest.data,
+            appointmentRequest.refund,
+            appointmentRequest.gas,
+            appointmentRequest.mode,
+            appointmentRequest.eventABI,
+            appointmentRequest.eventArgs,
+            appointmentRequest.postCondition,
+            appointmentRequest.paymentHash
+        );
+    }
+
     /**
      * Currently we dont charge access to the API. But when we payment will be proved
      * by being able to reveal the pre-image of the payment hash. Even though the API is
@@ -177,12 +208,7 @@ export class Appointment implements IAppointment {
         if (!valid) throw new PublicDataValidationError(appointmentRequestValidation.errors!.map(e => `${e.propertyName}:${e.message}`).join("\n")); // prettier-ignore
         const request = obj as IAppointmentRequest;
 
-        const appointmentData: IAppointment = {
-            ...request,
-            customerChosenId: request.id
-        };
-
-        const appointment = Appointment.fromIAppointment(appointmentData);
+        const appointment = Appointment.fromIAppointmentRequest(request);
         if (appointment.paymentHash !== Appointment.FreeHash) throw new PublicDataValidationError("Invalid payment hash."); // prettier-ignore
 
         try {

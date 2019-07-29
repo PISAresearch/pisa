@@ -58,7 +58,7 @@ let execute = async () => {
             gas: 100000,
             id: 1,
             jobId: 0,
-            mode: 0,
+            mode: 1,
             postCondition: "0x",
             refund: 0,
             startBlock: 0,

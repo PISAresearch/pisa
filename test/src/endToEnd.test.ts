@@ -69,7 +69,7 @@ describe("End to end", () => {
             gas: 100000,
             customerChosenId: 10,
             jobId: 0,
-            mode: 0,
+            mode: 1,
             postCondition: "0x",
             refund: 0,
             startBlock: 0,

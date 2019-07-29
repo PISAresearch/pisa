@@ -1,6 +1,8 @@
 import { AppointmentStore } from "./watcher";
 import { ethers } from "ethers";
 import { SignedAppointment, IAppointment, Appointment, PublicDataValidationError } from "./dataEntities";
+import { AppointmentMode } from "./dataEntities/appointment";
+import { MultiResponder } from "./responder";
 
 /**
  * A PISA tower, configured to watch for specified appointment types
@@ -9,7 +11,8 @@ export class PisaTower {
     constructor(
         public readonly provider: ethers.providers.Provider,
         private readonly store: AppointmentStore,
-        private readonly appointmentSigner: EthereumAppointmentSigner
+        private readonly appointmentSigner: EthereumAppointmentSigner,
+        private readonly multiResponder: MultiResponder
     ) {}
 
     /**
@@ -20,11 +23,18 @@ export class PisaTower {
         if (!obj) throw new PublicDataValidationError("Json request body empty.");
         const appointment = Appointment.validate(obj);
 
-        // add this to the store so that other components can pick up on it
-        const currentAppointment = this.store.appointmentsByLocator.get(appointment.locator);
-        if (!currentAppointment || currentAppointment.jobId >= appointment.jobId) {
-            await this.store.addOrUpdateByLocator(appointment);
-        } else throw new PublicDataValidationError(`Job id too low. Should be greater than ${appointment.jobId}.`);
+        // is this a relay transaction, if so, add it to the responder.
+        // if not, add it to the watcher
+        if (appointment.mode === AppointmentMode.Relay) {
+            this.multiResponder.startResponse(appointment);
+        }
+        else {
+            // add this to the store so that other components can pick up on it
+            const currentAppointment = this.store.appointmentsByLocator.get(appointment.locator);
+            if (!currentAppointment || currentAppointment.jobId >= appointment.jobId) {
+                await this.store.addOrUpdateByLocator(appointment);
+            } else throw new PublicDataValidationError(`Job id too low. Should be greater than ${appointment.jobId}.`);
+        }
 
         const signature = await this.appointmentSigner.signAppointment(appointment);
         return new SignedAppointment(appointment, signature);

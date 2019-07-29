@@ -14,6 +14,8 @@ import encodingDown from "encoding-down";
 import { StatusCodeError } from "request-promise/errors";
 logger.transports.forEach(l => (l.level = "max"));
 
+
+
 const ganache = Ganache.provider({
     mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect"
 });
@@ -32,25 +34,25 @@ provider.pollingInterval = 100;
 
 const expect = chai.expect;
 
-        const appointmentRequest = (data: string, acc: string, contractAddress: string): IAppointmentRequest => {
-            return {
-                challengePeriod: 20,
-                contractAddress,
-                customerAddress: acc,
-                data,
-                endBlock: 22,
-                eventABI: KitsuneTools.eventABI(),
-                eventArgs: KitsuneTools.eventArgs(),
-                gas: 100000,
-                id: 1,
-                jobId: 0,
-                mode: 0,
-                postCondition: "0x",
-                refund: 0,
-                startBlock: 0,
-                paymentHash: Appointment.FreeHash
-            };
-        };
+const appointmentRequest = (data: string, acc: string, contractAddress: string, mode: number): IAppointmentRequest => {
+    return {
+        challengePeriod: 20,
+        contractAddress,
+        customerAddress: acc,
+        data,
+        endBlock: 22,
+        eventABI: KitsuneTools.eventABI(),
+        eventArgs: KitsuneTools.eventArgs(),
+        gas: 100000,
+        id: 1,
+        jobId: 0,
+        mode,
+        postCondition: "0x",
+        refund: 0,
+        startBlock: 0,
+        paymentHash: Appointment.FreeHash
+    };
+};
 
 describe("Service end-to-end", () => {
     let account0: string,
@@ -90,7 +92,8 @@ describe("Service end-to-end", () => {
             KitsuneTools.ContractBytecode,
             provider.getSigner()
         );
-        channelContract = await channelContractFactory.deploy([account0, account1], disputePeriod);
+        // add the responder as a user, so that it's allowed to call trigger dispute
+        channelContract = await channelContractFactory.deploy([account0, account1, responderWallet.address], disputePeriod);
         hashState = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("face-off"));
     });
 
@@ -116,7 +119,7 @@ describe("Service end-to-end", () => {
         const sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash));
         const sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash));
         const data = KitsuneTools.encodeSetStateData(hashState, round, sig0, sig1);
-        const appRequest = appointmentRequest(data, account0, channelContract.address);
+        const appRequest = appointmentRequest(data, account0, channelContract.address, 1);
 
         try {
             await request.post(`http://${nextConfig.hostName}:${nextConfig.hostPort + 1}/appointment`, {
@@ -145,7 +148,7 @@ describe("Service end-to-end", () => {
         const sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash));
         const sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash));
         const data = KitsuneTools.encodeSetStateData(hashState, round, sig0, sig1);
-        const appRequest = appointmentRequest(data, account0, channelContract.address);
+        const appRequest = appointmentRequest(data, account0, channelContract.address, 1);
 
         const res = await request.post(`http://${nextConfig.hostName}:${nextConfig.hostPort}/appointment`, {
             json: appRequest
@@ -166,6 +169,31 @@ describe("Service end-to-end", () => {
         try {
             // wait for the success result
             await waitForPredicate(successResult, s => s.success, 400);
+        } catch (doh) {
+            // fail if we dont get it
+            chai.assert.fail(true, false, "EventEvidence not successfully registered.");
+        }
+    }).timeout(3000);
+
+    it("create channel, relay trigger disupte", async () => {
+        const data = KitsuneTools.encodeTriggerDisputeData();
+        const appRequest = appointmentRequest(data, account0, channelContract.address, 0);
+
+        const res = await request.post(`http://${nextConfig.hostName}:${nextConfig.hostPort}/appointment`, {
+            json: appRequest
+        });
+
+        // now register a callback on the setstate event and trigger a response
+        const triggerDisputeEvent = "EventDispute(uint256)";
+        let successResult = { success: false };
+        channelContract.on(triggerDisputeEvent, async () => {
+            channelContract.removeAllListeners(triggerDisputeEvent);
+            successResult.success = true;
+        });
+
+        try {
+            // wait for the success result
+            await waitForPredicate(successResult, s => s.success, 200);
         } catch (doh) {
             // fail if we dont get it
             chai.assert.fail(true, false, "EventEvidence not successfully registered.");
