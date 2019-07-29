@@ -36,23 +36,6 @@ export abstract class StartStopService extends EventEmitter {
         super();
         let instance = this;
 
-        /**
-        * protected methods are:
-        * construct (= constructor) ; startInternal; stopInternal; start; stop
-        * They, and their internals, can use public methods without start having yet been called.
-        */
-        function asProtectedMethod (target: any, prop: string) {
-            return function (...args: any[]) {
-                instance.suppressNotStartedError++;
-                // This could better be a warn, for debugging.
-                if (instance.suppressNotStartedError >=2)
-                    throw new Error (`Multiple (${instance.suppressNotStartedError}) protected methods suppressing the NotStartedError on ${instance.constructor.name}`)
-                const result = target[prop].apply(instance, args);
-                instance.suppressNotStartedError--;
-                return result;
-            };
-        }
-
         let proxyHandler = {
             construct (target: any, prop: string) {
                 throw new Error ('Should not have reached here! (startStopService.construct)')
