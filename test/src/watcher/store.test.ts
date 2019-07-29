@@ -7,6 +7,8 @@ import MemDown from "memdown";
 import encodingDown from "encoding-down";
 import { KitsuneAppointment } from "../../../src/integrations/kitsune";
 import { ChannelType, IEthereumAppointment } from "../../../src/dataEntities";
+import {fnIt} from "../../../utils/fnIt";
+import { Store } from "express-rate-limit";
 
 const getAppointment = (id: string, stateLocator: string, endBlock: number, nonce: number) => {
     const appointmentMock = mock(KitsuneAppointment);
@@ -55,8 +57,8 @@ describe("Store", () => {
         await store.stop();
         await db.close();
     });
-
-    it("addOrUpdate does add appointment", async () => {
+    
+    fnIt<AppointmentStore>(s => s.addOrUpdateByStateLocator, "does add appointment", async() => {
         const appointment1 = getAppointment("id1", "stateLocator1", 5, 1);
         const result = await store.addOrUpdateByStateLocator(appointment1.object);
         expect(result).to.be.true;
@@ -67,6 +69,7 @@ describe("Store", () => {
         const dbApp = await db.get(appointment1.object.id);
         expect(dbApp).to.deep.equal(appointment1.object.getDBRepresentation());
     });
+   
 
     it("addOrUpdate does add multiple appointments", async () => {
         const appointment1 = getAppointment("id1", "stateLocator1", 1, 1);
