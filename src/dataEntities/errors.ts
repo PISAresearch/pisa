@@ -71,7 +71,7 @@ export class ArgumentError extends ApplicationError {
     constructor(message: string);
     constructor(message: string, ...args: any[]);
     constructor(message: string, ...args: any[]) {
-        super(message);
+        super(`${message}.${args.map(a => "\n" + JSON.stringify(a))}`);
         this.args = args;
         this.name = "ArgumentError";
     }

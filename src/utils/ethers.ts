@@ -1,33 +1,5 @@
 // Utility functions for ethers.js
-import { BaseProvider } from "ethers/providers";
 import { ethers } from "ethers";
-
-/**
- * Adds a delay to the provider. When polling, or getting block number, or waiting for confirmations,
- * the provider will behave as if the head is delay blocks deep. Use this function with caution,
- * it depends on the internal behaviour of ethersjs to function correctly, and as such is very
- * brittle. A better long term solution would be persist events observed via ethers js, and act
- * upon them later.
- * @param provider
- * @param delay
- */
-export const withDelay = (provider: BaseProvider, delay: number): void => {
-    const perform = provider.perform.bind(provider);
-    provider.perform = async (method: any, params: any) => {
-        let performResult = await perform(method, params);
-        if (method === "getBlockNumber") {
-            var value = parseInt(performResult);
-            if (value != performResult) {
-                throw new Error("invalid response - getBlockNumber");
-            }
-            if (value < delay) {
-                throw new Error(`invalid delay - cannot delay: ${delay} more than block height: ${value}`);
-            }
-            performResult = value - delay;
-        }
-        return performResult;
-    };
-};
 
 /**
  *
@@ -59,3 +31,20 @@ export async function validateProvider(provider: ethers.providers.Provider) {
     }
 }
 
+/**
+ * Groupts an array of key value tuples into two arrays, one of keys
+ * one of values
+ * @param tupleArray
+ */
+export function groupTuples(tupleArray: [string, any][]): [string[], any[]] {
+    return tupleArray.reduce(
+        // for some reason the ts compiler wont accept the proper types here
+        // so we have to use 'any' instead of [string[], any[]] for 'prev'
+        (prev: any, cur: [string, any]) => {
+            prev[0].push(cur[0]);
+            prev[1].push(cur[1]);
+            return prev;
+        },
+        [[] as string[], [] as any[]]
+    );
+}

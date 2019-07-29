@@ -1,4 +1,4 @@
-import { IEthereumResponseData, StartStopService } from "../dataEntities";
+import { Appointment, StartStopService } from "../dataEntities";
 import { GasQueue, PisaTransactionIdentifier, GasQueueItem, GasQueueItemRequest } from "./gasQueue";
 import { GasPriceEstimator } from "./gasPriceEstimator";
 import { ethers } from "ethers";
@@ -20,7 +20,7 @@ export class MultiResponder extends StartStopService {
         return this.mQueue;
     }
     private mQueue: GasQueue;
-    public readonly respondedTransactions: Map<string, { id: string; queueItem: GasQueueItem }> = new Map();
+    public readonly respondedTransactions: Map<string, GasQueueItem> = new Map();
     private chainId: number;
     /**
      * The address of the private signing key being used to create responses
@@ -80,7 +80,7 @@ export class MultiResponder extends StartStopService {
     /**
      * Issue a transaction to the network, and add a record to the responded transactions list
      */
-    public async startResponse(appointmentId: string, responseData: IEthereumResponseData) {
+    public async startResponse(appointment: Appointment) {
         try {
             if (this.mQueue.depthReached()) {
                 throw new QueueConsistencyError(
@@ -89,18 +89,16 @@ export class MultiResponder extends StartStopService {
             }
 
             // form a queue item request
-            const abiInterface = new ethers.utils.Interface(responseData.contractAbi);
-            const data = abiInterface.functions[responseData.functionName].encode(responseData.functionArgs);
             const txIdentifier = new PisaTransactionIdentifier(
                 this.chainId,
-                data,
-                responseData.contractAddress,
+                appointment.data,
+                appointment.contractAddress,
                 new BigNumber(0),
                 new BigNumber(MultiResponder.GAS_LIMIT)
             );
-            const idealGas = await this.gasEstimator.estimate(responseData);
-            const request = new GasQueueItemRequest(appointmentId, txIdentifier, idealGas, responseData);
-            logger.info(`Enqueueing request for ${appointmentId}. ${JSON.stringify(request)}.`);
+            const idealGas = await this.gasEstimator.estimate(appointment);
+            const request = new GasQueueItemRequest(txIdentifier, idealGas, appointment);
+            logger.info(`Enqueueing request for ${appointment.id}. ${JSON.stringify(request)}.`);
 
             // add the queue item to the queue, since the queue is ordered this may mean
             // that we need to replace some transactions on the network. Find those and
@@ -110,14 +108,12 @@ export class MultiResponder extends StartStopService {
             this.mQueue = replacedQueue;
 
             // and update the local list of tx identifiers for the latest data, then broadcast
-            replacedTransactions.forEach(q => {
-                this.respondedTransactions.set(q.request.appointmentId, { id: q.request.appointmentId, queueItem: q });
-            });
+            replacedTransactions.forEach(q => this.respondedTransactions.set(q.request.appointment.id, q));
             await Promise.all(replacedTransactions.map(b => this.broadcast(b)));
         } catch (doh) {
             if (doh instanceof QueueConsistencyError) logger.error(doh.stack!);
             else {
-                logger.error(`Unexpected error trying to respond for: ${appointmentId}.`);
+                logger.error(`Unexpected error trying to respond for: ${appointment.id}.`);
                 if (doh.stack) logger.error(doh.stack);
                 else logger.error(doh);
             }
@@ -172,12 +168,7 @@ export class MultiResponder extends StartStopService {
                 const reducedQueue = this.mQueue.consume(txIdentifier);
                 const replacedTransactions = reducedQueue.difference(this.mQueue);
                 this.mQueue = reducedQueue;
-                replacedTransactions.forEach(q => {
-                    this.respondedTransactions.set(q.request.appointmentId, {
-                        id: q.request.appointmentId,
-                        queueItem: q
-                    });
-                });
+                replacedTransactions.forEach(q => this.respondedTransactions.set(q.request.appointment.id, q));
 
                 // since we had to bump up some transactions - change their nonces
                 // we'll have to issue new transactions to the network
@@ -209,7 +200,7 @@ export class MultiResponder extends StartStopService {
             .map(appId => this.respondedTransactions.get(appId))
             .map(txRecord => {
                 if (!txRecord) throw new ArgumentError("No record of appointment in responder.", txRecord);
-                else return txRecord.queueItem;
+                else return txRecord;
             })
             .filter(item => !this.mQueue.contains(item.request.identifier));
 
@@ -219,9 +210,7 @@ export class MultiResponder extends StartStopService {
             const unlockedQueue = this.mQueue.prepend(missingQueueItems);
             const replacedTransactions = unlockedQueue.difference(this.mQueue);
             this.mQueue = unlockedQueue;
-            replacedTransactions.forEach(q => {
-                this.respondedTransactions.set(q.request.appointmentId, { id: q.request.appointmentId, queueItem: q });
-            });
+            replacedTransactions.forEach(q => this.respondedTransactions.set(q.request.appointment.id, q));
             await Promise.all(replacedTransactions.map(b => this.broadcast(b)));
         }
     }
@@ -238,9 +227,11 @@ export class MultiResponder extends StartStopService {
     private async broadcast(queueItem: GasQueueItem) {
         try {
             const tx = queueItem.toTransactionRequest();
-            logger.info(`Broadcasting tx for ${queueItem.request.appointmentId}. ${JSON.stringify(queueItem)}. ${JSON.stringify(tx)}.`); // prettier-ignore
+
+            logger.info(`Broadcasting tx for ${queueItem.request.appointment.id}. ${JSON.stringify(queueItem)}. ${JSON.stringify(tx)}.`); // prettier-ignore
             await this.signer.sendTransaction(tx);
         } catch (doh) {
+            console.log(doh)
             // we've failed to broadcast a transaction however this isn't a fatal
             // error. Periodically, we look to see if a transaction has been mined
             // for whatever reason if not then we'll need to re-issue the transaction

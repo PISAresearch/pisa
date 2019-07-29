@@ -1,5 +1,4 @@
 import { TimeoutError } from "../dataEntities";
-import { EventEmitter } from "events";
 
 export { validateProvider, getJsonRPCProvider } from "./ethers";
 
