@@ -15,6 +15,7 @@ import { ResponderBlock, TransactionStub, Block } from "../../../src/dataEntitie
 import { expect } from "chai";
 import { MultiResponder } from "../../../src/responder";
 import { mock, instance, verify, anything, capture } from "ts-mockito";
+import { fnIt } from "../../../utils/fnIt";
 
 const from1 = "from1";
 const from2 = "from2";
@@ -74,7 +75,7 @@ describe("ResponderAppointmentReducer", () => {
         blocks.forEach(b => blockCache.addBlock(b));
     });
 
-    it("getInitialState sets pending tx", () => {
+    fnIt<ResponderAppointmentReducer>(r => r.getInitialState, "sets pending tx", () => {
         const reducer = new ResponderAppointmentReducer(blockCache, txID1.identifier, appointmentId1, from1);
 
         const anchorState = reducer.getInitialState(blocks[0]);
@@ -83,7 +84,7 @@ describe("ResponderAppointmentReducer", () => {
         expect(anchorState.kind).to.equal(ResponderStateKind.Pending);
     });
 
-    it("getInitialState sets mined tx", () => {
+    fnIt<ResponderAppointmentReducer>(r => r.getInitialState, "sets mined tx", () => {
         const reducer = new ResponderAppointmentReducer(blockCache, txID1.identifier, appointmentId1, from1);
 
         const anchorState = reducer.getInitialState(blocks[2]);
@@ -97,7 +98,7 @@ describe("ResponderAppointmentReducer", () => {
         }
     });
 
-    it("reduce keeps pending as pending", () => {
+    fnIt<ResponderAppointmentReducer>(r => r.reduce, "keeps pending as pending", () => {
         const reducer = new ResponderAppointmentReducer(blockCache, txID1.identifier, appointmentId1, from1);
 
         const prevAnchorState = reducer.getInitialState(blocks[0]);
@@ -108,7 +109,7 @@ describe("ResponderAppointmentReducer", () => {
         expect(nextAnchorState.kind).to.equal(ResponderStateKind.Pending);
     });
 
-    it("reduce transitions from pending to mined", () => {
+    fnIt<ResponderAppointmentReducer>(r => r.reduce, "transitions from pending to mined", () => {
         const reducer = new ResponderAppointmentReducer(blockCache, txID1.identifier, appointmentId1, from1);
 
         const prevAnchorState = reducer.getInitialState(blocks[0]);
@@ -123,7 +124,7 @@ describe("ResponderAppointmentReducer", () => {
         }
     });
 
-    it("reduce keeps mined as mined", () => {
+    fnIt<ResponderAppointmentReducer>(r => r.reduce, "keeps mined as mined", () => {
         const reducer = new ResponderAppointmentReducer(blockCache, txID1.identifier, appointmentId1, from1);
 
         const prevAnchorState = reducer.getInitialState(blocks[0]);
@@ -133,7 +134,7 @@ describe("ResponderAppointmentReducer", () => {
         expect(nextAnchorState).to.equal(nextNextAnchorState);
     });
 
-    it("reduce doesnt mine tx from different address", () => {
+    fnIt<ResponderAppointmentReducer>(r => r.reduce, "doesn't mine tx from different address", () => {
         const reducer = new ResponderAppointmentReducer(blockCache, txID1.identifier, appointmentId1, from1);
 
         // setup pending
@@ -196,7 +197,7 @@ describe("MultiResponderComponent", () => {
         blockCache = instance(blockCacheMock);
     });
 
-    it("handleChanges reEnqueues all pending items", async () => {
+    fnIt<MultiResponderComponent>(m => m.handleChanges, "reEnqueues all pending items", async () => {
         const app1State = makePendingAppointmentState("app1", "data1");
         const app2State = makeMinedAppointmentState("app2", "data2", 0, 0);
         const state1 = setupState([app1State, app2State], 0);
@@ -209,7 +210,7 @@ describe("MultiResponderComponent", () => {
         expect(firstArg).to.deep.equal(["app1"]);
     });
 
-    it("handleChanges detects response has been mined", async () => {
+    fnIt<MultiResponderComponent>(m => m.handleChanges, "detects response has been mined", async () => {
         const app1State = makePendingAppointmentState("app1", "data1");
         const app2State = makeMinedAppointmentState("app1", "data1", 0, 0);
         const state1 = setupState([app1State], 0);
@@ -224,7 +225,7 @@ describe("MultiResponderComponent", () => {
         expect(nonce).to.equal(app2State.nonce);
     });
 
-    it("handleChanges detects newly mined item", async () => {
+    fnIt<MultiResponderComponent>(m => m.handleChanges, "detects newly mined item", async () => {
         const app2State = makeMinedAppointmentState("app1", "data1", 0, 0);
         const state1 = setupState([], 0);
         // two block difference
@@ -238,7 +239,7 @@ describe("MultiResponderComponent", () => {
         expect(nonce).to.equal(app2State.nonce);
     });
 
-    it("handleChanges doesnt detect already mined response", async () => {
+    fnIt<MultiResponderComponent>(m => m.handleChanges, "doesnt detect already mined response", async () => {
         const app2State = makeMinedAppointmentState("app1", "data1", 0, 0);
         const state1 = setupState([app2State], 0);
         // two block difference
@@ -250,7 +251,7 @@ describe("MultiResponderComponent", () => {
         verify(multiResponderMock.txMined(anything(), anything())).never();
     });
 
-    it("handleChanges removes item after confirmations", async () => {
+    fnIt<MultiResponderComponent>(m => m.handleChanges, "removes item after confirmations", async () => {
         const app2State = makeMinedAppointmentState("app1", "data1", 0, 0);
         const state1 = setupState([app2State], 0);
         // two block difference
@@ -263,7 +264,7 @@ describe("MultiResponderComponent", () => {
         expect(appointmentId).to.equal(app2State.appointmentId);
     });
 
-    it("handleChanges removes item after confirmations from pending", async () => {
+    fnIt<MultiResponderComponent>(m => m.handleChanges, "removes item after confirmations from pending", async () => {
         const app1State = makePendingAppointmentState("app1", "data1");
         const app2State = makeMinedAppointmentState("app1", "data1", 0, 0);
         const state1 = setupState([app1State], 0);
@@ -277,7 +278,7 @@ describe("MultiResponderComponent", () => {
         expect(appointmentId).to.equal(app2State.appointmentId);
     });
 
-    it("handleChanges removes item after confirmations from empty", async () => {
+    fnIt<MultiResponderComponent>(m => m.handleChanges, "removes item after confirmations from empty", async () => {
         const app2State = makeMinedAppointmentState("app1", "data1", 0, 0);
         const state1 = setupState([], 0);
         // two block difference
@@ -290,7 +291,7 @@ describe("MultiResponderComponent", () => {
         expect(appointmentId).to.equal(app2State.appointmentId);
     });
 
-    it("handleChanges does not try to remove already removed item", async () => {
+    fnIt<MultiResponderComponent>(m => m.handleChanges, "does not try to remove already removed item", async () => {
         const app2State = makeMinedAppointmentState("app1", "data1", 0, 0);
         const state1 = setupState([app2State], confirmationsRequired + 1);
         // already removed - then one block later

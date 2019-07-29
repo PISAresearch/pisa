@@ -2,6 +2,7 @@ import "mocha";
 import { expect } from "chai";
 import { MappedStateReducer, StateReducer, BlockNumberReducer } from "../../../src/blockMonitor/component";
 import { IBlockStub } from "../../../src/dataEntities/block";
+import { fnIt } from "../../../utils/fnIt";
 
 const objects = [
     {
@@ -72,14 +73,14 @@ describe("MappedStateReducer", () => {
         }
     });
 
-    it("getInitialState computes initial state", () => {
+    fnIt<MappedStateReducer<any,any,any,any>>(m => m.getInitialState, "computes initial state", () => {
         const msr = new MappedStateReducer(() => [], () => new NullReducer(), new TestAnchorStateReducer(10));
 
         const initialState = msr.getInitialState(blocks[1]);
         expect(initialState.someNumber).to.equal(10 + blocks[1].number);
     });
 
-    it("getInitialState computes initial state on mapped state", () => {
+    fnIt<MappedStateReducer<any,any,any,any>>(m => m.getInitialState, "computes initial state on mapped state", () => {
         const msr = new MappedStateReducer(
             () => objects,
             ({ value }) => new TestAnchorStateReducer(value),
@@ -97,7 +98,7 @@ describe("MappedStateReducer", () => {
         expect(initialState.items).to.deep.equal(expectedMap);
     });
 
-    it("reduce computes reduces state", () => {
+    fnIt<MappedStateReducer<any,any,any,any>>(m => m.reduce, "computes reduces state", () => {
         const msr = new MappedStateReducer(() => [], () => new NullReducer(), new TestAnchorStateReducer(10));
 
         const initialState = msr.getInitialState(blocks[1]);
@@ -106,7 +107,7 @@ describe("MappedStateReducer", () => {
         expect(reducedState.someNumber).to.equal(10 + blocks[1].number + blocks[2].number);
     });
 
-    it("reduce computes state on mapped states", () => {
+    fnIt<MappedStateReducer<any,any,any,any>>(m => m.reduce, "computes state on mapped states", () => {
         const msr = new MappedStateReducer(
             () => objects,
             ({ value }) => new TestAnchorStateReducer(value),
@@ -131,7 +132,7 @@ describe("MappedStateReducer", () => {
         expect(reducedState.items).to.deep.equal(expectedMap);
     });
 
-    it("reduce calls getInitialState if a new object id is added to the collection", () => {
+    fnIt<MappedStateReducer<any,any,any,any>>(m => m.reduce, "calls getInitialState if a new object id is added to the collection", () => {
         // start with only two objects
         const items = new Map<string, TestAnchorState>();
         items.set(objects[0].id, { someNumber: objects[0].value + blocks[0].number });
@@ -159,14 +160,14 @@ describe("MappedStateReducer", () => {
 });
 
 describe("BlockNumberReducer", () => {
-    it("getInitialState sets current block number", () => {
+    fnIt<BlockNumberReducer>(m => m.getInitialState, "sets current block number", () => {
         const reducer = new BlockNumberReducer();
         const anchorState = reducer.getInitialState(blocks[0]);
 
         expect(anchorState.blockNumber).to.equal(blocks[0].number);
     });
 
-    it("reduce sets current block number", () => {
+    fnIt<BlockNumberReducer>(m => m.getInitialState, "sets current block number", () => {
         const reducer = new BlockNumberReducer();
 
         const nextAnchorState = reducer.reduce({ blockNumber: 0 }, blocks[2]);

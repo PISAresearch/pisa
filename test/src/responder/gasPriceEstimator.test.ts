@@ -6,6 +6,7 @@ import { BigNumber } from "ethers/utils";
 import { mock, when, instance } from "ts-mockito";
 import { ethers } from "ethers";
 import { BlockCache } from "../../../src/blockMonitor";
+import { fnIt } from "../../../utils/fnIt";
 
 describe("ExponentialCurve", () => {
     it("ka constructs for (0, 1), (1, e)", () => {
@@ -43,13 +44,13 @@ describe("ExponentialCurve", () => {
         expect(() => new ExponentialCurve(3, 5, 7, -10)).to.throw(ArgumentError);
     });
 
-    it("getY returns orignal points", () => {
+    fnIt<ExponentialCurve>(e => e.getY, "returns orignal points", () => {
         const curve = new ExponentialCurve(-1, 5, 1, 10);
         expect(Math.fround(curve.getY(-1))).to.equal(5);
         expect(Math.fround(curve.getY(1))).to.equal(10);
     });
 
-    it("getY returns new point", () => {
+    fnIt<ExponentialCurve>(e => e.getY, "returns new point", () => {
         const curve = new ExponentialCurve(0, 1, 1, Math.E);
         // should have (2, e^2) for curve a = 1, k = 1
         expect(Math.fround(curve.getY(2))).to.equal(Math.fround(Math.pow(Math.E, 2)));
@@ -77,7 +78,7 @@ describe("ExponentialGasCurve", () => {
         );
     });
 
-    it("getGasPrice returns same as curve", () => {
+    fnIt<ExponentialGasCurve>(e => e.getGasPrice, "returns same as curve", () => {
         const y2 = 21000000000;
         const expGasCurve = new ExponentialGasCurve(new BigNumber(y2));
         const expCurve = new ExponentialCurve(
@@ -92,7 +93,7 @@ describe("ExponentialGasCurve", () => {
         );
     });
 
-    it("getGasPrice returns the max gas price for less blocks than max blocks", () => {
+    fnIt<ExponentialGasCurve>(e => e.getGasPrice, "returns the max gas price for less blocks than max blocks", () => {
         const y2 = 21000000000;
         const expGasCurve = new ExponentialGasCurve(new BigNumber(y2));
         expect(expGasCurve.getGasPrice(ExponentialGasCurve.MAX_BLOCKS - 1).toNumber()).to.equal(
@@ -100,7 +101,7 @@ describe("ExponentialGasCurve", () => {
         );
     });
 
-    it("getGasPrice throws for negative blocks", () => {
+    fnIt<ExponentialGasCurve>(e => e.getGasPrice, "throws for negative blocks", () => {
         const y2 = 21000000000;
         const expGasCurve = new ExponentialGasCurve(new BigNumber(y2));
         expect(() => expGasCurve.getGasPrice(-1)).to.throw(ArgumentError);
@@ -108,7 +109,7 @@ describe("ExponentialGasCurve", () => {
 });
 
 describe("GasPriceEstimator", () => {
-    it("estimate", async () => {
+    fnIt<GasPriceEstimator>(e => e.estimate, "", async () => {
         const currentGasPrice = new BigNumber(21000000000);
         const currentBlock = 1;
         const endBlock = 3;

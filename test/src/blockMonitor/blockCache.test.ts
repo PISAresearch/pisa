@@ -1,7 +1,8 @@
 import "mocha";
 import { expect } from "chai";
-import { BlockCache, getConfirmations } from "../../../src/blockMonitor";
-import { ArgumentError, IBlockStub, TransactionHashes, ApplicationError } from "../../../src/dataEntities";
+import { BlockCache, getConfirmations, ReadOnlyBlockCache } from "../../../src/blockMonitor";
+import { ArgumentError, IBlockStub, TransactionHashes, ApplicationError, Block } from "../../../src/dataEntities";
+import { fnIt } from "../../../utils/fnIt";
 
 function generateBlocks(
     nBlocks: number,
@@ -78,7 +79,7 @@ describe("BlockCache", () => {
         expect(bc.maxHeight).to.equal(lastBlockAdded);
     });
 
-    it("canAddBlock returns true for blocks whose height is lower or equal than the initial height", () => {
+    fnIt<BlockCache<any>>(b => b.canAddBlock, "returns true for blocks whose height is lower or equal than the initial height", () => {
         const bc = new BlockCache(maxDepth);
 
         const blocks = generateBlocks(10, 5, "main");
@@ -91,7 +92,7 @@ describe("BlockCache", () => {
         expect(bc.canAddBlock(otherBlocks[3])).to.be.true;
     });
 
-    it("canAddBlock returns true for blocks whose height is lower or equal than the maximum depth", () => {
+    fnIt<BlockCache<any>>(b => b.canAddBlock, "returns true for blocks whose height is lower or equal than the maximum depth", () => {
         const bc = new BlockCache(maxDepth);
         const initialHeight = 3;
         const blocksAdded = maxDepth + 1;
@@ -104,7 +105,7 @@ describe("BlockCache", () => {
         expect(bc.canAddBlock(otherBlocks[1])).to.be.true;
     });
 
-    it("canAddBlock returns true for a block whose parent is in the BlockCache", () => {
+    fnIt<BlockCache<any>>(b => b.canAddBlock,"returns true for a block whose parent is in the BlockCache", () => {
         const bc = new BlockCache(maxDepth);
         const blocks = generateBlocks(10, 7, "main");
 
@@ -113,7 +114,7 @@ describe("BlockCache", () => {
         expect(bc.canAddBlock(blocks[6])).to.be.true;
     });
 
-    it("canAddBlock returns false for a block above minHeight whose parent is not in the BlockCache", () => {
+    fnIt<BlockCache<any>>(b => b.canAddBlock, "returns false for a block above minHeight whose parent is not in the BlockCache", () => {
         const bc = new BlockCache(maxDepth);
         const blocks = generateBlocks(10, 7, "main");
 
@@ -140,7 +141,7 @@ describe("BlockCache", () => {
         expect(() => bc.getBlockStub(blocks[0].hash)).to.throw(ApplicationError);
     });
 
-    it("ancestry iterates over all the ancestors", () => {
+    fnIt<BlockCache<any>>(b => b.ancestry, "iterates over all the ancestors", () => {
         const bc = new BlockCache(maxDepth);
         const blocks = generateBlocks(10, 0, "main");
         blocks.forEach(block => bc.addBlock(block));
@@ -155,7 +156,7 @@ describe("BlockCache", () => {
         expect(result).to.deep.equal(blocks);
     });
 
-    it("findAncestor returns the nearest ancestor that satisfies the predicate", () => {
+    fnIt<BlockCache<any>>(b => b.findAncestor, "returns the nearest ancestor that satisfies the predicate", () => {
         const bc = new BlockCache(maxDepth);
         const blocks = generateBlocks(5, 0, "main");
         blocks.forEach(block => bc.addBlock(block));
@@ -166,7 +167,7 @@ describe("BlockCache", () => {
         expect(blocks[2]).to.deep.include(result!);
     });
 
-    it("findAncestor returns self if satisfies the predicate", () => {
+    fnIt<BlockCache<any>>(b => b.findAncestor, "returns self if satisfies the predicate", () => {
         const bc = new BlockCache(maxDepth);
         const blocks = generateBlocks(5, 0, "main");
         blocks.forEach(block => bc.addBlock(block));
@@ -177,7 +178,7 @@ describe("BlockCache", () => {
         expect(headBlock).to.deep.include(result!);
     });
 
-    it("findAncestor returns self if satisfies the predicate", () => {
+    fnIt<BlockCache<any>>(b => b.findAncestor, "returns self if satisfies the predicate", () => {
         const bc = new BlockCache(maxDepth);
         const blocks = generateBlocks(5, 0, "main");
         blocks.forEach(block => bc.addBlock(block));
@@ -187,7 +188,7 @@ describe("BlockCache", () => {
         expect(result).to.be.null;
     });
 
-    it("getOldestAncestorInCache returns the deepest ancestor", () => {
+    fnIt<BlockCache<any>>(b => b.getOldestAncestorInCache, "returns the deepest ancestor", () => {
         const bc = new BlockCache(maxDepth);
         const blocks = generateBlocks(5, 0, "main");
         blocks.forEach(block => bc.addBlock(block));
@@ -197,7 +198,7 @@ describe("BlockCache", () => {
         expect(blocks[0]).to.deep.include(result);
     });
 
-    it("getOldestAncestorInCache throws ArgumentError for a hash not in cache", () => {
+    fnIt<BlockCache<any>>(b => b.getOldestAncestorInCache, "throws ArgumentError for a hash not in cache", () => {
         const bc = new BlockCache(maxDepth);
         const blocks = generateBlocks(5, 0, "main");
         blocks.forEach(block => bc.addBlock(block));
@@ -205,7 +206,7 @@ describe("BlockCache", () => {
         expect(() => bc.getOldestAncestorInCache("notExistingHash")).to.throw(ArgumentError);
     });
 
-    it("setHead correctly sets new head", () => {
+    fnIt<BlockCache<any>>(b => b.setHead, "correctly sets new head", () => {
         const bc = new BlockCache(maxDepth);
         const blocks = generateBlocks(1, 0, "main");
 
@@ -214,7 +215,7 @@ describe("BlockCache", () => {
         expect(bc.head).to.deep.equal(blocks[0]);
     });
 
-    it("setHead throws for head not in cache", () => {
+    fnIt<BlockCache<any>>(b => b.setHead, "setHead throws for head not in cache", () => {
         const bc = new BlockCache(maxDepth);
         const blocks = generateBlocks(1, 0, "main");
 

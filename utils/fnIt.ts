@@ -8,6 +8,6 @@ const getName = <T>(fn: (arg: T) => (...args: any[]) => any ) => {
     // used this 'typed' spy to extract the name
     return fn(dummySpy).name;
 }
-export function fnIt<T>(fn: (t:T) => (args:any) => any, message : string, test: () => void){
-    return it(getName<T>(fn(this.args)) + " " +  message, test);
+export function fnIt<T>(fn: (t:T) => (...args:any[]) => any, message : string, test: () => void){
+    return it(getName<T>(fn) + " " +  message, test);
 }

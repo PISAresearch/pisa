@@ -8,7 +8,8 @@ import chai, { expect } from "chai";
 import { ArgumentError, IEthereumResponseData } from "../../../src/dataEntities";
 import { PisaTransactionIdentifier } from "../../../src/responder/gasQueue";
 import chaiAsPromised from "chai-as-promised";
-import { wait } from "../../../src/utils";
+import { fnIt } from "../../../utils/fnIt";
+
 chai.use(chaiAsPromised);
 
 const ganache = Ganache.provider({
@@ -79,7 +80,7 @@ describe("MultiResponder", () => {
         );
     });
 
-    it("startResponse can issue transaction", async () => {
+    fnIt<MultiResponder>(m => m.startResponse, "can issue transaction", async () => {
         const appointmentId = "app1";
         const responseData = createResponseData("app1");
 
@@ -101,7 +102,7 @@ describe("MultiResponder", () => {
         await responder.stop();
     });
 
-    it("startResponse can issue two transactions and replace", async () => {
+    fnIt<MultiResponder>(m => m.startResponse, "can issue two transactions and replace", async () => {
         const appointmentId = "app1";
         const responseData = createResponseData("app1");
         const appointmentId2 = "app2";
@@ -133,7 +134,7 @@ describe("MultiResponder", () => {
         await responder.stop();
     });
 
-    it("startResponse can issue two transactions but not replace", async () => {
+    fnIt<MultiResponder>(m => m.startResponse, "can issue two transactions but not replace", async () => {
         const appointmentId = "app1";
         const responseData = createResponseData("app1");
         const appointmentId2 = "app2";
@@ -167,7 +168,7 @@ describe("MultiResponder", () => {
         await responder.stop();
     });
 
-    it("startResponse swallows error", async () => {
+    fnIt<MultiResponder>(m => m.startResponse, "swallows error", async () => {
         const appointmentId = "app1";
         const responseData = createResponseData("app1");
         const responder = new MultiResponder(signer, errorGasPriceEstimator, maxConcurrentResponses, replacementRate);
@@ -179,7 +180,7 @@ describe("MultiResponder", () => {
         await responder.stop();
     });
 
-    it("startResponse doesnt queue beyond max depth", async () => {
+    fnIt<MultiResponder>(m => m.startResponse, "doesn't queue beyond max depth", async () => {
         const appointmentId = "app1";
         const responseData = createResponseData("app1");
         const appointmentId2 = "app2";
@@ -208,7 +209,7 @@ describe("MultiResponder", () => {
         await responder.stop();
     });
 
-    it("txMined does dequeue", async () => {
+    fnIt<MultiResponder>(m => m.txMined, "does dequeue", async () => {
         const appointmentId = "app1";
         const responseData = createResponseData("app1");
         const responder = new MultiResponder(
@@ -229,7 +230,7 @@ describe("MultiResponder", () => {
         await responder.stop();
     });
 
-    it("txMined does replace", async () => {
+    fnIt<MultiResponder>(m =>m.txMined, "does replace", async () => {
         const appointmentId = "app1";
         const responseData = createResponseData("app1");
         const appointmentId2 = "app2";
@@ -262,7 +263,7 @@ describe("MultiResponder", () => {
         await responder.stop();
     });
 
-    it("txMined does nothing when queue is empty", async () => {
+    fnIt<MultiResponder>(m => m.txMined, "does nothing when queue is empty", async () => {
         const responder = new MultiResponder(
             signer,
             increasingGasPriceEstimator,
@@ -279,7 +280,7 @@ describe("MultiResponder", () => {
         await responder.stop();
     });
 
-    it("txMined does nothing when item not in queue", async () => {
+    fnIt<MultiResponder>(m => m.txMined, "does nothing when item not in queue", async () => {
         const appointmentId = "app1";
         const responseData = createResponseData("app1");
         const responder = new MultiResponder(
@@ -297,7 +298,7 @@ describe("MultiResponder", () => {
         await responder.stop();
     });
 
-    it("txMined does nothing nonce is not front of queue", async () => {
+    fnIt<MultiResponder>(m => m.txMined, "does nothing nonce is not front of queue", async () => {
         const appointmentId = "app1";
         const responseData = createResponseData("app1");
         const responder = new MultiResponder(
@@ -318,7 +319,7 @@ describe("MultiResponder", () => {
         await responder.stop();
     });
 
-    it("reEnqueueMissingItems does issue new transactions", async () => {
+    fnIt<MultiResponder>(m => m.reEnqueueMissingItems, "does issue new transactions", async () => {
         const appointmentId = "app1";
         const responseData = createResponseData("app1");
         const appointmentId2 = "app2";
@@ -350,7 +351,7 @@ describe("MultiResponder", () => {
         await responder.stop();
     });
 
-    it("reEnqueueMissingItems does replace transactions", async () => {
+    fnIt<MultiResponder>(m => m.reEnqueueMissingItems, "does replace transactions", async () => {
         const appointmentId = "app1";
         // choose a lower gas fee for the first item - this should cause a double replacement
         const responseData = createResponseData("app1");
@@ -386,7 +387,7 @@ describe("MultiResponder", () => {
         await responder.stop();
     });
 
-    it("reEnqueueMissingItems throws error for missing transactions", async () => {
+    fnIt<MultiResponder>(m => m.reEnqueueMissingItems, "throws error for missing transactions", async () => {
         const appointmentId = "app1";
         const responder = new MultiResponder(
             signer,
@@ -401,7 +402,7 @@ describe("MultiResponder", () => {
             .then(async () => await responder.stop());
     });
 
-    it("reEnqueueMissingItems does nothing for no missing transactions", async () => {
+    fnIt<MultiResponder>(m => m.reEnqueueMissingItems, "does nothing for no missing transactions", async () => {
         const appointmentId = "app1";
         const responseData = createResponseData("app1");
         const appointmentId2 = "app2";
@@ -428,7 +429,7 @@ describe("MultiResponder", () => {
         await responder.stop();
     });
 
-    it("endResponse removes item from transactions", async () => {
+    fnIt<MultiResponder>(m => m.endResponse,"removes item from transactions", async () => {
         const appointmentId = "app1";
         const responseData = createResponseData("app1");
         const responder = new MultiResponder(

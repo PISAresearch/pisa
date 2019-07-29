@@ -8,6 +8,7 @@ import {
 } from "../../../src/responder/gasQueue";
 import { ArgumentError, IEthereumResponseData } from "../../../src/dataEntities";
 import { BigNumber } from "ethers/utils";
+import { fnIt } from "../../../utils/fnIt";
 
 const createIdentifier = (data: string, to: string) => {
     return new PisaTransactionIdentifier(1, data, to, new BigNumber(0), new BigNumber(500));
@@ -153,7 +154,7 @@ describe("GasQueue", () => {
         new GasQueue(items, 3, 1, 2);
     });
 
-    it("add does append for lowest gas", () => {
+    fnIt<GasQueue>(g => g.add, "does append for lowest gas", () => {
         const emptyNonce = 3;
         const maxQueueDepth = 5;
         const replacementRate = 15;
@@ -184,7 +185,7 @@ describe("GasQueue", () => {
         checkClone(queue, appendedQueue);
     });
 
-    it("add does replace for middle gas", () => {
+    fnIt<GasQueue>(g => g.add, "does replace for middle gas", () => {
         const emptyNonce = 4;
         const maxQueueDepth = 5;
         const replacementRate = 15;
@@ -231,7 +232,7 @@ describe("GasQueue", () => {
         checkClone(queue, appendedQueue);
     });
 
-    it("add throws expection if depth reached", () => {
+    fnIt<GasQueue>(g => g.add, "throws expection if depth reached", () => {
         const items = [
             createGasQueueItem("app1", 1, new BigNumber(150), new BigNumber(150), createIdentifier("data", "to")),
             createGasQueueItem("app2", 2, new BigNumber(100), new BigNumber(100), createIdentifier("data1", "to1")),
@@ -248,7 +249,7 @@ describe("GasQueue", () => {
         expect(() => queue.add(request)).to.throw(ArgumentError);
     });
 
-    it("consume to remove queue item", () => {
+    fnIt<GasQueue>(g => g.consume, "to remove queue item", () => {
         const emptyNonce = 4;
         const replacementRate = 15;
         const maxQueueDepth = 5;
@@ -283,7 +284,7 @@ describe("GasQueue", () => {
         checkClone(queue, consumedQueue);
     });
 
-    it("consume to throw for unknown identifier", () => {
+    fnIt<GasQueue>(g => g.consume, "to throw for unknown identifier", () => {
         const emptyNonce = 4;
         const replacementRate = 15;
         const maxQueueDepth = 5;
@@ -298,7 +299,7 @@ describe("GasQueue", () => {
         expect(() => queue.consume(createIdentifier("data3", "to3"))).to.throw(ArgumentError);
     });
 
-    it("dequeue to remove first element only", () => {
+    fnIt<GasQueue>(g => g.dequeue, "to remove first element only", () => {
         const emptyNonce = 4;
         const replacementRate = 15;
         const maxQueueDepth = 5;
@@ -322,7 +323,7 @@ describe("GasQueue", () => {
         checkClone(queue, dequeuedQueue);
     });
 
-    it("difference correctly returns missing items", () => {
+    fnIt<GasQueue>(g => g.difference, "correctly returns missing items", () => {
         const items = [
             createGasQueueItem("app1", 1, new BigNumber(110), new BigNumber(110), createIdentifier("data", "to")),
             createGasQueueItem("app2", 2, new BigNumber(100), new BigNumber(100), createIdentifier("data1", "to1"))
@@ -354,7 +355,7 @@ describe("GasQueue", () => {
         expect(diff2Items).to.deep.equal([]);
     });
 
-    it("contains identifier is correctly identified", () => {
+    fnIt<GasQueue>(g => g.contains, "identifier is correctly identified", () => {
         const id1 = createIdentifier("data", "to");
         const id2 = createIdentifier("data1", "to1");
         const id3 = createIdentifier("data2", "to2");
@@ -370,7 +371,7 @@ describe("GasQueue", () => {
         expect(q.contains(id3)).to.be.true;
     });
 
-    it("contains identifier is correctly identified", () => {
+    fnIt<GasQueue>(g => g.contains, "identifier is correctly identified", () => {
         const missingId = createIdentifier("data3", "to3");
         const items = [
             createGasQueueItem("app1", 1, new BigNumber(110), new BigNumber(110), createIdentifier("data", "to")),
@@ -384,7 +385,7 @@ describe("GasQueue", () => {
         expect(contains).to.be.false;
     });
 
-    it("prepend lower nonces without replace", () => {
+    fnIt<GasQueue>(g => g.prepend, "lower nonces without replace", () => {
         const lowerItems = [
             createGasQueueItem("app1", 1, new BigNumber(110), new BigNumber(110), createIdentifier("data1", "to1")),
             createGasQueueItem("app2", 2, new BigNumber(100), new BigNumber(100), createIdentifier("data2", "to2"))
@@ -402,7 +403,7 @@ describe("GasQueue", () => {
         expect(replacedItems).to.deep.equal(lowerItems);
     });
 
-    it("prepend lower nonces without replace", () => {
+    fnIt<GasQueue>(g => g.prepend, "lower nonces without replace", () => {
         const lowerNonceItems = [
             createGasQueueItem("app1", 1, new BigNumber(70), new BigNumber(70), createIdentifier("data1", "to1")),
             createGasQueueItem("app2", 2, new BigNumber(60), new BigNumber(60), createIdentifier("data2", "to2"))
@@ -437,7 +438,7 @@ describe("GasQueue", () => {
         expect(uQ.difference(q)).to.deep.equal([]);
     })
 
-    it("unlock does throws error for missing nonces", () => {
+    it("unlock does throw error for missing nonces", () => {
         const unlockItems = [
             createGasQueueItem("app1", 1, new BigNumber(110), new BigNumber(110), createIdentifier("data1", "to1"))
         ];
@@ -451,7 +452,7 @@ describe("GasQueue", () => {
         expect(() => q.prepend(unlockItems)).to.throw(ArgumentError);
     })
 
-    it("prepend does throws error for duplicate nonce", () => {
+    fnIt<GasQueue>(g => g.prepend, "does throw error for duplicate nonce", () => {
         const lowerNonceItems = [
             createGasQueueItem("app1", 3, new BigNumber(110), new BigNumber(110), createIdentifier("data1", "to1"))
         ];
@@ -465,7 +466,7 @@ describe("GasQueue", () => {
         expect(() => q.prepend(lowerNonceItems)).to.throw(ArgumentError);
     })
 
-    it("prepend does throws error for nonce too high", () => {
+    fnIt<GasQueue>(g => g.prepend, "does throw error for nonce too high", () => {
         const lowerNonceItems = [
             createGasQueueItem("app1", 5, new BigNumber(110), new BigNumber(110), createIdentifier("data1", "to1"))
         ];

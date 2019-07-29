@@ -4,6 +4,7 @@ import { ethers } from "ethers";
 import { AppointmentSubscriber, IAppointmentListener } from "../../../src/watcher/appointmentSubscriber";
 import uuid from "uuid/v4";
 import Ganache from "ganache-core";
+import {fnIt} from "../../../utils/fnIt";
 
 describe("AppointmentSubscriber", () => {
     //return true;
@@ -24,7 +25,7 @@ describe("AppointmentSubscriber", () => {
         subscriber = new AppointmentSubscriber(provider);
     });
 
-    it("subscribeOnce correctly subcribes 1 appointment", () => {
+    fnIt<AppointmentSubscriber>(a => a.subscribe, "correctly subcribes 1 appointment", () => {
         // once
         subscriber.subscribe(appointmentId1, eventFilter1, testListener);
 
@@ -33,7 +34,7 @@ describe("AppointmentSubscriber", () => {
         assert.strictEqual((provider.listeners(eventFilter1)[0] as IAppointmentListener).appointmentId, appointmentId1);
     });
 
-    it("subscribeOnce correctly subcribes 2 different appointments", () => {
+    fnIt<AppointmentSubscriber>(a => a.subscribe , "correctly subcribes 2 different appointments", () =>{
         // same ids and listeners, but different filters
         subscriber.subscribe(appointmentId1, eventFilter1, testListener);
         subscriber.subscribe(appointmentId2, eventFilter2, testListener);
@@ -43,16 +44,17 @@ describe("AppointmentSubscriber", () => {
         assert.strictEqual(provider.listenerCount(eventFilter2), 1);
         assert.strictEqual((provider.listeners(eventFilter2)[0] as IAppointmentListener).appointmentId, appointmentId2);
     });
-
-    it("subscribeOnce throws error if one subscribed to twice for the same event filter", () => {
+   
+    fnIt<AppointmentSubscriber>(a => a.subscribe, "throws error if one subscribed to twice for the same event filter", () =>{
         subscriber.subscribe(appointmentId1, eventFilter1, testListener);
         assert.throws(() => subscriber.subscribe(appointmentId1, eventFilter1, testListener));
 
         assert.strictEqual(provider.listenerCount(eventFilter1), 1);
         assert.strictEqual((provider.listeners(eventFilter1)[0] as IAppointmentListener).appointmentId, appointmentId1);
     });
-
-    it("unsubscribe does nothing when neither filter nor id match", () => {
+   
+    
+    fnIt<AppointmentSubscriber>(a => a.unsubscribe, "does nothing when neither filter nor id match", () => {
         subscriber.subscribe(appointmentId1, eventFilter1, testListener);
         subscriber.subscribe(appointmentId2, eventFilter2, testListener);
 
@@ -64,7 +66,7 @@ describe("AppointmentSubscriber", () => {
         assert.strictEqual((provider.listeners(eventFilter2)[0] as IAppointmentListener).appointmentId, appointmentId2);
     });
 
-    it("unsubscribe does nothing when when filter does not match but id does", () => {
+    fnIt<AppointmentSubscriber>(a => a.unsubscribe, "does nothing when when filter does not match but id does", () => {
         subscriber.subscribe(appointmentId1, eventFilter1, testListener);
         subscriber.subscribe(appointmentId2, eventFilter2, testListener);
 
@@ -76,7 +78,7 @@ describe("AppointmentSubscriber", () => {
         assert.strictEqual((provider.listeners(eventFilter2)[0] as IAppointmentListener).appointmentId, appointmentId2);
     });
 
-    it("unsubscribe does nothing when id matches but filter does not", () => {
+    fnIt<AppointmentSubscriber>(a => a.unsubscribe, "does nothing when id matches but filter does not", () => {
         subscriber.subscribe(appointmentId1, eventFilter1, testListener);
         subscriber.subscribe(appointmentId2, eventFilter2, testListener);
 
@@ -88,7 +90,7 @@ describe("AppointmentSubscriber", () => {
         assert.strictEqual((provider.listeners(eventFilter2)[0] as IAppointmentListener).appointmentId, appointmentId2);
     });
 
-    it("unsubscribe only removes subscription when filter and id match", () => {
+    fnIt<AppointmentSubscriber>(a => a.unsubscribe, "only removes subscription when filter and id match", () => {
         subscriber.subscribe(appointmentId1, eventFilter1, testListener);
         subscriber.subscribe(appointmentId2, eventFilter2, testListener);
 
@@ -99,7 +101,7 @@ describe("AppointmentSubscriber", () => {
         assert.strictEqual((provider.listeners(eventFilter2)[0] as IAppointmentListener).appointmentId, appointmentId2);
     });
 
-    it("unsubscribeAll does nothing when no filter matches", () => {
+    fnIt<AppointmentSubscriber>(a => a.unsubscribeAll, "does nothing when no filter matches", () => {
         subscriber.subscribe(appointmentId1, eventFilter1, testListener);
 
         subscriber.unsubscribeAll(eventFilter2);
@@ -108,7 +110,7 @@ describe("AppointmentSubscriber", () => {
         assert.strictEqual((provider.listeners(eventFilter1)[0] as IAppointmentListener).appointmentId, appointmentId1);
     });
 
-    it("unsubscribeAll removes all subscriptions that match an event", () => {
+    fnIt<AppointmentSubscriber>(a => a.unsubscribeAll, "removes all subscriptions that match an event", () => {
         subscriber.subscribe(appointmentId1, eventFilter1, testListener);
         subscriber.subscribe(appointmentId2, eventFilter2, testListener);
 

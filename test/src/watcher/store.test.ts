@@ -69,9 +69,8 @@ describe("Store", () => {
         const dbApp = await db.get(appointment1.object.id);
         expect(dbApp).to.deep.equal(appointment1.object.getDBRepresentation());
     });
-   
 
-    it("addOrUpdate does add multiple appointments", async () => {
+    fnIt<AppointmentStore>(s => s.addOrUpdateByStateLocator, "does add multiple appointments", async() => {
         const appointment1 = getAppointment("id1", "stateLocator1", 1, 1);
         const appointment2 = getAppointment("id2", "stateLocator2", 1, 1);
 
@@ -89,7 +88,7 @@ describe("Store", () => {
         expect(dbAppointment2).to.deep.equal(appointment2.object.getDBRepresentation());
     });
 
-    it("addOrUpdate does update older appointment", async () => {
+    fnIt<AppointmentStore>(s => s.addOrUpdateByStateLocator, "does update older appointment", async() =>{
         const appointment1 = getAppointment("id1", "stateLocator1", 1, 1);
         const appointment2 = getAppointment("id2", "stateLocator1", 1, 2);
 
@@ -107,8 +106,8 @@ describe("Store", () => {
         const dbAppointment2 = await db.get(appointment2.object.id);
         expect(dbAppointment2).to.deep.equal(appointment2.object.getDBRepresentation());
     });
-
-    it("addOrUpdate does not update newer appointment", async () => {
+   
+    fnIt<AppointmentStore>(s => s.addOrUpdateByStateLocator, "does not update newer appointment", async() =>{
         const appointment1 = getAppointment("id1", "stateLocator1", 1, 1);
         const appointment2 = getAppointment("id2", "stateLocator1", 1, 2);
 
@@ -135,7 +134,7 @@ describe("Store", () => {
             expect(doh.notFound).to.be.true;
         }
     };
-    it("removeById does remove appointment", async () => {
+    fnIt<AppointmentStore>(s => s.removeById, "does remove appointment", async () =>{
         const appointment1 = getAppointment("id1", "stateLocator1", 1, 1);
 
         // second is added
@@ -147,7 +146,8 @@ describe("Store", () => {
 
         expectNotFound(() => db.get(appointment1.object.id));
     });
-    it("removeById does not remove appointment already removed", async () => {
+
+    fnIt<AppointmentStore>(s => s.removeById, "does not remove appointment already removed", async () =>{
         const appointment1 = getAppointment("id1", "stateLocator1", 1, 1);
 
         // second is added
@@ -160,8 +160,8 @@ describe("Store", () => {
         expect([...(await store.getExpiredSince(appointment1.object.endBlock + 1))]).to.deep.equal([]);
         expectNotFound(() => db.get(appointment1.object.id));
     });
-
-    it("removeById does not remove non-existant appointment", async () => {
+    
+    fnIt<AppointmentStore>(s => s.removeById, "does not remove non-existant appointment", async () =>{
         const appointment1 = getAppointment("id1", "stateLocator1", 1, 1);
         const appointment2 = getAppointment("id2", "stateLocator2", 1, 1);
 
@@ -176,7 +176,7 @@ describe("Store", () => {
         expect(dbAppointment1).to.deep.equal(appointment1.object.getDBRepresentation());
     });
 
-    it("removeById does allow add after remove", async () => {
+    fnIt<AppointmentStore>(s => s.removeById, "does allow add after remove", async () =>{
         const appointment1 = getAppointment("id1", "stateLocator1", 1, 1);
 
         await store.addOrUpdateByStateLocator(appointment1.object);
@@ -189,9 +189,9 @@ describe("Store", () => {
         expect([...(await store.getExpiredSince(appointment1.object.endBlock + 1))]).to.deep.equal([
             appointment1.object
         ]);
-    });
+    })
 
-    it("removeById does not remove other appointments", async () => {
+    fnIt<AppointmentStore>(s => s.removeById, "does not remove other appointments", async () =>{
         const appointment1 = getAppointment("id1", "stateLocator1", 1, 1);
         const appointment2 = getAppointment("id2", "stateLocator2", 1, 1);
 
@@ -209,7 +209,7 @@ describe("Store", () => {
         ]);
     });
 
-    it("expiredSince fetches items with end block less than supplied", async () => {
+    fnIt<AppointmentStore>(s => s.getExpiredSince, "fetches items with end block less than supplied", async () =>{
         const appointment1 = getAppointment("id1", "stateLocator1", 1, 1);
         const appointment2 = getAppointment("id2", "stateLocator2", 5, 1);
         const appointment3 = getAppointment("id3", "stateLocator3", 10, 1);
@@ -227,7 +227,7 @@ describe("Store", () => {
         expect(actual.getStateLocator()).to.equal(expected.getStateLocator());
         expect(actual.endBlock).to.equal(expected.endBlock);
     };
-
+     
     it("startup does load all appointments", async () => {
         const appointment1 = getAppointment("id1", "stateLocator1", 1, 1);
         const appointment2 = getAppointment("id2", "stateLocator2", 5, 1);
@@ -265,7 +265,7 @@ describe("Store", () => {
         await testStore.stop();
     });
 
-    it("getAll returns all appointments", async () => {
+    fnIt<AppointmentStore>(s => s.getAll, "returns all appointments", async () =>{
         const appointment1 = getAppointment("id1", "stateLocator1", 1, 1);
         const appointment2 = getAppointment("id2", "stateLocator2", 500000000000, 1);
         const appointment3 = getAppointment("id3", "stateLocator3", 10, 1);
@@ -282,4 +282,5 @@ describe("Store", () => {
         expectAppointmentEquals(appointments[1], appointment2.object);
         expectAppointmentEquals(appointments[2], appointment3A.object);
     });
+       
 });
