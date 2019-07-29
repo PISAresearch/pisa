@@ -6,6 +6,7 @@ import { mock, when, instance, anything } from "ts-mockito";
 import { EventEmitter } from "events";
 import { BlockProcessor, BlockCache, blockStubAndTxFactory } from "../../../src/blockMonitor";
 import { IBlockStub } from "../../../src/dataEntities";
+import { wait } from "../../../src/utils";
 
 chai.use(chaiAsPromised);
 const expect = chai.expect;
@@ -73,15 +74,22 @@ describe("BlockProcessor", () => {
 
     // Instructs the mock provider to switch to the chain given by block `hash` (and its ancestors),
     // then emits the block number corresponding to `hash`.
-    function emitBlockHash(hash: string) {
+    // If `returnNullAtHash` is provided, getBlock will return null for that block hash (simulating a provider failure).
+    function emitBlockHash(hash: string, returnNullAtHash: string | null = null) {
         let curBlockHash: string = hash;
         while (curBlockHash in blocksByHash) {
             const curBlock = blocksByHash[curBlockHash];
             when(mockProvider.getBlock(curBlock.number)).thenResolve(curBlock as ethers.providers.Block);
+            when(mockProvider.getBlock(curBlock.hash)).thenResolve(curBlock as ethers.providers.Block);
+
             curBlockHash = curBlock.parentHash;
         }
 
         when(mockProvider.getBlockNumber()).thenResolve(blocksByHash[hash].number);
+
+        if (returnNullAtHash != null) {
+            when(mockProvider.getBlock(returnNullAtHash)).thenResolve((null as any) as ethers.providers.Block);
+        }
 
         provider.emit("block", blocksByHash[hash].number);
     }
@@ -229,5 +237,33 @@ describe("BlockProcessor", () => {
                 hash: `b${i}`
             });
         }
+    });
+
+    it("resumes adding blocks after a previous failure when a new block is emitted", async () => {
+        blockProcessor = new BlockProcessor(provider, blockStubAndTxFactory, blockCache);
+
+        emitBlockHash("a1");
+
+        await blockProcessor.start();
+
+        // Try adding a new head, but fail at block "a3"
+        emitBlockHash("a5", "a3");
+
+        await wait(20);
+
+        expect(blockCache.hasBlock("a5", true), "has pending block a5").to.be.true;
+        expect(blockCache.hasBlock("a4", true), "has pending block a4").to.be.true;
+
+        expect(blockCache.hasBlock("a3", true), "does not have block a3").to.be.false;
+
+        // Now add successfully
+        emitBlockHash("a6");
+
+        await wait(20);
+
+        expect(blockCache.hasBlock("a6", false), "has complete block a6").to.be.true;
+        expect(blockCache.hasBlock("a5", false), "has complete block a5").to.be.true;
+        expect(blockCache.hasBlock("a4", false), "has complete block a4").to.be.true;
+        expect(blockCache.hasBlock("a3", false), "has complete block a3").to.be.true;
     });
 });

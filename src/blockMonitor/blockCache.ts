@@ -10,7 +10,7 @@ export interface ReadOnlyBlockCache<TBlock extends IBlockStub> {
     readonly minHeight: number;
     canAddBlock(block: Readonly<TBlock>): boolean;
     getBlock(blockHash: string): Readonly<TBlock>;
-    hasBlock(blockHash: string): boolean;
+    hasBlock(blockHash: string, includePending?: boolean): boolean;
     ancestry(initialBlockHash: string): IterableIterator<Readonly<TBlock>>;
     findAncestor(initialBlockHash: string, predicate: (block: Readonly<TBlock>) => boolean): Readonly<TBlock> | null;
     getOldestAncestorInCache(blockHash: string): TBlock;

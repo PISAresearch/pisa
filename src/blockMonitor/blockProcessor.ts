@@ -62,7 +62,8 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
 
     private mBlockCache: BlockCache<TBlock>;
 
-    private getBlock: (blockNumberOrHash: string | number) => Promise<TBlock | null>;
+    // Returned in the constructor by blockProvider: obtains the block remotely
+    private getBlockRemote: (blockNumberOrHash: string | number) => Promise<TBlock | null>;
 
     /**
      * Returns the ReadOnlyBlockCache associated to this BlockProcessor.
@@ -94,7 +95,7 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
     ) {
         super("block-processor");
 
-        this.getBlock = blockFactory(provider);
+        this.getBlockRemote = blockFactory(provider);
         this.mBlockCache = blockCache;
 
         this.processBlockNumber = this.processBlockNumber.bind(this);
@@ -145,13 +146,21 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
         }
     }
 
+    // Checks if a block is already in the block cache; if not, requests it remotely.
+    private async getBlock(blockHash: string) {
+        if (this.blockCache.hasBlock(blockHash, true)) {
+            return this.blockCache.getBlock(blockHash);
+        } else {
+            return this.getBlockRemote(blockHash);
+        }
+    }
     // Processes a new block, adding it to the cache and emitting the appropriate events
     // It is called for each new block received, but also at startup (during startInternal).
     private async processBlockNumber(blockNumber: number) {
         try {
-            const observedBlock = await this.getBlock(blockNumber);
+            const observedBlock = await this.getBlockRemote(blockNumber);
             if (observedBlock == null) {
-                // TODO:227: what to do if block is null?
+                // TODO:227: what to do if block is null? Is failing silently ok?
                 return;
             }
 
@@ -163,7 +172,7 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
                 curBlock = await this.getBlock(curBlock.parentHash);
 
                 if (!curBlock) {
-                    // TODO:227: how to recover if block returns null here?
+                    // TODO:227: how to recover if block returns null here? Fail silently?
                     break;
                 }
             }

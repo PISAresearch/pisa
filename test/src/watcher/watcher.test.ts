@@ -418,7 +418,7 @@ describe("Watcher", () => {
                 items: makeMap(appointment.id, {
                     state: WatcherAppointmentState.WATCHING
                 }),
-                blockNumber: 101 + CONFIRMATIONS_BEFORE_REMOVAL 
+                blockNumber: 101 + CONFIRMATIONS_BEFORE_REMOVAL
             },
             {
                 items: makeMap(appointment.id, {
