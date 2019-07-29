@@ -231,6 +231,7 @@ export class MultiResponder extends StartStopService {
             logger.info(`Broadcasting tx for ${queueItem.request.appointment.id}. ${JSON.stringify(queueItem)}. ${JSON.stringify(tx)}.`); // prettier-ignore
             await this.signer.sendTransaction(tx);
         } catch (doh) {
+            console.log(doh)
             // we've failed to broadcast a transaction however this isn't a fatal
             // error. Periodically, we look to see if a transaction has been mined
             // for whatever reason if not then we'll need to re-issue the transaction

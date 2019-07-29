@@ -82,7 +82,7 @@ export class PisaService extends StartStopService {
         const appointmentSigner = new HotEthereumAppointmentSigner(receiptSigner);
 
         // tower
-        const tower = new PisaTower(provider, this.appointmentStore, appointmentSigner);
+        const tower = new PisaTower(provider, this.appointmentStore, appointmentSigner, this.multiResponder);
 
         app.post("/appointment", this.appointment(tower));
 

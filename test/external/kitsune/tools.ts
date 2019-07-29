@@ -24,6 +24,12 @@ export class KitsuneTools {
         return v.encode(args);
     }
 
+    public static encodeTriggerDisputeData() {
+        const abi = new ethers.utils.Interface(KitsuneTools.ContractAbi);
+        const v = abi.functions["triggerDispute"];
+        return v.encode([]);
+    }
+
     public static eventArgs() {
         // no indexed args specified
         return ethers.utils.defaultAbiCoder.encode(["uint256[]"], [[]]);

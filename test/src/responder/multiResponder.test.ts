@@ -1,6 +1,5 @@
 import "mocha";
 import { MultiResponder, GasPriceEstimator } from "../../../src/responder";
-import Ganache from "ganache-core";
 import { ethers } from "ethers";
 import { mock, when, anything, instance } from "ts-mockito";
 import { BigNumber } from "ethers/utils";
@@ -9,10 +8,6 @@ import { ArgumentError, Appointment } from "../../../src/dataEntities";
 import { PisaTransactionIdentifier } from "../../../src/responder/gasQueue";
 import chaiAsPromised from "chai-as-promised";
 chai.use(chaiAsPromised);
-
-const ganache = Ganache.provider({
-    mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect"
-});
 
 const createAppointment = (id: number, data: string): Appointment => {
     return Appointment.fromIAppointment({
@@ -35,8 +30,7 @@ const createAppointment = (id: number, data: string): Appointment => {
 };
 
 describe("MultiResponder", () => {
-    const provider = new ethers.providers.Web3Provider(ganache);
-    const signer = provider.getSigner(0);
+    let signer: ethers.Signer;
     let increasingGasPriceEstimator: GasPriceEstimator,
         increasingGasEstimatorMock: GasPriceEstimator,
         decreasingGasPriceEstimator: GasPriceEstimator,
@@ -47,6 +41,16 @@ describe("MultiResponder", () => {
     const replacementRate = 15;
 
     beforeEach(() => {
+        const providerMock = mock(ethers.providers.JsonRpcProvider);
+        when(providerMock.getNetwork()).thenResolve({ chainId: 1 , name: "test"})
+        when(providerMock.getTransactionCount("address", "pending")).thenResolve(1)
+        const provider = instance(providerMock);
+
+        const signerMock = mock(ethers.providers.JsonRpcSigner);
+        when(signerMock.getAddress()).thenResolve("address");
+        when(signerMock.provider).thenReturn(provider);
+        signer = instance(signerMock);
+
         // set up the mocks each time so that we can check the verifies
         decreasingGasEstimatorMock = mock(GasPriceEstimator);
         when(decreasingGasEstimatorMock.estimate(anything())).thenResolve(
