@@ -177,7 +177,7 @@ describe("Service end-to-end", () => {
         }
     }).timeout(3000);
 
-    it("create channel, relay trigger disupte", async () => {
+    it("create channel, relay trigger dispute", async () => {
         const data = KitsuneTools.encodeTriggerDisputeData();
         const appRequest = appointmentRequest(data, account0, oneWayChannelContract.address, 0);
 
