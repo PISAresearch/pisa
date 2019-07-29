@@ -32,7 +32,6 @@ export abstract class StartStopService extends EventEmitter {
      * @param name The name of the service. It must contain lowercase letters, numbers and hyphens ("-").;
      */
 
-    protected callsLog : string[] = [];
     protected constructor(protected readonly name: string) {
         super();
         let instance = this;
@@ -56,8 +55,10 @@ export abstract class StartStopService extends EventEmitter {
 
         let proxyHandler = {
             construct (target: any, prop: string) {
-                throw new ApplicationError ("StartStopService was instantiated without inheriting, eg by running as a function (This code should never run).");
-                // return asProtectedMethod (target, prop) ();
+                throw new Error ('Should not have reached here! (startStopService.construct)')
+                // (apparently not :/ )
+                // Maybe it only would be if 'new StartStopService()' were to be instantiated, rather than children...
+                return instance.asProtectedMethod (target[prop]) ();
             },
 
             /**
@@ -66,22 +67,22 @@ export abstract class StartStopService extends EventEmitter {
             * If method called is a public one, return the unmodified function as normal only if
             * that flag is set or service is started - else error.
             **/
-            get (target: any, prop: string, receiver: any) {
+            get (target: any, prop: string) {
                 // Do not intercept these
-                if (typeof target[prop] !== "function" || prop==="start" || prop==="stop")
+                if (typeof target[prop] !== 'function' || prop==='start' || prop==='stop')
                     return target[prop];
 
-                // Intercept these...
-                if (prop==="startInternal" || prop==="stopInternal")
-                    return asProtectedMethod (target, prop);
+                if (prop==='startInternal' || prop==='stopInternal')
+                    return instance.asProtectedMethod (target[prop]);
 
-                // Don't throw notStarted error if service is started or starting.
+                // NB check if the second test is shortcircuited - test >0 is correct.
                 if (instance.mStarted || (instance.suppressNotStartedError >0) )
                     return target[prop];
 
-                throw new ApplicationError ("Service not started.");
+                throw new ApplicationError (`Service not started. \n    If the stack trace involves 'new' (constructing an instance or child of startStopService), ensure that methods in the constructor are run asProtectedMethod.`);
             }
         };
+
 
         if (!/^[a-z0-9\-]+$/.test(name)) {
             throw new ConfigurationError(
@@ -98,6 +99,30 @@ export abstract class StartStopService extends EventEmitter {
     }
     private mStarting: boolean = false;
     private suppressNotStartedError: number = 0;
+
+
+    /**
+    * protected methods are:
+    * startInternal; stopInternal; start; stop
+    * They, and their internals, can use public methods without start having yet been called.
+    * Ideally constructors would also be, but we couldn;t get the construct trap to trap them. So..
+    * Constructors of subclasses extending startStopService must apply asProtectedMethod to
+    * any of their own methods called.
+    */
+    protected asProtectedMethod (targetMethod : Function) {
+        return function (...args: any[]) {
+            this.suppressNotStartedError++;
+            // Remove this - it's not an error, it's just to show that the flag incremented case is reachable
+            // if (instance.suppressNotStartedError >=1)
+            //     throw new Error (`supppressor was incremented in getting ${prop} \n. Previous calls: ${instance.callsLog.join('; ')}`)
+            // This could better be a warn, for debugging.
+            if (this.suppressNotStartedError >=2)
+                throw new Error (`Multiple (${this.suppressNotStartedError}) protected methods suppressing the NotStartedError on ${this.constructor.name}`)
+            const result = targetMethod.apply(this, args);
+            this.suppressNotStartedError--;
+            return result;
+        };
+    }
 
     /**
      * Start this service
