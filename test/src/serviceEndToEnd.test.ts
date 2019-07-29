@@ -58,6 +58,7 @@ describe("Service end-to-end", () => {
     let account0: string,
         account1: string,
         channelContract: ethers.Contract,
+        oneWayChannelContract: ethers.Contract,
         hashState: string,
         disputePeriod: number,
         service: PisaService,
@@ -93,7 +94,8 @@ describe("Service end-to-end", () => {
             provider.getSigner()
         );
         // add the responder as a user, so that it's allowed to call trigger dispute
-        channelContract = await channelContractFactory.deploy([account0, account1, responderWallet.address], disputePeriod);
+        oneWayChannelContract = await channelContractFactory.deploy([responderWallet.address], disputePeriod);
+        channelContract = await channelContractFactory.deploy([account0, account1], disputePeriod);
         hashState = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("face-off"));
     });
 
@@ -177,7 +179,7 @@ describe("Service end-to-end", () => {
 
     it("create channel, relay trigger disupte", async () => {
         const data = KitsuneTools.encodeTriggerDisputeData();
-        const appRequest = appointmentRequest(data, account0, channelContract.address, 0);
+        const appRequest = appointmentRequest(data, account0, oneWayChannelContract.address, 0);
 
         const res = await request.post(`http://${nextConfig.hostName}:${nextConfig.hostPort}/appointment`, {
             json: appRequest
@@ -186,8 +188,8 @@ describe("Service end-to-end", () => {
         // now register a callback on the setstate event and trigger a response
         const triggerDisputeEvent = "EventDispute(uint256)";
         let successResult = { success: false };
-        channelContract.on(triggerDisputeEvent, async () => {
-            channelContract.removeAllListeners(triggerDisputeEvent);
+        oneWayChannelContract.on(triggerDisputeEvent, async () => {
+            oneWayChannelContract.removeAllListeners(triggerDisputeEvent);
             successResult.success = true;
         });
 
