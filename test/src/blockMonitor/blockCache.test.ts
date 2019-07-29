@@ -90,6 +90,7 @@ describe("BlockCache", () => {
         expect(bc.canAddBlock(otherBlocks[3])).to.be.true;
     });
 
+    //TODO:227: check this test
     it("canAddBlock returns false for blocks whose height is lower than the initial height", () => {
         const bc = new BlockCache(maxDepth);
 

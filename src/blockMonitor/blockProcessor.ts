@@ -121,24 +121,28 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
     // updates the new head block in the cache and emits the appropriate events
     private processNewHead(headBlock: Readonly<TBlock>) {
         this.mBlockCache.setHead(headBlock.hash);
-        const nearestEmittedHeadInAncestry = this.blockCache.findAncestor(headBlock.hash, block =>
-            this.emittedBlockHeads.has(block)
-        );
 
-        const ancestry = [...this.blockCache.ancestry(headBlock.hash)];
-        const firstBlockIndex = nearestEmittedHeadInAncestry
-            ? ancestry.findIndex(block => block.parentHash === nearestEmittedHeadInAncestry.hash)
-            : 0;
-        const blocksToEmit = ancestry.slice(firstBlockIndex);
+        // only emit events after it's started
+        if (this.started) {
+            const nearestEmittedHeadInAncestry = this.blockCache.findAncestor(headBlock.hash, block =>
+                this.emittedBlockHeads.has(block)
+            );
 
-        // TODO:227: this is different than before, as a NEW_BLOCK_EVENT will happen multiple times for the same block in case of multiple reorgs.
-        //           Could restore a behavior similar to the old one by keeping track of all the emitted blocks (rather than only the heads) in a WeakMap.
-        for (const block in blocksToEmit) {
-            this.emit(BlockProcessor.NEW_BLOCK_EVENT, block);
+            const ancestry = [...this.blockCache.ancestry(headBlock.hash)].reverse();
+            const firstBlockIndex = nearestEmittedHeadInAncestry
+                ? ancestry.findIndex(block => block.parentHash === nearestEmittedHeadInAncestry.hash)
+                : 0;
+            const blocksToEmit = ancestry.slice(firstBlockIndex);
+
+            // TODO:227: this is different than before, as a NEW_BLOCK_EVENT will happen multiple times for the same block in case of multiple reorgs.
+            //           Could restore a behavior similar to the old one by keeping track of all the emitted blocks (rather than only the heads) in a WeakMap.
+            for (const block of blocksToEmit) {
+                this.emit(BlockProcessor.NEW_BLOCK_EVENT, block);
+            }
+
+            this.emit(BlockProcessor.NEW_HEAD_EVENT, headBlock, nearestEmittedHeadInAncestry);
+            this.emittedBlockHeads.add(headBlock);
         }
-
-        this.emit(BlockProcessor.NEW_HEAD_EVENT, headBlock, nearestEmittedHeadInAncestry);
-        this.emittedBlockHeads.add(headBlock);
     }
 
     // Processes a new block, adding it to the cache and emitting the appropriate events
@@ -146,7 +150,6 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
     private async processBlockNumber(blockNumber: number) {
         try {
             const observedBlock = await this.getBlock(blockNumber);
-
             if (observedBlock == null) {
                 // TODO:227: what to do if block is null?
                 return;

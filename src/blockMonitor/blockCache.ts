@@ -274,7 +274,7 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
      */
     public setHead(blockHash: string) {
         if (!this.hasBlock(blockHash)) {
-            throw new ArgumentError("Cannot set the head for a block that isn't in the cash.", blockHash);
+            throw new ArgumentError("Cannot set the head to be a block that isn't in the cache.", blockHash);
         }
         this.headHash = blockHash;
     }
