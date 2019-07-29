@@ -95,9 +95,6 @@ export abstract class StartStopService extends EventEmitter {
     protected asProtectedMethod (targetMethod : Function) {
         return function (...args: any[]) {
             this.suppressNotStartedError++;
-            // Remove this - it's not an error, it's just to show that the flag incremented case is reachable
-            // if (instance.suppressNotStartedError >=1)
-            //     throw new Error (`supppressor was incremented in getting ${prop} \n. Previous calls: ${instance.callsLog.join('; ')}`)
             // This could better be a warn, for debugging.
             if (this.suppressNotStartedError >=2)
                 throw new Error (`Multiple (${this.suppressNotStartedError}) protected methods suppressing the NotStartedError on ${this.constructor.name}`)

@@ -46,7 +46,7 @@ export class PisaService extends StartStopService {
         super("pisa");
         const app = express();
 
-        this.applyMiddlewares(app, config);
+        this.asProtectedMethod(this.applyMiddlewares)(app, config);
 
         // start reorg detector and block monitor
         const blockCache = new BlockCache<Block>(
@@ -84,7 +84,7 @@ export class PisaService extends StartStopService {
         // tower
         const tower = new PisaTower(provider, this.appointmentStore, appointmentSigner, this.multiResponder);
 
-        app.post("/appointment", this.appointment(tower));
+        app.post("/appointment", this.asProtectedMethod(this.appointment(tower)));
 
         const service = app.listen(config.hostPort, config.hostName);
         this.logger.info(`Listening on: ${config.hostName}:${config.hostPort}.`);

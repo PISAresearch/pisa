@@ -63,7 +63,11 @@ export class MultiResponder extends StartStopService {
         if (maxConcurrentResponses < 1) {
             throw new ArgumentError("Maximum concurrent requests must be greater than 0.", maxConcurrentResponses);
         }
-        this.broadcast = this.broadcast.bind(this);
+        /* NB startStopService's proxyHandler will intercept get(this.broadcast), even though the method is not run at this stage.
+         * NotStartedError would throw on this get, so needs to be wrapped in asProtectedMethod. That error will NOT protect future running
+         * of the bound broadcast method, but it is private, so should be protected instead through whichever public function calls it.
+         */
+        this.broadcast = this.asProtectedMethod(this.broadcast).bind(this);
     }
 
     protected async startInternal() {
