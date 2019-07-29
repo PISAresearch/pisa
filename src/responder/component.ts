@@ -8,7 +8,7 @@ import {
     BlockNumberReducer
 } from "../blockMonitor/component";
 import { ReadOnlyBlockCache } from "../blockMonitor";
-import { Block, ApplicationError } from "../dataEntities";
+import { Block } from "../dataEntities";
 import { MultiResponder } from "./multiResponder";
 import { ResponderBlock } from "../dataEntities/block";
 import logger from "../logger";
@@ -128,10 +128,11 @@ export class MultiResponderComponent extends Component<ResponderAnchorState, Blo
                 item =>
                     new ResponderAppointmentReducer(
                         blockCache,
-                        item.queueItem.request.identifier,
-                        item.id,
+                        item.request.identifier,
+                        item.request.appointment.id,
                         responder.address
                     ),
+                item => item.request.appointment.id,
                 new BlockNumberReducer()
             )
         );

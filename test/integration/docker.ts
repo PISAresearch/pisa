@@ -15,7 +15,7 @@ interface IPortBinding {
 
 class DockerImageLib {
     public static PARITY_IMAGE = "parity/parity:v2.5.0";
-    public static PISA_IMAGE = "pisaresearch/pisa:0.1.2";
+    public static PISA_IMAGE = "pisaresearch/pisa:v0.1.3";
 }
 
 abstract class DockerContainer {
@@ -92,7 +92,7 @@ export class PisaContainer extends DockerContainer {
         config: IArgConfig,
         hostPort: number,
         hostLogsDir: string,
-        network: string
+        network: string,
     ) {
         const configManager = new ConfigManager(ConfigManager.PisaConfigProperties);
         const commandLineArgs = configManager.toCommandLineArgs(config);

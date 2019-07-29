@@ -4,15 +4,7 @@ import rateLimit from "express-rate-limit";
 import { Server } from "http";
 import { inspect } from "util";
 import { ethers } from "ethers";
-import {
-    PublicInspectionError,
-    PublicDataValidationError,
-    ApplicationError,
-    StartStopService,
-    ChannelType,
-    IEthereumAppointment
-} from "./dataEntities";
-import { Raiden, Kitsune } from "./integrations";
+import { PublicInspectionError, PublicDataValidationError, ApplicationError, StartStopService } from "./dataEntities";
 import { Watcher, AppointmentStore } from "./watcher";
 import { PisaTower, HotEthereumAppointmentSigner } from "./tower";
 import { setRequestId } from "./customExpressHttpContext";
@@ -56,9 +48,6 @@ export class PisaService extends StartStopService {
 
         this.applyMiddlewares(app, config);
 
-        // choose configs
-        const configs = [Raiden, Kitsune];
-
         // start reorg detector and block monitor
         const blockCache = new BlockCache<Block>(
             config.maximumReorgLimit === undefined ? 200 : config.maximumReorgLimit
@@ -66,10 +55,7 @@ export class PisaService extends StartStopService {
         this.blockProcessor = new BlockProcessor<Block>(provider, blockFactory, blockCache);
 
         // dependencies
-        this.appointmentStore = new AppointmentStore(
-            db,
-            new Map(configs.map<[ChannelType, (obj: any) => IEthereumAppointment]>(c => [c.channelType, c.appointment]))
-        );
+        this.appointmentStore = new AppointmentStore(db);
 
         this.multiResponder = new MultiResponder(
             wallet,
@@ -96,7 +82,7 @@ export class PisaService extends StartStopService {
         const appointmentSigner = new HotEthereumAppointmentSigner(receiptSigner);
 
         // tower
-        const tower = new PisaTower(provider, this.appointmentStore, appointmentSigner, configs);
+        const tower = new PisaTower(provider, this.appointmentStore, appointmentSigner, this.multiResponder);
 
         app.post("/appointment", this.appointment(tower));
 

@@ -12,13 +12,11 @@
         "start-evm": "ganache-cli -d -l 15000000 --allowUnlimitedContractSize --defaultBalanceEther 1000000 --mnemonic 'myth like bonus scare over problem client lizard pioneer submit female collect'",
         "submodule": "git submodule init && git submodule update",
         "lint": "eslint --ext ts .",
-        "test": "npm run test-main && npm run test-mocked",
-        "test-main": "NODE_ENV=test mocha -r ts-node/register 'test/src/**/*.test.ts' --exit",
+        "test": "NODE_ENV=test mocha -r ts-node/register 'test/src/**/*.test.ts' --exit",
         "test-load": "ts-node test/load/loadTest.ts 10 20000",
-        "test-coverage": "NODE_ENV=test nyc mocha -r ts-node/register --reporter mocha-junit-reporter --reporter-options mochaFile=coverage/mocha/test-results.xml 'test/src/**/*.test.ts' --exit && npm run test-mocked",
+        "test-coverage": "NODE_ENV=test nyc mocha -r ts-node/register --reporter mocha-junit-reporter --reporter-options mochaFile=coverage/mocha/test-results.xml 'test/src/**/*.test.ts' --exit",
         "test-smoke": "ts-node test/smoke/smokeTests.ts",
         "test-integration": "mocha -r ts-node/register 'test/integration/remote/**/*.test.ts' --exit",
-        "test-mocked": "NODE_ENV=test mocha -r ts-node/register 'test/mocked/**/*.test.ts' --exit",
         "test-raiden": "mocha -r ts-node/register 'test/integration/raiden.test.ts' --exit"
     },
     "nyc": {
@@ -49,6 +47,7 @@
     },
     "homepage": "https://github.com/PISAresearch/pisa#readme",
     "dependencies": {
+        "ajv": "^6.10.2",
         "encoding-down": "^6.0.2",
         "ethers": "^4.0.27",
         "express": "^4.16.4",
@@ -67,6 +66,7 @@
     },
     "devDependencies": {
         "@istanbuljs/nyc-config-typescript": "^0.1.3",
+        "@types/ajv": "^1.0.0",
         "@types/chai": "^4.1.6",
         "@types/chai-as-promised": "^7.1.0",
         "@types/cls-hooked": "^4.3.0",
