@@ -36,23 +36,65 @@ export abstract class StartStopService extends EventEmitter {
         super();
         let instance = this;
 
+        function detailsOfNotStartedError (instance: any, prop : string) :string {
+            let message : string = `    If the stack trace involves 'new' (constructing an instance or child of startStopService), ensure that methods in the constructor are run asProtectedMethod.`;
+            message += `\n  Attempt was: ${instance.constructor.name}.${prop}`;
+            if (instance.mStarted || instance.suppressNotStartedError)
+                message += `\n  start states are: .mStarted: ${instance.mStarted}, called internally: ${instance.suppressNotStartedError>1 ? instance.suppressNotStartedError : !!instance.suppressNotStartedError}`
+            if (instance.callsLog.length>1)
+                message += `\n  Previous get chain on instance was: ${instance.callsLog.join('; ')}`;
+            else
+                message += `\nNo previous calls on this instance` ;
+            if (instance.callsLog.indexOf(' start') ===-1)
+                message += `\n  !! Cannot find any previous call to start !!`;
+            if (instance.callsLog.indexOf(' stop') >-1)
+                message += `\n  !! Found call to stop, previous to this call !!`;
+            return message;
+        };
+
         let proxyHandler = {
             construct (target: any, prop: string) {
-                throw new Error ('Should not have reached here! (startStopService.construct)')
-                // (apparently not :/ )
-                // Maybe it only would be if 'new StartStopService()' were to be instantiated, rather than children...
+                throw new Error ('Should not have reached here! (startStopService.construct)');
                 return instance.asProtectedMethod (target[prop]) ();
             },
 
             /**
-            * If method called is a protected one (or is constructor), return the requested function, though wrapped in
+            * If method called is a protected one (or is within constructor, inc. Spy constructor), return the requested function, though wrapped in
             * checking/ setting of the appropriate flag to avoid errors in the functions contained calls to public methods.
             * If method called is a public one, return the unmodified function as normal only if
             * that flag is set or service is started - else error.
             **/
+
             get (target: any, prop: string) {
+
+                /* relies on error.stack which is still stage 1. In particular some JSs will not set it at construction of Error
+                 * https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Error/stack
+                 * Unfortunately Function.caller is also non-standard and when standardised will be overly restrictive
+                 * https://tc39.es/ecma262/#sec-forbidden-extensions
+                 * And arguments.callee.caller is deprecated.
+                 */
+                function isWithinConstructor () : boolean {
+                    const anyErr : {[k: string]: any} = new Error;
+                    // this means notStartedError will never throw when run in JS not supporting Error.stack (or not setting stack on new Error).
+                    if (!anyErr.hasOwnProperty('stack'))
+                        return true;
+                        // throw new ApplicationError (`Tried to access new Error.stack, but not found. Maybe your JS doesn't support it`);
+                    const ownClassHallmark : string = `at new ${instance.constructor.name}`;
+                    const spyHallmark : string = `at new Spy`;
+                    const stack : string = anyErr.stack;
+                    return (stack.indexOf(ownClassHallmark) > -1 || stack.indexOf(spyHallmark) > -1);
+                };
+
+                let toLog : string = '';
+                if (instance.suppressNotStartedError)
+                      toLog += `(${instance.suppressNotStartedError})`;
+                toLog += ` ${prop}`;
+                if (isWithinConstructor())
+                      toLog +=  ` (within constructor of ${instance.constructor.name})`;
+                instance.callsLog.push (toLog);
+
                 // Do not intercept these
-                if (typeof target[prop] !== 'function' || prop==='start' || prop==='stop')
+                if (typeof target[prop] !== 'function' || prop==='start' || prop==='stop' || prop==='asProtectedMethod')
                     return target[prop];
 
                 if (prop==='startInternal' || prop==='stopInternal')
@@ -62,10 +104,12 @@ export abstract class StartStopService extends EventEmitter {
                 if (instance.mStarted || (instance.suppressNotStartedError >0) )
                     return target[prop];
 
-                throw new ApplicationError (`Service not started. \n    If the stack trace involves 'new' (constructing an instance or child of startStopService), ensure that methods in the constructor are run asProtectedMethod.`);
-            }
-        };
+                if (isWithinConstructor())
+                    return target[prop];
 
+                throw new ApplicationError (`Service not started.\n${detailsOfNotStartedError (instance, prop)}`);
+            }
+        }
 
         if (!/^[a-z0-9\-]+$/.test(name)) {
             throw new ConfigurationError(
@@ -76,6 +120,8 @@ export abstract class StartStopService extends EventEmitter {
         this.logger = createNamedLogger(name);
         return new Proxy(this,proxyHandler);
     }
+    protected callsLog : string[] = [];
+
     private mStarted: boolean = false;
     public get started() {
         return this.mStarted;
