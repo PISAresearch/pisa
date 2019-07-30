@@ -1,4 +1,4 @@
-import { IEthereumResponseData, ArgumentError, ApplicationError } from "../dataEntities";
+import { Appointment, ArgumentError, ApplicationError } from "../dataEntities";
 import { BigNumber } from "ethers/utils";
 import { ethers } from "ethers";
 
@@ -34,13 +34,12 @@ export class GasQueueItemRequest {
      * A request to a queue a transaction at a specified gas price.
      * @param identifier
      * @param idealGasPrice The minimum gas price at which this item should be submitted to the network
-     * @param responseData The response data relevant to this request
+     * @param appointment The appointment data relevant to this request
      */
     constructor(
-        public readonly appointmentId: string,
         public readonly identifier: PisaTransactionIdentifier,
         public readonly idealGasPrice: BigNumber,
-        public readonly responseData: IEthereumResponseData
+        public readonly appointment: Appointment
     ) {}
 }
 

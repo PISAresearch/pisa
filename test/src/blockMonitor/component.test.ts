@@ -74,7 +74,12 @@ describe("MappedStateReducer", () => {
     });
 
     fnIt<MappedStateReducer<any,any,any,any>>(m => m.getInitialState, "computes initial state", () => {
-        const msr = new MappedStateReducer(() => [], () => new NullReducer(), new TestAnchorStateReducer(10));
+        const msr = new MappedStateReducer<TestAnchorState, {}, IBlockStub, { id: string }>(
+            () => [],
+            () => new NullReducer(),
+            o => o.id,
+            new TestAnchorStateReducer(10)
+        );
 
         const initialState = msr.getInitialState(blocks[1]);
         expect(initialState.someNumber).to.equal(10 + blocks[1].number);
@@ -84,6 +89,7 @@ describe("MappedStateReducer", () => {
         const msr = new MappedStateReducer(
             () => objects,
             ({ value }) => new TestAnchorStateReducer(value),
+            o => o.id,
             new NullReducer()
         );
 
@@ -99,7 +105,12 @@ describe("MappedStateReducer", () => {
     });
 
     fnIt<MappedStateReducer<any,any,any,any>>(m => m.reduce, "computes reduces state", () => {
-        const msr = new MappedStateReducer(() => [], () => new NullReducer(), new TestAnchorStateReducer(10));
+        const msr = new MappedStateReducer<TestAnchorState, {}, IBlockStub, { id: string }>(
+            () => [],
+            () => new NullReducer(),
+            o => o.id,
+            new TestAnchorStateReducer(10)
+        );
 
         const initialState = msr.getInitialState(blocks[1]);
         const reducedState = msr.reduce(initialState, blocks[2]);
@@ -111,6 +122,7 @@ describe("MappedStateReducer", () => {
         const msr = new MappedStateReducer(
             () => objects,
             ({ value }) => new TestAnchorStateReducer(value),
+            o => o.id,
             new NullReducer()
         );
 
@@ -143,6 +155,7 @@ describe("MappedStateReducer", () => {
         const msr = new MappedStateReducer(
             () => objects,
             ({ value }) => new TestAnchorStateReducer(value),
+            o => o.id,
             new NullReducer()
         );
 

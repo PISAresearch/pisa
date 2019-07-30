@@ -1,4 +1,4 @@
-import { IEthereumAppointment } from "../dataEntities";
+import { Appointment } from "../dataEntities";
 import { ApplicationError, ArgumentError } from "../dataEntities/errors";
 import { AppointmentStore } from "./store";
 import { ReadOnlyBlockCache } from "../blockMonitor";
@@ -33,12 +33,12 @@ export type WatcherAppointmentAnchorState =
 type WatcherAnchorState = MappedState<WatcherAppointmentAnchorState> & BlockNumberState;
 
 export class WatcherAppointmentStateReducer implements StateReducer<WatcherAppointmentAnchorState, IBlockStub & Logs> {
-    constructor(private cache: ReadOnlyBlockCache<IBlockStub & Logs>, private appointment: IEthereumAppointment) {
-        const filter = this.appointment.getEventFilter();
+    constructor(private cache: ReadOnlyBlockCache<IBlockStub & Logs>, private appointment: Appointment) {
+        const filter = this.appointment.eventFilter;
         if (!filter.topics) throw new ApplicationError(`topics should not be undefined`);
     }
     public getInitialState(block: IBlockStub & Logs): WatcherAppointmentAnchorState {
-        const filter = this.appointment.getEventFilter();
+        const filter = this.appointment.eventFilter;
 
         const eventAncestor = this.cache.findAncestor(block.hash, ancestor =>
             hasLogMatchingEventFilter(ancestor, filter)
@@ -58,7 +58,7 @@ export class WatcherAppointmentStateReducer implements StateReducer<WatcherAppoi
     public reduce(prevState: WatcherAppointmentAnchorState, block: IBlockStub & Logs): WatcherAppointmentAnchorState {
         if (
             prevState.state === WatcherAppointmentState.WATCHING &&
-            hasLogMatchingEventFilter(block, this.appointment.getEventFilter())
+            hasLogMatchingEventFilter(block, this.appointment.eventFilter)
         ) {
             return {
                 state: WatcherAppointmentState.OBSERVED,
@@ -91,7 +91,8 @@ export class Watcher extends Component<WatcherAnchorState, IBlockStub & Logs> {
         super(
             new MappedStateReducer(
                 () => store.getAll(),
-                (appointment: IEthereumAppointment) => new WatcherAppointmentStateReducer(blockCache, appointment),
+                appointment => new WatcherAppointmentStateReducer(blockCache, appointment),
+                appointment => appointment.id,
                 new BlockNumberReducer()
             )
         );
@@ -155,9 +156,7 @@ export class Watcher extends Component<WatcherAnchorState, IBlockStub & Logs> {
             ) {
                 const appointment = this.store.appointmentsById.get(appointmentId)!;
                 logger.info(`Responding to appointment ${appointmentId}, block ${state.blockNumber}.`);
-                // pass the appointment to the responder to complete. At this point the job has completed as far as
-                // the watcher is concerned, therefore although respond is an async function we do not need to await it for a result
-                await this.responder.startResponse(appointment.id, appointment.getResponseData());
+                await this.responder.startResponse(appointment);
             }
 
             // Cleanup if done with appointment
@@ -169,9 +168,8 @@ export class Watcher extends Component<WatcherAnchorState, IBlockStub & Logs> {
                 await this.store.removeById(appointmentId);
             }
 
-            //Find endBlock for current appointment
-            let endBlock = this.store.appointmentsById.get(appointmentId)!.endBlock;
             // Cleanup if appointment expired
+            let endBlock = this.store.appointmentsById.get(appointmentId)!.endBlock;
             if (
                 !this.shouldRemoveExpiredAppointment(prevState, prevWatcherAppointmentState,endBlock) && 
                 this.shouldRemoveExpiredAppointment(state, appointmentState,endBlock)

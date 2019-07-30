@@ -1,8 +1,9 @@
 import request from "request-promise";
-import { KitsuneTools } from "../../src/integrations/kitsune";
+import { KitsuneTools } from "../external/kitsune/tools";
 import { ethers } from "ethers";
 import config from "../../src/dataEntities/config";
 import { getJsonRPCProvider } from "../../src/utils";
+import { Appointment, IAppointmentRequest } from "../../src/dataEntities";
 
 let account0: string,
     account1: string,
@@ -46,20 +47,33 @@ let execute = async (timeToWait: number) => {
     for (let index = 0; index < channelContracts.length; index++) {
         const channelContract = channelContracts[index];
 
-        const round = 1,
-            setStateHash = KitsuneTools.hashForSetState(hashState, round, channelContract.address),
-            sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash)),
-            sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash)),
-            expiryPeriod = disputePeriod + 1;
-        const appointmentRequest = {
-            expiryPeriod,
-            stateUpdate: {
+        const round = 1;
+        const setStateHash = KitsuneTools.hashForSetState(hashState, round, channelContract.address);
+        const sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash));
+        const sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash));
+        const data = KitsuneTools.encodeSetStateData(hashState, round, sig0, sig1);
+
+        const createAppointmentRequest = (data: string, acc: string): IAppointmentRequest => {
+            return {
+                challengePeriod: 20,
                 contractAddress: channelContract.address,
-                hashState,
-                round,
-                signatures: [sig0, sig1]
-            }
+                customerAddress: acc,
+                data,
+                endBlock: 22,
+                eventABI: KitsuneTools.eventABI(),
+                eventArgs: KitsuneTools.eventArgs(),
+                gas: 100000,
+                id: 1,
+                jobId: 0,
+                mode: 1,
+                postCondition: "0x",
+                refund: 0,
+                startBlock: 0,
+                paymentHash: Appointment.FreeHash
+            };
         };
+
+        const appointmentRequest = createAppointmentRequest(data, account0);
 
         // now register a callback on the setstate event and trigger a response
         const setStateEvent = "EventEvidence(uint256, bytes32)";

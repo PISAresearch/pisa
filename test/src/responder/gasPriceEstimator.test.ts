@@ -1,7 +1,7 @@
 import "mocha";
 import { expect } from "chai";
 import { ExponentialCurve, ExponentialGasCurve, GasPriceEstimator } from "../../../src/responder/gasPriceEstimator";
-import { ArgumentError, IBlockStub } from "../../../src/dataEntities";
+import { ArgumentError, IBlockStub, Appointment } from "../../../src/dataEntities";
 import { BigNumber } from "ethers/utils";
 import { mock, when, instance } from "ts-mockito";
 import { ethers } from "ethers";
@@ -109,7 +109,26 @@ describe("ExponentialGasCurve", () => {
 });
 
 describe("GasPriceEstimator", () => {
-    fnIt<GasPriceEstimator>(e => e.estimate, "", async () => {
+    const createAppointment = (endBlock: number): Appointment => {
+        return Appointment.fromIAppointment({
+            challengePeriod: 10,
+            contractAddress: "contractAddress",
+            customerAddress: "customerAddress",
+            data: "data",
+            endBlock,
+            eventABI: "eventABI",
+            eventArgs: "eventArgs",
+            gas: 100,
+            customerChosenId: 20,
+            jobId: 1,
+            mode: 1,
+            paymentHash: "paymentHash",
+            postCondition: "postCondition",
+            refund: 3,
+            startBlock: 7
+        });
+    };
+        fnIt<GasPriceEstimator>(e => e.estimate, "", async () => {
         const currentGasPrice = new BigNumber(21000000000);
         const currentBlock = 1;
         const endBlock = 3;
@@ -123,13 +142,7 @@ describe("GasPriceEstimator", () => {
         const blockCache = instance(mockedBlockCache);
 
         const gasPriceEstimator = new GasPriceEstimator(provider, blockCache);
-        const estimate = await gasPriceEstimator.estimate({
-            contractAbi: "contract",
-            contractAddress: "address",
-            endBlock: 3,
-            functionArgs: [],
-            functionName: "fn"
-        });
+        const estimate = await gasPriceEstimator.estimate(createAppointment(3));
         const expectedValue = new ExponentialGasCurve(currentGasPrice).getGasPrice(endBlock - currentBlock);
 
         expect(estimate.toNumber()).to.equal(expectedValue.toNumber());

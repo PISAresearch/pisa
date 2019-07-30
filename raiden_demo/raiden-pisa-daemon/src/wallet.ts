@@ -2,7 +2,7 @@ import * as fs from "fs";
 import { ethers } from "ethers";
 
 // load a local wallet
-export const getWallet = async (keyFileLocation: string, password: string) => {
+export const getWallet = async (keyFileLocation: string, password: string): Promise<ethers.Wallet> => {
     const keyData = fs.readFileSync(keyFileLocation).toString();
     return await ethers.Wallet.fromEncryptedJson(keyData, password);
 }

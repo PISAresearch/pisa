@@ -1,18 +1,10 @@
 import "mocha";
 import { expect } from "chai";
-import { mock, instance, when, resetCalls, verify, anything } from "ts-mockito";
+import { mock, instance, when, resetCalls, verify } from "ts-mockito";
 import { AppointmentStore } from "../../../src/watcher";
-import { ethers } from "ethers";
 import { MultiResponder } from "../../../src/responder";
 import { BlockCache } from "../../../src/blockMonitor";
-import {
-    EthereumAppointment,
-    ChannelType,
-    ApplicationError,
-    IEthereumAppointment,
-    IBlockStub,
-    Logs
-} from "../../../src/dataEntities";
+import { ApplicationError, IBlockStub, Logs, Appointment } from "../../../src/dataEntities";
 import {
     WatcherAppointmentStateReducer,
     WatcherAppointmentState,
@@ -57,54 +49,25 @@ const blocks: (IBlockStub & Logs)[] = [
     }
 ];
 
-// Mock of an appointment, in several tests
-class MockAppointment extends EthereumAppointment {
-    public getStateLocator(): string {
-        throw new Error("Method not implemented.");
-    }
-    public getContractAbi() {
-        return [];
-    }
-    public getContractAddress(): string {
-        return "0xaaaabbbbccccdddd";
-    }
-    public getEventFilter(): ethers.EventFilter {
-        return {
-            address: observedEventAddress,
-            topics: observedEventTopics
-        };
-    }
-    public getEventName(): string {
-        throw new Error("Method not implemented.");
-    }
-    public getStateNonce(): number {
-        throw new Error("Method not implemented.");
-    }
-    public getResponseFunctionName(): string {
-        return "responseFnName";
-    }
-    public getResponseFunctionArgs(): any[] {
-        return [];
-    }
-}
-
-class MockAppointmentWithEmptyFilter extends MockAppointment {
-    public getEventFilter(): ethers.EventFilter {
-        return {};
-    }
-}
-
 describe("WatcherAppointmentStateReducer", () => {
-    const appointment = new MockAppointment(10, ChannelType.None, 0, 100);
+    const appMock = mock(Appointment);
+    when(appMock.eventFilter).thenReturn({
+        address: observedEventAddress,
+        topics: observedEventTopics
+    });
+    when(appMock.id).thenReturn("app1");
+    const appointment = instance(appMock);
 
     const blockCache = new BlockCache<IBlockStub & Logs>(100);
     blocks.forEach(b => blockCache.addBlock(b));
 
     it("constructor throws ApplicationError if the topics are not set in the filter", () => {
-        const mockAppointmentWithEmptyFilter = new MockAppointmentWithEmptyFilter(10, ChannelType.None, 0, 10);
-        expect(() => new WatcherAppointmentStateReducer(blockCache, mockAppointmentWithEmptyFilter)).to.throw(
-            ApplicationError
-        );
+        const emptyAppMock = mock(Appointment);
+        when(emptyAppMock.eventFilter).thenReturn({});
+        when(appMock.id).thenReturn("app1");
+        const emptyAppointment = instance(emptyAppMock);
+
+        expect(() => new WatcherAppointmentStateReducer(blockCache, emptyAppointment)).to.throw(ApplicationError);
     });
 
     fnIt<WatcherAppointmentStateReducer>(w => w.getInitialState, "initializes to WATCHING if event not present in ancestry", () =>{
@@ -189,14 +152,21 @@ describe("Watcher", () => {
     let mockedStore: AppointmentStore;
     let store: AppointmentStore;
 
-    let appointment: IEthereumAppointment;
+    let appointment: Appointment;
 
     beforeEach(() => {
-        appointment = new MockAppointment(100, ChannelType.None, 0, 100);
+        const appMock = mock(Appointment);
+        when(appMock.eventFilter).thenReturn({
+            address: observedEventAddress,
+            topics: observedEventTopics
+        });
+        when(appMock.id).thenReturn("app1");
+        when(appMock.endBlock).thenReturn(100);
+        appointment = instance(appMock);
 
         mockedStore = mock(AppointmentStore);
         when(mockedStore.getAll()).thenReturn([appointment]);
-        const appointmentsById = new Map<string, IEthereumAppointment>();
+        const appointmentsById = new Map<string, Appointment>();
         appointmentsById.set(appointment.id, appointment);
         when(mockedStore.appointmentsById).thenReturn(appointmentsById);
         store = instance(mockedStore);
@@ -235,8 +205,7 @@ describe("Watcher", () => {
             blockNumber: 2 + CONFIRMATIONS_BEFORE_RESPONSE - 1
         }
     );
-
-    verify(mockedResponder.startResponse(appointment.id, anything())).once();
+        verify(mockedResponder.startResponse(appointment)).once();
     });
 
     fnIt<Watcher>(w => w.handleChanges, "does not call startResponse before event is OBSERVED for long enough", async() => {
@@ -265,7 +234,7 @@ describe("Watcher", () => {
             }
         );
 
-        verify(mockedResponder.startResponse(appointment.id, anything())).never();
+        verify(mockedResponder.startResponse(appointment)).never();
     });
 
     fnIt<Watcher>(w => w.handleChanges, "calls startResponse immediately after event is OBSERVED for long enough even if just added to the store", async() => {
@@ -290,7 +259,8 @@ describe("Watcher", () => {
                 blockNumber: 2 + CONFIRMATIONS_BEFORE_RESPONSE - 1
             }
         );
-        verify(mockedResponder.startResponse(appointment.id, anything())).once();
+
+        verify(mockedResponder.startResponse(appointment)).once();
     });
 
     fnIt<Watcher>(w => w.handleChanges,"does not call startResponse again if a previous state already caused startResponse", async() => {
@@ -319,7 +289,7 @@ describe("Watcher", () => {
             }
         );
 
-        verify(mockedResponder.startResponse(appointment.id, anything())).never();
+        verify(mockedResponder.startResponse(appointment)).never();
     });
 
     fnIt<Watcher>(w =>w.handleChanges, "calls removeById after event is OBSERVED for long enoug", async() => {
