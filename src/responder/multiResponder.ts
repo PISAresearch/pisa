@@ -98,7 +98,7 @@ export class MultiResponder extends StartStopService {
             );
             const idealGas = await this.gasEstimator.estimate(appointment);
             const request = new GasQueueItemRequest(txIdentifier, idealGas, appointment);
-            logger.info(`Enqueueing request for ${appointment.id}. ${JSON.stringify(request)}.`);
+            logger.info(request, `Enqueueing request for ${appointment.id}.`);
 
             // add the queue item to the queue, since the queue is ordered this may mean
             // that we need to replace some transactions on the network. Find those and
@@ -111,12 +111,7 @@ export class MultiResponder extends StartStopService {
             replacedTransactions.forEach(q => this.respondedTransactions.set(q.request.appointment.id, q));
             await Promise.all(replacedTransactions.map(b => this.broadcast(b)));
         } catch (doh) {
-            if (doh instanceof QueueConsistencyError) logger.error(doh.stack!);
-            else {
-                logger.error(`Unexpected error trying to respond for: ${appointment.id}.`);
-                if (doh.stack) logger.error(doh.stack);
-                else logger.error(doh);
-            }
+            logger.error(doh)
         }
     }
 
@@ -133,7 +128,6 @@ export class MultiResponder extends StartStopService {
      */
     public async txMined(txIdentifier: PisaTransactionIdentifier, nonce: number) {
         try {
-            logger.info(`Transaction mined. ${txIdentifier}. ${nonce}.`);
             if (this.mQueue.queueItems.length === 0) {
                 throw new QueueConsistencyError(
                     `Transaction mined for empty queue at nonce ${nonce}. ${inspect(txIdentifier)}`
@@ -175,12 +169,7 @@ export class MultiResponder extends StartStopService {
                 await Promise.all(replacedTransactions.map(b => this.broadcast(b)));
             }
         } catch (doh) {
-            if (doh instanceof QueueConsistencyError) logger.error(doh.stack!);
-            else {
-                logger.error(`Unexpected error after mining transaction. ${txIdentifier}.`);
-                if (doh.stack) logger.error(doh.stack);
-                else logger.error(doh);
-            }
+            logger.error(doh);
         }
     }
 
@@ -206,7 +195,7 @@ export class MultiResponder extends StartStopService {
 
         // no need to unlock anything if we dont have any missing items
         if (missingQueueItems.length !== 0) {
-            logger.info(`${missingQueueItems.length} items missing from the gas queue. Re-enqueueing: ${JSON.stringify(missingQueueItems)}.`); //prettier-ignore
+            logger.info({ missingItems: missingQueueItems }, `${missingQueueItems.length} items missing from the gas queue. Re-enqueueing.`); //prettier-ignore
             const unlockedQueue = this.mQueue.prepend(missingQueueItems);
             const replacedTransactions = unlockedQueue.difference(this.mQueue);
             this.mQueue = unlockedQueue;
@@ -220,24 +209,20 @@ export class MultiResponder extends StartStopService {
      * @param appointmentId
      */
     public endResponse(appointmentId: string) {
-        logger.info(`Removing appointment from responder: ${appointmentId}.`);
         this.respondedTransactions.delete(appointmentId);
     }
 
     private async broadcast(queueItem: GasQueueItem) {
         try {
             const tx = queueItem.toTransactionRequest();
-
-            logger.info(`Broadcasting tx for ${queueItem.request.appointment.id}. ${JSON.stringify(queueItem)}. ${JSON.stringify(tx)}.`); // prettier-ignore
+            logger.info({ tx: tx, queueItem: queueItem }, `Broadcasting tx for ${queueItem.request.appointment.id}`); // prettier-ignore
             await this.signer.sendTransaction(tx);
         } catch (doh) {
-            console.log(doh)
             // we've failed to broadcast a transaction however this isn't a fatal
             // error. Periodically, we look to see if a transaction has been mined
             // for whatever reason if not then we'll need to re-issue the transaction
             // anyway
-            if (doh.stack) logger.error(doh.stack);
-            else logger.error(doh);
+            logger.error(doh);
         }
     }
 }

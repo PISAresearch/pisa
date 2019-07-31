@@ -153,9 +153,7 @@ export class BlockProcessor<T extends IBlockStub> extends StartStopService {
                 this.processNewHead(observedBlock);
             }
         } catch (doh) {
-            const error = doh as Error;
-            this.logger.error(`There was an error fetching blocks: ${error.message}`);
-            this.logger.error(error.stack!);
+            this.logger.error(doh);
         }
     }
 }

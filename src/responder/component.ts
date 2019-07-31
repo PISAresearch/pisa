@@ -164,23 +164,13 @@ export class MultiResponderComponent extends Component<ResponderAnchorState, Blo
         for (const [appointmentId, currentItem] of state.items.entries()) {
             const prevItem = prevState.items.get(appointmentId);
 
-            if (!prevItem) {
-                // New item, log initial state
-                if (currentItem.kind === ResponderStateKind.Mined) {
-                    logger.info(`Initial mined transaction ${JSON.stringify(currentItem)}.`);
-                } else if (currentItem.kind === ResponderStateKind.Pending) {
-                    logger.info(`Pending transaction ${JSON.stringify(currentItem)}.`);
-                } else {
-                    throw new UnreachableCaseError(currentItem);
-                }
-            } else {
-                if (prevItem.kind === ResponderStateKind.Pending && currentItem.kind === ResponderStateKind.Mined) {
-                    logger.info(`Mined transaction ${JSON.stringify(currentItem)}.`);
-                }
+            if(!prevItem && currentItem.kind === ResponderStateKind.Pending) {
+                logger.info({state: currentItem, id: appointmentId, blockNumber: state.blockNumber }, "New pending transaction.") // prettier-ignore
             }
 
             // if a transaction has been mined we need to inform the responder
             if (!this.hasResponseBeenMined(prevItem) && this.hasResponseBeenMined(currentItem)) {
+                logger.info({state: currentItem, id: appointmentId, blockNumber: state.blockNumber }, "Transaction mined.") // prettier-ignore
                 await this.responder.txMined(currentItem.identifier, currentItem.nonce);
             }
 
@@ -189,6 +179,7 @@ export class MultiResponderComponent extends Component<ResponderAnchorState, Blo
                 !this.shouldAppointmentBeRemoved(prevState, prevItem) &&
                 this.shouldAppointmentBeRemoved(state, currentItem)
             ) {
+                logger.info({state: currentItem, id: appointmentId, blockNumber: state.blockNumber }, "Response removed.") // prettier-ignore
                 this.responder.endResponse(currentItem.appointmentId);
             }
         }

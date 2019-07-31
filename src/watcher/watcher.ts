@@ -125,11 +125,11 @@ export class Watcher extends Component<WatcherAnchorState, IBlockStub & Logs> {
     private shouldRemoveExpiredAppointment = (
         state: WatcherAnchorState,
         appointmentState: WatcherAppointmentAnchorState | undefined,
-        endBlock : number 
+        endBlock: number
     ): boolean =>
         appointmentState != undefined &&
         appointmentState.state === WatcherAppointmentState.WATCHING &&
-        state.blockNumber - endBlock  > this.confirmationsBeforeRemoval
+        state.blockNumber - endBlock > this.confirmationsBeforeRemoval;
 
     public async handleChanges(prevState: WatcherAnchorState, state: WatcherAnchorState) {
         for (const [appointmentId, appointmentState] of state.items.entries()) {
@@ -137,16 +137,7 @@ export class Watcher extends Component<WatcherAnchorState, IBlockStub & Logs> {
 
             // Log if started watching a new appointment
             if (!prevWatcherAppointmentState && appointmentState.state === WatcherAppointmentState.WATCHING) {
-                logger.info(`Watching for appointment ${appointmentId}.`);
-            }
-
-            // Log if an appointment was observed, wether it is a new one or a previously watched one
-            if (
-                (!prevWatcherAppointmentState ||
-                    prevWatcherAppointmentState.state === WatcherAppointmentState.WATCHING) &&
-                appointmentState.state === WatcherAppointmentState.OBSERVED
-            ) {
-                logger.info(`Observed appointment ${appointmentId} in block ${appointmentState.blockObserved}.`);
+                logger.info({ state: appointmentState, id: appointmentId, blockNumber: state.blockNumber }, `Started watching for appointment.`);
             }
 
             // Start response if necessary
@@ -155,7 +146,7 @@ export class Watcher extends Component<WatcherAnchorState, IBlockStub & Logs> {
                 this.shouldHaveStartedResponder(state, appointmentState)
             ) {
                 const appointment = this.store.appointmentsById.get(appointmentId)!;
-                logger.info(`Responding to appointment ${appointmentId}, block ${state.blockNumber}.`);
+                logger.info({ state: appointmentState, id: appointmentId, blockNumber: state.blockNumber }, `Responding to appointment.`); // prettier-ignore
                 await this.responder.startResponse(appointment);
             }
 
@@ -164,21 +155,19 @@ export class Watcher extends Component<WatcherAnchorState, IBlockStub & Logs> {
                 !this.shouldRemoveObservedAppointment(prevState, prevWatcherAppointmentState) &&
                 this.shouldRemoveObservedAppointment(state, appointmentState)
             ) {
-                logger.info(`Removing appointment ${appointmentId}, block ${state.blockNumber} from watcher.`);
+                logger.info({ state: appointmentState, id: appointmentId, blockNumber: state.blockNumber }, `Removing fulfilled appointment from watcher.`); // prettier-ignore
                 await this.store.removeById(appointmentId);
             }
 
             // Cleanup if appointment expired
             let endBlock = this.store.appointmentsById.get(appointmentId)!.endBlock;
             if (
-                !this.shouldRemoveExpiredAppointment(prevState, prevWatcherAppointmentState,endBlock) && 
-                this.shouldRemoveExpiredAppointment(state, appointmentState,endBlock)
-            )
-            {
-                logger.info(`Removing appointment ${appointmentId}, block ${state.blockNumber} from watcher.`);
+                !this.shouldRemoveExpiredAppointment(prevState, prevWatcherAppointmentState, endBlock) &&
+                this.shouldRemoveExpiredAppointment(state, appointmentState, endBlock)
+            ) {
+                logger.info({ state: appointmentState, id: appointmentId, blockNumber: state.blockNumber }, `Removing expired appointment from watcher.`); // prettier-ignore
                 await this.store.removeById(appointmentId);
             }
-
         }
     }
 }

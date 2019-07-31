@@ -1,6 +1,9 @@
-import { createLogger, Stream } from "bunyan";
+import { createLogger, Stream, stdSerializers } from "bunyan";
 import fs from "fs";
 import path from "path";
+import { ArgumentError } from "./dataEntities";
+import * as Logger from "bunyan";
+export { Logger };
 
 const logDir = "logs";
 
@@ -49,7 +52,7 @@ export class LogLevelInfo {
 }
 
 // Default to log level "info", unless we are running tests, then "debug"
-let currentLogLevelInfo: LogLevelInfo = process.env.NODE_ENV === "test" ? LogLevelInfo.Debug : LogLevelInfo.Info;
+let currentLogLevelInfo = LogLevelInfo.Info;
 
 // create the log directory if it does not exist
 if (!fs.existsSync("./" + logDir)) {
@@ -70,13 +73,23 @@ export function setLogLevel(level: LogLevelInfo) {
     currentLogLevelInfo = level;
 }
 
+function ArgumentErrorSerialiser(err: Error) {
+    if (err instanceof ArgumentError) {
+        return {
+            args: err.args,
+            ...stdSerializers.err(err)
+        };
+    } else return stdSerializers.err(err);
+}
+
 /**
  * Creates a named logger with name `name`. If `name` is given, the logs are saved in a file with the `${name}-` prefix.
  * Otherwise, there will be no prefix.
  * @param name
  */
 export function createNamedLogger(name: string | null) {
-    const prefix = name !== null ? name + "-" : "app";
+    name = name || "app";
+    const prefix = name + "-";
 
     const streams: Stream[] = [];
     for (const levelInfo of currentLogLevelInfo.getLevelsBelow()) {
@@ -92,8 +105,13 @@ export function createNamedLogger(name: string | null) {
     }
 
     const newLogger = createLogger({
-        name: prefix,
-        streams
+        name,
+        streams,
+        serializers: {
+            err: ArgumentErrorSerialiser,
+            res: stdSerializers.res,
+            req: stdSerializers.req
+        }
     });
 
     return newLogger;

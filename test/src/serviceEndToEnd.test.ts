@@ -128,7 +128,7 @@ describe("Service end-to-end", () => {
         } catch (doh) {
             const statusCodeError = doh as StatusCodeError;
             expect(statusCodeError.statusCode).to.equal(503);
-            expect(statusCodeError.error).to.equal("Service initialising, please try again later.");
+            expect(statusCodeError.error.message).to.equal("Service initialising, please try again later.");
         }
 
         await exService.start();
