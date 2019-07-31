@@ -3,7 +3,7 @@ import { expect } from "chai";
 import { Lock, LockManager } from "../../../src/utils/lock";
 import { wait } from "../../../src/utils";
 import { ApplicationError } from "../../../src/dataEntities";
-import {fnIt} from "../../../utils/fnIt";
+import fnIt from "../../../test/utils/fnIt";
 
 describe("Lock", () => {
     it("updates 'locked' correctly", async () => {

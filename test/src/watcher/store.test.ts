@@ -6,7 +6,7 @@ import levelup, { LevelUp } from "levelup";
 import MemDown from "memdown";
 import encodingDown from "encoding-down";
 import { Appointment, ApplicationError } from "../../../src/dataEntities";
-import { fnIt } from "../../../utils/fnIt";
+import fnIt  from "../../../test/utils/fnIt";
 chai.use(chaiAsPromised)
 
 const getAppointment = (id: number, endBlock: number, jobId: number) => {

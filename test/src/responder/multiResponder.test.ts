@@ -7,7 +7,7 @@ import chai, { expect } from "chai";
 import { ArgumentError, Appointment } from "../../../src/dataEntities";
 import { PisaTransactionIdentifier } from "../../../src/responder/gasQueue";
 import chaiAsPromised from "chai-as-promised";
-import { fnIt } from "../../../utils/fnIt";
+import  fnIt  from "../../../test//utils/fnIt";
 
 chai.use(chaiAsPromised);
 

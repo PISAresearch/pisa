@@ -8,12 +8,11 @@ import {
 } from "../../../src/responder/gasQueue";
 import { ArgumentError, Appointment } from "../../../src/dataEntities";
 import { BigNumber } from "ethers/utils";
-import { fnIt } from "../../../utils/fnIt";
+import fnIt from "../../../test/utils/fnIt";
 
 const createIdentifier = (data: string, to: string) => {
     return new PisaTransactionIdentifier(1, data, to, new BigNumber(0), new BigNumber(500));
 };
-
 
 const createAppointment = (id: number): Appointment => {
     return Appointment.fromIAppointment({
@@ -90,16 +89,12 @@ describe("GasQueue", () => {
     });
 
     it("constructor can contain items", () => {
-        const items = [
-            createGasQueueItem(1, 1, new BigNumber(10), new BigNumber(10), createIdentifier("data", "to"))
-        ];
+        const items = [createGasQueueItem(1, 1, new BigNumber(10), new BigNumber(10), createIdentifier("data", "to"))];
         new GasQueue(items, 2, 1, 1);
     });
 
     it("constructor emptyNonce must be last item nonce plus one", () => {
-        const items = [
-            createGasQueueItem(1, 1, new BigNumber(10), new BigNumber(10), createIdentifier("data", "to"))
-        ];
+        const items = [createGasQueueItem(1, 1, new BigNumber(10), new BigNumber(10), createIdentifier("data", "to"))];
         expect(() => new GasQueue(items, 3, 1, 1)).to.throw(ArgumentError);
     });
 
@@ -427,7 +422,7 @@ describe("GasQueue", () => {
             createGasQueueItem(4, 2, new BigNumber(80), new BigNumber(80), createIdentifier("data4", "to4")),
             createGasQueueItem(1, 3, new BigNumber(70), new BigNumber(99), createIdentifier("data1", "to1")),
             createGasQueueItem(2, 4, new BigNumber(60), new BigNumber(88), createIdentifier("data2", "to2"))
-        ]
+        ];
 
         const q = new GasQueue(items, 5, 10, 5);
         const uQ = q.prepend(lowerNonceItems);
@@ -436,7 +431,7 @@ describe("GasQueue", () => {
         expect(replacedItems).to.deep.equal(finalItems);
     });
 
-    it("unlock does nothing for no items", () => {
+    fnIt<GasQueue>(g => g.prepend, "does nothing for no items", () => {
         const items = [
             createGasQueueItem(3, 3, new BigNumber(90), new BigNumber(90), createIdentifier("data3", "to3")),
             createGasQueueItem(4, 4, new BigNumber(80), new BigNumber(80), createIdentifier("data4", "to4"))
@@ -444,9 +439,9 @@ describe("GasQueue", () => {
         const q = new GasQueue(items, 5, 10, 5);
         const uQ = q.prepend([]);
         expect(uQ.difference(q)).to.deep.equal([]);
-    })
+    });
 
-    it("unlock does throw error for missing nonces", () => {
+    fnIt<GasQueue>(g => g.prepend, "does throw error for missing nonces", () => {
         const unlockItems = [
             createGasQueueItem(1, 1, new BigNumber(110), new BigNumber(110), createIdentifier("data1", "to1"))
         ];
@@ -458,7 +453,7 @@ describe("GasQueue", () => {
 
         const q = new GasQueue(items, 5, 15, 5);
         expect(() => q.prepend(unlockItems)).to.throw(ArgumentError);
-    })
+    });
 
     fnIt<GasQueue>(g => g.prepend, "does throw error for duplicate nonce", () => {
         const lowerNonceItems = [
@@ -472,7 +467,7 @@ describe("GasQueue", () => {
 
         const q = new GasQueue(items, 5, 15, 5);
         expect(() => q.prepend(lowerNonceItems)).to.throw(ArgumentError);
-    })
+    });
 
     fnIt<GasQueue>(g => g.prepend, "does throw error for nonce too high", () => {
         const lowerNonceItems = [
@@ -484,7 +479,7 @@ describe("GasQueue", () => {
             createGasQueueItem(4, 4, new BigNumber(80), new BigNumber(80), createIdentifier("data4", "to4"))
         ];
 
-        const q = new GasQueue(items, 5, 15, 5);        
+        const q = new GasQueue(items, 5, 15, 5);
         expect(() => q.prepend(lowerNonceItems)).to.throw(ArgumentError);
-    })
+    });
 });

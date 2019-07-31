@@ -1,8 +1,8 @@
 import "mocha";
 import { expect } from "chai";
-import { BlockCache, getConfirmations, ReadOnlyBlockCache } from "../../../src/blockMonitor";
-import { ArgumentError, IBlockStub, TransactionHashes, ApplicationError, Block } from "../../../src/dataEntities";
-import { fnIt } from "../../../utils/fnIt";
+import { BlockCache, getConfirmations } from "../../../src/blockMonitor";
+import { ArgumentError, IBlockStub, TransactionHashes, ApplicationError } from "../../../src/dataEntities";
+import fnIt from "../../../test/utils/fnIt";
 
 function generateBlocks(
     nBlocks: number,
@@ -79,33 +79,41 @@ describe("BlockCache", () => {
         expect(bc.maxHeight).to.equal(lastBlockAdded);
     });
 
-    fnIt<BlockCache<any>>(b => b.canAddBlock, "returns true for blocks whose height is lower or equal than the initial height", () => {
-        const bc = new BlockCache(maxDepth);
+    fnIt<BlockCache<any>>(
+        b => b.canAddBlock,
+        "returns true for blocks whose height is lower or equal than the initial height",
+        () => {
+            const bc = new BlockCache(maxDepth);
 
-        const blocks = generateBlocks(10, 5, "main");
-        const otherBlocks = generateBlocks(10, 5, "other");
+            const blocks = generateBlocks(10, 5, "main");
+            const otherBlocks = generateBlocks(10, 5, "other");
 
-        bc.addBlock(blocks[3]);
+            bc.addBlock(blocks[3]);
 
-        expect(bc.canAddBlock(blocks[2])).to.be.true;
-        expect(bc.canAddBlock(blocks[3])).to.be.true;
-        expect(bc.canAddBlock(otherBlocks[3])).to.be.true;
-    });
+            expect(bc.canAddBlock(blocks[2])).to.be.true;
+            expect(bc.canAddBlock(blocks[3])).to.be.true;
+            expect(bc.canAddBlock(otherBlocks[3])).to.be.true;
+        }
+    );
 
-    fnIt<BlockCache<any>>(b => b.canAddBlock, "returns true for blocks whose height is lower or equal than the maximum depth", () => {
-        const bc = new BlockCache(maxDepth);
-        const initialHeight = 3;
-        const blocksAdded = maxDepth + 1;
-        const blocks = generateBlocks(blocksAdded, initialHeight, "main");
-        blocks.forEach(block => bc.addBlock(block));
+    fnIt<BlockCache<any>>(
+        b => b.canAddBlock,
+        "returns true for blocks whose height is lower or equal than the maximum depth",
+        () => {
+            const bc = new BlockCache(maxDepth);
+            const initialHeight = 3;
+            const blocksAdded = maxDepth + 1;
+            const blocks = generateBlocks(blocksAdded, initialHeight, "main");
+            blocks.forEach(block => bc.addBlock(block));
 
-        const otherBlocks = generateBlocks(2, initialHeight - 1, "main");
+            const otherBlocks = generateBlocks(2, initialHeight - 1, "main");
 
-        expect(bc.canAddBlock(otherBlocks[0])).to.be.true;
-        expect(bc.canAddBlock(otherBlocks[1])).to.be.true;
-    });
+            expect(bc.canAddBlock(otherBlocks[0])).to.be.true;
+            expect(bc.canAddBlock(otherBlocks[1])).to.be.true;
+        }
+    );
 
-    fnIt<BlockCache<any>>(b => b.canAddBlock,"returns true for a block whose parent is in the BlockCache", () => {
+    fnIt<BlockCache<any>>(b => b.canAddBlock, "returns true for a block whose parent is in the BlockCache", () => {
         const bc = new BlockCache(maxDepth);
         const blocks = generateBlocks(10, 7, "main");
 
@@ -114,16 +122,20 @@ describe("BlockCache", () => {
         expect(bc.canAddBlock(blocks[6])).to.be.true;
     });
 
-    fnIt<BlockCache<any>>(b => b.canAddBlock, "returns false for a block above minHeight whose parent is not in the BlockCache", () => {
-        const bc = new BlockCache(maxDepth);
-        const blocks = generateBlocks(10, 7, "main");
+    fnIt<BlockCache<any>>(
+        b => b.canAddBlock,
+        "returns false for a block above minHeight whose parent is not in the BlockCache",
+        () => {
+            const bc = new BlockCache(maxDepth);
+            const blocks = generateBlocks(10, 7, "main");
 
-        bc.addBlock(blocks[0]);
-        bc.addBlock(blocks[1]);
-        bc.addBlock(blocks[2]);
+            bc.addBlock(blocks[0]);
+            bc.addBlock(blocks[1]);
+            bc.addBlock(blocks[2]);
 
-        expect(bc.canAddBlock(blocks[4])).to.be.false;
-    });
+            expect(bc.canAddBlock(blocks[4])).to.be.false;
+        }
+    );
 
     it("records blocks until maximum depth", () => {
         const bc = new BlockCache(maxDepth);

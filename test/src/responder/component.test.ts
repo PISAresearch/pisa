@@ -15,7 +15,7 @@ import { ResponderBlock, TransactionStub, Block } from "../../../src/dataEntitie
 import { expect } from "chai";
 import { MultiResponder } from "../../../src/responder";
 import { mock, instance, verify, anything, capture } from "ts-mockito";
-import { fnIt } from "../../../utils/fnIt";
+import fnIt from "../../../test/utils/fnIt";
 
 const from1 = "from1";
 const from2 = "from2";

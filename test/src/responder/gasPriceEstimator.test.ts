@@ -6,7 +6,7 @@ import { BigNumber } from "ethers/utils";
 import { mock, when, instance } from "ts-mockito";
 import { ethers } from "ethers";
 import { BlockCache } from "../../../src/blockMonitor";
-import { fnIt } from "../../../utils/fnIt";
+import fnIt from "../../../test/utils/fnIt";
 
 describe("ExponentialCurve", () => {
     it("ka constructs for (0, 1), (1, e)", () => {
@@ -128,7 +128,8 @@ describe("GasPriceEstimator", () => {
             startBlock: 7
         });
     };
-        fnIt<GasPriceEstimator>(e => e.estimate, "", async () => {
+
+    fnIt<GasPriceEstimator>(e => e.estimate, "", async () => {
         const currentGasPrice = new BigNumber(21000000000);
         const currentBlock = 1;
         const endBlock = 3;

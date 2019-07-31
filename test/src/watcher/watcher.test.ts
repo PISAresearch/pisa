@@ -11,7 +11,7 @@ import {
     Watcher,
     WatcherAppointmentAnchorState
 } from "../../../src/watcher/watcher";
-import {fnIt} from "../../../utils/fnIt";
+import  fnIt  from "../../../test/utils/fnIt";
 
 const observedEventAddress = "0x1234abcd";
 const observedEventTopics = ["0x1234"];
@@ -189,23 +189,23 @@ describe("Watcher", () => {
         CONFIRMATIONS_BEFORE_REMOVAL
     );
 
-    await watcher.handleChanges(
-        {
-            items: makeMap(appointment.id, {
-                state: WatcherAppointmentState.OBSERVED,
-                blockObserved: 2
-            }),
-            blockNumber: 2 + CONFIRMATIONS_BEFORE_RESPONSE - 2
-        },
-        {
-            items: makeMap(appointment.id, {
-                state: WatcherAppointmentState.OBSERVED,
-                blockObserved: 2
-            }),
-            blockNumber: 2 + CONFIRMATIONS_BEFORE_RESPONSE - 1
-        }
-    );
-        verify(mockedResponder.startResponse(appointment)).once();
+        await watcher.handleChanges(
+            {
+                items: makeMap(appointment.id, {
+                    state: WatcherAppointmentState.OBSERVED,
+                    blockObserved: 2
+                }),
+                blockNumber: 2 + CONFIRMATIONS_BEFORE_RESPONSE - 2
+            },
+            {
+                items: makeMap(appointment.id, {
+                    state: WatcherAppointmentState.OBSERVED,
+                    blockObserved: 2
+                }),
+                blockNumber: 2 + CONFIRMATIONS_BEFORE_RESPONSE - 1
+            }
+        );
+            verify(mockedResponder.startResponse(appointment)).once();
     });
 
     fnIt<Watcher>(w => w.handleChanges, "does not call startResponse before event is OBSERVED for long enough", async() => {
@@ -377,7 +377,7 @@ describe("Watcher", () => {
         verify(mockedStore.removeById(appointment.id)).once();
     });
 
-    fnIt<Watcher>(w => w.handleChanges, "dooes not call removeById before an appointment has expired for long enough", async() => {
+    fnIt<Watcher>(w => w.handleChanges, "does not call removeById before an appointment has expired for long enough", async() => {
         const watcher = new Watcher(
             responder,
             blockCache,

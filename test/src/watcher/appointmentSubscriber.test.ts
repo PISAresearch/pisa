@@ -4,7 +4,7 @@ import { ethers } from "ethers";
 import { AppointmentSubscriber, IAppointmentListener } from "../../../src/watcher/appointmentSubscriber";
 import uuid from "uuid/v4";
 import Ganache from "ganache-core";
-import {fnIt} from "../../../utils/fnIt";
+import fnIt from "../../../test/utils/fnIt";
 
 describe("AppointmentSubscriber", () => {
     //return true;
