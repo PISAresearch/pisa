@@ -8,10 +8,6 @@ import logger from "../logger";
 import { QueueConsistencyError, ArgumentError } from "../dataEntities/errors";
 
 export class MultiResponder extends StartStopService {
-    // TODO-93: the correct gas limit should be provided based on the appointment/integration.
-    //          200000 is enough for Kitsune and Raiden (see https://github.com/raiden-network/raiden-contracts/blob/master/raiden_contracts/data/gas.json).
-    private static readonly GAS_LIMIT = 200000;
-
     private readonly provider: ethers.providers.Provider;
     /**
      * The current queue of pending transaction being handled by this responder
@@ -94,7 +90,7 @@ export class MultiResponder extends StartStopService {
                 appointment.data,
                 appointment.contractAddress,
                 new BigNumber(0),
-                new BigNumber(MultiResponder.GAS_LIMIT)
+                new BigNumber(appointment.gas)
             );
             const idealGas = await this.gasEstimator.estimate(appointment);
             const request = new GasQueueItemRequest(txIdentifier, idealGas, appointment);
@@ -111,7 +107,7 @@ export class MultiResponder extends StartStopService {
             replacedTransactions.forEach(q => this.respondedTransactions.set(q.request.appointment.id, q));
             await Promise.all(replacedTransactions.map(b => this.broadcast(b)));
         } catch (doh) {
-            logger.error(doh)
+            logger.error(doh);
         }
     }
 
