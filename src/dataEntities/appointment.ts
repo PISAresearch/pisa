@@ -214,9 +214,7 @@ export class Appointment implements IAppointment {
         try {
             appointment.getEventFilter();
         } catch (doh) {
-            const dohError = doh as Error;
             logger.error(doh);
-            if (dohError.stack) logger.error(dohError.stack);
             throw new PublicDataValidationError("Invalid event arguments for ABI.");
         }
 

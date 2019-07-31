@@ -7,14 +7,10 @@ import { PisaService } from "../../src/service";
 import config from "../../src/dataEntities/config";
 import Ganache from "ganache-core";
 import { Appointment, IAppointmentRequest } from "../../src/dataEntities";
-import logger from "../../src/logger";
 import levelup, { LevelUp } from "levelup";
 import MemDown from "memdown";
 import encodingDown from "encoding-down";
 import { StatusCodeError } from "request-promise/errors";
-logger.transports.forEach(l => (l.level = "max"));
-
-
 
 const ganache = Ganache.provider({
     mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect"
@@ -132,7 +128,7 @@ describe("Service end-to-end", () => {
         } catch (doh) {
             const statusCodeError = doh as StatusCodeError;
             expect(statusCodeError.statusCode).to.equal(503);
-            expect(statusCodeError.error).to.equal("Service initialising, please try again later.");
+            expect(statusCodeError.error.message).to.equal("Service initialising, please try again later.");
         }
 
         await exService.start();

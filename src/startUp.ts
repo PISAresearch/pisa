@@ -74,4 +74,4 @@ async function stop(service: PisaService, db: LevelUp<encodingDown<string, any>>
     process.exit(0);
 }
 
-startUp().catch((doh: Error) => logger.error(doh.stack!));
+startUp().catch((doh: Error) => logger.error(doh));

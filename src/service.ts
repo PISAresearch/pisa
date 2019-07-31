@@ -87,7 +87,7 @@ export class PisaService extends StartStopService {
         app.post("/appointment", this.appointment(tower));
 
         const service = app.listen(config.hostPort, config.hostName);
-        this.logger.info(`Listening on: ${config.hostName}:${config.hostPort}.`);
+        this.logger.info(config)
         this.server = service;
     }
 
@@ -105,7 +105,7 @@ export class PisaService extends StartStopService {
         await this.blockchainMachine.stop();
 
         this.server.close(error => {
-            if (error) this.logger.error(error.stack!);
+            if (error) this.logger.error(error);
             this.logger.info(`Shutdown.`);
         });
     }
@@ -131,12 +131,6 @@ export class PisaService extends StartStopService {
                     max: config.rateLimitGlobalMax
                 })
             );
-            this.logger.info(
-                `Api global rate limit: ${config.rateLimitGlobalMax} requests every: ${config.rateLimitGlobalWindowMs /
-                    1000} seconds.`
-            );
-        } else {
-            this.logger.warn(`Api global rate limit: NOT SET.`);
         }
 
         if (config.rateLimitUserMax && config.rateLimitUserWindowMs) {
@@ -149,24 +143,15 @@ export class PisaService extends StartStopService {
                     max: config.rateLimitUserMax
                 })
             );
-            this.logger.info(
-                `Api per-user rate limit: ${config.rateLimitUserMax} requests every: ${config.rateLimitUserWindowMs /
-                    1000} seconds.`
-            );
-        } else {
-            this.logger.warn(`Api per-user rate limit: NOT SET.`);
         }
     }
-
-    // PISA: it would be much nicer to log with appointment data in this handler
-    // PISA: perhaps we can attach to the logger? should we be passing a logger to the tower itself?
 
     private appointment(tower: PisaTower) {
         return async (req: express.Request, res: express.Response, next: express.NextFunction) => {
             if (!this.started) {
-                this.logger.error("Service initialising. Could not serve request: \n" + inspect(req.body));
+                this.logger.error(req, "Service initialising, could not serve request");
                 res.status(503);
-                res.send("Service initialising, please try again later.");
+                res.send({ message: "Service initialising, please try again later." });
                 return;
             }
 
@@ -184,18 +169,17 @@ export class PisaService extends StartStopService {
                 else if (doh instanceof ApplicationError) this.logAndSend(500, doh.message, doh, res);
                 else if (doh instanceof Error) this.logAndSend(500, "Internal server error.", doh, res);
                 else {
-                    this.logger.error("Error: 500. \n" + inspect(doh));
+                    this.logger.error({ err: doh, code: 500 });
                     res.status(500);
-                    res.send("Internal server error.");
+                    res.send({ message: "Internal server error." });
                 }
             }
         };
     }
 
     private logAndSend(code: number, responseMessage: string, error: Error, res: Response) {
-        this.logger.error(`HTTP Status: ${code}.`);
-        this.logger.error(error.stack!);
+        this.logger.error({ erro: error, code: code });
         res.status(code);
-        res.send(responseMessage);
+        res.send({ message: responseMessage });
     }
 }
