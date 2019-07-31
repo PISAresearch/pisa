@@ -6,6 +6,7 @@ import { Component } from "../../../src/blockMonitor/component";
 import { IBlockStub, ApplicationError } from "../../../src/dataEntities";
 import { StateReducer } from "../../../src/blockMonitor/component";
 import { EventEmitter } from "events";
+import fnIt from "../../utils/fnIt";
 
 const blocks: IBlockStub[] = [
     {
@@ -67,7 +68,7 @@ describe("BlockchainMachine", () => {
         blockProcessor = bp as BlockProcessor<IBlockStub>;
     });
 
-    it("addComponent throws ApplicationError if already started", async () => {
+    fnIt<BlockchainMachine<any>>(b => b.addComponent, "throws ApplicationError if already started", async () => {
         const bm = new BlockchainMachine(blockProcessor);
         await bm.start();
 
@@ -76,7 +77,7 @@ describe("BlockchainMachine", () => {
         await bm.stop();
     });
 
-    it("processNewBlock computes the initial state if the parent is not in cache", async () => {
+    it(" processNewBlock computes the initial state if the parent is not in cache", async () => {
         const bm = new BlockchainMachine(blockProcessor);
         bm.addComponent(new ExampleComponent(reducer));
         await bm.start();
