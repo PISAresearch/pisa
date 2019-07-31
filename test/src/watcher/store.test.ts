@@ -1,13 +1,13 @@
 import "mocha";
 import chai, { expect } from "chai";
-import chaiAsPromised from "chai-as-promised"
+import chaiAsPromised from "chai-as-promised";
 import { AppointmentStore } from "../../../src/watcher";
 import levelup, { LevelUp } from "levelup";
 import MemDown from "memdown";
 import encodingDown from "encoding-down";
 import { Appointment, ApplicationError } from "../../../src/dataEntities";
-import fnIt  from "../../../test/utils/fnIt";
-chai.use(chaiAsPromised)
+import fnIt from "../../utils/fnIt";
+chai.use(chaiAsPromised);
 
 const getAppointment = (id: number, endBlock: number, jobId: number) => {
     return Appointment.fromIAppointment({
@@ -46,8 +46,8 @@ describe("Store", () => {
         await store.stop();
         await db.close();
     });
-    
-    fnIt<AppointmentStore>(s => s.addOrUpdateByLocator, "does add appointment", async() => {
+
+    fnIt<AppointmentStore>(s => s.addOrUpdateByLocator, "does add appointment", async () => {
         const appointment1 = getAppointment(1, 5, 1);
         await store.addOrUpdateByLocator(appointment1);
 
@@ -58,7 +58,7 @@ describe("Store", () => {
         expect(dbApp).to.deep.equal(Appointment.toIAppointment(appointment1));
     });
 
-    fnIt<AppointmentStore>(s => s.addOrUpdateByLocator, "does add multiple appointments", async() => {
+    fnIt<AppointmentStore>(s => s.addOrUpdateByLocator, "does add multiple appointments", async () => {
         const appointment1 = getAppointment(1, 1, 1);
         const appointment2 = getAppointment(2, 1, 1);
 
@@ -74,7 +74,7 @@ describe("Store", () => {
         expect(dbAppointment2).to.deep.equal(Appointment.toIAppointment(appointment2));
     });
 
-    fnIt<AppointmentStore>(s => s.addOrUpdateByLocator, "does update older appointment", async() =>{
+    fnIt<AppointmentStore>(s => s.addOrUpdateByLocator, "does update older appointment", async () => {
         const appointment1 = getAppointment(1, 1, 1);
         const appointment2 = getAppointment(1, 1, 2);
 
@@ -90,8 +90,8 @@ describe("Store", () => {
         const dbAppointment2 = await db.get(appointment2.id);
         expect(dbAppointment2).to.deep.equal(Appointment.toIAppointment(appointment2));
     });
-   
-    fnIt<AppointmentStore>(s => s.addOrUpdateByLocator, "does not update newer appointment", async() =>{
+
+    fnIt<AppointmentStore>(s => s.addOrUpdateByLocator, "does not update newer appointment", async () => {
         const appointment1 = getAppointment(1, 1, 1);
         const appointment2 = getAppointment(1, 1, 2);
 
@@ -116,7 +116,7 @@ describe("Store", () => {
             expect(doh.notFound).to.be.true;
         }
     };
-    fnIt<AppointmentStore>(s => s.removeById, "does remove appointment", async () =>{
+    fnIt<AppointmentStore>(s => s.removeById, "does remove appointment", async () => {
         const appointment1 = getAppointment(1, 1, 1);
 
         // second is added
@@ -129,7 +129,7 @@ describe("Store", () => {
         expectNotFound(() => db.get(appointment1.id));
     });
 
-    fnIt<AppointmentStore>(s => s.removeById, "does not remove appointment already removed", async () =>{
+    fnIt<AppointmentStore>(s => s.removeById, "does not remove appointment already removed", async () => {
         const appointment1 = getAppointment(1, 1, 1);
 
         // second is added
@@ -142,8 +142,8 @@ describe("Store", () => {
         expect([...(await store.getExpiredSince(appointment1.endBlock + 1))]).to.deep.equal([]);
         expectNotFound(() => db.get(appointment1.id));
     });
-    
-    fnIt<AppointmentStore>(s => s.removeById, "does not remove non-existant appointment", async () =>{
+
+    fnIt<AppointmentStore>(s => s.removeById, "does not remove non-existant appointment", async () => {
         const appointment1 = getAppointment(1, 1, 1);
         const appointment2 = getAppointment(2, 1, 1);
 
@@ -151,14 +151,12 @@ describe("Store", () => {
         const result = await store.removeById(appointment2.id);
         expect(result).to.be.false;
 
-        expect([...(await store.getExpiredSince(appointment1.endBlock + 1))]).to.deep.equal([
-            appointment1
-        ]);
+        expect([...(await store.getExpiredSince(appointment1.endBlock + 1))]).to.deep.equal([appointment1]);
         const dbAppointment1 = await db.get(appointment1.id);
         expect(dbAppointment1).to.deep.equal(Appointment.toIAppointment(appointment1));
     });
 
-    fnIt<AppointmentStore>(s => s.removeById, "does allow add after remove", async () =>{
+    fnIt<AppointmentStore>(s => s.removeById, "does allow add after remove", async () => {
         const appointment1 = getAppointment(1, 1, 1);
 
         await store.addOrUpdateByLocator(appointment1);
@@ -167,12 +165,10 @@ describe("Store", () => {
 
         const dbAppointment1 = await db.get(appointment1.id);
         expect(dbAppointment1).to.deep.equal(Appointment.toIAppointment(appointment1));
-        expect([...(await store.getExpiredSince(appointment1.endBlock + 1))]).to.deep.equal([
-            appointment1
-        ]);
-    })
+        expect([...(await store.getExpiredSince(appointment1.endBlock + 1))]).to.deep.equal([appointment1]);
+    });
 
-    fnIt<AppointmentStore>(s => s.removeById, "does not remove other appointments", async () =>{
+    fnIt<AppointmentStore>(s => s.removeById, "does not remove other appointments", async () => {
         const appointment1 = getAppointment(1, 1, 1);
         const appointment2 = getAppointment(2, 1, 1);
 
@@ -185,12 +181,10 @@ describe("Store", () => {
 
         const dbAppointment2 = await db.get(appointment2.id);
         expect(dbAppointment2).to.deep.equal(Appointment.toIAppointment(appointment2));
-        expect([...(await store.getExpiredSince(appointment1.endBlock + 1))]).to.deep.equal([
-            appointment2
-        ]);
+        expect([...(await store.getExpiredSince(appointment1.endBlock + 1))]).to.deep.equal([appointment2]);
     });
 
-    fnIt<AppointmentStore>(s => s.getExpiredSince, "fetches items with end block less than supplied", async () =>{
+    fnIt<AppointmentStore>(s => s.getExpiredSince, "fetches items with end block less than supplied", async () => {
         const appointment1 = getAppointment(1, 1, 1);
         const appointment2 = getAppointment(2, 5, 1);
         const appointment3 = getAppointment(3, 10, 1);
@@ -201,7 +195,7 @@ describe("Store", () => {
 
         expect([...(await store.getExpiredSince(5))]).to.deep.equal([appointment1]);
     });
-     
+
     it("startup does load all appointments", async () => {
         const appointment1 = getAppointment(1, 1, 1);
         const appointment2 = getAppointment(2, 5, 1);
@@ -236,7 +230,7 @@ describe("Store", () => {
         await testStore.stop();
     });
 
-    fnIt<AppointmentStore>(s => s.getAll, "returns all appointments", async () =>{
+    fnIt<AppointmentStore>(s => s.getAll, "returns all appointments", async () => {
         const appointment1 = getAppointment(1, 1, 1);
         const appointment2 = getAppointment(2, 500000000000, 1);
         const appointment3 = getAppointment(3, 10, 1);
@@ -253,5 +247,4 @@ describe("Store", () => {
         expect(appointments[1]).to.deep.equal(appointment2);
         expect(appointments[2]).to.deep.equal(appointment3A);
     });
-       
 });

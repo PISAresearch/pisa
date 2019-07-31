@@ -6,7 +6,7 @@ import { Component } from "../../../src/blockMonitor/component";
 import { IBlockStub, ApplicationError } from "../../../src/dataEntities";
 import { StateReducer } from "../../../src/blockMonitor/component";
 import { EventEmitter } from "events";
-import fnIt from "../../../test/utils/fnIt";
+import fnIt from "../../utils/fnIt";
 
 const blocks: IBlockStub[] = [
     {

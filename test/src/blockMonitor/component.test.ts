@@ -2,7 +2,7 @@ import "mocha";
 import { expect } from "chai";
 import { MappedStateReducer, StateReducer, BlockNumberReducer } from "../../../src/blockMonitor/component";
 import { IBlockStub } from "../../../src/dataEntities/block";
-import fnIt from "../../../test/utils/fnIt";
+import fnIt from "../../utils/fnIt";
 
 const objects = [
     {

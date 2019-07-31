@@ -4,7 +4,7 @@ import { ethers } from "ethers";
 import { AppointmentSubscriber, IAppointmentListener } from "../../../src/watcher/appointmentSubscriber";
 import uuid from "uuid/v4";
 import Ganache from "ganache-core";
-import fnIt from "../../../test/utils/fnIt";
+import fnIt from "../../utils/fnIt";
 
 describe("AppointmentSubscriber", () => {
     //return true;
@@ -34,7 +34,7 @@ describe("AppointmentSubscriber", () => {
         assert.strictEqual((provider.listeners(eventFilter1)[0] as IAppointmentListener).appointmentId, appointmentId1);
     });
 
-    fnIt<AppointmentSubscriber>(a => a.subscribe , "correctly subcribes 2 different appointments", () =>{
+    fnIt<AppointmentSubscriber>(a => a.subscribe, "correctly subcribes 2 different appointments", () => {
         // same ids and listeners, but different filters
         subscriber.subscribe(appointmentId1, eventFilter1, testListener);
         subscriber.subscribe(appointmentId2, eventFilter2, testListener);
@@ -44,16 +44,22 @@ describe("AppointmentSubscriber", () => {
         assert.strictEqual(provider.listenerCount(eventFilter2), 1);
         assert.strictEqual((provider.listeners(eventFilter2)[0] as IAppointmentListener).appointmentId, appointmentId2);
     });
-   
-    fnIt<AppointmentSubscriber>(a => a.subscribe, "throws error if one subscribed to twice for the same event filter", () =>{
-        subscriber.subscribe(appointmentId1, eventFilter1, testListener);
-        assert.throws(() => subscriber.subscribe(appointmentId1, eventFilter1, testListener));
 
-        assert.strictEqual(provider.listenerCount(eventFilter1), 1);
-        assert.strictEqual((provider.listeners(eventFilter1)[0] as IAppointmentListener).appointmentId, appointmentId1);
-    });
-   
-    
+    fnIt<AppointmentSubscriber>(
+        a => a.subscribe,
+        "throws error if one subscribed to twice for the same event filter",
+        () => {
+            subscriber.subscribe(appointmentId1, eventFilter1, testListener);
+            assert.throws(() => subscriber.subscribe(appointmentId1, eventFilter1, testListener));
+
+            assert.strictEqual(provider.listenerCount(eventFilter1), 1);
+            assert.strictEqual(
+                (provider.listeners(eventFilter1)[0] as IAppointmentListener).appointmentId,
+                appointmentId1
+            );
+        }
+    );
+
     fnIt<AppointmentSubscriber>(a => a.unsubscribe, "does nothing when neither filter nor id match", () => {
         subscriber.subscribe(appointmentId1, eventFilter1, testListener);
         subscriber.subscribe(appointmentId2, eventFilter2, testListener);

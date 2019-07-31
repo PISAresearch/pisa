@@ -6,7 +6,7 @@ import { BigNumber } from "ethers/utils";
 import { mock, when, instance } from "ts-mockito";
 import { ethers } from "ethers";
 import { BlockCache } from "../../../src/blockMonitor";
-import fnIt from "../../../test/utils/fnIt";
+import fnIt from "../../utils/fnIt";
 
 describe("ExponentialCurve", () => {
     it("ka constructs for (0, 1), (1, e)", () => {

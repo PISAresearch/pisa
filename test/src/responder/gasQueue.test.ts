@@ -8,7 +8,7 @@ import {
 } from "../../../src/responder/gasQueue";
 import { ArgumentError, Appointment } from "../../../src/dataEntities";
 import { BigNumber } from "ethers/utils";
-import fnIt from "../../../test/utils/fnIt";
+import fnIt from "../../utils/fnIt";
 
 const createIdentifier = (data: string, to: string) => {
     return new PisaTransactionIdentifier(1, data, to, new BigNumber(0), new BigNumber(500));

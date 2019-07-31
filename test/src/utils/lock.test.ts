@@ -3,7 +3,7 @@ import { expect } from "chai";
 import { Lock, LockManager } from "../../../src/utils/lock";
 import { wait } from "../../../src/utils";
 import { ApplicationError } from "../../../src/dataEntities";
-import fnIt from "../../../test/utils/fnIt";
+import fnIt from "../../utils/fnIt";
 
 describe("Lock", () => {
     it("updates 'locked' correctly", async () => {
@@ -61,7 +61,7 @@ describe("LockManager", () => {
         const lockManager = new LockManager();
         return expect(lockManager.acquire("key")).to.be.fulfilled;
     });
-    
+
     fnIt<LockManager>(l => l.acquire, "can acquire two different keys", () => {
         const lockManager = new LockManager();
         const p1 = lockManager.acquire("key");
@@ -97,14 +97,18 @@ describe("LockManager", () => {
         expect(secondLockAcquired).to.be.true;
     });
 
-    fnIt<LockManager>(l => l.release, "throws an ApplicationError if a key is released more times than it is acquired", async () => {
-        const lockManager = new LockManager();
-        lockManager.acquire("key");
-        lockManager.acquire("key");
-        lockManager.release("key");
-        lockManager.release("key");
-        expect(() => lockManager.release("key")).to.throw(ApplicationError);
-    });
+    fnIt<LockManager>(
+        l => l.release,
+        "throws an ApplicationError if a key is released more times than it is acquired",
+        async () => {
+            const lockManager = new LockManager();
+            lockManager.acquire("key");
+            lockManager.acquire("key");
+            lockManager.release("key");
+            lockManager.release("key");
+            expect(() => lockManager.release("key")).to.throw(ApplicationError);
+        }
+    );
 
     fnIt<LockManager>(l => l.withLock, "returns the value returned by the passed function", async () => {
         const lockManager = new LockManager();
