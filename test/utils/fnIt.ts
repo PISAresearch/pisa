@@ -9,10 +9,13 @@ const getName = <T>(fn: (arg: T) => (...args: any[]) => any) => {
     return fn(dummySpy).name;
 };
 
+/* fnIt can be used to retrieve function names rather than writing them manually. This will be useful when refactoring
+there is no need to go back an change all the tests manually in case a function name has been changed. */
 /**
- * A test fixture for a specific function. The supplied function will be used to name the test.
- * This will be useful when refactoring since there is no need to go back an change all the tests manually in case a function name has been changed.
- * Types of T that are generic can be declared with 'any' eg. fnIt<BlockCache<any>>(b => b.setHead, ...)
+ * 
+ * @param fn 
+ * @param message 
+ * @param test 
  */
 export default function fnIt<T>(fn: (t: T) => (...args: any[]) => any, message: string, test: () => void) {
     return it(getName<T>(fn) + " " + message, test);

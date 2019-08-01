@@ -18,13 +18,13 @@ const getAppointment = (id: number, endBlock: number, jobId: number) => {
         endBlock,
         eventABI: "eventABI",
         eventArgs: "eventArgs",
-        gas: 100,
+        gasLimit: "100",
         customerChosenId: id,
         jobId,
         mode: 1,
         paymentHash: "paymentHash",
         postCondition: "postCondition",
-        refund: 3,
+        refund: "3",
         startBlock: 7
     });
 };
