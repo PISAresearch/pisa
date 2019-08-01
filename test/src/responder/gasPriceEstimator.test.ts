@@ -118,13 +118,13 @@ describe("GasPriceEstimator", () => {
             endBlock,
             eventABI: "eventABI",
             eventArgs: "eventArgs",
-            gas: 100,
+            gasLimit: "100",
             customerChosenId: 20,
             jobId: 1,
             mode: 1,
             paymentHash: "paymentHash",
             postCondition: "postCondition",
-            refund: 3,
+            refund: "3",
             startBlock: 7
         });
     };

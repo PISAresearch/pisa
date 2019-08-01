@@ -1,9 +1,9 @@
 import { ethers } from "ethers";
 import appointmentRequestSchemaJson from "./appointmentRequestSchema.json";
 import Ajv from "ajv";
-import { PublicDataValidationError } from "./errors";
+import { PublicDataValidationError, PublicInspectionError } from "./errors";
 import logger from "../logger";
-import { BigNumber } from "ethers/utils";
+import { BigNumber, bigNumberify } from "ethers/utils";
 import { groupTuples } from "../utils/ethers";
 const ajv = new Ajv();
 const appointmentRequestValidation = ajv.compile(appointmentRequestSchemaJson);
@@ -52,12 +52,12 @@ export interface IAppointmentBase {
     /**
      * How much to refund the customer by, in wei
      */
-    readonly refund: number;
+    readonly refund: string;
 
     /**
      * The amount of gas to use when calling the external contract with the provided data
      */
-    readonly gas: number;
+    readonly gasLimit: string;
 
     /**
      * A human readable (https://blog.ricmoo.com/human-readable-contract-abis-in-ethers-js-141902f4d917) event abi
@@ -88,7 +88,6 @@ export interface IAppointmentRequest extends IAppointmentBase {
      */
     readonly id: number;
 
-
     /**
      * An identifier for the dispute handler to be used in checking state during recourse
      */
@@ -101,7 +100,6 @@ export interface IAppointment extends IAppointmentBase {
      */
     readonly customerChosenId: number;
 
-
     /**
      * An identifier for the dispute handler to be used in checking state during recourse
      */
@@ -111,7 +109,7 @@ export interface IAppointment extends IAppointmentBase {
 /**
  * A customer appointment, detailing what event to be watched for and data to submit.
  */
-export class Appointment implements IAppointment {
+export class Appointment {
     constructor(
         public readonly contractAddress: string,
         public readonly customerAddress: string,
@@ -121,8 +119,8 @@ export class Appointment implements IAppointment {
         public readonly customerChosenId: number,
         public readonly jobId: number,
         public readonly data: string,
-        public readonly refund: number,
-        public readonly gas: number,
+        public readonly refund: BigNumber,
+        public readonly gasLimit: BigNumber,
         public readonly mode: number,
         public readonly eventABI: string,
         public readonly eventArgs: string,
@@ -140,8 +138,8 @@ export class Appointment implements IAppointment {
             appointment.customerChosenId,
             appointment.jobId,
             appointment.data,
-            appointment.refund,
-            appointment.gas,
+            new BigNumber(appointment.refund),
+            new BigNumber(appointment.gasLimit),
             appointment.mode,
             appointment.eventABI,
             appointment.eventArgs,
@@ -160,8 +158,8 @@ export class Appointment implements IAppointment {
             customerChosenId: appointment.customerChosenId,
             jobId: appointment.jobId,
             data: appointment.data,
-            refund: appointment.refund,
-            gas: appointment.gas,
+            refund: appointment.refund.toString(),
+            gasLimit: appointment.gasLimit.toString(),
             mode: appointment.mode,
             eventABI: appointment.eventABI,
             eventArgs: appointment.eventArgs,
@@ -180,8 +178,8 @@ export class Appointment implements IAppointment {
             appointmentRequest.id,
             appointmentRequest.jobId,
             appointmentRequest.data,
-            appointmentRequest.refund,
-            appointmentRequest.gas,
+            new BigNumber(appointmentRequest.refund),
+            new BigNumber(appointmentRequest.gasLimit),
             appointmentRequest.mode,
             appointmentRequest.eventABI,
             appointmentRequest.eventArgs,
@@ -190,35 +188,76 @@ export class Appointment implements IAppointment {
         );
     }
 
+    public static toIAppointmentRequest(appointment: Appointment): IAppointmentRequest {
+        return {
+            contractAddress: appointment.contractAddress,
+            customerAddress: appointment.customerAddress,
+            startBlock: appointment.startBlock,
+            endBlock: appointment.endBlock,
+            challengePeriod: appointment.challengePeriod,
+            id: appointment.customerChosenId,
+            jobId: appointment.jobId,
+            data: appointment.data,
+            refund: appointment.refund.toString(),
+            gasLimit: appointment.gasLimit.toString(),
+            mode: appointment.mode,
+            eventABI: appointment.eventABI,
+            eventArgs: appointment.eventArgs,
+            postCondition: appointment.postCondition,
+            paymentHash: appointment.paymentHash
+        };
+    }
+
     /**
      * Currently we dont charge access to the API. But when we payment will be proved
      * by being able to reveal the pre-image of the payment hash. Even though the API is
      * free we'll use payment hash now to keep the same structure of appointment as we'll
-     * use when we add payment. For now clients can gain access to the API by putting the 
-     * hash of 'on-the-house' as the payment hash.
+     * use when we add payment. For now clients can gain access to the API by putting the
+     * hash of 'on-the-house' as the payment hash. Hash is lower case.
      */
-    public static FreeHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("on-the-house"));
+    public static FreeHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("on-the-house")).toLowerCase();
+
+    static parseBigNumber(numberString: string, name: string) {
+        try {
+            const bigNumber = new BigNumber(numberString);
+            if (bigNumber.lt(0)) throw new PublicDataValidationError(`${name} must be non negative.`);
+        } catch (doh) {
+            if (doh instanceof PublicDataValidationError) throw doh;
+            logger.info(doh);
+            throw new PublicDataValidationError(`${name} is not a number.`);
+        }
+    }
 
     /**
-     * Parse the appointment and check that it's valid
+     * Parse an appointment and check property types.
      * @param obj
      */
-    public static validate(obj: any) {
+    public static parse(obj: any) {
         const valid = appointmentRequestValidation(obj);
-        if (!valid) throw new PublicDataValidationError(appointmentRequestValidation.errors!.map(e => `${e.propertyName}:${e.message}`).join("\n")); // prettier-ignore
+        if (!valid) {
+            logger.info({ results: appointmentRequestValidation.errors }, "Schema error.");
+            throw new PublicDataValidationError(appointmentRequestValidation.errors!.map(e => e.message).join("\n"));
+        }
         const request = obj as IAppointmentRequest;
+        Appointment.parseBigNumber(request.refund, "Refund");
+        Appointment.parseBigNumber(request.gasLimit, "Gas limit");
+        return Appointment.fromIAppointmentRequest(request);
+    }
 
-        const appointment = Appointment.fromIAppointmentRequest(request);
-        if (appointment.paymentHash !== Appointment.FreeHash) throw new PublicDataValidationError("Invalid payment hash."); // prettier-ignore
+    /**
+     * Validate property values on the appointment
+     * @param obj
+     */
+    public validate() {
+        if (this.paymentHash.toLowerCase() !== Appointment.FreeHash) throw new PublicDataValidationError("Invalid payment hash."); // prettier-ignore
 
         try {
-            appointment.getEventFilter();
+            this.mEventFilter = this.parseEventArgs();
         } catch (doh) {
+            if (doh instanceof PublicDataValidationError) throw doh;
             logger.error(doh);
             throw new PublicDataValidationError("Invalid event arguments for ABI.");
         }
-
-        return appointment;
     }
 
     /**
@@ -249,12 +288,12 @@ export class Appointment implements IAppointment {
      */
     public get eventFilter() {
         if (!this.mEventFilter) {
-            this.mEventFilter = this.getEventFilter();
+            this.mEventFilter = this.parseEventArgs();
         }
         return this.mEventFilter;
     }
     private mEventFilter: ethers.EventFilter;
-    private getEventFilter(): ethers.EventFilter {
+    private parseEventArgs(): ethers.EventFilter {
         // the abi is in human readable format, we can parse it with ethersjs
         // then check that it's of the right form before separating the name and inputs
         // to form topics
@@ -262,7 +301,6 @@ export class Appointment implements IAppointment {
         const eventInterface = new ethers.utils.Interface([this.eventABI]);
         if (eventInterface.abi.length !== 1) throw new PublicDataValidationError("Invalid ABI. ABI must specify a single event."); // prettier-ignore
         const event = eventInterface.abi[0];
-
         if (event.type !== "event") throw new PublicDataValidationError("Invalid ABI. ABI must specify an event.");
 
         const name = eventInterface.abi[0].name;
@@ -272,13 +310,47 @@ export class Appointment implements IAppointment {
         // so the first thing encoded is an array of integers representing the
         // indexes of the arguments that will be used in the filter.
         // non specified indexes will be null
-        const indexes: BigNumber[] = ethers.utils.defaultAbiCoder.decode(["uint256[]"], this.eventArgs)[0];
-        const namedInputs = indexes.map(i => i.toNumber()).map(i => inputs[i]);
+
+        let indexes: number[];
+        try {
+            indexes = ethers.utils.defaultAbiCoder.decode(["uint8[]"], this.eventArgs)[0];
+        } catch (doh) {
+            logger.info(doh);
+            throw new PublicDataValidationError("Incorrect first argument. First argument must be a uint8[] encoded array of the indexes of the event arguments to be filtered on.") // prettier-ignore
+        }
+
+        const maxIndex = indexes.reduce((a, b) => (a > b ? a : b), 0);
+        if (maxIndex > inputs.length - 1)
+            throw new PublicInspectionError(
+                `Index ${maxIndex} greater than number of arguments in event. Arg length: ${inputs.length - 1}.`
+            );
+
+        const namedInputs = indexes.map(i => inputs[i]);
+
+        // only indexed fields can be included atm
+        namedInputs
+            .filter(i => !i.indexed)
+            .forEach(i => {
+                throw new PublicDataValidationError(`Only indexed event parameters can be specified as event arguments.  ${i.name ? `Parameter: ${i.name}` : ""}. Specified paramed: ${indexes}`); // prettier-ignore
+            });
+
+        // decode the inputs that have been specified
         const decodedInputs = ethers.utils.defaultAbiCoder
-            .decode(["uint256[]"].concat(namedInputs.map(i => i.type)), this.eventArgs)
+            .decode(["uint8[]"].concat(namedInputs.map(i => i.type)), this.eventArgs)
             .slice(1);
 
-        const topics = eventInterface.events[name].encodeTopics(decodedInputs);
+        // add nulls for the topics we that wont be filtered upon
+        let topicInput = inputs.map((input, index) => {
+            const decodedIndex = indexes.indexOf(index);
+            if (decodedIndex === -1) return null;
+            else return decodedInputs[decodedIndex];
+        });
+
+        // map booleans to 0 or 1, the encodeTopics function doesnt seem to be able to handle booleans
+        topicInput = topicInput.map(t => (t === true ? 1 : t === false ? 0 : t));
+
+        // finally encode the topics using the abi
+        const topics = eventInterface.events[name].encodeTopics(topicInput);
         return {
             address: this.contractAddress,
             topics
@@ -300,9 +372,9 @@ export class Appointment implements IAppointment {
                 ["uint", this.jobId],
                 ["bytes", this.data],
                 ["uint", this.refund],
-                ["uint", this.gas],
+                ["uint", this.gasLimit],
                 ["uint", this.mode],
-                ["bytes", ethers.utils.toUtf8Bytes(this.eventABI)],
+                ["bytes", ethers.utils.toUtf8Bytes(this.eventABI)], // eventAbi is in human readable form, so needs to be encoded for 'bytes'
                 ["bytes", this.eventArgs],
                 ["bytes", this.postCondition],
                 ["bytes32", this.paymentHash]
@@ -315,24 +387,10 @@ export class Appointment implements IAppointment {
  * An appointment signed by PISA
  */
 export class SignedAppointment {
-    constructor(public readonly appointment: IAppointment, public readonly signature: string) {}
+    constructor(public readonly appointment: Appointment, public readonly signature: string) {}
     public serialise() {
         const signedAppointment: IAppointmentRequest & { signature: string } = {
-            challengePeriod: this.appointment.challengePeriod,
-            contractAddress: this.appointment.contractAddress,
-            customerAddress: this.appointment.customerAddress,
-            data: this.appointment.data,
-            endBlock: this.appointment.endBlock,
-            eventABI: this.appointment.eventABI,
-            eventArgs: this.appointment.eventArgs,
-            gas: this.appointment.gas,
-            id: this.appointment.customerChosenId,
-            jobId: this.appointment.jobId,
-            mode: this.appointment.mode,
-            paymentHash: this.appointment.paymentHash,
-            postCondition: this.appointment.postCondition,
-            refund: this.appointment.refund,
-            startBlock: this.appointment.startBlock,
+            ...Appointment.toIAppointmentRequest(this.appointment),
             signature: this.signature
         };
 

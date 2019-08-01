@@ -23,13 +23,13 @@ const createAppointment = (id: number): Appointment => {
         endBlock: 10,
         eventABI: "eventABI",
         eventArgs: "eventArgs",
-        gas: 100,
+        gasLimit: "100",
         customerChosenId: id,
         jobId: 1,
         mode: 1,
         paymentHash: "paymentHash",
         postCondition: "postCondition",
-        refund: 3,
+        refund: "3",
         startBlock: 7
     });
 };

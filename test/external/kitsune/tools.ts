@@ -32,7 +32,7 @@ export class KitsuneTools {
 
     public static eventArgs() {
         // no indexed args specified
-        return ethers.utils.defaultAbiCoder.encode(["uint256[]"], [[]]);
+        return ethers.utils.defaultAbiCoder.encode(["uint8[]"], [[]]);
     }
 
     public static eventABI() {

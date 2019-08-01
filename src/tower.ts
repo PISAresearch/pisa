@@ -3,6 +3,7 @@ import { ethers } from "ethers";
 import { SignedAppointment, IAppointment, Appointment, PublicDataValidationError } from "./dataEntities";
 import { AppointmentMode } from "./dataEntities/appointment";
 import { MultiResponder } from "./responder";
+import logger from "./logger";
 
 /**
  * A PISA tower, configured to watch for specified appointment types
@@ -21,7 +22,14 @@ export class PisaTower {
      */
     public async addAppointment(obj: any): Promise<SignedAppointment> {
         if (!obj) throw new PublicDataValidationError("Json request body empty.");
-        const appointment = Appointment.validate(obj);
+        const appointment = Appointment.parse(obj);
+        // check the appointment is valid
+        logger.info({data: obj});
+
+
+        appointment.validate();
+
+        logger.info({data: appointment});
 
         // is this a relay transaction, if so, add it to the responder.
         // if not, add it to the watcher
@@ -50,7 +58,7 @@ export abstract class EthereumAppointmentSigner {
      *
      * @param appointment
      */
-    public abstract async signAppointment(appointment: IAppointment): Promise<string>;
+    public abstract async signAppointment(appointment: Appointment): Promise<string>;
 }
 
 /**
