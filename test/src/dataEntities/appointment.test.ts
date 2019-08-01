@@ -211,4 +211,19 @@ describe("Testy Appointment", () => {
         const testAppointment = Appointment.parse(clone);
         expect(() => testAppointment.validate()).to.throw(PublicDataValidationError);
     });
+
+    fnIt<Appointment>(a => a.validate, "throws gas limit > 6000000", () => {
+        const clone = { ...testAppointmentRequest };
+        clone.gasLimit = "6000001";
+        const app = Appointment.parse(clone);
+        expect(() => app.validate()).to.throw(PublicDataValidationError);
+    });
+
+    fnIt<Appointment>(a => a.validate, "throws refund > 0.1 ether", () => {
+        const clone = { ...testAppointmentRequest };
+        clone.refund = ethers.utils.parseEther("0.1").add(1).toString();
+        const app = Appointment.parse(clone);
+        expect(() => app.validate()).to.throw(PublicDataValidationError);
+    });
+
 });

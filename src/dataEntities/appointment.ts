@@ -3,7 +3,7 @@ import appointmentRequestSchemaJson from "./appointmentRequestSchema.json";
 import Ajv from "ajv";
 import { PublicDataValidationError, PublicInspectionError } from "./errors";
 import logger from "../logger";
-import { BigNumber, bigNumberify } from "ethers/utils";
+import { BigNumber } from "ethers/utils";
 import { groupTuples } from "../utils/ethers";
 const ajv = new Ajv();
 const appointmentRequestValidation = ajv.compile(appointmentRequestSchemaJson);
@@ -258,6 +258,10 @@ export class Appointment {
             logger.error(doh);
             throw new PublicDataValidationError("Invalid event arguments for ABI.");
         }
+
+        // check refund and gas limit are reasonable
+        if (this.gasLimit.gt(6000000)) throw new PublicDataValidationError("Gas limit cannot be greater than 6000000.");
+        if (this.refund.gt(ethers.utils.parseEther("0.1"))) throw new PublicDataValidationError("Refund cannot be greater than 0.1 ether."); // prettier-ignore
     }
 
     /**
