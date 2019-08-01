@@ -55,12 +55,12 @@ const run = async (startingRowId: number) => {
                 endBlock: 10000,
                 eventABI: RaidenTools.eventABI(),
                 eventArgs: RaidenTools.eventArgs(sigGroup.channel_identifier, bp.sender),
-                gas: 200000,
+                gasLimit: "200000",
                 id: 1,
                 jobId: 0,
                 mode: 1,
                 postCondition: "0x",
-                refund: 0,
+                refund: "0",
                 startBlock: 0,
                 paymentHash: ethers.utils.keccak256(ethers.utils.toUtf8Bytes("on-the-house"))
             };
