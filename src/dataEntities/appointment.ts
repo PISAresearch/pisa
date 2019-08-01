@@ -50,12 +50,12 @@ export interface IAppointmentBase {
     readonly data: string;
 
     /**
-     * How much to refund the customer by, in wei
+     * How much to refund the customer by, in wei. Maximum can be 0.1 ether = 100000000000000000
      */
     readonly refund: string;
 
     /**
-     * The amount of gas to use when calling the external contract with the provided data
+     * The amount of gas to use when calling the external contract with the provided data. Maximum is 6 million = 6000000.
      */
     readonly gasLimit: string;
 
