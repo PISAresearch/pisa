@@ -12,12 +12,7 @@ import { ethers } from "ethers";
 import { BigNumber } from "ethers/utils";
 import { inspect } from "util";
 import logger from "../logger";
-import {
-    QueueConsistencyError,
-    ArgumentError,
-    PublicDataValidationError,
-    PublicInspectionError
-} from "../dataEntities/errors";
+import { QueueConsistencyError, ArgumentError, PublicInspectionError } from "../dataEntities/errors";
 
 export class MultiResponder extends StartStopService {
     private readonly provider: ethers.providers.Provider;
