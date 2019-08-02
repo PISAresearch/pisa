@@ -26,7 +26,9 @@ export class GasPriceEstimator {
         const currentHead = this.blockCache.head;
         const timeLeft = appointment.endBlock - currentHead.number;
 
-        const curve = new ExponentialGasCurve(currentPrice);
+        // we set that the current gas price should be used at the 
+        // very start of the appointment
+        const curve = new ExponentialGasCurve(currentPrice, appointment.endBlock - appointment.startBlock);
         return curve.getGasPrice(timeLeft);
     }
 }
@@ -118,8 +120,9 @@ export class ExponentialGasCurve {
      * to find a gas price given the distance in blocks from a deadline. As the deadline
      * is approached, the gas price increases exponentially.
      * @param currentGasPrice The most recently available gas price of the network. Cannot be negative.
+     * @param currentGasPriceBlocksRemaining The number of blocks that should be remining when the gas curve uses the current gas price.
      */
-    constructor(public readonly currentGasPrice: BigNumber) {
+    constructor(public readonly currentGasPrice: BigNumber, currentGasPriceBlocksRemaining?: number) {
         if (currentGasPrice.lt(0)) throw new ArgumentError("Gas price cannot be less than zero.");
 
         // gas price could be zero, but we need it to be positive to calculate the curve
@@ -162,7 +165,7 @@ export class ExponentialGasCurve {
 
         const x1 = ExponentialGasCurve.MAX_BLOCKS;
         const y1 = ExponentialGasCurve.MAX_GAS_PRICE;
-        const x2 = ExponentialGasCurve.MEDIAN_BLOCKS + ExponentialGasCurve.AVERAGE_TO_MINE;
+        const x2 = currentGasPriceBlocksRemaining || ExponentialGasCurve.MEDIAN_BLOCKS + ExponentialGasCurve.AVERAGE_TO_MINE;
 
         // we know that maxed gas price is less than number.max_safe
         // therefore we can safely call toNumber
