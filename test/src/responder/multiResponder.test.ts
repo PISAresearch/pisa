@@ -1,13 +1,14 @@
 import "mocha";
 import { MultiResponder, GasPriceEstimator } from "../../../src/responder";
 import { ethers } from "ethers";
-import { mock, when, anything, instance } from "ts-mockito";
+import { mock, when, anything } from "ts-mockito";
 import { BigNumber } from "ethers/utils";
 import chai, { expect } from "chai";
 import { ArgumentError, Appointment } from "../../../src/dataEntities";
 import { PisaTransactionIdentifier } from "../../../src/responder/gasQueue";
 import chaiAsPromised from "chai-as-promised";
 import fnIt from "../../utils/fnIt";
+import throwingInstance from "../../utils/throwingInstance";
 
 chai.use(chaiAsPromised);
 
@@ -46,12 +47,12 @@ describe("MultiResponder", () => {
         const providerMock = mock(ethers.providers.JsonRpcProvider);
         when(providerMock.getNetwork()).thenResolve({ chainId: 1, name: "test" });
         when(providerMock.getTransactionCount("address", "pending")).thenResolve(1);
-        const provider = instance(providerMock);
+        const provider = throwingInstance(providerMock);
 
         const signerMock = mock(ethers.providers.JsonRpcSigner);
         when(signerMock.getAddress()).thenResolve("address");
         when(signerMock.provider).thenReturn(provider);
-        signer = instance(signerMock);
+        signer = throwingInstance(signerMock);
 
         // set up the mocks each time so that we can check the verifies
         decreasingGasEstimatorMock = mock(GasPriceEstimator);
@@ -60,7 +61,7 @@ describe("MultiResponder", () => {
             new BigNumber(110),
             new BigNumber(100)
         );
-        decreasingGasPriceEstimator = instance(decreasingGasEstimatorMock);
+        decreasingGasPriceEstimator = throwingInstance(decreasingGasEstimatorMock);
 
         increasingGasEstimatorMock = mock(GasPriceEstimator);
         when(increasingGasEstimatorMock.estimate(anything())).thenResolve(
@@ -68,11 +69,11 @@ describe("MultiResponder", () => {
             new BigNumber(110),
             new BigNumber(150)
         );
-        increasingGasPriceEstimator = instance(increasingGasEstimatorMock);
+        increasingGasPriceEstimator = throwingInstance(increasingGasEstimatorMock);
 
         errorGasEstimatorMock = mock(GasPriceEstimator);
         when(errorGasEstimatorMock.estimate(anything())).thenThrow(new Error("Gas test error"));
-        errorGasPriceEstimator = instance(errorGasEstimatorMock);
+        errorGasPriceEstimator = throwingInstance(errorGasEstimatorMock);
     });
 
     it("constructor throws for negative replacement rate", async () => {

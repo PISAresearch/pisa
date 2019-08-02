@@ -1,6 +1,6 @@
 import "mocha";
 import { expect } from "chai";
-import { mock, instance, when, resetCalls, verify } from "ts-mockito";
+import { mock, when, resetCalls, verify, anything } from "ts-mockito";
 import { AppointmentStore } from "../../../src/watcher";
 import { MultiResponder } from "../../../src/responder";
 import { BlockCache } from "../../../src/blockMonitor";
@@ -12,6 +12,7 @@ import {
     WatcherAppointmentAnchorState
 } from "../../../src/watcher/watcher";
 import fnIt from "../../utils/fnIt";
+import throwingInstance from "../../utils/throwingInstance";
 
 const observedEventAddress = "0x1234abcd";
 const observedEventTopics = ["0x1234"];
@@ -56,7 +57,7 @@ describe("WatcherAppointmentStateReducer", () => {
         topics: observedEventTopics
     });
     when(appMock.id).thenReturn("app1");
-    const appointment = instance(appMock);
+    const appointment = throwingInstance(appMock);
 
     const blockCache = new BlockCache<IBlockStub & Logs>(100);
     blocks.forEach(b => blockCache.addBlock(b));
@@ -65,7 +66,7 @@ describe("WatcherAppointmentStateReducer", () => {
         const emptyAppMock = mock(Appointment);
         when(emptyAppMock.eventFilter).thenReturn({});
         when(appMock.id).thenReturn("app1");
-        const emptyAppointment = instance(emptyAppMock);
+        const emptyAppointment = throwingInstance(emptyAppMock);
 
         expect(() => new WatcherAppointmentStateReducer(blockCache, emptyAppointment)).to.throw(ApplicationError);
     });
@@ -163,7 +164,9 @@ describe("Watcher", () => {
     blocks.forEach(b => blockCache.addBlock(b));
 
     const mockedResponder = mock(MultiResponder);
-    const responder = instance(mockedResponder);
+    //revisit
+    when(mockedResponder.startResponse(anything())).thenResolve();
+    const responder = throwingInstance(mockedResponder);
 
     let mockedStore: AppointmentStore;
     let store: AppointmentStore;
@@ -178,14 +181,16 @@ describe("Watcher", () => {
         });
         when(appMock.id).thenReturn("app1");
         when(appMock.endBlock).thenReturn(100);
-        appointment = instance(appMock);
+        appointment = throwingInstance(appMock);
 
         mockedStore = mock(AppointmentStore);
         when(mockedStore.getAll()).thenReturn([appointment]);
+        //revisit
+        when(mockedStore.removeById(anything())).thenResolve();
         const appointmentsById = new Map<string, Appointment>();
         appointmentsById.set(appointment.id, appointment);
         when(mockedStore.appointmentsById).thenReturn(appointmentsById);
-        store = instance(mockedStore);
+        store = throwingInstance(mockedStore);
     });
 
     function makeMap(appId: string, appState: WatcherAppointmentAnchorState) {

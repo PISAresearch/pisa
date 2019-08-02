@@ -14,8 +14,9 @@ import { BigNumber } from "ethers/utils";
 import { ResponderBlock, TransactionStub, Block } from "../../../src/dataEntities/block";
 import { expect } from "chai";
 import { MultiResponder } from "../../../src/responder";
-import { mock, instance, verify, anything, capture } from "ts-mockito";
+import { mock, verify, anything, capture, when } from "ts-mockito";
 import fnIt from "../../utils/fnIt";
+import throwingInstance from "../../utils/throwingInstance";
 
 const from1 = "from1";
 const from2 = "from2";
@@ -192,9 +193,13 @@ describe("MultiResponderComponent", () => {
 
     beforeEach(() => {
         multiResponderMock = mock(MultiResponder);
-        multiResponder = instance(multiResponderMock);
+        //will need to revisit these stubs
+        when(multiResponderMock.reEnqueueMissingItems(anything())).thenResolve();
+        when(multiResponderMock.txMined(anything(), anything())).thenResolve();
+        when(multiResponderMock.endResponse(anything())).thenResolve();
+        multiResponder = throwingInstance(multiResponderMock);
         blockCacheMock = mock(BlockCache);
-        blockCache = instance(blockCacheMock);
+        blockCache = throwingInstance(blockCacheMock);
     });
 
     fnIt<MultiResponderComponent>(m => m.handleChanges, "reEnqueues all pending items", async () => {
