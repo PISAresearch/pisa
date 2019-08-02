@@ -29,7 +29,7 @@ const stringifyBigNumbers = (appointment: Appointment) => {
     return { gasLimitString: gasLimit.toString(), refundString: refund.toString(), ...r };
 };
 
-describe("Testy Appointment", () => {
+describe("Appointment", () => {
     fnIt<Appointment>(() => Appointment.parse, "correctly parse valid appointment", () => {
         const { id, gasLimit, refund, ...requestRest } = testAppointmentRequest;
         const app = Appointment.parse(testAppointmentRequest);

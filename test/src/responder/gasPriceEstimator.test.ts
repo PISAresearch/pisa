@@ -93,6 +93,21 @@ describe("ExponentialGasCurve", () => {
         );
     });
 
+    fnIt<ExponentialGasCurve>(e => e.getGasPrice, "returns same as curve with added blocks remaining", () => {
+        const y2 = 21000000000;
+        const expGasCurve = new ExponentialGasCurve(new BigNumber(y2), 20000);
+        const expCurve = new ExponentialCurve(
+            ExponentialGasCurve.MAX_BLOCKS,
+            ExponentialGasCurve.MAX_GAS_PRICE,
+            20000,
+            y2
+        );
+
+        expect(expGasCurve.getGasPrice(ExponentialGasCurve.MAX_BLOCKS + 200).toNumber()).to.equal(
+            Math.round(expCurve.getY(ExponentialGasCurve.MAX_BLOCKS + 200))
+        );
+    });
+
     fnIt<ExponentialGasCurve>(e => e.getGasPrice, "returns the max gas price for less blocks than max blocks", () => {
         const y2 = 21000000000;
         const expGasCurve = new ExponentialGasCurve(new BigNumber(y2));
@@ -132,19 +147,19 @@ describe("GasPriceEstimator", () => {
     fnIt<GasPriceEstimator>(e => e.estimate, "", async () => {
         const currentGasPrice = new BigNumber(21000000000);
         const currentBlock = 1;
-        const endBlock = 3;
 
         const mockedProvider = mock(ethers.providers.JsonRpcProvider);
         when(mockedProvider.getGasPrice()).thenResolve(currentGasPrice);
         const provider = instance(mockedProvider);
 
         const mockedBlockCache: BlockCache<IBlockStub> = mock(BlockCache);
-        when(mockedBlockCache.head).thenReturn({ hash: "hash1", parentHash: "hash2", number: 1 });
+        when(mockedBlockCache.head).thenReturn({ hash: "hash1", parentHash: "hash2", number: currentBlock });
         const blockCache = instance(mockedBlockCache);
 
         const gasPriceEstimator = new GasPriceEstimator(provider, blockCache);
-        const estimate = await gasPriceEstimator.estimate(createAppointment(3));
-        const expectedValue = new ExponentialGasCurve(currentGasPrice).getGasPrice(endBlock - currentBlock);
+        const appointment = createAppointment(2000)
+        const estimate = await gasPriceEstimator.estimate(appointment);
+        const expectedValue = new ExponentialGasCurve(currentGasPrice, appointment.endBlock - appointment.startBlock).getGasPrice(appointment.endBlock - currentBlock);
 
         expect(estimate.toNumber()).to.equal(expectedValue.toNumber());
     });
