@@ -1,11 +1,23 @@
 import { Appointment, StartStopService } from "../dataEntities";
-import { GasQueue, PisaTransactionIdentifier, GasQueueItem, GasQueueItemRequest } from "./gasQueue";
+import {
+    GasQueue,
+    PisaTransactionIdentifier,
+    GasQueueItem,
+    GasQueueItemRequest,
+    GasQueueError,
+    GasQueueErrorKind
+} from "./gasQueue";
 import { GasPriceEstimator } from "./gasPriceEstimator";
 import { ethers } from "ethers";
 import { BigNumber } from "ethers/utils";
 import { inspect } from "util";
 import logger from "../logger";
-import { QueueConsistencyError, ArgumentError } from "../dataEntities/errors";
+import {
+    QueueConsistencyError,
+    ArgumentError,
+    PublicDataValidationError,
+    PublicInspectionError
+} from "../dataEntities/errors";
 
 export class MultiResponder extends StartStopService {
     private readonly provider: ethers.providers.Provider;
@@ -108,6 +120,11 @@ export class MultiResponder extends StartStopService {
             await Promise.all(replacedTransactions.map(b => this.broadcast(b)));
         } catch (doh) {
             logger.error(doh);
+
+            // we rethrow to the public if this item is already enqueued.
+            if (doh instanceof GasQueueError && doh.kind === GasQueueErrorKind.AlreadyAdded) {
+                throw new PublicInspectionError(`Appointment already in queue. ${inspect(appointment)}`);
+            }
         }
     }
 

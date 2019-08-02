@@ -166,7 +166,7 @@ export class PisaService extends StartStopService {
             } catch (doh) {
                 if (doh instanceof PublicInspectionError) this.logAndSend(400, doh.message, doh, res);
                 else if (doh instanceof PublicDataValidationError) this.logAndSend(400, doh.message, doh, res);
-                else if (doh instanceof ApplicationError) this.logAndSend(500, doh.message, doh, res);
+                else if (doh instanceof ApplicationError) this.logAndSend(500, "Internal server error", doh, res);
                 else if (doh instanceof Error) this.logAndSend(500, "Internal server error.", doh, res);
                 else {
                     this.logger.error({ err: doh, code: 500 });
@@ -178,7 +178,7 @@ export class PisaService extends StartStopService {
     }
 
     private logAndSend(code: number, responseMessage: string, error: Error, res: Response) {
-        this.logger.error({ erro: error, code: code });
+        this.logger.error({ err: error, code: code });
         res.status(code);
         res.send({ message: responseMessage });
     }
