@@ -2,7 +2,6 @@ import express, { Response } from "express";
 import httpContext from "express-http-context";
 import rateLimit from "express-rate-limit";
 import { Server } from "http";
-import { inspect } from "util";
 import { ethers } from "ethers";
 import { PublicInspectionError, PublicDataValidationError, ApplicationError, StartStopService } from "./dataEntities";
 import { Watcher, AppointmentStore } from "./watcher";
@@ -16,6 +15,8 @@ import encodingDown from "encoding-down";
 import { blockFactory } from "./blockMonitor";
 import { Block } from "./dataEntities/block";
 import { BlockchainMachine } from "./blockMonitor/blockchainMachine";
+import swaggerJsDoc from "swagger-jsdoc";
+import path from "path";
 
 /**
  * Hosts a PISA service at the endpoint.
@@ -86,9 +87,41 @@ export class PisaService extends StartStopService {
 
         app.post("/appointment", this.appointment(tower));
 
+        // api docs
+        const hostAndPort = `${config.hostPort}:${config.hostPort}`;
+        const docs = swaggerJsDoc(this.createSwaggerDocs(hostAndPort));
+        app.get("/api-docs.json", (req, res) => {
+            res.setHeader("Content-Type", "application/json");
+            res.send(docs);
+        });
+        app.get("/docs", (req, res) => {
+            res.sendFile(path.join(__dirname, "../docs/redoc.html"));
+        });
+        app.get("/schemas/appointmentRequest.json", (req, res) => {
+            res.sendFile(path.join(__dirname, "dataEntities/appointmentRequestSchema.json"));
+        });
+
         const service = app.listen(config.hostPort, config.hostName);
-        this.logger.info(config)
+        this.logger.info(config);
         this.server = service;
+    }
+
+    private createSwaggerDocs(hostAndPort: string): swaggerJsDoc.Options {
+        const options = {
+            definition: {
+                //openapi: "3.0.0", // Specification (optional, defaults to swagger: '2.0')
+                info: {
+                    title: "PISA",
+                    version: "0.1.0"
+                },
+                host: hostAndPort,
+                basePath: "/"
+            },
+            // Path to the API docs
+            apis: ["./src/service.ts", "./src/service.js"]
+        };
+
+        return options;
     }
 
     protected async startInternal() {
@@ -119,33 +152,27 @@ export class PisaService extends StartStopService {
             setRequestId();
             next();
         });
-
-        // rate limits
-        if (config.rateLimitGlobalMax && config.rateLimitGlobalWindowMs) {
-            app.use(
-                new rateLimit({
-                    keyGenerator: () => "global", // use the same key for all users
-                    statusCode: 503, // = Too Many Requests (RFC 7231)
-                    message: config.rateLimitGlobalMessage || "Server request limit reached. Please try again later.",
-                    windowMs: config.rateLimitGlobalWindowMs,
-                    max: config.rateLimitGlobalMax
-                })
-            );
-        }
-
-        if (config.rateLimitUserMax && config.rateLimitUserWindowMs) {
-            app.use(
-                new rateLimit({
-                    keyGenerator: req => req.ip, // limit per IP
-                    statusCode: 429, // = Too Many Requests (RFC 6585)
-                    message: config.rateLimitUserMessage || "Too many requests. Please try again later.",
-                    windowMs: config.rateLimitUserWindowMs,
-                    max: config.rateLimitUserMax
-                })
-            );
-        }
     }
 
+    /**
+     * @swagger
+     *
+     * /appointment:
+     *   post:
+     *     description: Request an appointmnt
+     *     produces:
+     *       - application/json
+     *     parameters:
+     *       - name: appointment request
+     *         description: Appointment request
+     *         in: body
+     *         required: true
+     *         type: object
+     *         schema:
+     *           $ref: 'schemas/appointmentRequest.json'
+     *     responses:
+     *       200:
+     */
     private appointment(tower: PisaTower) {
         return async (req: express.Request, res: express.Response, next: express.NextFunction) => {
             if (!this.started) {
