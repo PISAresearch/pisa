@@ -1,5 +1,6 @@
 import * as chai from "chai";
 import "mocha";
+import chaiAsPromised from "chai-as-promised";
 import request from "request-promise";
 import { KitsuneTools } from "../external/kitsune/tools";
 import { ethers } from "ethers";
@@ -11,6 +12,7 @@ import levelup, { LevelUp } from "levelup";
 import MemDown from "memdown";
 import encodingDown from "encoding-down";
 import { StatusCodeError } from "request-promise/errors";
+chai.use(chaiAsPromised)
 
 const ganache = Ganache.provider({
     mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect"
@@ -173,6 +175,44 @@ describe("Service end-to-end", () => {
         }
     }).timeout(3000);
 
+    it("create channel, submit appointment twice, trigger dispute, wait for response throws error", async () => {
+        const round = 1;
+        const setStateHash = KitsuneTools.hashForSetState(hashState, round, channelContract.address);
+        const sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash));
+        const sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash));
+        const data = KitsuneTools.encodeSetStateData(hashState, round, sig0, sig1);
+        const appRequest = appointmentRequest(data, account0, channelContract.address, 1);
+
+        const res = await request.post(`http://${nextConfig.hostName}:${nextConfig.hostPort}/appointment`, {
+            json: appRequest
+        });
+
+        expect(request.post(`http://${nextConfig.hostName}:${nextConfig.hostPort}/appointment`, {
+            json: appRequest
+        })).to.be.rejected;
+
+        // now register a callback on the setstate event and trigger a response
+        const setStateEvent = "EventEvidence(uint256, bytes32)";
+        let successResult = { success: false };
+        channelContract.on(setStateEvent, () => {
+            channelContract.removeAllListeners(setStateEvent);
+            successResult.success = true;
+        });
+
+        // trigger a dispute
+        const tx = await channelContract.triggerDispute();
+        await tx.wait();
+
+        try {
+            // wait for the success result
+            await waitForPredicate(successResult, s => s.success, 400);
+        } catch (doh) {
+            // fail if we dont get it
+            chai.assert.fail(true, false, "EventEvidence not successfully registered.");
+        }
+    }).timeout(3000);
+
+
     it("create channel, relay trigger dispute", async () => {
         const data = KitsuneTools.encodeTriggerDisputeData();
         const appRequest = appointmentRequest(data, account0, oneWayChannelContract.address, 0);
@@ -180,6 +220,35 @@ describe("Service end-to-end", () => {
         const res = await request.post(`http://${nextConfig.hostName}:${nextConfig.hostPort}/appointment`, {
             json: appRequest
         });
+
+        // now register a callback on the setstate event and trigger a response
+        const triggerDisputeEvent = "EventDispute(uint256)";
+        let successResult = { success: false };
+        oneWayChannelContract.on(triggerDisputeEvent, async () => {
+            oneWayChannelContract.removeAllListeners(triggerDisputeEvent);
+            successResult.success = true;
+        });
+
+        try {
+            // wait for the success result
+            await waitForPredicate(successResult, s => s.success, 200);
+        } catch (doh) {
+            // fail if we dont get it
+            chai.assert.fail(true, false, "EventEvidence not successfully registered.");
+        }
+    }).timeout(3000);
+
+    
+    it("create channel, relay twice throws error trigger dispute", async () => {
+        const data = KitsuneTools.encodeTriggerDisputeData();
+        const appRequest = appointmentRequest(data, account0, oneWayChannelContract.address, 0);
+
+        const res = await request.post(`http://${nextConfig.hostName}:${nextConfig.hostPort}/appointment`, {
+            json: appRequest
+        });
+        expect(request.post(`http://${nextConfig.hostName}:${nextConfig.hostPort}/appointment`, {
+            json: appRequest
+        })).to.eventually.be.rejected;
 
         // now register a callback on the setstate event and trigger a response
         const triggerDisputeEvent = "EventDispute(uint256)";

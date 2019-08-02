@@ -24,24 +24,19 @@ export class PisaTower {
         if (!obj) throw new PublicDataValidationError("Json request body empty.");
         const appointment = Appointment.parse(obj);
         // check the appointment is valid
-        logger.info({data: obj});
-
-
         appointment.validate();
-
-        logger.info({data: appointment});
 
         // is this a relay transaction, if so, add it to the responder.
         // if not, add it to the watcher
         if (appointment.mode === AppointmentMode.Relay) {
-            this.multiResponder.startResponse(appointment);
-        }
-        else {
+            await this.multiResponder.startResponse(appointment);
+        } else {
             // add this to the store so that other components can pick up on it
             const currentAppointment = this.store.appointmentsByLocator.get(appointment.locator);
-            if (!currentAppointment || currentAppointment.jobId >= appointment.jobId) {
+            if (!currentAppointment || appointment.jobId > currentAppointment.jobId) {   
+                
                 await this.store.addOrUpdateByLocator(appointment);
-            } else throw new PublicDataValidationError(`Job id too low. Should be greater than ${appointment.jobId}.`);
+            } else throw new PublicDataValidationError(`Appointment already exists and job id too low. Should be greater than ${appointment.jobId}.`); // prettier-ignore
         }
 
         const signature = await this.appointmentSigner.signAppointment(appointment);

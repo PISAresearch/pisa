@@ -2,6 +2,16 @@ import { Appointment, ArgumentError, ApplicationError } from "../dataEntities";
 import { BigNumber } from "ethers/utils";
 import { ethers } from "ethers";
 
+export class GasQueueError extends ArgumentError {
+    constructor(public readonly kind: GasQueueErrorKind, message: string, ...args: any[]) {
+        super(message, args)
+    }
+}
+
+export enum GasQueueErrorKind {
+    AlreadyAdded = 0
+}
+
 export class PisaTransactionIdentifier {
     /**
      * Enough information for uniquely identify a pisa related transaction
@@ -133,7 +143,7 @@ export class GasQueue {
                 }
 
                 if (queueItems.find((q, i) => q.request.identifier.equals(item.request.identifier) && i !== index)) {
-                    throw new ArgumentError("Identifier found twice in queue.", item.request.identifier, queueItems);
+                    throw new GasQueueError(GasQueueErrorKind.AlreadyAdded, "Identifier found twice in queue.", item.request.identifier, queueItems);
                 }
             }
         }
