@@ -47,6 +47,7 @@
     },
     "homepage": "https://github.com/PISAresearch/pisa#readme",
     "dependencies": {
+        "@types/swagger-jsdoc": "^3.0.1",
         "ajv": "^6.10.2",
         "bunyan": "^1.8.12",
         "encoding-down": "^6.0.2",
@@ -60,6 +61,7 @@
         "memdown": "^4.0.0",
         "request": "^2.88.0",
         "rwlock": "^5.0.0",
+        "swagger-jsdoc": "^3.3.0",
         "uuid": "^3.3.2",
         "yargs": "^13.2.4"
     },

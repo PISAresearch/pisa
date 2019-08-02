@@ -10,24 +10,6 @@ import leveldown from "leveldown";
 const configManager = new ConfigManager(ConfigManager.PisaConfigProperties);
 const commandLineConfig = configManager.fromCommandLineArgs(process.argv);
 
-function checkArgs(args: IArgConfig) {
-    if (
-        (args.rateLimitUserWindowMs && !args.rateLimitUserMax) ||
-        (!args.rateLimitUserWindowMs && args.rateLimitUserMax)
-    ) {
-        console.error("Options 'rate-limit-user-windowms' and 'rate-limit-user-max' must be provided together.");
-        process.exit(1);
-    }
-
-    if (
-        (commandLineConfig.rateLimitGlobalWindowMs && !commandLineConfig.rateLimitGlobalMax) ||
-        (!commandLineConfig.rateLimitGlobalWindowMs && commandLineConfig.rateLimitGlobalMax)
-    ) {
-        console.error("Options 'rate-limit-global-windowms' and 'rate-limit-global-max' must be provided together.");
-        process.exit(1);
-    }
-}
-
 // Validates the 'loglevel' argument and returns the appropriate LogLevelInfo instance
 function checkLogLevel(logLevel: string): LogLevelInfo {
     const logLevelInfo = LogLevelInfo.tryParse(logLevel);
@@ -39,7 +21,6 @@ function checkLogLevel(logLevel: string): LogLevelInfo {
 }
 
 async function startUp() {
-    checkArgs(commandLineConfig);
     const config = Object.assign(jsonConfig, commandLineConfig);
 
     const logLevelInfo = checkLogLevel(config.loglevel);

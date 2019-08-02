@@ -10,12 +10,6 @@ describe("ConfigManager", () => {
             hostPort: 4567,
             jsonRpcUrl: "http://localhost:8545",
             loglevel: "info",
-            rateLimitGlobalMax: 100,
-            rateLimitGlobalMessage: "Test global message",
-            rateLimitGlobalWindowMs: 60000,
-            rateLimitUserMax: 5,
-            rateLimitUserMessage: "Test user message",
-            rateLimitUserWindowMs: 60000,
             responderKey: "0x6370fd033278c143179d81c5526140625662b8daa446c22ee2d73db3707e620c",
             receiptKey: "0x6370fd033278c143179d81c5526140625662b8daa446c22ee2d73db3707e620c"
         };
