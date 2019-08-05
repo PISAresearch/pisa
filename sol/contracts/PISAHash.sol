@@ -30,7 +30,7 @@ contract PostconditionHandlerInterface {
 
 contract ChallengeTimeDecoderInterface {
     // Decode the data and return the challenge time
-    function getTime(address _dataregistry, uint[] memory _datashard, address _sc, uint _logid, uint[] memory _dataindex, bytes[] memory _logdata) public returns (uint[2] memory);
+    function getTime(address _dataregistry, uint[] memory _datashard, address _sc, uint _logid, uint[] memory _dataindex, bytes[] memory _logdata) public returns (uint[3] memory);
 }
 
 contract PISAHash {
@@ -75,20 +75,17 @@ contract PISAHash {
         address payable cus; // Address for the customer who hired PISA
         uint startTime; // When do we start watching?
         uint finishTime; // Expiry time for appointment
+        uint challengeTime; // Minimum challenge length (0 == default if not relevant)
 
         // Identifiers for the appointment + job counter (i.e. for every appointment, can be updated several times)
         uint appointmentid; // counter to keep track of appointments
         uint jobid; // Monotonic counter to keep track of job updates to PISA
 
         // Function call that we will need to invoke on behalf of the user
-        bytes data; // Job-specific data (depends whether it is Plasma, Channels, etc)
+        bytes call; // Job-specific data (depends whether it is Plasma, Channels, etc)
         uint refund; // How much should PISA refund the customer by?
         uint gas; // How much gas should PISA allocate to function call?
         uint mode; // What dispute handler should check this appointment?
-
-        // What event are we watching for? (Optional)
-        bytes eventDesc; // What event is PISA watching for?
-        bytes eventVal; // Are there any index/values/id we should watch for? (Decode into distinct values)
 
         // What pre and post condition should be satisified? (Optional)
         bytes precondition; // What condition should be satisified before call can be executed?
@@ -218,7 +215,8 @@ contract PISAHash {
         }
 
         // Get the time window to check if PISA responded
-        uint[2] memory timewindow;
+        // [start time, finish time, challenge period]
+        uint[3] memory timewindow;
 
         // Is there a challenge period?
         if(challengetimeDecoders[appointment.mode] != address(0)) {
@@ -226,17 +224,25 @@ contract PISAHash {
           // We'll need to "decode" the log and fetch the start/end time from it.
           (timewindow) = ChallengeTimeDecoderInterface(challengetimeDecoders[appointment.mode]).getTime(dataregistry, _datashard, appointment.sc, appointment.appointmentid, _dataindex, _logdata);
 
+          // Time to perform some sanity checks
+          require(timewindow[2] >= appointment.challengeTime, "Contract did not abide by minimum challenge time");  // Finish time - start time >= minimum challenge time
+          require(timewindow[1] - timewindow[0] >= appointment.challengeTime, "Timestamps for start/end of dispute is (somehow) less than challenge time"); // Sanity check (hopefully prevent a bug)
+          require(timewindow[0] >= appointment.startTime, "Dispute started before appointment time...."); // Start time of challenge must be after appointment start time
+          require(timewindow[0] < appointment.finishTime, "Dispute started after appointment time..."); // Challenge must have been triggered BEFORE we stopped watching
+          // No check for timewindow[2] > appointment.finishTime.
+          // We only care about when it "started" and that the "min challenge time" is reasonable.
         } else {
-           timewindow = [appointment.startTime, appointment.finishTime];
+           timewindow = [appointment.startTime, appointment.finishTime, 0];
         }
 
         // Make sure the values are set to something meaningful
         require(timewindow[0] > 0 && timewindow[1] > 0, "Timing information is not meaningful");
+        require(timewindow[1] > timewindow[0]); // Finish time must be in the future after start time..
 
         // Did PISA respond within the appointment?
         // Remember - PISA must respond with the LATEST job information...
         // This implies the calldata, precondition, allocated gas, mode, etc. All must be CORRECT during respond().
-        bytes32 expectedLog = keccak256(abi.encode(appointment.mode, appointment.precondition, appointment.data, appointment.gas));
+        bytes32 expectedLog = keccak256(abi.encode(appointment.mode, appointment.precondition, appointment.call, appointment.gas));
         require(!didPISARespond(pisaid, expectedLog, timewindow), "PISA sent the right job during the appointment time");
 
         // PISA has cheated. Provide opportunity for PISA to respond.
@@ -247,7 +253,7 @@ contract PISAHash {
     }
 
     // Check if PISA recorded a function call for the given appointment/job
-    function didPISARespond(uint _pisaid, bytes32 _expectedLog, uint[2] memory _timewindow) internal returns (bool) {
+    function didPISARespond(uint _pisaid, bytes32 _expectedLog, uint[3] memory _timewindow) internal returns (bool) {
 
         // Look through every shard (should be two in practice)
         for(uint i=0; i<DataRegistryInterface(dataregistry).getTotalShards(); i++) {
@@ -285,17 +291,30 @@ contract PISAHash {
 
     // To avoid gas-issue, we compute the struct here.
     function computeAppointment(bytes memory _appointment) internal pure returns(Appointment memory) {
-        address sc; // Address for smart contract
-        address payable cus; // Address for the customer who hired PISA
-        uint[2] memory timers; // [0] Start time for an appointment [1] Agreed finish time and [2] challenge period (minimum length of time for a single dispute)
-        uint[2] memory appointmentinfo; // [0] Monotonic counter to keep track of appointments and [1] to keep track of job updates in PISA
-        bytes[3] memory data; // [0] function data. [1] pre-condition data. [2] post-condition data
-        uint[3] memory extraData; // [0] Refund value to customer. [1] Gas allocated for job. [3] Dispute handler mode.
-        bytes[2] memory eventData; // What event is PISA watching for?
-        bytes32 h; // Customer must reveal pre-image to prove appointment is valid
 
-        (sc,cus,timers, appointmentinfo, data, extraData, eventData, h) = abi.decode(_appointment, (address, address, uint[2], uint[2], bytes[3], uint[3], bytes[2], bytes32));
-        return Appointment(sc, cus, timers[0], timers[1], appointmentinfo[0], appointmentinfo[1], data[0], extraData[0], extraData[1], extraData[2], eventData[0], eventData[1], data[1], data[2], h);
+        bytes memory appointmentinfo;
+        bytes memory contractinfo;
+        bytes memory conditions;
+
+        (appointmentinfo, contractinfo, conditions) = abi.decode(_appointment, (bytes, bytes, bytes));
+
+        Appointment memory appointment;
+
+        // Get appointment information
+        // [appointmentid, jobid, startTime, endTime, challengeTime, refund, h]
+        (appointment.appointmentid, appointment.jobid, appointment.startTime, appointment.finishTime, appointment.challengeTime, appointment.refund, appointment.h) = abi.decode(appointmentinfo, (uint, uint, uint, uint, uint, uint, bytes32));
+
+        // Get contract information
+        // [sc, cus, gas, calldata]
+        (appointment.sc, appointment.cus, appointment.gas, appointment.call) = abi.decode(contractinfo, (address, address, uint, bytes));
+
+        // Get events and postcondition data
+        // [eventDesc, eventArgs, precondition, postcondition, mode]
+        // We ignore the "event" information in the contract for now.
+        // TODO: It should be doable to combine both evnets + conditions. Keeping separate for now.
+        (,,appointment.precondition, appointment.postcondition, appointment.mode) = abi.decode(conditions, (bytes, bytes, bytes, bytes, uint));
+
+        return appointment;
     }
 
     // Customer may send older job that was replaced and PISA wasn't required to do anything.
@@ -318,7 +337,6 @@ contract PISAHash {
         // Sanity checks on this cheat log
         require(cheatlog.triggered, "Evidence of cheating should already be triggered");
         require(!cheatlog.resolved, "PISA should not have already resolved cheating log");
-
 
         // OK... now we know a cheat log exists for _cancelledJobID.
         // It has been triggered and NOT resolved..... so does the appointmentTime
