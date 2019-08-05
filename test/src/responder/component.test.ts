@@ -193,7 +193,6 @@ describe("MultiResponderComponent", () => {
 
     beforeEach(() => {
         multiResponderMock = mock(MultiResponder);
-        //will need to revisit these stubs
         when(multiResponderMock.reEnqueueMissingItems(anything())).thenResolve();
         when(multiResponderMock.txMined(anything(), anything())).thenResolve();
         when(multiResponderMock.endResponse(anything())).thenResolve();

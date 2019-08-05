@@ -104,7 +104,6 @@ describe("BlockProcessor", () => {
 
         // We initially return 0 as the current block number
         when(mockProvider.getBlockNumber()).thenResolve(0);
-        //revisit for correct resolve
         when(mockProvider.emit(anything())).thenResolve();
 
         provider = throwingInstance(mockProvider);

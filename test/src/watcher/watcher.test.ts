@@ -164,7 +164,6 @@ describe("Watcher", () => {
     blocks.forEach(b => blockCache.addBlock(b));
 
     const mockedResponder = mock(MultiResponder);
-    //revisit
     when(mockedResponder.startResponse(anything())).thenResolve();
     const responder = throwingInstance(mockedResponder);
 
@@ -185,7 +184,6 @@ describe("Watcher", () => {
 
         mockedStore = mock(AppointmentStore);
         when(mockedStore.getAll()).thenReturn([appointment]);
-        //revisit
         when(mockedStore.removeById(anything())).thenResolve();
         const appointmentsById = new Map<string, Appointment>();
         appointmentsById.set(appointment.id, appointment);
