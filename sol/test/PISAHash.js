@@ -157,14 +157,6 @@ function createAppointment(_sc, _blockNo, _cus, _v, _jobid, _mode, _precondition
   appointment['v'] = _v;
   appointment['challengePeriod'] = minChallengePeriod;
 
-  // address sc; // Address for smart contract
-  // address payable cus; // Address for the customer who hired PISA
-  // uint[3] memory timers; // [0] Start time for an appointment [1] Agreed finish time and [2] challenge period (minimum length of time for a single dispute)
-  // uint[2] memory appointmentinfo; // [0] Appointment ID [1] to keep track of job updates in PISA
-  // bytes[] memory data; // [0] Job-specific data (depends whether it is Plasma, Channels, etc) and [1] is the post-condition data to check if dispute resolved as expected
-  // uint[3] memory extraData; // [0] Refund value to customer. [1] Gas allocated for job. [3] Dispute handler mode.
-  // bytes32 hash; // Customer must reveal pre-image to prove appointment is valid
-
   encodeEventDesc = web3.eth.abi.encodeParameter('string', appointment['eventDesc']);
   encodeEventVal = web3.eth.abi.encodeParameters(['uint','uint','uint'], appointment['eventVals']);
 
@@ -173,37 +165,6 @@ function createAppointment(_sc, _blockNo, _cus, _v, _jobid, _mode, _precondition
   let encodeConditions = web3.eth.abi.encodeParameters(['bytes','bytes','bytes','bytes', 'uint'], [encodeEventDesc, encodeEventVal, _precondition, _postcondition, mode]);
 
   encodedAppointment =  web3.eth.abi.encodeParameters(['bytes','bytes','bytes'],[encodeAppointmentInfo, encodeContractInfo, encodeConditions]);
-
-  // let timersArray = new Array();
-  //
-  // timersArray[0] = _blockNo;
-  // timersArray[1] = appointmentFinishTime;
-
-  // let appointmentinfoArray = new Array();
-  // // Workaround from https://github.com/ethereum/web3.js/issues/2077#issuecomment-468526280
-  // // Apparently under-the-hood ether.js cant handle BN very well.
-  // appointmentinfoArray[0] = channelid.toString();
-  // appointmentinfoArray[1] = _jobid;
-  //
-  // let jobdata = new Array();
-  // jobdata[0] = toCall;
-  // jobdata[1] = _precondition;
-  // jobdata[2] = _postcondition;
-
-  // let extraData = new Array();
-  // extraData[0] = refund;
-  // extraData[1] = gas;
-  // extraData[2] = mode;
-
-  // let eventData = new Array();
-  // encodeEventDesc = web3.eth.abi.encodeParameter('string',appointment['eventDesc']);
-  // encodeEventVal = web3.eth.abi.encodeParameters(['uint','uint','uint'],appointment['eventVals']);
-  // eventData[0] = encodeEventDesc;
-  // eventData[1] = encodeEventVal;
-
-  // encodedAppointment = web3.eth.abi.encodeParameters(['address','address','uint[2]', "uint[2]", "bytes[3]", "uint[3]","bytes[2]","bytes32"],
-  //                                            [_sc, _cus, timersArray, appointmentinfoArray, jobdata, extraData, eventData, h]);
-
 }
 
 

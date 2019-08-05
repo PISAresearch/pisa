@@ -143,6 +143,8 @@ contract PISAHash {
         uint pisaid = uint(keccak256(abi.encode(_sc, _cus, _appointmentid, _jobid)));
 
         // Check if a pre-condition needs to be handled
+        // TODO: There is some risk that other contract can throw exception/fail
+        // We should treat it as an external call so we can catch it.
         if(preconditionHandlers[_mode] != address(0)) {
             require(PreconditionHandlerInterface(preconditionHandlers[_mode]).canPISARespond(_sc, _cus, _precondition));
         }
@@ -398,7 +400,7 @@ contract PISAHash {
 
     // PISA hasn't refunded the customer by the desired time?
     // .... time to issue the ultimate punishment
-    function forfeit(uint _pisaid) public {
+    function forfeit(uint _pisaid) public isNotFrozen {
 
         // Sanity checking
         require(pendingrefunds > 0, "Sanity check that there are outstanding refunds");
