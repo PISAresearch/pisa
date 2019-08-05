@@ -51,6 +51,7 @@ describe("MultiResponder", () => {
 
         const signerMock = mock(ethers.providers.JsonRpcSigner);
         when(signerMock.getAddress()).thenResolve("address");
+        when(signerMock.sendTransaction(anything())).thenResolve();
         when(signerMock.provider).thenReturn(provider);
         signer = throwingInstance(signerMock);
 

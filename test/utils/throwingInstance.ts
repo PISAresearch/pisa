@@ -1,14 +1,15 @@
 import { instance } from "ts-mockito";
 
 /**
- * This will be useful for detecting when certain methods have not been stubbed.
- * @param target will take the mocked object
+ * Creates an instance of a mocked object. Calls to methods or properties that have not been stubbed will throw errors
  */
-export default function throwingInstance(target: any) {
-    let stubbedMethods: Array<string>;
+export default function throwingInstance<T>(target: T) {
+    const stubbedMethods: Array<string> = Object.keys(
+        (target as any)["tsMockitoInstance"]["mocker"]["methodStubCollections"]
+    );
 
-    let handler = {
-        get: function(target: any, prop: any, receiver: any) {
+    const handler = {
+        get: function(target: any, prop: string, receiver: any) {
             if (stubbedMethods.includes(prop)) {
                 return Reflect.get(target, prop);
             } else {
@@ -18,7 +19,5 @@ export default function throwingInstance(target: any) {
         }
     };
 
-    stubbedMethods = Object.keys((target as any)["tsMockitoInstance"]["mocker"]["methodStubCollections"]);
-    let p = new Proxy(instance(target), handler);
-    return p;
+    return new Proxy(instance(target), handler);
 }

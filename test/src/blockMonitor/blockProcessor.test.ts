@@ -2,7 +2,7 @@ import "mocha";
 import * as chai from "chai";
 import chaiAsPromised from "chai-as-promised";
 import { ethers } from "ethers";
-import { mock, when, anything } from "ts-mockito";
+import { mock, when, anything, capture, anyNumber } from "ts-mockito";
 import { EventEmitter } from "events";
 import { BlockProcessor, BlockCache, blockStubAndTxFactory } from "../../../src/blockMonitor";
 import { IBlockStub } from "../../../src/dataEntities";
@@ -104,7 +104,8 @@ describe("BlockProcessor", () => {
 
         // We initially return 0 as the current block number
         when(mockProvider.getBlockNumber()).thenResolve(0);
-        when(mockProvider.emit(anything())).thenResolve();
+
+        when(mockProvider.emit("block", anyNumber())).thenReturn(true);
 
         provider = throwingInstance(mockProvider);
     });

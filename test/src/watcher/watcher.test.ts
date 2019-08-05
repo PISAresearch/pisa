@@ -1,6 +1,6 @@
 import "mocha";
 import { expect } from "chai";
-import { mock, when, resetCalls, verify, anything } from "ts-mockito";
+import { mock, when, resetCalls, verify, anything, capture } from "ts-mockito";
 import { AppointmentStore } from "../../../src/watcher";
 import { MultiResponder } from "../../../src/responder";
 import { BlockCache } from "../../../src/blockMonitor";
@@ -163,12 +163,11 @@ describe("Watcher", () => {
     const blockCache = new BlockCache<IBlockStub & Logs>(100);
     blocks.forEach(b => blockCache.addBlock(b));
 
-    const mockedResponder = mock(MultiResponder);
-    when(mockedResponder.startResponse(anything())).thenResolve();
-    const responder = throwingInstance(mockedResponder);
-
     let mockedStore: AppointmentStore;
     let store: AppointmentStore;
+
+    let mockedResponder: MultiResponder;
+    let responder: MultiResponder;
 
     let appointment: Appointment;
 
@@ -189,6 +188,10 @@ describe("Watcher", () => {
         appointmentsById.set(appointment.id, appointment);
         when(mockedStore.appointmentsById).thenReturn(appointmentsById);
         store = throwingInstance(mockedStore);
+
+        mockedResponder = mock(MultiResponder);
+        when(mockedResponder.startResponse(appointment)).thenResolve();
+        responder = throwingInstance(mockedResponder);
     });
 
     function makeMap(appId: string, appState: WatcherAppointmentAnchorState) {
