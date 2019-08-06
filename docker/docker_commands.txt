@@ -6,6 +6,7 @@ docker run -d -p 8545:8545 --network pisa-net --name ganache trufflesuite/ganach
 
 // pisa
 docker run -d -p 3000:3000 --network pisa-net --name pisa pisaresearch/pisa:latest
+docker run -p 3000:3000 --volume ${PWD}/logs:/usr/pisa/logs --volume ${PWD}/config.json:/usr/pisa/build/src/config.json --volume ${PWD}/db:/usr/pisa/db --name pisa pisaresearch/pisa:latest
 
 //build
 docker build --target deploy -t pisaresearch/pisa:latest -f docker/app.Dockerfile .
