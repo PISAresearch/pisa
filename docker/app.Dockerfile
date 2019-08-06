@@ -15,6 +15,7 @@ COPY ./src ./src
 COPY ./raiden_demo ./raiden_demo
 COPY ./test ./test
 COPY ./tsconfig.json ./tsconfig.json
+COPY ./docs/redoc.html ./docs/redoc.html
 
 # build
 RUN ["npm", "run", "build"]
@@ -48,6 +49,7 @@ COPY --from=builder /usr/pisa/build/raiden_demo ./build/raiden_demo
 COPY --from=productionPackges ./usr/pisa/node_modules ./node_modules
 # copy the smoke tests
 COPY --from=builder /usr/pisa/build/test/smoke ./build/test/smoke
+COPY --from=builder /usr/pisa/docs/redoc.html ./build/docs/redoc.html
 
 # expose the startup port
 EXPOSE 3000
