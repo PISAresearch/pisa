@@ -512,7 +512,7 @@ describe("MultiResponder", () => {
         const signer = instance(signerMock);
         const responder = new MultiResponder(
             signer,
-            increasingGasEstimatorMock,
+            decreasingGasPriceEstimator,
             maxConcurrentResponses,
             replacementRate
         );
@@ -529,7 +529,7 @@ describe("MultiResponder", () => {
     fnIt<MultiResponder>(m => m.recover, "throws an error when unexpected tx is provided", async () => {
         const responder = new MultiResponder(
             signer,
-            increasingGasEstimatorMock,
+            decreasingGasPriceEstimator,
             maxConcurrentResponses,
             replacementRate
         );
@@ -537,6 +537,42 @@ describe("MultiResponder", () => {
         await responder.start();
 
         expect(responder.recover()).to.eventually.be.rejectedWith(ApplicationError);
+        await responder.stop();
+    });
+
+    fnIt<MultiResponder>(m => m.recover, "throws an error when 'to' is not provided", async () => {
+        const providerMock = mock(ethers.providers.JsonRpcProvider);
+        when(providerMock.getNetwork()).thenResolve({ chainId: chainId, name: "test" });
+        when(providerMock.getTransactionCount("address", "pending")).thenResolve(1);
+        when(providerMock.getTransactionCount("address", "latest")).thenResolve(10);
+
+        const tx0 = createTxAndAppointment("address", 1, "data11", 1, "to1");
+        tx0.tx.to = undefined;
+        const pendingBlockMock: ethers.providers.Block = mock<ethers.providers.Block>({} as any);
+        when(pendingBlockMock.transactions).thenReturn([tx0.tx] as any[]);
+        const pendingBlock = instance(pendingBlockMock);
+
+        when(providerMock.getBlock("pending", true)).thenResolve(pendingBlock);
+        provider = instance(providerMock);
+
+        const signerMock = mock(ethers.providers.JsonRpcSigner);
+        when(signerMock.getAddress()).thenResolve("address");
+        when(signerMock.provider).thenReturn(provider);
+        signer = instance(signerMock);
+
+        const responder = new MultiResponder(
+            signer,
+            decreasingGasPriceEstimator,
+            maxConcurrentResponses,
+            replacementRate
+        );
+
+        await responder.start();
+
+        await responder.startResponse(tx0.appointment);
+
+        expect(responder.recover()).to.eventually.be.rejectedWith(ApplicationError);
+
         await responder.stop();
     });
 });

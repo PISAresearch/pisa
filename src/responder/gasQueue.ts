@@ -37,10 +37,6 @@ export class PisaTransactionIdentifier {
             other.gasLimit.eq(this.gasLimit)
         );
     }
-
-    public toString() {
-        return `${this.chainId}:${this.data}:${this.to}:${this.value.toString()}:${this.gasLimit.toString()}`;
-    }
 }
 
 export class GasQueueItemRequest {

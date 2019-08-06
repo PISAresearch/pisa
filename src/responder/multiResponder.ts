@@ -136,7 +136,6 @@ export class MultiResponder extends StartStopService {
         // now add them one by one to the queue, in nonce order - each time checking if we need to do any replacements
         const currentRespondedTransactions: GasQueueItem[] = [];
         for (const fromTx of fromTransactions) {
-            
             if (!fromTx.to) {
                 this.logger.error(fromTx, "Responder issued a transaction without a 'to' address.");
                 throw new ApplicationError(`Responder issued a transaction without a 'to' address.`);
