@@ -47,8 +47,7 @@ COPY --from=builder /usr/pisa/build/src ./build/src
 COPY --from=builder /usr/pisa/build/raiden_demo ./build/raiden_demo
 # copy node modules from production
 COPY --from=productionPackges ./usr/pisa/node_modules ./node_modules
-# copy the smoke tests
-COPY --from=builder /usr/pisa/build/test/smoke ./build/test/smoke
+# copy the docs config
 COPY --from=builder /usr/pisa/docs/redoc.html ./build/docs/redoc.html
 
 # expose the startup port
