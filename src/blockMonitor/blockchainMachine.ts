@@ -1,9 +1,9 @@
 import { BlockProcessor } from "./blockProcessor";
 import { IBlockStub, StartStopService, ApplicationError } from "../dataEntities";
-import { Component } from "./component";
+import { Component, AnchorState, ComponentAction } from "./component";
 
 interface ComponentAndStates {
-    component: Component<{}, IBlockStub>;
+    component: Component<AnchorState, IBlockStub, ComponentAction>;
     states: WeakMap<IBlockStub, {}>;
 }
 
@@ -30,7 +30,7 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
      * Add a new `component` to the BlockchainMachine. It must be called before the service is started
      * @param component
      */
-    public addComponent(component: Component<{}, TBlock>): void {
+    public addComponent(component: Component<AnchorState, TBlock, ComponentAction>): void {
         if (this.started) {
             throw new ApplicationError("Components must be added before the BlockchainMachine is started.");
         }
@@ -77,7 +77,8 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
             if (prevHead) {
                 const prevState = states.get(prevHead);
                 if (prevState) {
-                    component.handleChanges(prevState, state);
+                    const actions = component.detectChanges(prevState, state);
+                    component.handleChanges(actions);
                 }
             }
         }
