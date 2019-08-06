@@ -3,13 +3,13 @@ import { instance } from "ts-mockito";
 /**
  * Creates an instance of a mocked object. Calls to methods or properties that have not been stubbed will throw errors
  */
-export default function throwingInstance<T>(target: T) {
+export default function throwingInstance<TMock extends object>(target: TMock) {
     const stubbedMethods: Array<string> = Object.keys(
         (target as any)["tsMockitoInstance"]["mocker"]["methodStubCollections"]
     );
 
     const handler = {
-        get: function(target: any, prop: string, receiver: any) {
+        get: function(target: TMock, prop: string, receiver: any) {
             if (stubbedMethods.includes(prop)) {
                 return Reflect.get(target, prop);
             } else {

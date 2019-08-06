@@ -2,7 +2,7 @@ import "mocha";
 import * as chai from "chai";
 import chaiAsPromised from "chai-as-promised";
 import { ethers } from "ethers";
-import { mock, when, anything, capture, anyNumber } from "ts-mockito";
+import { mock, when, anything, anyNumber } from "ts-mockito";
 import { EventEmitter } from "events";
 import { BlockProcessor, BlockCache, blockStubAndTxFactory } from "../../../src/blockMonitor";
 import { IBlockStub } from "../../../src/dataEntities";

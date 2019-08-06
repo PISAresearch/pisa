@@ -62,7 +62,6 @@
         "request": "^2.88.0",
         "rwlock": "^5.0.0",
         "swagger-jsdoc": "^3.3.0",
-        "truffle-assertions": "^0.9.1",
         "uuid": "^3.3.2",
         "yargs": "^13.2.4"
     },
