@@ -7,6 +7,7 @@ import { mock, when, instance } from "ts-mockito";
 import { ethers } from "ethers";
 import { BlockCache } from "../../../src/blockMonitor";
 import fnIt from "../../utils/fnIt";
+import throwingInstance from "../../utils/throwingInstance";
 
 describe("ExponentialCurve", () => {
     it("ka constructs for (0, 1), (1, e)", () => {
@@ -150,16 +151,19 @@ describe("GasPriceEstimator", () => {
 
         const mockedProvider = mock(ethers.providers.JsonRpcProvider);
         when(mockedProvider.getGasPrice()).thenResolve(currentGasPrice);
-        const provider = instance(mockedProvider);
+        const provider = throwingInstance(mockedProvider);
 
         const mockedBlockCache: BlockCache<IBlockStub> = mock(BlockCache);
         when(mockedBlockCache.head).thenReturn({ hash: "hash1", parentHash: "hash2", number: currentBlock });
-        const blockCache = instance(mockedBlockCache);
+        const blockCache = throwingInstance(mockedBlockCache);
 
         const gasPriceEstimator = new GasPriceEstimator(provider, blockCache);
-        const appointment = createAppointment(2000)
+        const appointment = createAppointment(2000);
         const estimate = await gasPriceEstimator.estimate(appointment);
-        const expectedValue = new ExponentialGasCurve(currentGasPrice, appointment.endBlock - appointment.startBlock).getGasPrice(appointment.endBlock - currentBlock);
+        const expectedValue = new ExponentialGasCurve(
+            currentGasPrice,
+            appointment.endBlock - appointment.startBlock
+        ).getGasPrice(appointment.endBlock - currentBlock);
 
         expect(estimate.toNumber()).to.equal(expectedValue.toNumber());
     });

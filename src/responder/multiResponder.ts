@@ -99,6 +99,7 @@ export class MultiResponder extends StartStopService {
                 new BigNumber(0),
                 appointment.gasLimit
             );
+
             const idealGas = await this.gasEstimator.estimate(appointment);
             const request = new GasQueueItemRequest(txIdentifier, idealGas, appointment);
             logger.info(request, `Enqueueing request for ${appointment.id}.`);
