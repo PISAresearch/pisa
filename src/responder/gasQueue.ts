@@ -4,7 +4,7 @@ import { ethers } from "ethers";
 
 export class GasQueueError extends ArgumentError {
     constructor(public readonly kind: GasQueueErrorKind, message: string, ...args: any[]) {
-        super(message, args)
+        super(message, args);
     }
 }
 
@@ -36,6 +36,10 @@ export class PisaTransactionIdentifier {
             other.value.eq(this.value) &&
             other.gasLimit.eq(this.gasLimit)
         );
+    }
+
+    public toString() {
+        return `${this.chainId}:${this.data}:${this.to}:${this.value.toString()}:${this.gasLimit.toString()}`;
     }
 }
 
@@ -143,7 +147,12 @@ export class GasQueue {
                 }
 
                 if (queueItems.find((q, i) => q.request.identifier.equals(item.request.identifier) && i !== index)) {
-                    throw new GasQueueError(GasQueueErrorKind.AlreadyAdded, "Identifier found twice in queue.", item.request.identifier, queueItems);
+                    throw new GasQueueError(
+                        GasQueueErrorKind.AlreadyAdded,
+                        "Identifier found twice in queue.",
+                        item.request.identifier,
+                        queueItems
+                    );
                 }
             }
         }

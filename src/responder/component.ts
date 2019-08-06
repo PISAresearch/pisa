@@ -164,7 +164,7 @@ export class MultiResponderComponent extends Component<ResponderAnchorState, Blo
         for (const [appointmentId, currentItem] of state.items.entries()) {
             const prevItem = prevState.items.get(appointmentId);
 
-            if(!prevItem && currentItem.kind === ResponderStateKind.Pending) {
+            if (!prevItem && currentItem.kind === ResponderStateKind.Pending) {
                 logger.info({state: currentItem, id: appointmentId, blockNumber: state.blockNumber }, "New pending transaction.") // prettier-ignore
             }
 

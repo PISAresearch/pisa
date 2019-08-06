@@ -4,23 +4,23 @@ import { ethers } from "ethers";
 import { mock, when, anything, instance } from "ts-mockito";
 import { BigNumber } from "ethers/utils";
 import chai, { expect } from "chai";
-import { ArgumentError, Appointment } from "../../../src/dataEntities";
+import { ArgumentError, Appointment, ApplicationError } from "../../../src/dataEntities";
 import { PisaTransactionIdentifier } from "../../../src/responder/gasQueue";
 import chaiAsPromised from "chai-as-promised";
 import fnIt from "../../utils/fnIt";
 
 chai.use(chaiAsPromised);
 
-const createAppointment = (id: number, data: string): Appointment => {
+const createAppointment = (id: number, data: string, to?: string): Appointment => {
     return Appointment.fromIAppointment({
         challengePeriod: 10,
-        contractAddress: "contractAddress",
+        contractAddress: to || "contractAddress",
         customerAddress: "customerAddress",
         data,
         endBlock: 10,
         eventABI: "eventABI",
         eventArgs: "eventArgs",
-        gasLimit: "100",
+        gasLimit: "200",
         customerChosenId: id,
         jobId: 1,
         mode: 1,
@@ -30,6 +30,43 @@ const createAppointment = (id: number, data: string): Appointment => {
         startBlock: 7
     });
 };
+
+const createTxAndAppointment = (
+    from: string,
+    nonce: number,
+    data: string,
+    id: number,
+    to: string
+): { appointment: Appointment; tx: ethers.providers.TransactionResponse; identifier: PisaTransactionIdentifier } => {
+    return {
+        appointment: createAppointment(id, data, to),
+        tx: {
+            confirmations: 0,
+            from,
+            nonce,
+            gasLimit: new BigNumber(200),
+            gasPrice: new BigNumber(20),
+            data,
+            value: new BigNumber(0),
+            chainId: 1,
+            wait: () => Promise.resolve<any>({}),
+            to
+        },
+        identifier: new PisaTransactionIdentifier(1, data, to, new BigNumber(0), new BigNumber(200))
+    };
+};
+const tx1 = createTxAndAppointment("address", 1, "data11", 1, "to1");
+const tx2 = createTxAndAppointment("address2", 1, "data21", 2, "to2");
+const tx3 = createTxAndAppointment("address", 1, "data12", 3, "to3");
+const tx4 = createTxAndAppointment("address", 1, "data13", 4, "to4");
+
+const transactions: ethers.providers.TransactionResponse[] = [tx1.tx, tx2.tx, tx3.tx, tx4.tx];
+
+// dummy to fool the mock lib
+const pendingBlockMock: ethers.providers.Block = mock<ethers.providers.Block>({} as any);
+when(pendingBlockMock.transactions).thenReturn(transactions as any);
+const pendingBlock = instance(pendingBlockMock);
+const chainId = 1;
 
 describe("MultiResponder", () => {
     let signer: ethers.Signer;
@@ -41,12 +78,15 @@ describe("MultiResponder", () => {
         errorGasEstimatorMock: GasPriceEstimator;
     const maxConcurrentResponses = 3;
     const replacementRate = 15;
+    let provider: ethers.providers.JsonRpcProvider;
 
     beforeEach(() => {
         const providerMock = mock(ethers.providers.JsonRpcProvider);
-        when(providerMock.getNetwork()).thenResolve({ chainId: 1, name: "test" });
+        when(providerMock.getNetwork()).thenResolve({ chainId: chainId, name: "test" });
         when(providerMock.getTransactionCount("address", "pending")).thenResolve(1);
-        const provider = instance(providerMock);
+        when(providerMock.getTransactionCount("address", "latest")).thenResolve(10);
+        when(providerMock.getBlock("pending", true)).thenResolve(pendingBlock);
+        provider = instance(providerMock);
 
         const signerMock = mock(ethers.providers.JsonRpcSigner);
         when(signerMock.getAddress()).thenResolve("address");
@@ -437,6 +477,66 @@ describe("MultiResponder", () => {
         expect(responder.respondedTransactions.has(appointment.id)).to.be.true;
         await responder.endResponse(appointment.id);
         expect(responder.respondedTransactions.has(appointment.id)).to.be.false;
+        await responder.stop();
+    });
+
+    fnIt<MultiResponder>(m => m.recover, "correctly resets from pending pool", async () => {
+        const responder = new MultiResponder(
+            signer,
+            decreasingGasPriceEstimator,
+            maxConcurrentResponses,
+            replacementRate
+        );
+
+        await responder.start();
+
+        await responder.startResponse(tx1.appointment);
+        await responder.startResponse(tx3.appointment);
+        await responder.startResponse(tx4.appointment);
+
+        await responder.recover();
+
+        expect(responder.queue.queueItems.map(i => i.request.identifier)).to.deep.equal([
+            tx1.identifier,
+            tx3.identifier,
+            tx4.identifier
+        ]);
+
+        await responder.stop();
+    });
+
+    fnIt<MultiResponder>(m => m.recover, "correctly resets from pending pool when none there", async () => {
+        const signerMock = mock(ethers.providers.JsonRpcSigner);
+        when(signerMock.getAddress()).thenResolve("addressUnknown");
+        when(signerMock.provider).thenReturn(provider);
+        const signer = instance(signerMock);
+        const responder = new MultiResponder(
+            signer,
+            increasingGasEstimatorMock,
+            maxConcurrentResponses,
+            replacementRate
+        );
+
+        await responder.start();
+
+        await responder.recover();
+
+        expect(responder.queue.queueItems).to.deep.equal([]);
+
+        await responder.stop();
+    });
+
+    fnIt<MultiResponder>(m => m.recover, "throws an error when unexpected tx is provided", async () => {
+        const responder = new MultiResponder(
+            signer,
+            increasingGasEstimatorMock,
+            maxConcurrentResponses,
+            replacementRate
+        );
+
+        await responder.start();
+
+        expect(responder.recover()).to.eventually.be.rejectedWith(ApplicationError);
         await responder.stop();
     });
 });
