@@ -147,7 +147,7 @@ export class MultiResponderComponent extends Component<ResponderAnchorState, Blo
     ) {
         super(
             new MappedStateReducer(
-                () => [...responder.respondedTransactions.values()],
+                () => [...responder.transactions.values()],
                 item =>
                     new ResponderAppointmentReducer(
                         blockCache,
@@ -230,7 +230,7 @@ export class MultiResponderComponent extends Component<ResponderAnchorState, Blo
                     await this.responder.txMined(action.identifier, action.nonce);
                     break;
                 case ResponderActionKind.EndResponse:
-                    this.responder.endResponse(action.appointmentId);
+                    await this.responder.endResponse(action.appointmentId);
                     break;
                 default:
                     throw new ArgumentError("Unrecognised action kind.", action);

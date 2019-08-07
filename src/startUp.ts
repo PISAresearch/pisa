@@ -32,9 +32,10 @@ async function startUp() {
     const watcherWallet = new ethers.Wallet(config.responderKey, provider);
     const receiptSigner = new ethers.Wallet(config.receiptKey);
     const db = levelup(encodingDown(leveldown(config.dbDir), { valueEncoding: "json" }));
+    const nonce = await this.provider.getTransactionCount(watcherWallet.address, "pending");
 
     // start the pisa service
-    const service = new PisaService(config, provider, watcherWallet, receiptSigner, db);
+    const service = new PisaService(config, provider, watcherWallet, nonce, provider.network.chainId, receiptSigner, db);
     service.start();
 
     // listen for stop events
