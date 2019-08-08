@@ -1,6 +1,5 @@
-import { Appointment, StartStopService } from "../dataEntities";
+import { Appointment } from "../dataEntities";
 import {
-    GasQueue,
     PisaTransactionIdentifier,
     GasQueueItem,
     GasQueueItemRequest,
@@ -13,130 +12,8 @@ import { BigNumber } from "ethers/utils";
 import { inspect } from "util";
 import logger from "../logger";
 import { QueueConsistencyError, ArgumentError, PublicInspectionError } from "../dataEntities/errors";
-import { LevelUp } from "levelup";
-import EncodingDown from "encoding-down";
-const sub = require("subleveldown");
 import { LockManager } from "../utils/lock";
-
-export class ResponderStore extends StartStopService {
-    public get transactions(): ReadonlyMap<string, GasQueueItem> {
-        return this.mTransactions;
-    }
-
-    private readonly mTransactions: Map<string, GasQueueItem> = new Map();
-    /**
-     * A single global lock on this store to be taken out whenever reading or
-     * writing to the store.
-     */
-    public readonly lock: string;
-    private mQueue: GasQueue;
-    public get queue() {
-        return this.mQueue;
-    }
-
-    private readonly subDb: LevelUp<EncodingDown<string, any>>;
-    private readonly queueKey: string;
-    /**
-     * A persistent store for responder data.
-     * @param db A backend database for the store
-     * @param responderAddress The address of the responder using this store. Responder public keys can only
-     * be used by one responder at a time.
-     * @param maxConcurrentResponses
-     *   Parity and Geth set maximums on the number of pending transactions in the
-     *   pool that can emanate from a single account. Current defaults:
-     *   Parity: max(16, 1% of the pool): https://wiki.parity.io/Configuring-Parity-Ethereum --tx-queue-per-sender
-     *   Geth: 64: https://github.com/ethereum/go-ethereum/wiki/Command-Line-Options --txpool.accountqueue
-     * @param replacementRate
-     *   This responder replaces existing transactions on the network.
-     *   This replacement rate is set by the nodes. The value should be the percentage increase
-     *   eg. 13. Must be positive.
-     *   Parity: 12.5%: https://github.com/paritytech/parity-ethereum/blob/master/miner/src/pool/scoring.rs#L38
-     *   Geth: 10% default : https://github.com/ethereum/go-ethereum/wiki/Command-Line-Options --txpool.pricebump
-     */
-    constructor(db: LevelUp<EncodingDown<string, any>>, responderAddress: string, seedQueue: GasQueue) {
-        super("responder-store");
-        this.subDb = sub(db, `responder:${responderAddress}`);
-        this.mQueue = seedQueue;
-        this.queueKey = `${responderAddress}:queue`;
-        this.lock = responderAddress;
-    }
-
-    protected async startInternal() {
-        // buffer any existing state
-        const { queue, respondedTransactions } = await this.getAll();
-        if (queue) {
-            this.mQueue = new GasQueue(
-                queue.queueItems,
-                queue.emptyNonce,
-                this.mQueue.replacementRate,
-                this.mQueue.maxQueueDepth
-            );
-        }
-
-        for (const [key, value] of respondedTransactions.entries()) {
-            this.mTransactions.set(key, value);
-        }
-    }
-    protected async stopInternal() {}
-
-    /**
-     * Update the queue. Returns a new transactions that need to be issued as result of the update.
-     * @param queue
-     */
-    public async updateQueue(queue: GasQueue) {
-        // const replacedQueue = this.zQueue.add(request);
-        const difference = queue.difference(this.mQueue);
-        this.mQueue = queue;
-
-        // update these transactions locally and in the db
-        const differencyById = new Map<string, GasQueueItem>();
-        difference.forEach(d => {
-            const id = d.request.appointment.id
-            this.mTransactions.set(id, d);
-            differencyById.set(id, d);
-        });
-
-        let batch = this.subDb.batch().put(this.queueKey, GasQueue.serialise(queue));
-        for (const [key, value] of differencyById.entries()) {
-            batch = batch.put(key, value);
-        }
-        await batch.write();
-
-        return difference;
-    }
-
-    /**
-     * Remove a response keyed by its id
-     * @param id
-     */
-    public async removeResponse(id: string) {
-        this.mTransactions.delete(id);
-        await this.subDb.del(id);
-    }
-
-    /**
-     * Get the full contents of the database. One queue, and a map of responded transactions
-     */
-    private async getAll(): Promise<{
-        queue: GasQueue | undefined;
-        respondedTransactions: ReadonlyMap<string, GasQueueItem>;
-    }> {
-        let queue;
-        const transactions = new Map();
-        for await (const keyValue of this.subDb.createReadStream()) {
-            const { key, value } = keyValue as any;
-            if (key === this.queueKey) {
-                // this is the queue
-                queue = GasQueue.deserialise(value);
-            } else {
-                // this is a transactions
-                transactions.set(key, GasQueueItem.deserialise(value));
-            }
-        }
-
-        return { queue: queue, respondedTransactions: transactions };
-    }
-}
+import { ResponderStore } from "./store";
 
 export class MultiResponder {
     private readonly zStore: ResponderStore;

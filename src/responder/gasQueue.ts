@@ -209,11 +209,17 @@ export class GasQueue {
      * @param emptyNonce
      *      The next empty nonce. Must equal the last queue item nonce + 1
      *      if any queue items exists
-     * @param replacementRate
-     *      The amount by which the current gas price of a transaction must be greater than
-     *      an existing transaction if it is to replace it. Expresses as an integer pertange eg
-     *      increase by 13 percent = 13
      * @param maxQueueDepth The maximum possible number of items that can be put into this queue
+     *   Parity and Geth set maximums on the number of pending transactions in the
+     *   pool that can emanate from a single account. Current defaults:
+     *   Parity: max(16, 1% of the pool): https://wiki.parity.io/Configuring-Parity-Ethereum --tx-queue-per-sender
+     *   Geth: 64: https://github.com/ethereum/go-ethereum/wiki/Command-Line-Options --txpool.accountqueue
+     * @param replacementRate
+     *   This responder replaces existing transactions on the network.
+     *   This replacement rate is set by the nodes. The value should be the percentage increase
+     *   eg. 13. Must be positive.
+     *   Parity: 12.5%: https://github.com/paritytech/parity-ethereum/blob/master/miner/src/pool/scoring.rs#L38
+     *   Geth: 10% default : https://github.com/ethereum/go-ethereum/wiki/Command-Line-Options --txpool.pricebump
      */
     public constructor(
         public readonly queueItems: ReadonlyArray<GasQueueItem>,
