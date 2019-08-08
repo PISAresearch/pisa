@@ -1,6 +1,6 @@
 import { PisaService } from "./service";
 import { ethers } from "ethers";
-import jsonConfig, { IArgConfig, ConfigManager } from "./dataEntities/config";
+import jsonConfig, { ConfigManager } from "./dataEntities/config";
 import { validateProvider, getJsonRPCProvider } from "./utils/ethers";
 import logger, { setLogLevel, LogLevel, LogLevelInfo } from "./logger";
 import levelup, { LevelUp } from "levelup";
