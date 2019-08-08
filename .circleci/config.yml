@@ -71,7 +71,7 @@ jobs:
           command: npm install
       - run:
           name: test
-          command: npm run test-integration
+          command: TAG_NAME=$CIRCLE_BRANCH npm run test-integration
 workflows:
   version: 2
   build:

@@ -15,7 +15,9 @@ interface IPortBinding {
 
 class DockerImageLib {
     public static PARITY_IMAGE = "parity/parity:v2.5.0";
-    public static PISA_IMAGE = "pisaresearch/pisa:v0.1.3";
+    public static get PISA_IMAGE() {
+        return `pisaresearch/pisa:${process.env.TAG_NAME || "master"}`;
+    }
 }
 
 abstract class DockerContainer {
@@ -48,7 +50,6 @@ abstract class DockerContainer {
         this.portBindings.forEach(p => (ports[p.Container] = [{ HostPort: p.Host }]));
 
         const container = await this.dockerClient.createContainer({
-            
             Cmd: this.commands,
             Image: this.imageName,
             Tty: true,
@@ -57,7 +58,6 @@ abstract class DockerContainer {
                 PortBindings: ports,
                 NetworkMode: this.network,
                 Binds: this.volumes
-                
             },
             User: "root"
         });
@@ -92,7 +92,7 @@ export class PisaContainer extends DockerContainer {
         config: IArgConfig,
         hostPort: number,
         hostLogsDir: string,
-        network: string,
+        network: string
     ) {
         const configManager = new ConfigManager(ConfigManager.PisaConfigProperties);
         const commandLineArgs = configManager.toCommandLineArgs(config);
