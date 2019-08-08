@@ -49,7 +49,7 @@ jobs:
       - run:
           name: login docker
           command: docker login -u $DOCKER_USER -p $DOCKER_PASS
-      -run: 
+      - run: 
           name: push docker
           command: docker push pisaresearch/pisa:$CIRCLE_BRANCH
       - run:
