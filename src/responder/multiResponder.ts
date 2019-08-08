@@ -24,13 +24,7 @@ export class MultiResponder {
     public get transactions() {
         return this.zStore.transactions;
     }
-    /**
-     * The current queue of pending transaction being handled by this responder
-     */
-    public get queue() {
-        return this.zStore.queue;
-    }
-
+    
     /**
      * Can handle multiple response for a given signer. This responder requires exclusive
      * use of the signer, as it carefully manages the nonces of the transactions created by

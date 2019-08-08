@@ -174,7 +174,7 @@ describe("MultiResponder", () => {
         expect(store.queue.queueItems.length).to.deep.equal(1);
         verify(responderStoreMock.updateQueue(anything())).once();
         verify(signerMock.sendTransaction(anything())).once();
-        const item = responder.queue.queueItems[0];
+        const item = store.queue.queueItems[0];
 
         await responder.txMined(item.request.identifier, item.nonce);
         expect(store.transactions.get(appointment.id)!.request.appointment).to.deep.equal(appointment);
@@ -189,7 +189,7 @@ describe("MultiResponder", () => {
         const responder = new MultiResponder(signer, increasingGasPriceEstimator, chainId, store, signer.address);
 
         await responder.startResponse(appointment);
-        const item = responder.queue.queueItems[0];
+        const item = store.queue.queueItems[0];
 
         expect(store.transactions.get(appointment.id)!.request.appointment).to.deep.equal(appointment);
         expect(store.queue.queueItems.length).to.deep.equal(1);
@@ -301,7 +301,7 @@ describe("MultiResponder", () => {
         // should only be one item in the queue
         expect(store.queue.queueItems.length).to.equal(1);
 
-        const queueBefore = responder.queue;
+        const queueBefore = store.queue;
         await responder.reEnqueueMissingItems([appointment.id, appointment2.id]);
         const replacedTransactions = store.queue.difference(queueBefore);
         expect(replacedTransactions.length).to.equal(2);

@@ -118,12 +118,12 @@ export class GasQueueItem {
             request: GasQueueItemRequest.serialise(item.request)
         };
     }
-    public static deserialise(item: GasQueueItemSerialisation): GasQueueItem {
+    public static deserialise(serialisation: GasQueueItemSerialisation): GasQueueItem {
         return new GasQueueItem(
-            GasQueueItemRequest.deserialise(item.request),
-            new BigNumber(item.nonceGasPrice),
-            new BigNumber(item.idealGasPrice),
-            item.nonce
+            GasQueueItemRequest.deserialise(serialisation.request),
+            new BigNumber(serialisation.nonceGasPrice),
+            new BigNumber(serialisation.idealGasPrice),
+            serialisation.nonce
         );
     }
 
