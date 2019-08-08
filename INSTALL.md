@@ -48,8 +48,8 @@ Installing bunyan will provide slightly nicer logs:
 ```
 npm install -g bunyan
 ```
-# PISA developer test suite
 
+# PISA developer test suite
 
 There are three tests:
 
@@ -64,6 +64,8 @@ Finally you can run the developer test suite:
 ```
 npm run start-dev | bunyan
 ```
+
+# PISA using docker
 
 To run PISA as a docker image, you first need to run Ganache in docker:
 
@@ -102,7 +104,13 @@ Paste in the following JSON:
 
 The responderKey and receiptKey must be filled in. For testing, *we recommend using a private key from the Ganache* instance. (i.e. Check the terminal output, there will be a list of private keys. Just pick your favourite).
 
-Finally you can run PISA using:
+Get latest PISA docker:
+
+```
+docker pull pisaresearch/pisa:latest
+```
+
+Run PISA:
 
 ```
 docker run -p 3000:3000 --volume ${PWD}/logs:/usr/pisa/logs --volume ${PWD}/config.json:/usr/pisa/build/src/config.json --volume ${PWD}/db:/usr/pisa/db --name pisa pisaresearch/pisa:latest
