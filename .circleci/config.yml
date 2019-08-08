@@ -43,8 +43,10 @@ jobs:
       image: circleci/classic:201808-01
     steps:
       - checkout
-      - run: docker build --target deploy -t pisaresearch/pisa:$CIRCLE_BRANCH -f docker/app.Dockerfile .
-      - run: docker push pisaresearch/pisa:$CIRCLE_BRANCH
+      - run: 
+          docker build --target deploy -t pisaresearch/pisa:$CIRCLE_BRANCH -f docker/app.Dockerfile .
+          docker login -u $DOCKER_USER -p $DOCKER_PASS
+          docker push pisaresearch/pisa:$CIRCLE_BRANCH
       - run:
           name: Install node@11.14.0
           command: |
