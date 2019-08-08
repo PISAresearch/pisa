@@ -8,7 +8,6 @@ import MemDown from "memdown";
 import { GasQueue, GasQueueItemRequest, PisaTransactionIdentifier } from "../../../src/responder/gasQueue";
 import { BigNumber } from "ethers/utils";
 import { Appointment } from "../../../src/dataEntities";
-import { verify } from "ts-mockito";
 
 describe("ResponderStore", () => {
     const responderAddress = "address";
