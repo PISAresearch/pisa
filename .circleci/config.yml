@@ -51,7 +51,9 @@ jobs:
           command: docker login -u $DOCKER_USER -p $DOCKER_PASS
       - run: 
           name: push docker
-          command: docker push pisaresearch/pisa:$CIRCLE_BRANCH
+          command: |
+              echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+              docker push pisaresearch/pisa:$CIRCLE_BRANCH
       - run:
           name: Install node@11.14.0
           command: |
