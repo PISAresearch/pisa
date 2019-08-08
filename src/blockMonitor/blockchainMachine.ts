@@ -78,7 +78,8 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
                 const prevState = states.get(prevHead);
                 if (prevState) {
                     const actions = component.detectChanges(prevState, state);
-                    component.handleChanges(actions);
+                    // side effects must be thread safe, so we can execute them concurrently
+                    actions.forEach(a => component.applyAction(a))
                 }
             }
         }

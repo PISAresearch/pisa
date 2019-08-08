@@ -51,7 +51,7 @@ type TestAction = {
 };
 
 class ExampleComponent extends Component<ExampleState, IBlockStub, TestAction> {
-    public async handleChanges(actions: TestAction[]) {}
+    public async applyAction(actions: TestAction) {}
     public detectChanges(prevState: ExampleState, state: ExampleState): TestAction[] {
         return [{ prevState: prevState, newState: state }];
     }
@@ -178,7 +178,7 @@ describe("BlockchainMachine", () => {
         await bm.stop();
     });
 
-    it("processNewHead does not call handleChanges before NEW_HEAD_EVENT happens twice", async () => {
+    it("processNewHead does not call applyAction before NEW_HEAD_EVENT happens twice", async () => {
         const bm = new BlockchainMachine(blockProcessor);
         const component = new ExampleComponent(reducer);
         const spiedComponent = spy(component);
@@ -193,14 +193,14 @@ describe("BlockchainMachine", () => {
         blockProcessor.emit(BlockProcessor.NEW_BLOCK_EVENT, blocks[1]);
         blockProcessor.emit(BlockProcessor.NEW_BLOCK_EVENT, blocks[2]);
 
-        // handleChanges should not have been called on the component
+        // applyAction should not have been called on the component
         verify(spiedComponent.detectChanges(anything(), anything())).never();
-        verify(spiedComponent.handleChanges(anything())).never();
+        verify(spiedComponent.applyAction(anything())).never();
 
         await bm.stop();
     });
 
-    it("processNewHead does call handleChanges", async () => {
+    it("processNewHead does call applyAction", async () => {
         const bm = new BlockchainMachine(blockProcessor);
         const component = new ExampleComponent(reducer);
         const spiedComponent = spy(component);
@@ -216,16 +216,16 @@ describe("BlockchainMachine", () => {
         blockProcessor.emit(BlockProcessor.NEW_HEAD_EVENT, blocks[2], blocks[0]);
 
         verify(spiedComponent.detectChanges(anything(), anything())).once();
-        verify(spiedComponent.handleChanges(anything())).once();
+        verify(spiedComponent.applyAction(anything())).once();
 
-        // Check that handleChanges was called on the right data
+        // Check that applyAAtion was called on the right data
         const [prevState, nextState] = capture(spiedComponent.detectChanges).last();
-        const [actions] = capture(spiedComponent.handleChanges).last();
+        const [actions] = capture(spiedComponent.applyAction).last();
 
         const nextStateExpected = { someNumber: initialState.someNumber + blocks[1].number + blocks[2].number };
         expect(prevState).to.deep.equal(initialState);
         expect(nextState).to.deep.equal(nextStateExpected);
-        expect(actions).to.deep.equal([{ prevState: initialState, newState: nextStateExpected }]);
+        expect(actions).to.deep.equal({ prevState: initialState, newState: nextStateExpected });
 
         await bm.stop();
     });
@@ -246,7 +246,7 @@ describe("BlockchainMachine", () => {
         await bm.stop();
     });
 
-    it("processNewHead does call handleChanges on multiple components", async () => {
+    it("processNewHead does call applyAction on multiple components", async () => {
         const bm = new BlockchainMachine(blockProcessor);
         const components: ExampleComponent[] = [];
         const spiedComponents: ExampleComponent[] = [];
@@ -269,7 +269,7 @@ describe("BlockchainMachine", () => {
 
         for (let i = 0; i < nComponents; i++) {
             verify(spiedComponents[i].detectChanges(anything(), anything())).once();
-            verify(spiedComponents[i].handleChanges(anything())).once();
+            verify(spiedComponents[i].applyAction(anything())).once();
         }
 
         await bm.stop();

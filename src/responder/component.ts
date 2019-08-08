@@ -221,21 +221,19 @@ export class MultiResponderComponent extends Component<ResponderAnchorState, Blo
         return actions;
     }
 
-    public async handleChanges(actions: ResponderAction[]) {
-        for (const action of actions) {
-            switch (action.kind) {
-                case ResponderActionKind.ReEnqueueMissingItems:
-                    await this.responder.reEnqueueMissingItems(action.appointmentIds);
-                    break;
-                case ResponderActionKind.TxMined:
-                    await this.responder.txMined(action.identifier, action.nonce);
-                    break;
-                case ResponderActionKind.EndResponse:
-                    await this.responder.endResponse(action.appointmentId);
-                    break;
-                default:
-                    throw new UnreachableCaseError(action, "Unrecognised responder action kind.");
-            }
+    public async applyAction(action: ResponderAction) {
+        switch (action.kind) {
+            case ResponderActionKind.ReEnqueueMissingItems:
+                await this.responder.reEnqueueMissingItems(action.appointmentIds);
+                break;
+            case ResponderActionKind.TxMined:
+                await this.responder.txMined(action.identifier, action.nonce);
+                break;
+            case ResponderActionKind.EndResponse:
+                await this.responder.endResponse(action.appointmentId);
+                break;
+            default:
+                throw new UnreachableCaseError(action, "Unrecognised responder action kind.");
         }
     }
 }
