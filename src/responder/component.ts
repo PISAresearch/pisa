@@ -115,7 +115,8 @@ export class ResponderAppointmentReducer implements StateReducer<ResponderAppoin
 export enum ResponderActionKind {
     ReEnqueueMissingItems = 1,
     TxMined = 2,
-    EndResponse = 3
+    EndResponse = 3,
+    ResponderLowBalance = 4
 }
 
 export type ReEnqueueMissingItemsAction = {
@@ -134,17 +135,23 @@ export type EndResponseAction = {
     readonly appointmentId: string;
 };
 
-export type ResponderAction = TxMinedAction | ReEnqueueMissingItemsAction | EndResponseAction;
+export type ResponderLowBalance = {
+    readonly kind: ResponderActionKind.ResponderLowBalance;
+}
+
+
+export type ResponderAction = TxMinedAction | ReEnqueueMissingItemsAction | EndResponseAction | ResponderLowBalance;
 
 /**
  * Handle the state events related to the multiresponder. Knows how to interpret
  * changes in the responder anchor state, and when to fire side effects.
  */
 export class MultiResponderComponent extends Component<ResponderAnchorState, Block, ResponderAction> {
+    
     public constructor(
         private readonly responder: MultiResponder,
         blockCache: ReadOnlyBlockCache<Block>,
-        private readonly confirmationsRequired: number
+        private readonly confirmationsRequired: number,
     ) {
         super(
             new MappedStateReducer(
@@ -202,8 +209,11 @@ export class MultiResponderComponent extends Component<ResponderAnchorState, Blo
                     kind: ResponderActionKind.TxMined,
                     identifier: currentItem.identifier,
                     nonce: currentItem.nonce
+                },{
+                    kind:ResponderActionKind.ResponderLowBalance,
                 });
-            }
+                
+            }   
 
             // after a certain number of confirmations we can stop tracking a transaction
             if (
@@ -232,6 +242,11 @@ export class MultiResponderComponent extends Component<ResponderAnchorState, Blo
             case ResponderActionKind.EndResponse:
                 await this.responder.endResponse(action.appointmentId);
                 break;
+            case ResponderActionKind.ResponderLowBalance:
+                if((await this.responder.signer.provider!.getBalance(this.responder.address)).gt("500000000000000000")){
+                    logger.error("Responder balance is becoming low. Current balance: "+ (await this.responder.signer.provider!.getBalance(this.responder.address)));
+                 }
+                 break;
             default:
                 throw new UnreachableCaseError(action, "Unrecognised responder action kind.");
         }

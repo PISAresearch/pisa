@@ -7,17 +7,19 @@ import {
     ResponderAppointmentAnchorState,
     PendingResponseState,
     MinedResponseState,
-    ResponderActionKind
+    ResponderActionKind,
+    TxMinedAction
 } from "../../../src/responder/component";
 import { BlockCache } from "../../../src/blockMonitor";
 import { PisaTransactionIdentifier } from "../../../src/responder/gasQueue";
-import { BigNumber } from "ethers/utils";
+import { BigNumber, bigNumberify } from "ethers/utils";
 import { ResponderBlock, TransactionStub, Block } from "../../../src/dataEntities/block";
 import { expect } from "chai";
 import { MultiResponder } from "../../../src/responder";
 import { mock, anything, when } from "ts-mockito";
 import fnIt from "../../utils/fnIt";
 import throwingInstance from "../../utils/throwingInstance";
+import logger from "../../../src/logger";
 
 const from1 = "from1";
 const from2 = "from2";
@@ -223,7 +225,8 @@ describe("MultiResponderComponent", () => {
 
         const actions = component.detectChanges(state1, state2);
         expect(actions).to.deep.equal([
-            { kind: ResponderActionKind.TxMined, identifier: app2State.identifier, nonce: app2State.nonce }
+            { kind: ResponderActionKind.TxMined, identifier: app2State.identifier, nonce: app2State.nonce },
+            { kind: ResponderActionKind.ResponderLowBalance }
         ]);
     });
 
@@ -236,7 +239,8 @@ describe("MultiResponderComponent", () => {
 
         const actions = component.detectChanges(state1, state2);
         expect(actions).to.deep.equal([
-            { kind: ResponderActionKind.TxMined, identifier: app2State.identifier, nonce: app2State.nonce }
+            { kind: ResponderActionKind.TxMined, identifier: app2State.identifier, nonce: app2State.nonce },
+            { kind: ResponderActionKind.ResponderLowBalance }
         ]);
     });
 
@@ -258,7 +262,7 @@ describe("MultiResponderComponent", () => {
         const component = new MultiResponderComponent(multiResponder, blockCache, confirmationsRequired);
 
         expect(component.detectChanges(state1, state2)).to.deep.equal([
-            { kind: ResponderActionKind.EndResponse, appointmentId: app2State.appointmentId }
+            { kind: ResponderActionKind.EndResponse, appointmentId: app2State.appointmentId },
         ]);
     });
 
@@ -275,6 +279,7 @@ describe("MultiResponderComponent", () => {
 
             expect(component.detectChanges(state1, state2)).to.deep.equal([
                 { kind: ResponderActionKind.TxMined, identifier: app2State.identifier, nonce: app2State.nonce },
+                { kind: ResponderActionKind.ResponderLowBalance },
                 { kind: ResponderActionKind.EndResponse, appointmentId: app2State.appointmentId }
             ]);
         }
@@ -292,6 +297,7 @@ describe("MultiResponderComponent", () => {
 
             expect(component.detectChanges(state1, state2)).to.deep.equal([
                 { kind: ResponderActionKind.TxMined, identifier: app2State.identifier, nonce: app2State.nonce },
+                { kind: ResponderActionKind.ResponderLowBalance },
                 { kind: ResponderActionKind.EndResponse, appointmentId: app2State.appointmentId }
             ]);
         }
