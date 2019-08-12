@@ -5,6 +5,7 @@ import { PublicDataValidationError, PublicInspectionError } from "./errors";
 import logger from "../logger";
 import { BigNumber } from "ethers/utils";
 import { groupTuples } from "../utils/ethers";
+import { Logger } from "../logger";
 const ajv = new Ajv();
 const appointmentRequestValidation = ajv.compile(appointmentRequestSchemaJson);
 
@@ -217,7 +218,7 @@ export class Appointment {
      */
     public static FreeHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("on-the-house")).toLowerCase();
 
-    static parseBigNumber(numberString: string, name: string) {
+    static parseBigNumber(numberString: string, name: string, log: Logger) {
         try {
             const bigNumber = new BigNumber(numberString);
             if (bigNumber.lt(0)) throw new PublicDataValidationError(`${name} must be non negative.`);
@@ -231,31 +232,32 @@ export class Appointment {
     /**
      * Parse an appointment and check property types.
      * @param obj
+     * @param log Logger to be used in case of failures
      */
-    public static parse(obj: any) {
+    public static parse(obj: any, log: Logger) {
         const valid = appointmentRequestValidation(obj);
         if (!valid) {
-            logger.info({ results: appointmentRequestValidation.errors }, "Schema error.");
+            log.info({ results: appointmentRequestValidation.errors }, "Schema error.");
             throw new PublicDataValidationError(appointmentRequestValidation.errors!.map(e => e.message).join("\n"));
         }
         const request = obj as IAppointmentRequest;
-        Appointment.parseBigNumber(request.refund, "Refund");
-        Appointment.parseBigNumber(request.gasLimit, "Gas limit");
+        Appointment.parseBigNumber(request.refund, "Refund", log);
+        Appointment.parseBigNumber(request.gasLimit, "Gas limit", log);
         return Appointment.fromIAppointmentRequest(request);
     }
 
     /**
      * Validate property values on the appointment
-     * @param obj
+     * @param log Logger to be used in case of failures
      */
-    public validate() {
+    public validate(log: Logger) {
         if (this.paymentHash.toLowerCase() !== Appointment.FreeHash) throw new PublicDataValidationError("Invalid payment hash."); // prettier-ignore
 
         try {
             this.mEventFilter = this.parseEventArgs();
         } catch (doh) {
             if (doh instanceof PublicDataValidationError) throw doh;
-            logger.error(doh);
+            log.error(doh);
             throw new PublicDataValidationError("Invalid event arguments for ABI.");
         }
 

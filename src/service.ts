@@ -5,7 +5,6 @@ import { ethers } from "ethers";
 import { PublicInspectionError, PublicDataValidationError, ApplicationError, StartStopService } from "./dataEntities";
 import { Watcher, AppointmentStore } from "./watcher";
 import { PisaTower, HotEthereumAppointmentSigner } from "./tower";
-import { setRequestId } from "./customExpressHttpContext";
 import { GasPriceEstimator, MultiResponder, MultiResponderComponent, ResponderStore } from "./responder";
 import { IArgConfig } from "./dataEntities/config";
 import { BlockProcessor, BlockCache } from "./blockMonitor";
@@ -15,8 +14,15 @@ import { blockFactory } from "./blockMonitor";
 import { Block } from "./dataEntities/block";
 import { BlockchainMachine } from "./blockMonitor/blockchainMachine";
 import swaggerJsDoc from "swagger-jsdoc";
+import { Logger } from "./logger";
 import path from "path";
 import { GasQueue } from "./responder/gasQueue";
+import uuid = require("uuid/v4");
+
+/**
+ * Request object supplemented with a log
+ */
+type requestAndLog = express.Request & { log: Logger };
 
 /**
  * Hosts a PISA service at the endpoint.
@@ -48,8 +54,7 @@ export class PisaService extends StartStopService {
     ) {
         super("pisa");
         const app = express();
-
-        this.applyMiddlewares(app, config);
+        this.applyMiddlewares(app);
 
         // block cache and processor
         const cacheLimit = config.maximumReorgLimit === undefined ? 200 : config.maximumReorgLimit;
@@ -152,13 +157,25 @@ export class PisaService extends StartStopService {
         });
     }
 
-    private applyMiddlewares(app: express.Express, config: IArgConfig) {
+    private applyMiddlewares(app: express.Express) {
         // accept json request bodies
         app.use(express.json());
         // use http context middleware to create a request id available on all requests
         app.use(httpContext.middleware);
         app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
-            setRequestId();
+            (req as any).log = this.logger.child({ requestId: uuid() });
+            next();
+        });
+        app.use((req: requestAndLog, res: express.Response, next: express.NextFunction) => {
+            //log the duration of every request, and the body in case of error
+            const startNano = process.hrtime.bigint();
+            res.on("finish", () => {
+                const endNano = process.hrtime.bigint();
+                const logEntry = { req: req, res: res, duration: (endNano - startNano).toString(10) };
+
+                if (res.statusCode !== 200) req.log.error({ ...logEntry, requestBody: req.body }, "Error response.");
+                else req.log.info(logEntry, "Success response.");
+            });
             next();
         });
     }
@@ -183,16 +200,15 @@ export class PisaService extends StartStopService {
      *       200:
      */
     private appointment(tower: PisaTower) {
-        return async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+        return async (req: requestAndLog, res: express.Response, next: express.NextFunction) => {
             if (!this.started) {
-                this.logger.error(req, "Service initialising, could not serve request");
                 res.status(503);
                 res.send({ message: "Service initialising, please try again later." });
                 return;
             }
 
             try {
-                const signedAppointment = await tower.addAppointment(req.body);
+                const signedAppointment = await tower.addAppointment(req.body, req.log);
 
                 // return the appointment
                 res.status(200);
@@ -200,12 +216,12 @@ export class PisaService extends StartStopService {
                 // with signature
                 res.send(signedAppointment.serialise());
             } catch (doh) {
-                if (doh instanceof PublicInspectionError) this.logAndSend(400, doh.message, doh, res);
-                else if (doh instanceof PublicDataValidationError) this.logAndSend(400, doh.message, doh, res);
-                else if (doh instanceof ApplicationError) this.logAndSend(500, "Internal server error", doh, res);
-                else if (doh instanceof Error) this.logAndSend(500, "Internal server error.", doh, res);
+                if (doh instanceof PublicInspectionError) this.logAndSend(400, doh.message, doh, res, req);
+                else if (doh instanceof PublicDataValidationError) this.logAndSend(400, doh.message, doh, res, req);
+                else if (doh instanceof ApplicationError) this.logAndSend(500, "Internal server error", doh, res, req);
+                else if (doh instanceof Error) this.logAndSend(500, "Internal server error.", doh, res, req);
                 else {
-                    this.logger.error({ err: doh, code: 500 });
+                    req.log.error(doh);
                     res.status(500);
                     res.send({ message: "Internal server error." });
                 }
@@ -213,8 +229,8 @@ export class PisaService extends StartStopService {
         };
     }
 
-    private logAndSend(code: number, responseMessage: string, error: Error, res: Response) {
-        this.logger.error({ err: error, code: code });
+    private logAndSend(code: number, responseMessage: string, error: Error, res: Response, req: requestAndLog) {
+        req.log.error(error);
         res.status(code);
         res.send({ message: responseMessage });
     }
