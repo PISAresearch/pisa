@@ -28,8 +28,6 @@ export class ResponderStore extends StartStopService {
      * be used by one responder at a time.
      */
     constructor(db: LevelUp<EncodingDown<string, any>>, responderAddress: string, seedQueue: GasQueue) {
-        //TODO:261: this encoding is actually a requirement
-
         super("responder-store");
         this.subDb = sub(db, `responder:${responderAddress}`, { valueEncoding: 'json' });
         this.mQueue = seedQueue;
@@ -65,15 +63,15 @@ export class ResponderStore extends StartStopService {
         this.mQueue = queue;
 
         // update these transactions locally and in the db
-        const differencyById = new Map<string, GasQueueItem>();
+        const differenceById = new Map<string, GasQueueItem>();
         difference.forEach(d => {
             const id = d.request.appointment.id
             this.mTransactions.set(id, d);
-            differencyById.set(id, d);
+            differenceById.set(id, d);
         });
 
         let batch = this.subDb.batch().put(this.queueKey, GasQueue.serialise(queue));
-        for (const [key, value] of differencyById.entries()) {
+        for (const [key, value] of differenceById.entries()) {
             batch = batch.put(key, GasQueueItem.serialise(value));
         }
         await batch.write();

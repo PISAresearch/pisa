@@ -492,8 +492,8 @@ describe("GasQueue", () => {
         const queue = new GasQueue([item1, item2, item3], 4, 12, 10)
 
         const serialised = GasQueue.serialise(queue);
-        const deserialisd = GasQueue.deserialise(serialised);
+        const deserialised = GasQueue.deserialise(serialised);
 
-        expect(deserialisd).to.deep.equal(queue);
+        expect(deserialised).to.deep.equal(queue);
     })
 });

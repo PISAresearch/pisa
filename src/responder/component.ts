@@ -12,6 +12,7 @@ import { Block, ArgumentError } from "../dataEntities";
 import { MultiResponder } from "./multiResponder";
 import { ResponderBlock } from "../dataEntities/block";
 import logger from "../logger";
+import { UnreachableCaseError } from "../dataEntities/errors";
 
 export enum ResponderStateKind {
     Pending = 1,
@@ -233,7 +234,7 @@ export class MultiResponderComponent extends Component<ResponderAnchorState, Blo
                     await this.responder.endResponse(action.appointmentId);
                     break;
                 default:
-                    throw new ArgumentError("Unrecognised action kind.", action);
+                    throw new UnreachableCaseError(action, "Unrecognised responder action kind.");
             }
         }
     }
