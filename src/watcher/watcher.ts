@@ -1,5 +1,5 @@
 import { Appointment } from "../dataEntities";
-import { ApplicationError, ArgumentError } from "../dataEntities/errors";
+import { ApplicationError, ArgumentError, UnreachableCaseError } from "../dataEntities/errors";
 import { AppointmentStore } from "./store";
 import { ReadOnlyBlockCache } from "../blockMonitor";
 import { Logs, IBlockStub, hasLogMatchingEventFilter } from "../dataEntities/block";
@@ -208,7 +208,7 @@ export class Watcher extends Component<WatcherAnchorState, IBlockStub & Logs, Wa
                     await this.store.removeById(action.appointmentId);
                     break;
                 default:
-                    throw new ArgumentError("Unrecognised action kind.", action);
+                    throw new UnreachableCaseError(action, "Unrecognised watcher action kind.");
             }
         }
     }
