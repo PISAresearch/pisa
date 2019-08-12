@@ -1,6 +1,6 @@
 import "mocha";
 import { expect } from "chai";
-import { mock, instance, when, resetCalls, verify } from "ts-mockito";
+import { mock, when, resetCalls, verify, anything, capture } from "ts-mockito";
 import { AppointmentStore } from "../../../src/watcher";
 import { MultiResponder } from "../../../src/responder";
 import { BlockCache } from "../../../src/blockMonitor";
@@ -9,9 +9,11 @@ import {
     WatcherAppointmentStateReducer,
     WatcherAppointmentState,
     Watcher,
-    WatcherAppointmentAnchorState
+    WatcherAppointmentAnchorState,
+    WatcherActionKind
 } from "../../../src/watcher/watcher";
 import fnIt from "../../utils/fnIt";
+import throwingInstance from "../../utils/throwingInstance";
 
 const observedEventAddress = "0x1234abcd";
 const observedEventTopics = ["0x1234"];
@@ -56,7 +58,7 @@ describe("WatcherAppointmentStateReducer", () => {
         topics: observedEventTopics
     });
     when(appMock.id).thenReturn("app1");
-    const appointment = instance(appMock);
+    const appointment = throwingInstance(appMock);
 
     const blockCache = new BlockCache<IBlockStub & Logs>(100);
     blocks.forEach(b => blockCache.addBlock(b));
@@ -65,7 +67,7 @@ describe("WatcherAppointmentStateReducer", () => {
         const emptyAppMock = mock(Appointment);
         when(emptyAppMock.eventFilter).thenReturn({});
         when(appMock.id).thenReturn("app1");
-        const emptyAppointment = instance(emptyAppMock);
+        const emptyAppointment = throwingInstance(emptyAppMock);
 
         expect(() => new WatcherAppointmentStateReducer(blockCache, emptyAppointment)).to.throw(ApplicationError);
     });
@@ -162,11 +164,11 @@ describe("Watcher", () => {
     const blockCache = new BlockCache<IBlockStub & Logs>(100);
     blocks.forEach(b => blockCache.addBlock(b));
 
-    const mockedResponder = mock(MultiResponder);
-    const responder = instance(mockedResponder);
-
     let mockedStore: AppointmentStore;
     let store: AppointmentStore;
+
+    let mockedResponder: MultiResponder;
+    let responder: MultiResponder;
 
     let appointment: Appointment;
 
@@ -178,14 +180,19 @@ describe("Watcher", () => {
         });
         when(appMock.id).thenReturn("app1");
         when(appMock.endBlock).thenReturn(100);
-        appointment = instance(appMock);
+        appointment = throwingInstance(appMock);
 
         mockedStore = mock(AppointmentStore);
         when(mockedStore.getAll()).thenReturn([appointment]);
+        when(mockedStore.removeById(anything())).thenResolve();
         const appointmentsById = new Map<string, Appointment>();
         appointmentsById.set(appointment.id, appointment);
         when(mockedStore.appointmentsById).thenReturn(appointmentsById);
-        store = instance(mockedStore);
+        store = throwingInstance(mockedStore);
+
+        mockedResponder = mock(MultiResponder);
+        when(mockedResponder.startResponse(appointment)).thenResolve();
+        responder = throwingInstance(mockedResponder);
     });
 
     function makeMap(appId: string, appState: WatcherAppointmentAnchorState) {
@@ -196,7 +203,7 @@ describe("Watcher", () => {
         resetCalls(mockedResponder);
     });
 
-    fnIt<Watcher>(w => w.handleChanges, "calls startResponse after event is OBSERVED for long enough", async () => {
+    fnIt<Watcher>(w => w.detectChanges, "calls startResponse after event is OBSERVED for long enough", async () => {
         const watcher = new Watcher(
             responder,
             blockCache,
@@ -205,27 +212,21 @@ describe("Watcher", () => {
             CONFIRMATIONS_BEFORE_REMOVAL
         );
 
-        await watcher.handleChanges(
+        const actions = watcher.detectChanges(
             {
-                items: makeMap(appointment.id, {
-                    state: WatcherAppointmentState.OBSERVED,
-                    blockObserved: 2
-                }),
+                items: makeMap(appointment.id, { state: WatcherAppointmentState.OBSERVED, blockObserved: 2 }),
                 blockNumber: 2 + CONFIRMATIONS_BEFORE_RESPONSE - 2
             },
             {
-                items: makeMap(appointment.id, {
-                    state: WatcherAppointmentState.OBSERVED,
-                    blockObserved: 2
-                }),
+                items: makeMap(appointment.id, { state: WatcherAppointmentState.OBSERVED, blockObserved: 2 }),
                 blockNumber: 2 + CONFIRMATIONS_BEFORE_RESPONSE - 1
             }
         );
-        verify(mockedResponder.startResponse(appointment)).once();
+        expect(actions).to.deep.equal([{ kind: WatcherActionKind.StartResponse, appointment: appointment }]);
     });
 
     fnIt<Watcher>(
-        w => w.handleChanges,
+        w => w.detectChanges,
         "does not call startResponse before event is OBSERVED for long enough",
         async () => {
             const watcher = new Watcher(
@@ -236,29 +237,22 @@ describe("Watcher", () => {
                 CONFIRMATIONS_BEFORE_REMOVAL
             );
 
-            await watcher.handleChanges(
+            const actions = watcher.detectChanges(
                 {
-                    items: makeMap(appointment.id, {
-                        state: WatcherAppointmentState.OBSERVED,
-                        blockObserved: 2
-                    }),
+                    items: makeMap(appointment.id, { state: WatcherAppointmentState.OBSERVED, blockObserved: 2 }),
                     blockNumber: 2 + CONFIRMATIONS_BEFORE_RESPONSE - 3
                 },
                 {
-                    items: makeMap(appointment.id, {
-                        state: WatcherAppointmentState.OBSERVED,
-                        blockObserved: 2
-                    }),
+                    items: makeMap(appointment.id, { state: WatcherAppointmentState.OBSERVED, blockObserved: 2 }),
                     blockNumber: 2 + CONFIRMATIONS_BEFORE_RESPONSE - 2
                 }
             );
-
-            verify(mockedResponder.startResponse(appointment)).never();
+            expect(actions).to.deep.equal([]);
         }
     );
 
     fnIt<Watcher>(
-        w => w.handleChanges,
+        w => w.detectChanges,
         "calls startResponse immediately after event is OBSERVED for long enough even if just added to the store",
         async () => {
             const watcher = new Watcher(
@@ -269,26 +263,22 @@ describe("Watcher", () => {
                 CONFIRMATIONS_BEFORE_REMOVAL
             );
 
-            await watcher.handleChanges(
+            const actions = watcher.detectChanges(
                 {
                     items: new Map<string, WatcherAppointmentAnchorState>(),
                     blockNumber: 0
                 },
                 {
-                    items: makeMap(appointment.id, {
-                        state: WatcherAppointmentState.OBSERVED,
-                        blockObserved: 2
-                    }),
+                    items: makeMap(appointment.id, { state: WatcherAppointmentState.OBSERVED, blockObserved: 2 }),
                     blockNumber: 2 + CONFIRMATIONS_BEFORE_RESPONSE - 1
                 }
             );
-
-            verify(mockedResponder.startResponse(appointment)).once();
+            expect(actions).to.deep.equal([{ kind: WatcherActionKind.StartResponse, appointment: appointment }]);
         }
     );
 
     fnIt<Watcher>(
-        w => w.handleChanges,
+        w => w.detectChanges,
         "does not call startResponse again if a previous state already caused startResponse",
         async () => {
             const watcher = new Watcher(
@@ -299,28 +289,21 @@ describe("Watcher", () => {
                 CONFIRMATIONS_BEFORE_REMOVAL
             );
 
-            await watcher.handleChanges(
+            const actions = watcher.detectChanges(
                 {
-                    items: makeMap(appointment.id, {
-                        state: WatcherAppointmentState.OBSERVED,
-                        blockObserved: 2
-                    }),
+                    items: makeMap(appointment.id, { state: WatcherAppointmentState.OBSERVED, blockObserved: 2 }),
                     blockNumber: 2 + CONFIRMATIONS_BEFORE_RESPONSE - 1
                 },
                 {
-                    items: makeMap(appointment.id, {
-                        state: WatcherAppointmentState.OBSERVED,
-                        blockObserved: 2
-                    }),
+                    items: makeMap(appointment.id, { state: WatcherAppointmentState.OBSERVED, blockObserved: 2 }),
                     blockNumber: 2 + CONFIRMATIONS_BEFORE_RESPONSE
                 }
             );
-
-            verify(mockedResponder.startResponse(appointment)).never();
+            expect(actions).to.deep.equal([]);
         }
     );
 
-    fnIt<Watcher>(w => w.handleChanges, "calls removeById after event is OBSERVED for long enoug", async () => {
+    fnIt<Watcher>(w => w.detectChanges, "calls removeById after event is OBSERVED for long enoug", async () => {
         const watcher = new Watcher(
             responder,
             blockCache,
@@ -329,28 +312,21 @@ describe("Watcher", () => {
             CONFIRMATIONS_BEFORE_REMOVAL
         );
 
-        await watcher.handleChanges(
+        const actions = watcher.detectChanges(
             {
-                items: makeMap(appointment.id, {
-                    state: WatcherAppointmentState.OBSERVED,
-                    blockObserved: 2
-                }),
+                items: makeMap(appointment.id, { state: WatcherAppointmentState.OBSERVED, blockObserved: 2 }),
                 blockNumber: 2 + CONFIRMATIONS_BEFORE_REMOVAL - 2
             },
             {
-                items: makeMap(appointment.id, {
-                    state: WatcherAppointmentState.OBSERVED,
-                    blockObserved: 2
-                }),
+                items: makeMap(appointment.id, { state: WatcherAppointmentState.OBSERVED, blockObserved: 2 }),
                 blockNumber: 2 + CONFIRMATIONS_BEFORE_REMOVAL - 1
             }
         );
-
-        verify(mockedStore.removeById(appointment.id)).once();
+        expect(actions).to.deep.equal([{ kind: WatcherActionKind.RemoveAppointment, appointmentId: appointment.id }]);
     });
 
     fnIt<Watcher>(
-        w => w.handleChanges,
+        w => w.detectChanges,
         "does not call removeById before event is OBSERVED for long enough",
         async () => {
             const watcher = new Watcher(
@@ -361,29 +337,22 @@ describe("Watcher", () => {
                 CONFIRMATIONS_BEFORE_REMOVAL
             );
 
-            await watcher.handleChanges(
+            const actions = watcher.detectChanges(
                 {
-                    items: makeMap(appointment.id, {
-                        state: WatcherAppointmentState.OBSERVED,
-                        blockObserved: 2
-                    }),
+                    items: makeMap(appointment.id, { state: WatcherAppointmentState.OBSERVED, blockObserved: 2 }),
                     blockNumber: 2 + CONFIRMATIONS_BEFORE_REMOVAL - 3
                 },
                 {
-                    items: makeMap(appointment.id, {
-                        state: WatcherAppointmentState.OBSERVED,
-                        blockObserved: 2
-                    }),
+                    items: makeMap(appointment.id, { state: WatcherAppointmentState.OBSERVED, blockObserved: 2 }),
                     blockNumber: 2 + CONFIRMATIONS_BEFORE_REMOVAL - 2
                 }
             );
-
-            verify(mockedStore.removeById(appointment.id)).never();
+            expect(actions).to.deep.equal([]);
         }
     );
 
     fnIt<Watcher>(
-        w => w.handleChanges,
+        w => w.detectChanges,
         "calls removeById after an appointment has expired for long enough",
         async () => {
             const watcher = new Watcher(
@@ -394,27 +363,24 @@ describe("Watcher", () => {
                 CONFIRMATIONS_BEFORE_REMOVAL
             );
 
-            await watcher.handleChanges(
+            const actions = watcher.detectChanges(
                 {
-                    items: makeMap(appointment.id, {
-                        state: WatcherAppointmentState.WATCHING
-                    }),
+                    items: makeMap(appointment.id, { state: WatcherAppointmentState.WATCHING }),
                     blockNumber: 101 + CONFIRMATIONS_BEFORE_REMOVAL - 1
                 },
                 {
-                    items: makeMap(appointment.id, {
-                        state: WatcherAppointmentState.WATCHING
-                    }),
+                    items: makeMap(appointment.id, { state: WatcherAppointmentState.WATCHING }),
                     blockNumber: 101 + CONFIRMATIONS_BEFORE_REMOVAL
                 }
             );
-
-            verify(mockedStore.removeById(appointment.id)).once();
+            expect(actions).to.deep.equal([
+                { kind: WatcherActionKind.RemoveAppointment, appointmentId: appointment.id }
+            ]);
         }
     );
 
     fnIt<Watcher>(
-        w => w.handleChanges,
+        w => w.detectChanges,
         "does not call removeById before an appointment has expired for long enough",
         async () => {
             const watcher = new Watcher(
@@ -425,27 +391,22 @@ describe("Watcher", () => {
                 CONFIRMATIONS_BEFORE_REMOVAL
             );
 
-            await watcher.handleChanges(
+            const actions = watcher.detectChanges(
                 {
-                    items: makeMap(appointment.id, {
-                        state: WatcherAppointmentState.WATCHING
-                    }),
+                    items: makeMap(appointment.id, { state: WatcherAppointmentState.WATCHING }),
                     blockNumber: 101 + CONFIRMATIONS_BEFORE_REMOVAL - 2
                 },
                 {
-                    items: makeMap(appointment.id, {
-                        state: WatcherAppointmentState.WATCHING
-                    }),
+                    items: makeMap(appointment.id, { state: WatcherAppointmentState.WATCHING }),
                     blockNumber: 101 + CONFIRMATIONS_BEFORE_REMOVAL - 1
                 }
             );
-
-            verify(mockedStore.removeById(appointment.id)).never();
+            expect(actions).to.deep.equal([]);
         }
     );
 
     fnIt<Watcher>(
-        w => w.handleChanges,
+        w => w.detectChanges,
         "does not call removeById if an appointment is already expired for long enough",
         async () => {
             const watcher = new Watcher(
@@ -456,22 +417,18 @@ describe("Watcher", () => {
                 CONFIRMATIONS_BEFORE_REMOVAL
             );
 
-            await watcher.handleChanges(
+            const actions = watcher.detectChanges(
                 {
-                    items: makeMap(appointment.id, {
-                        state: WatcherAppointmentState.WATCHING
-                    }),
+                    items: makeMap(appointment.id, { state: WatcherAppointmentState.WATCHING }),
                     blockNumber: 101 + CONFIRMATIONS_BEFORE_REMOVAL
                 },
                 {
-                    items: makeMap(appointment.id, {
-                        state: WatcherAppointmentState.WATCHING
-                    }),
+                    items: makeMap(appointment.id, { state: WatcherAppointmentState.WATCHING }),
                     blockNumber: 101 + CONFIRMATIONS_BEFORE_REMOVAL + 1
                 }
             );
 
-            verify(mockedStore.removeById(appointment.id)).never();
+            expect(actions).to.deep.equal([]);
         }
     );
 });

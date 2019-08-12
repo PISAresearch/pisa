@@ -45,8 +45,16 @@ class ExampleReducer implements StateReducer<ExampleState, IBlockStub> {
     }
 }
 
-class ExampleComponent extends Component<ExampleState, IBlockStub> {
-    public handleChanges(prevState: ExampleState, state: ExampleState): void {}
+type TestAction = {
+    prevState: ExampleState;
+    newState: ExampleState;
+};
+
+class ExampleComponent extends Component<ExampleState, IBlockStub, TestAction> {
+    public async handleChanges(actions: TestAction[]) {}
+    public detectChanges(prevState: ExampleState, state: ExampleState): TestAction[] {
+        return [{ prevState: prevState, newState: state }];
+    }
 }
 
 describe("BlockchainMachine", () => {
@@ -186,7 +194,8 @@ describe("BlockchainMachine", () => {
         blockProcessor.emit(BlockProcessor.NEW_BLOCK_EVENT, blocks[2]);
 
         // handleChanges should not have been called on the component
-        verify(spiedComponent.handleChanges(anything(), anything())).never();
+        verify(spiedComponent.detectChanges(anything(), anything())).never();
+        verify(spiedComponent.handleChanges(anything())).never();
 
         await bm.stop();
     });
@@ -206,15 +215,17 @@ describe("BlockchainMachine", () => {
         blockProcessor.emit(BlockProcessor.NEW_BLOCK_EVENT, blocks[2]);
         blockProcessor.emit(BlockProcessor.NEW_HEAD_EVENT, blocks[2], blocks[0]);
 
-        verify(spiedComponent.handleChanges(anything(), anything())).once();
+        verify(spiedComponent.detectChanges(anything(), anything())).once();
+        verify(spiedComponent.handleChanges(anything())).once();
 
         // Check that handleChanges was called on the right data
-        const [prevState, newState] = capture(spiedComponent.handleChanges).last();
+        const [prevState, nextState] = capture(spiedComponent.detectChanges).last();
+        const [actions] = capture(spiedComponent.handleChanges).last();
 
+        const nextStateExpected = { someNumber: initialState.someNumber + blocks[1].number + blocks[2].number };
         expect(prevState).to.deep.equal(initialState);
-        expect(newState).to.deep.equal({
-            someNumber: initialState.someNumber + blocks[1].number + blocks[2].number
-        });
+        expect(nextState).to.deep.equal(nextStateExpected);
+        expect(actions).to.deep.equal([{ prevState: initialState, newState: nextStateExpected }]);
 
         await bm.stop();
     });
@@ -257,7 +268,8 @@ describe("BlockchainMachine", () => {
         blockProcessor.emit(BlockProcessor.NEW_HEAD_EVENT, blocks[2], blocks[0]);
 
         for (let i = 0; i < nComponents; i++) {
-            verify(spiedComponents[i].handleChanges(anything(), anything())).once();
+            verify(spiedComponents[i].detectChanges(anything(), anything())).once();
+            verify(spiedComponents[i].handleChanges(anything())).once();
         }
 
         await bm.stop();

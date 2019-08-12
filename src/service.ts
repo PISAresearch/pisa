@@ -118,7 +118,7 @@ export class PisaService extends StartStopService {
                 basePath: "/"
             },
             // Path to the API docs
-            apis: ["./src/service.ts", "./src/service.js"]
+            apis: ["./src/service.ts", "./src/service.js", "./build/src/service.js"]
         };
 
         return options;
