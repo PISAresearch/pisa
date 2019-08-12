@@ -9,8 +9,8 @@ export interface ReadOnlyBlockCache<TBlock extends IBlockStub> {
     readonly maxHeight: number;
     readonly minHeight: number;
     canAddBlock(block: Readonly<TBlock>): boolean;
-    getBlockStub(blockHash: string): Readonly<TBlock>;
-    hasBlock(blockHash: string): boolean;
+    getBlock(blockHash: string): Readonly<TBlock>;
+    hasBlock(blockHash: string, includePending?: boolean): boolean;
     ancestry(initialBlockHash: string): IterableIterator<Readonly<TBlock>>;
     findAncestor(
         initialBlockHash: string,
@@ -25,21 +25,20 @@ export interface ReadOnlyBlockCache<TBlock extends IBlockStub> {
  * Utility class to store and query info on full blocks up to a given maximum depth `maxDepth`, compared to the current
  * maximum height ever seen.
  * It prunes all the blocks at depth bigger than `maxDepth`, or with height smaller than the first block that was added.
- * It does not allow to add blocks without adding their parent first, except if they are at depth `maxDepth`.
+ * Added blocks are considered `complete` if they are at depth `maxDepth`, or if their parent is `complete`.
  *
  * The following invariants are guaranteed:
- * 1) Adding a block after the parent was added will never throw an exception.
- * 2) No block at depth more than `maxDepth` is still found in the structure.
- * 3) No block is retained if its height is smaller than the first block ever added.
- * 4) All blocks added are never pruned if their depth is less then `maxDepth`.
- * 5) No block can be added before their parent, unless their height is equal to the height of the first added block, or
- *    their depth is `maxDepth`.
- *
- * Note that in order to guarantee the invariant (1), `addBlock` can be safely called even for blocks that will not
- * actually be added (for example because they are already too deep); in that case, it will return `false`.
+ * 1) No complete or pending block at depth more than `maxDepth` is still found in the structure, where the depth is computed
+ *    with respect to the highest block number of a complete block.
+ * 2) No block is retained if its height is smaller than the first block ever added.
+ * 3) All added blocks are never pruned if their depth is less then `maxDepth`.
  **/
 export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache<TBlock> {
-    private blockStubsByHash: Map<string, TBlock> = new Map();
+    // Blocks that are already
+    private blocksByHash: Map<string, TBlock> = new Map();
+
+    //blocks that can only be added once their parent is added
+    private pendingBlocksByHash: Map<string, TBlock> = new Map();
 
     // store block hashes at a specific height (there could be more than one at some height because of forks)
     private blockHashesByHeight: Map<number, Set<string>> = new Map();
@@ -76,22 +75,16 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
      */
     constructor(public readonly maxDepth: number) {}
 
-    // Removes all info related to a block in blockStubsByHash
-    private removeBlock(blockHash: string) {
-        const block = this.blockStubsByHash.get(blockHash);
-        if (!block) {
-            // This would signal a bug
-            throw new ApplicationError(`Block with hash ${blockHash} not found, but it was expected.`);
-        }
-
-        this.blockStubsByHash.delete(blockHash);
-    }
-
     // Remove all the blocks that are deeper than maxDepth, and all connected information.
     private prune() {
         while (this.pruneHeight < this.minHeight) {
             for (const hash of this.blockHashesByHeight.get(this.pruneHeight) || []) {
-                this.removeBlock(hash);
+                const deleted = this.blocksByHash.delete(hash) || this.pendingBlocksByHash.delete(hash);
+
+                if (!deleted) {
+                    // This would signal a bug
+                    throw new ApplicationError(`Tried to delete block with hash ${hash}, but it does not exist.`);
+                }
             }
             this.blockHashesByHeight.delete(this.pruneHeight);
 
@@ -103,101 +96,129 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
      * Returns true it `block` can be added to the cache, that is if either:
      *   - it is the first block ever seen, or
      *   - its parent is already in the cache, or
-     *   - it is at depth least `this.maxDepth`.
+     *   - it is at exactly `this.maxDepth`.
+     * If not, it can only be added to the pending.
      * @param block
      */
     public canAddBlock(block: Readonly<TBlock>): boolean {
-        return this.isEmpty || this.hasBlock(block.parentHash) || block.number <= this.minHeight;
+        return this.isEmpty || this.hasBlock(block.parentHash) || block.number === this.minHeight;
     }
 
-    /**
-     * `canAddBlock` might return true for blocks that should actually not be added.
-     * Here we check that the block is not actually already added, and it is not below a height
-     * that would be pruned immediately.
-     */
-    private shouldAddBlock(block: Readonly<TBlock>) {
-        if (this.blockStubsByHash.has(block.hash)) {
-            // block already in memory
-            return false;
+    // Processes all pending blocks at the given height, moving them to blocksByHeight if they are now complete.
+    // If so, add them and repeat with the next height (as some blocks might now have become complete)
+    private processPending(height: number) {
+        const blockHashesAtHeight = this.blockHashesByHeight.get(height) || new Set();
+        const blockHashesToAdd = [...blockHashesAtHeight].filter(h => this.pendingBlocksByHash.has(h));
+
+        for (const blockHash of blockHashesToAdd) {
+            const block = this.pendingBlocksByHash.get(blockHash)!;
+
+            // Remove block from pendingBlocksByHash, add to blocksByHash
+            this.blocksByHash.set(blockHash, block);
+            this.pendingBlocksByHash.delete(blockHash);
+
+            // Might need to update the maximum height
+            this.updateMaxHeightAndPrune(block.number);
         }
 
-        if (block.number < this.minHeight) {
-            // block too deep
-            return false;
+        if (blockHashesToAdd.length > 0) {
+            this.processPending(height + 1);
         }
-        return true;
+    }
+
+    // If minHeight is increased after adding some blocks, some previously pending blocks should now be moved into blocksByHash.
+    // Since the process itself could (in rare circumstances) also increase minHeight, we check if this is the case and repeat the cycle.
+    private processPendingBlocksAtMinHeight() {
+        let prevMinHeight: number;
+        do {
+            prevMinHeight = this.minHeight;
+            this.processPending(this.minHeight);
+        } while (this.minHeight > prevMinHeight); // if the minHeight increased, run again
+    }
+
+    private updateMaxHeightAndPrune(newHeight: number) {
+        // If the maximum block height increased, we might have to prune some old info
+        if (this.mMaxHeight < newHeight) {
+            this.mMaxHeight = newHeight;
+            this.prune();
+        }
     }
 
     /**
      * Adds `block`to the cache.
      * @param block
-     * @returns `true` if the block was added, `false` if the block was not added (because too deep or already in cache).
-     * @throws `ApplicationError` if the block cannot be added because its parent is not in cache.
+     * @returns `false` if the block was added (or was already present) as pending, `true` otherwise.
+     *      Note: it will return `true` even if the block was not actually added because already present, or because deeper than `maxDepth`.
      */
     public addBlock(block: Readonly<TBlock>): boolean {
-        // If the block's parent is above the minimum visible height, it needs to be added first
-        if (!this.canAddBlock(block)) {
-            throw new ApplicationError("Tried to add a block before its parent block.");
-        }
+        if (this.blocksByHash.has(block.hash)) return true; // block already added
+        if (block.number < this.minHeight) return true; // block already too deep, nothing to do
+
+        if (this.pendingBlocksByHash.has(block.hash)) return false; // block already pending
+
+        // From now on, we can assume that the block can be added (pending or not)
 
         if (this.isEmpty) {
             // First block added, store its height, so blocks before this point will not be stored.
             this.pruneHeight = block.number;
             this.isEmpty = false;
-        } else if (!this.shouldAddBlock(block)) {
-            // We do not actually need to add the block
-            return false;
         }
-
-        // Update data structures
-
-        // Save block
-        this.blockStubsByHash.set(block.hash, block);
 
         // Index block by its height
         const hashesByHeight = this.blockHashesByHeight.get(block.number);
-        if (hashesByHeight === undefined) {
-            this.blockHashesByHeight.set(block.number, new Set([block.hash]));
+        if (hashesByHeight == undefined) {
+            this.blockHashesByHeight.set(block.number, new Set([block.hash])); // create new Set
         } else {
-            hashesByHeight.add(block.hash);
+            hashesByHeight.add(block.hash); // add to existing Set
         }
 
-        // If the maximum block height increased, we might have to prune some old info
-        if (this.mMaxHeight < block.number) {
-            this.mMaxHeight = block.number;
-            this.prune();
-        }
+        if (this.canAddBlock(block)) {
+            this.blocksByHash.set(block.hash, block);
 
-        return true;
+            // If the maximum block height increased, we might have to prune some old info
+            this.updateMaxHeightAndPrune(block.number);
+
+            // Since we added a new block, some pending blocks might become complete
+            this.processPending(block.number + 1);
+
+            // If the minHeight increased, this could also make some pending blocks complete
+            // This makes sure that they are added if necessary
+            this.processPendingBlocksAtMinHeight();
+            return true;
+        } else {
+            this.pendingBlocksByHash.set(block.hash, block);
+            return false;
+        }
     }
 
     /**
-     * Returns the `IBlockStub` for the block with hash `blockHash`, or throws exception if the block is not in cache.
+     * Returns the block with hash `blockHash`, or throws exception if the block is not in cache (complete nor pending).
      * @param blockHash
      */
-    public getBlockStub(blockHash: string): Readonly<TBlock> {
-        const blockStub = this.blockStubsByHash.get(blockHash);
-        if (!blockStub) throw new ApplicationError(`Block not found for hash: ${blockHash}.`);
-        return blockStub;
+    public getBlock(blockHash: string): Readonly<TBlock> {
+        const block = this.blocksByHash.get(blockHash) || this.pendingBlocksByHash.get(blockHash);
+        if (!block) throw new ApplicationError(`Block not found for hash: ${blockHash}.`);
+        return block;
     }
 
     /**
-     * Returns true if the block with hash `blockHash` is currently in cache.
+     * Returns true if the block with hash `blockHash` is currently in cache; if `includePending` is `true`, pending blocks are also considered.
      **/
-    public hasBlock(blockHash: string): boolean {
-        return this.blockStubsByHash.has(blockHash);
+    public hasBlock(blockHash: string, includePending: boolean = false): boolean {
+        return this.blocksByHash.has(blockHash) || (includePending && this.pendingBlocksByHash.has(blockHash));
     }
 
     /**
      * Iterator over all the blocks in the ancestry of the block with hash `initialBlockHash` (inclusive).
+     * The block with hash `initialBlockHash` must be complete.
      * @param initialBlockHash
      */
     public *ancestry(initialBlockHash: string): IterableIterator<Readonly<TBlock>> {
-        let curBlock = this.getBlockStub(initialBlockHash);
+        let curBlock = this.getBlock(initialBlockHash);
         while (true) {
             yield curBlock;
             if (this.hasBlock(curBlock.parentHash)) {
-                curBlock = this.getBlockStub(curBlock.parentHash);
+                curBlock = this.getBlock(curBlock.parentHash);
             } else break;
         }
     }
@@ -223,9 +244,10 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
     }
 
     /**
-     * Returns the oldest ancestor of `blockStub` that is stored in the blockCache.
-     * @throws ArgumentError if `blockHash` is not in the blockCache.
+     * Returns the oldest ancestor of `blockHash` that is stored in the blockCache.
+     * @throws `ArgumentError` if `blockHash` is not in the blockCache.
      * @param blockHash
+     * The block with hash `blockHash` must be complete.
      */
     public getOldestAncestorInCache(blockHash: string): Readonly<TBlock> {
         if (!this.hasBlock(blockHash)) {
@@ -245,12 +267,12 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
 
     /**
      * Sets the head block in the cache. AddBlock must be called before setHead can be
-     * called for that hash.
+     * called for that hash, and the block must be complete.
      * @param blockHash
      */
     public setHead(blockHash: string) {
         if (!this.hasBlock(blockHash)) {
-            throw new ArgumentError("Cannot set the head for a block that isn't in the cash.", blockHash);
+            throw new ArgumentError("Cannot set the head to be a block that isn't in the cache.", blockHash);
         }
         this.headHash = blockHash;
     }
@@ -265,7 +287,7 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
         if (this.headHash == null) {
             throw new ApplicationError("Head used before the BlockCache is initialized.");
         }
-        return this.getBlockStub(this.headHash);
+        return this.getBlock(this.headHash);
     }
 }
 
@@ -276,14 +298,14 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
  * @param cache
  * @param headHash
  * @param txHash
- * @throws `ArgumentError` if the block with hash `headHash` is not in the cache.
+ * @throws `ArgumentError` if the block with hash `headHash` is not in the cache or is not complete.
  */
 export function getConfirmations<T extends IBlockStub & TransactionHashes>(
     cache: ReadOnlyBlockCache<T>,
     headHash: string,
     txHash: string
 ): number {
-    const headBlock = cache.getBlockStub(headHash);
+    const headBlock = cache.getBlock(headHash);
     const blockTxIsMinedIn = cache.findAncestor(headHash, block => block.transactionHashes.includes(txHash));
     if (!blockTxIsMinedIn) return 0;
     else return headBlock.number - blockTxIsMinedIn.number + 1;

@@ -2,12 +2,11 @@ import "mocha";
 import * as chai from "chai";
 import chaiAsPromised from "chai-as-promised";
 import { ethers } from "ethers";
-import { mock, when, anything, anyNumber } from "ts-mockito";
+import { mock, when, instance, anything } from "ts-mockito";
 import { EventEmitter } from "events";
 import { BlockProcessor, BlockCache, blockStubAndTxFactory } from "../../../src/blockMonitor";
 import { IBlockStub } from "../../../src/dataEntities";
-import throwingInstance from "../../utils/throwingInstance";
-import { groupTuples } from "../../../src/utils/ethers";
+import { wait } from "../../../src/utils";
 
 chai.use(chaiAsPromised);
 const expect = chai.expect;
@@ -58,25 +57,39 @@ describe("BlockProcessor", () => {
         blockHash: string
     ) => {
         return new Promise(resolve => {
-            bp.on(BlockProcessor.NEW_BLOCK_EVENT, (head: IBlockStub) => {
-                expect(bc.hasBlock(blockHash)).to.be.true;
+            const newBlockHandler = (block: IBlockStub) => {
+                if (block.hash === blockHash) {
+                    if (!bc.hasBlock(blockHash)) {
+                        resolve(new Error(`Expected block with hash ${blockHash} not found in the BlockCache.`));
+                    } else {
+                        resolve({ number: block.number, hash: block.hash });
+                    }
+                    bp.off(BlockProcessor.NEW_BLOCK_EVENT, newBlockHandler);
+                }
+            };
 
-                resolve({ number: head.number, hash: head.hash });
-            });
+            bp.on(BlockProcessor.NEW_BLOCK_EVENT, newBlockHandler);
         });
     };
 
     // Instructs the mock provider to switch to the chain given by block `hash` (and its ancestors),
     // then emits the block number corresponding to `hash`.
-    function emitBlockHash(hash: string) {
+    // If `returnNullAtHash` is provided, getBlock will return null for that block hash (simulating a provider failure).
+    function emitBlockHash(hash: string, returnNullAtHash: string | null = null) {
         let curBlockHash: string = hash;
         while (curBlockHash in blocksByHash) {
             const curBlock = blocksByHash[curBlockHash];
             when(mockProvider.getBlock(curBlock.number)).thenResolve(curBlock as ethers.providers.Block);
+            when(mockProvider.getBlock(curBlock.hash)).thenResolve(curBlock as ethers.providers.Block);
+
             curBlockHash = curBlock.parentHash;
         }
 
         when(mockProvider.getBlockNumber()).thenResolve(blocksByHash[hash].number);
+
+        if (returnNullAtHash != null) {
+            when(mockProvider.getBlock(returnNullAtHash)).thenResolve((null as any) as ethers.providers.Block);
+        }
 
         provider.emit("block", blocksByHash[hash].number);
     }
@@ -92,23 +105,30 @@ describe("BlockProcessor", () => {
 
         // The mocked Provider should behave like an eventEmitter
         const eventEmitter = new EventEmitter();
-        when(mockProvider.on(anything(), anything())).thenCall((arg0: any, arg1: any) => eventEmitter.on(arg0, arg1));
-        when(mockProvider.once(anything(), anything())).thenCall((arg0: any, arg1: any) =>
-            eventEmitter.once(arg0, arg1)
-        );
-        when(mockProvider.removeListener(anything(), anything())).thenCall((arg0: any, arg1: any) =>
-            eventEmitter.removeListener(arg0, arg1)
-        );
-        when(mockProvider.removeAllListeners(anything())).thenCall((arg0: any) =>
-            eventEmitter.removeAllListeners(arg0)
+        when(mockProvider.on(anything(), anything())).thenCall((arg0: any, arg1: any) => {
+            eventEmitter.on(arg0, arg1);
+            return provider;
+        });
+        when(mockProvider.once(anything(), anything())).thenCall((arg0: any, arg1: any) => {
+            eventEmitter.once(arg0, arg1);
+            return provider;
+        });
+        when(mockProvider.removeListener(anything(), anything())).thenCall((arg0: any, arg1: any) => {
+            eventEmitter.removeListener(arg0, arg1);
+            return provider;
+        });
+        when(mockProvider.removeAllListeners(anything())).thenCall((arg0: any) => {
+            eventEmitter.removeAllListeners(arg0);
+            return provider;
+        });
+        when(mockProvider.emit(anything(), anything())).thenCall((arg0: any, arg1: any) =>
+            eventEmitter.emit(arg0, arg1)
         );
 
         // We initially return 0 as the current block number
         when(mockProvider.getBlockNumber()).thenResolve(0);
 
-        when(mockProvider.emit("block", anyNumber())).thenReturn(true);
-
-        provider = throwingInstance(mockProvider);
+        provider = instance(mockProvider);
     });
 
     afterEach(async () => {
@@ -124,30 +144,39 @@ describe("BlockProcessor", () => {
         expect(blockProcessor.blockCache.head.hash).to.equal("a1");
     });
 
-    it("adds the first block received to the cache and emits a new head event", async () => {
+    it("adds the first block received to the cache and emits a NEW_HEAD_EVENT after the NEW_BLOCK_EVENTs", async () => {
+        emitBlockHash("a4");
+
         blockProcessor = new BlockProcessor(provider, blockStubAndTxFactory, blockCache);
         await blockProcessor.start();
 
-        const res = new Promise(resolve => {
+        let newHeadCalled = false;
+
+        const newHeadPromise = new Promise(resolve => {
             blockProcessor.on(BlockProcessor.NEW_HEAD_EVENT, (head: IBlockStub) => {
-                expect(blockCache.hasBlock("a5")).to.be.true;
+                newHeadCalled = true;
+                if (!blockCache.hasBlock("a5"))
+                    resolve(new Error(`The BlockCache did not have block a5 when its NEW_HEAD_EVENT was emitted`));
 
                 resolve({ number: head.number, hash: head.hash });
             });
         });
 
-        const newBlock = new Promise(resolve => {
-            blockProcessor.on(BlockProcessor.NEW_BLOCK_EVENT, (head: IBlockStub) => {
-                expect(blockCache.hasBlock("a5")).to.be.true;
-
-                resolve({ number: head.number, hash: head.hash });
-            });
+        let newHeadCalledBeforeNewBlock = false;
+        blockProcessor.once(BlockProcessor.NEW_BLOCK_EVENT, (block: IBlockStub) => {
+            if (newHeadCalled) {
+                // New head should be the last emitted event
+                newHeadCalledBeforeNewBlock = true;
+            }
         });
 
         emitBlockHash("a5");
 
-        expect(res).to.eventually.equal({ number: 5, hash: "a5" });
-        expect(newBlock).to.eventually.equal({ number: 5, hash: "a5" });
+        const resNewHead = await newHeadPromise;
+
+        expect(newHeadCalledBeforeNewBlock, "did not call NEW_HEAD before NEW_BLOCK").to.be.false;
+
+        return expect(resNewHead).to.deep.equal({ number: 5, hash: "a5" });
     });
 
     it("adds to the blockCache all ancestors until a known block", async () => {
@@ -158,16 +187,19 @@ describe("BlockProcessor", () => {
             subscribers.push(createNewBlockSubscriber(blockProcessor, blockCache, `a${i}`));
         }
 
-        await blockProcessor.start();
-
         emitBlockHash("a1");
+
+        await blockProcessor.start();
 
         emitBlockHash("a5");
 
-        subscribers.forEach((s, index) => {
-            expect(blockCache.hasBlock(`a${index}`));
-            expect(s).to.eventually.equal({ number: 5, hash: `a${index}` });
-        });
+        const results = await Promise.all(subscribers);
+        for (let i = 1; i <= 5; i++) {
+            expect(results[i - 1]).to.deep.equal({
+                number: i,
+                hash: `a${i}`
+            });
+        }
     });
 
     it("adds both chain until the common ancestor if there is a fork", async () => {
@@ -182,56 +214,56 @@ describe("BlockProcessor", () => {
             subscribersB.push(createNewBlockSubscriber(blockProcessor, blockCache, `b${i}`));
         }
 
+        emitBlockHash("a1");
+
         await blockProcessor.start();
 
-        emitBlockHash("a1");
         emitBlockHash("a6");
+
+        const resultsA = await Promise.all(subscribersA);
+        for (let i = 1; i <= 6; i++) {
+            expect(resultsA[i - 1]).to.deep.equal({
+                number: i,
+                hash: `a${i}`
+            });
+        }
+
         emitBlockHash("b6");
 
-        subscribersA.forEach((s, index) => {
-            expect(blockCache.hasBlock(`a${index}`));
-            expect(s).to.eventually.equal({ number: 5, hash: `a${index}` });
-        });
-        subscribersB.forEach((s, index) => {
-            expect(blockCache.hasBlock(`b${index}`));
-            expect(s).to.eventually.equal({ number: 5, hash: `b${index}` });
-        });
+        const resultsB = await Promise.all(subscribersB);
+        for (let i = 3; i <= 6; i++) {
+            expect(resultsB[i - 3]).to.deep.equal({
+                number: i,
+                hash: `b${i}`
+            });
+        }
     });
 
-    it("adds both chain until the common ancestor if there is a fork", async () => {
+    it("resumes adding blocks after a previous failure when a new block is emitted", async () => {
         blockProcessor = new BlockProcessor(provider, blockStubAndTxFactory, blockCache);
 
-        const subscribersA = [];
-        for (let i = 1; i <= 10; i++) {
-            subscribersA.push(createNewBlockSubscriber(blockProcessor, blockCache, `a${i}`));
-        }
-        const subscribersB = [];
-        for (let i = 1; i <= 6; i++) {
-            subscribersB.push(createNewBlockSubscriber(blockProcessor, blockCache, `b${i}`));
-        }
-        const subscribersC = [];
-        for (let i = 1; i <= 10; i++) {
-            subscribersC.push(createNewBlockSubscriber(blockProcessor, blockCache, `c${i}`));
-        }
+        emitBlockHash("a1");
 
         await blockProcessor.start();
 
-        emitBlockHash("a1");
-        emitBlockHash("a10");
-        emitBlockHash("b10");
-        emitBlockHash("c10");
+        // Try adding a new head, but fail at block "a3"
+        emitBlockHash("a5", "a3");
 
-        subscribersA.forEach((s, index) => {
-            expect(blockCache.hasBlock(`a${index}`));
-            expect(s).to.eventually.equal({ number: 5, hash: `a${index}` });
-        });
-        subscribersB.forEach((s, index) => {
-            expect(blockCache.hasBlock(`b${index}`));
-            expect(s).to.eventually.equal({ number: 5, hash: `b${index}` });
-        });
-        subscribersC.forEach((s, index) => {
-            expect(blockCache.hasBlock(`c${index}`));
-            expect(s).to.eventually.equal({ number: 5, hash: `c${index}` });
-        });
+        await wait(20);
+
+        expect(blockCache.hasBlock("a5", true), "has pending block a5").to.be.true;
+        expect(blockCache.hasBlock("a4", true), "has pending block a4").to.be.true;
+
+        expect(blockCache.hasBlock("a3", true), "does not have block a3").to.be.false;
+
+        // Now add successfully
+        emitBlockHash("a6");
+
+        await wait(20);
+
+        expect(blockCache.hasBlock("a6", false), "has complete block a6").to.be.true;
+        expect(blockCache.hasBlock("a5", false), "has complete block a5").to.be.true;
+        expect(blockCache.hasBlock("a4", false), "has complete block a4").to.be.true;
+        expect(blockCache.hasBlock("a3", false), "has complete block a3").to.be.true;
     });
 });
