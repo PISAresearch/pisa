@@ -109,7 +109,7 @@ export function createNamedLogger(name: string | null) {
         streams,
         serializers: {
             err: ArgumentErrorSerialiser,
-            res: Face,
+            res: stdSerializers.res,
             req: stdSerializers.req
         }
     });
