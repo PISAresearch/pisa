@@ -51,7 +51,7 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
             // Finally, if the parent is not available at all in the block cache, compute the initial state based on the current block.
 
             if (this.blockProcessor.blockCache.hasBlock(block.parentHash)) {
-                const parentBlock = this.blockProcessor.blockCache.getBlockStub(block.parentHash);
+                const parentBlock = this.blockProcessor.blockCache.getBlock(block.parentHash);
                 const prevAnchorState = states.get(parentBlock) || component.reducer.getInitialState(parentBlock);
 
                 states.set(block, component.reducer.reduce(prevAnchorState, block));
