@@ -118,7 +118,7 @@ export abstract class Component<
      * @param prevState
      * @param state
      */
-    public abstract async applyAction(actions: TAction): Promise<void>;
+    public abstract async applyAction(action: TAction): Promise<void>;
 
     /**
      * Detects changes between the previous and current state, and specifies any changes that need
