@@ -198,18 +198,16 @@ export class Watcher extends Component<WatcherAnchorState, IBlockStub & Logs, Wa
         return actions;
     }
 
-    public async handleChanges(actions: WatcherAction[]) {
-        for (const action of actions) {
-            switch (action.kind) {
-                case WatcherActionKind.StartResponse:
-                    await this.responder.startResponse(action.appointment);
-                    break;
-                case WatcherActionKind.RemoveAppointment:
-                    await this.store.removeById(action.appointmentId);
-                    break;
-                default:
-                    throw new UnreachableCaseError(action, "Unrecognised watcher action kind.");
-            }
+    public async applyAction(action: WatcherAction) {
+        switch (action.kind) {
+            case WatcherActionKind.StartResponse:
+                await this.responder.startResponse(action.appointment);
+                break;
+            case WatcherActionKind.RemoveAppointment:
+                await this.store.removeById(action.appointmentId);
+                break;
+            default:
+                throw new UnreachableCaseError(action, "Unrecognised watcher action kind.");
         }
     }
 }

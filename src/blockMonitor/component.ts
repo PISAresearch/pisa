@@ -114,10 +114,11 @@ export abstract class Component<
     constructor(public readonly reducer: StateReducer<TState, TBlock>) {}
     /**
      * Triggers side effects specified by the actions
+     * All side-effect must be thread safe so that they can be applied concurrently
      * @param prevState
      * @param state
      */
-    public abstract async handleChanges(actions: TAction[]): Promise<void>;
+    public abstract async applyAction(action: TAction): Promise<void>;
 
     /**
      * Detects changes between the previous and current state, and specifies any changes that need
