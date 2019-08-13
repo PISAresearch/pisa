@@ -224,7 +224,7 @@ export class Appointment {
             if (bigNumber.lt(0)) throw new PublicDataValidationError(`${name} must be non negative.`);
         } catch (doh) {
             if (doh instanceof PublicDataValidationError) throw doh;
-            logger.info(doh);
+            log.info(doh);
             throw new PublicDataValidationError(`${name} is not a number.`);
         }
     }
@@ -234,15 +234,15 @@ export class Appointment {
      * @param obj
      * @param log Logger to be used in case of failures
      */
-    public static parse(obj: any, log?: Logger) {
+    public static parse(obj: any, log: Logger = logger) {
         const valid = appointmentRequestValidation(obj);
         if (!valid) {
-            (log || logger).info({ results: appointmentRequestValidation.errors }, "Schema error.");
+            log.info({ results: appointmentRequestValidation.errors }, "Schema error.");
             throw new PublicDataValidationError(appointmentRequestValidation.errors!.map(e => e.message).join("\n"));
         }
         const request = obj as IAppointmentRequest;
-        Appointment.parseBigNumber(request.refund, "Refund", log || logger);
-        Appointment.parseBigNumber(request.gasLimit, "Gas limit", log || logger);
+        Appointment.parseBigNumber(request.refund, "Refund", log);
+        Appointment.parseBigNumber(request.gasLimit, "Gas limit", log);
         return Appointment.fromIAppointmentRequest(request);
     }
 
@@ -257,7 +257,7 @@ export class Appointment {
             this.mEventFilter = this.parseEventArgs();
         } catch (doh) {
             if (doh instanceof PublicDataValidationError) throw doh;
-            (log || logger).error(doh);
+            log.error(doh);
             throw new PublicDataValidationError("Invalid event arguments for ABI.");
         }
 
