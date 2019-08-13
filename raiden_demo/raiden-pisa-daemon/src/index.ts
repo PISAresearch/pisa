@@ -68,7 +68,7 @@ const run = async (startingRowId: number) => {
                 customerSig: ""
             };
             const encoded = encode(request);
-            const sig = await wallet.signMessage(encoded)
+            const sig = await wallet.signMessage(encoded);
             request.customerSig = sig;
             console.log(request);
             await pisaClient.requestAppointment(request);
@@ -83,7 +83,7 @@ const run = async (startingRowId: number) => {
     }
 };
 
-export function groupTuples(tupleArray: [string, any][]): [string[], any[]] {
+function groupTuples(tupleArray: [string, any][]): [string[], any[]] {
     return tupleArray.reduce(
         // for some reason the ts compiler wont accept the proper types here
         // so we have to use 'any' instead of [string[], any[]] for 'prev'
@@ -97,40 +97,40 @@ export function groupTuples(tupleArray: [string, any][]): [string[], any[]] {
 }
 
 const encode = (request: any) => {
-const appointmentInfo = ethers.utils.defaultAbiCoder.encode(
-    ...groupTuples([
-        ["uint", request.customerChosenId],
-        ["uint", request.jobId],
-        ["uint", request.startBlock],
-        ["uint", request.endBlock],
-        ["uint", request.challengePeriod],
-        ["uint", request.refund],
-        ["bytes32", request.paymentHash]
-    ])
-);
-const contractInfo = ethers.utils.defaultAbiCoder.encode(
-    ...groupTuples([
-        ["address", request.contractAddress],
-        ["address", request.customerAddress],
-        ["uint", request.gasLimit],
-        ["bytes", request.data]
-    ])
-);
-const conditionInfo = ethers.utils.defaultAbiCoder.encode(
-    ...groupTuples([
-        ["bytes", ethers.utils.toUtf8Bytes(request.eventABI)],
-        ["bytes", request.eventArgs],
-        ["bytes", request.preCondition],
-        ["bytes", request.postCondition],
-        ["uint", request.mode]
-    ])
-);
+    const appointmentInfo = ethers.utils.defaultAbiCoder.encode(
+        ...groupTuples([
+            ["uint", request.customerChosenId],
+            ["uint", request.jobId],
+            ["uint", request.startBlock],
+            ["uint", request.endBlock],
+            ["uint", request.challengePeriod],
+            ["uint", request.refund],
+            ["bytes32", request.paymentHash]
+        ])
+    );
+    const contractInfo = ethers.utils.defaultAbiCoder.encode(
+        ...groupTuples([
+            ["address", request.contractAddress],
+            ["address", request.customerAddress],
+            ["uint", request.gasLimit],
+            ["bytes", request.data]
+        ])
+    );
+    const conditionInfo = ethers.utils.defaultAbiCoder.encode(
+        ...groupTuples([
+            ["bytes", ethers.utils.toUtf8Bytes(request.eventABI)],
+            ["bytes", request.eventArgs],
+            ["bytes", request.preCondition],
+            ["bytes", request.postCondition],
+            ["uint", request.mode]
+        ])
+    );
 
-return ethers.utils.keccak256(
-    ethers.utils.defaultAbiCoder.encode(
-        ...groupTuples([["bytes", appointmentInfo], ["bytes", contractInfo], ["bytes", conditionInfo]])
-    )
-);   
-}
+    return ethers.utils.keccak256(
+        ethers.utils.defaultAbiCoder.encode(
+            ...groupTuples([["bytes", appointmentInfo], ["bytes", contractInfo], ["bytes", conditionInfo]])
+        )
+    );
+};
 
 run(argv.startId);
