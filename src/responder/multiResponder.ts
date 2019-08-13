@@ -33,13 +33,17 @@ export class MultiResponder {
      *   The signer used to sign transaction created by this responder. This responder
      *   requires exclusive use of this signer.
      * @param gasEstimator
+     * @param balanceThreshold
+     *   This value respresents the minimum threshold the responder balance (in wei) can reach before a
+     *   "low balance warning" will be issued
      */
     public constructor(
         public readonly signer: ethers.Signer,
         public readonly gasEstimator: GasPriceEstimator,
         private readonly chainId: number,
         store: ResponderStore,
-        public readonly address: string
+        public readonly address: string,
+        public readonly balanceThreshold: number
     ) {
         this.broadcast = this.broadcast.bind(this);
         this.zStore = store;
@@ -206,5 +210,15 @@ export class MultiResponder {
             // anyway
             logger.error(doh);
         }
+    }
+    /**
+     * Checks to see if the responder balance is lower than the threshold set in the constructor.
+     * If the balance is lower, a warning will be outputted by the logger
+     */
+    public async checkBalance(){
+        const currentBalance = await this.signer.provider!.getBalance(this.address);
+        if(currentBalance.lt(this.balanceThreshold)){
+            logger.error("Responder balance is becoming low. Current balance: "+ currentBalance);
+         }
     }
 }

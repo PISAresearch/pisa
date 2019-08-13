@@ -67,7 +67,8 @@ export class PisaService extends StartStopService {
             new GasPriceEstimator(wallet.provider, this.blockProcessor.blockCache),
             chainId,
             this.responderStore,
-            wallet.address
+            wallet.address,
+            500000000000000000
         );
 
         // components and machine

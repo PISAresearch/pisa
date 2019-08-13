@@ -91,7 +91,8 @@ describe("End to end", () => {
             gasPriceEstimator,
             provider.network.chainId,
             responderStore,
-            pisaAccount
+            pisaAccount,
+            500000000000000000
         );
 
         const store = new AppointmentStore(db);

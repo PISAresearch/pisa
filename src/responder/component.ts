@@ -115,7 +115,8 @@ export class ResponderAppointmentReducer implements StateReducer<ResponderAppoin
 export enum ResponderActionKind {
     ReEnqueueMissingItems = 1,
     TxMined = 2,
-    EndResponse = 3
+    EndResponse = 3,
+    CheckResponderBalance = 4
 }
 
 export type ReEnqueueMissingItemsAction = {
@@ -134,17 +135,23 @@ export type EndResponseAction = {
     readonly appointmentId: string;
 };
 
-export type ResponderAction = TxMinedAction | ReEnqueueMissingItemsAction | EndResponseAction;
+export type CheckResponderBalanceAction = {
+    readonly kind: ResponderActionKind.CheckResponderBalance;
+}
+
+
+export type ResponderAction = TxMinedAction | ReEnqueueMissingItemsAction | EndResponseAction | CheckResponderBalanceAction;
 
 /**
  * Handle the state events related to the multiresponder. Knows how to interpret
  * changes in the responder anchor state, and when to fire side effects.
  */
 export class MultiResponderComponent extends Component<ResponderAnchorState, Block, ResponderAction> {
+    
     public constructor(
         private readonly responder: MultiResponder,
         blockCache: ReadOnlyBlockCache<Block>,
-        private readonly confirmationsRequired: number
+        private readonly confirmationsRequired: number,
     ) {
         super(
             new MappedStateReducer(
@@ -195,15 +202,18 @@ export class MultiResponderComponent extends Component<ResponderAnchorState, Blo
                 logger.info({state: currentItem, id: appointmentId, blockNumber: state.blockNumber }, "New pending transaction.") // prettier-ignore
             }
 
-            // if a transaction has been mined we need to inform the responder
+            // if a transaction has been mined we need to inform the responder and also check the responder balance before responding
             if (!this.hasResponseBeenMined(prevItem) && this.hasResponseBeenMined(currentItem)) {
                 logger.info({state: currentItem, id: appointmentId, blockNumber: state.blockNumber }, "Transaction mined.") // prettier-ignore
                 actions.push({
                     kind: ResponderActionKind.TxMined,
                     identifier: currentItem.identifier,
                     nonce: currentItem.nonce
+                },{
+                    kind:ResponderActionKind.CheckResponderBalance,
                 });
-            }
+                
+            }   
 
             // after a certain number of confirmations we can stop tracking a transaction
             if (
@@ -222,6 +232,7 @@ export class MultiResponderComponent extends Component<ResponderAnchorState, Blo
     }
 
     public async applyAction(action: ResponderAction) {
+
         switch (action.kind) {
             case ResponderActionKind.ReEnqueueMissingItems:
                 await this.responder.reEnqueueMissingItems(action.appointmentIds);
@@ -231,6 +242,9 @@ export class MultiResponderComponent extends Component<ResponderAnchorState, Blo
                 break;
             case ResponderActionKind.EndResponse:
                 await this.responder.endResponse(action.appointmentId);
+                break;
+            case ResponderActionKind.CheckResponderBalance:
+                await this.responder.checkBalance();
                 break;
             default:
                 throw new UnreachableCaseError(action, "Unrecognised responder action kind.");
