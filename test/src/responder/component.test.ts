@@ -19,7 +19,6 @@ import { MultiResponder } from "../../../src/responder";
 import { mock, anything, when } from "ts-mockito";
 import fnIt from "../../utils/fnIt";
 import throwingInstance from "../../utils/throwingInstance";
-import logger from "../../../src/logger";
 
 const from1 = "from1";
 const from2 = "from2";
@@ -226,7 +225,7 @@ describe("MultiResponderComponent", () => {
         const actions = component.detectChanges(state1, state2);
         expect(actions).to.deep.equal([
             { kind: ResponderActionKind.TxMined, identifier: app2State.identifier, nonce: app2State.nonce },
-            { kind: ResponderActionKind.ResponderLowBalance }
+            { kind: ResponderActionKind.CheckResponderBalance }
         ]);
     });
 
@@ -240,7 +239,7 @@ describe("MultiResponderComponent", () => {
         const actions = component.detectChanges(state1, state2);
         expect(actions).to.deep.equal([
             { kind: ResponderActionKind.TxMined, identifier: app2State.identifier, nonce: app2State.nonce },
-            { kind: ResponderActionKind.ResponderLowBalance }
+            { kind: ResponderActionKind.CheckResponderBalance }
         ]);
     });
 
@@ -279,7 +278,7 @@ describe("MultiResponderComponent", () => {
 
             expect(component.detectChanges(state1, state2)).to.deep.equal([
                 { kind: ResponderActionKind.TxMined, identifier: app2State.identifier, nonce: app2State.nonce },
-                { kind: ResponderActionKind.ResponderLowBalance },
+                { kind: ResponderActionKind.CheckResponderBalance },
                 { kind: ResponderActionKind.EndResponse, appointmentId: app2State.appointmentId }
             ]);
         }
@@ -297,7 +296,7 @@ describe("MultiResponderComponent", () => {
 
             expect(component.detectChanges(state1, state2)).to.deep.equal([
                 { kind: ResponderActionKind.TxMined, identifier: app2State.identifier, nonce: app2State.nonce },
-                { kind: ResponderActionKind.ResponderLowBalance },
+                { kind: ResponderActionKind.CheckResponderBalance },
                 { kind: ResponderActionKind.EndResponse, appointmentId: app2State.appointmentId }
             ]);
         }

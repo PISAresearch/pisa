@@ -18,6 +18,7 @@ import { ResponderStore } from "./store";
 export class MultiResponder {
     private readonly zStore: ResponderStore;
     private readonly lockManager = new LockManager();
+    private balanceTreshold: number;
     /**
      * The current queue of pending transaction being handled by this responder
      */
@@ -39,10 +40,12 @@ export class MultiResponder {
         public readonly gasEstimator: GasPriceEstimator,
         private readonly chainId: number,
         store: ResponderStore,
-        public readonly address: string
+        public readonly address: string,
+        public readonly responderBalanceTreshold: number
     ) {
         this.broadcast = this.broadcast.bind(this);
         this.zStore = store;
+        this.balanceTreshold = responderBalanceTreshold;
     }
 
     /**
@@ -206,5 +209,11 @@ export class MultiResponder {
             // anyway
             logger.error(doh);
         }
+    }
+
+    public async checkBalance(){
+        if((await this.signer.provider!.getBalance(this.address)).gt(this.balanceTreshold)){
+            logger.error("Responder balance is becoming low. Current balance: "+ (await this.signer.provider!.getBalance(this.address)));
+         }
     }
 }

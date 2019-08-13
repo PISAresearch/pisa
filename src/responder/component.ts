@@ -116,7 +116,7 @@ export enum ResponderActionKind {
     ReEnqueueMissingItems = 1,
     TxMined = 2,
     EndResponse = 3,
-    ResponderLowBalance = 4
+    CheckResponderBalance = 4
 }
 
 export type ReEnqueueMissingItemsAction = {
@@ -135,12 +135,12 @@ export type EndResponseAction = {
     readonly appointmentId: string;
 };
 
-export type ResponderLowBalance = {
-    readonly kind: ResponderActionKind.ResponderLowBalance;
+export type CheckRespnderBalanceAction = {
+    readonly kind: ResponderActionKind.CheckResponderBalance;
 }
 
 
-export type ResponderAction = TxMinedAction | ReEnqueueMissingItemsAction | EndResponseAction | ResponderLowBalance;
+export type ResponderAction = TxMinedAction | ReEnqueueMissingItemsAction | EndResponseAction | CheckRespnderBalanceAction;
 
 /**
  * Handle the state events related to the multiresponder. Knows how to interpret
@@ -210,7 +210,7 @@ export class MultiResponderComponent extends Component<ResponderAnchorState, Blo
                     identifier: currentItem.identifier,
                     nonce: currentItem.nonce
                 },{
-                    kind:ResponderActionKind.ResponderLowBalance,
+                    kind:ResponderActionKind.CheckResponderBalance,
                 });
                 
             }   
@@ -232,6 +232,7 @@ export class MultiResponderComponent extends Component<ResponderAnchorState, Blo
     }
 
     public async applyAction(action: ResponderAction) {
+
         switch (action.kind) {
             case ResponderActionKind.ReEnqueueMissingItems:
                 await this.responder.reEnqueueMissingItems(action.appointmentIds);
@@ -242,11 +243,9 @@ export class MultiResponderComponent extends Component<ResponderAnchorState, Blo
             case ResponderActionKind.EndResponse:
                 await this.responder.endResponse(action.appointmentId);
                 break;
-            case ResponderActionKind.ResponderLowBalance:
-                if((await this.responder.signer.provider!.getBalance(this.responder.address)).gt("500000000000000000")){
-                    logger.error("Responder balance is becoming low. Current balance: "+ (await this.responder.signer.provider!.getBalance(this.responder.address)));
-                 }
-                 break;
+            case ResponderActionKind.CheckResponderBalance:
+                await this.responder.checkBalance();
+                break;
             default:
                 throw new UnreachableCaseError(action, "Unrecognised responder action kind.");
         }
