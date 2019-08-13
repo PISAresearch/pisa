@@ -34,6 +34,9 @@ export class MultiResponder {
      *   The signer used to sign transaction created by this responder. This responder
      *   requires exclusive use of this signer.
      * @param gasEstimator
+     * @param responderBalanceTreshold
+     *   This value respresents the minimum treshold the responder balance can reach before a
+     *   "low balance warning will be issued"
      */
     public constructor(
         public readonly signer: ethers.Signer,
