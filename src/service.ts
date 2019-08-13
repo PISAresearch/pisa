@@ -178,7 +178,7 @@ export class PisaService extends StartStopService {
                     req.log.error({ ...logEntry, requestBody: req.body }, "Error response.");
                 }
                 // right now we log the request body as well even on a success response
-                // this probably isnt sutainable in the long term, but it should help us
+                // this probably isn't sutainable in the long term, but it should help us
                 // get a good idea of usage in the short term
                 else req.log.info({ ...logEntry, requestBody: req.body }, "Success response.");
             });
