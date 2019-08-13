@@ -202,7 +202,7 @@ export class MultiResponderComponent extends Component<ResponderAnchorState, Blo
                 logger.info({state: currentItem, id: appointmentId, blockNumber: state.blockNumber }, "New pending transaction.") // prettier-ignore
             }
 
-            // if a transaction has been mined we need to inform the responder
+            // if a transaction has been mined we need to inform the responder and also check the responder balance before responding
             if (!this.hasResponseBeenMined(prevItem) && this.hasResponseBeenMined(currentItem)) {
                 logger.info({state: currentItem, id: appointmentId, blockNumber: state.blockNumber }, "Transaction mined.") // prettier-ignore
                 actions.push({
