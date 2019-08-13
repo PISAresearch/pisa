@@ -80,11 +80,11 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
     public static readonly NEW_HEAD_EVENT = "new_head";
 
     /**
-     * Event that is emitted for all blocks that have not previously been observed. If
-     * a block is the new head it will also be emitted via the NEW_HEAD_EVENT, however
-     * NEW_BLOCK_EVENT is guaranteed to emit first. Since this event emits for all new
-     * blocks it does not guarantee that an emitted block will be in the ancestry of the next
-     * emitted NEW_HEAD_EVENT.
+     * Event that is emitted for each new blocks. It is emitted (in order from the lowest-height block) for each block
+     * in the ancestry of the current blockchain head that is deeper than the last block in the ancestry that was emitted
+     * in a previous NEW_HEAD_EVENT. The NEW_HEAD_EVENT for the latest head block is guaranteed to be emitted after all the
+     * NEW_BLOCK_EVENTs in the ancestry have been emitted.
+     * A NEW_BLOCK_EVENT might happen to be emitted multiple times for the same block in case of blokchain re-orgs.
      */
     public static readonly NEW_BLOCK_EVENT = "new_block";
 
