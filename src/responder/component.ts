@@ -135,12 +135,12 @@ export type EndResponseAction = {
     readonly appointmentId: string;
 };
 
-export type CheckRespnderBalanceAction = {
+export type CheckResponderBalanceAction = {
     readonly kind: ResponderActionKind.CheckResponderBalance;
 }
 
 
-export type ResponderAction = TxMinedAction | ReEnqueueMissingItemsAction | EndResponseAction | CheckRespnderBalanceAction;
+export type ResponderAction = TxMinedAction | ReEnqueueMissingItemsAction | EndResponseAction | CheckResponderBalanceAction;
 
 /**
  * Handle the state events related to the multiresponder. Knows how to interpret
