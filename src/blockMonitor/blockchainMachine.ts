@@ -70,16 +70,17 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
             const state = states.get(head);
             if (!state) {
                 // as processNewBlock is always called before processNewHead, this should never happen
-                throw new ApplicationError(
+                this.logger.error(
                     `State for block ${head.hash} (number ${head.number}) was not set, but it should have been`
                 );
+                return;
             }
             if (prevHead) {
                 const prevState = states.get(prevHead);
                 if (prevState) {
                     const actions = component.detectChanges(prevState, state);
                     // side effects must be thread safe, so we can execute them concurrently
-                    actions.forEach(a => component.applyAction(a))
+                    actions.forEach(a => component.applyAction(a));
                 }
             }
         }
