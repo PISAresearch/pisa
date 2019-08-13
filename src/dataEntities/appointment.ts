@@ -224,7 +224,7 @@ export class Appointment {
             if (bigNumber.lt(0)) throw new PublicDataValidationError(`${name} must be non negative.`);
         } catch (doh) {
             if (doh instanceof PublicDataValidationError) throw doh;
-            log.info(doh);
+            logger.info(doh);
             throw new PublicDataValidationError(`${name} is not a number.`);
         }
     }
@@ -234,15 +234,15 @@ export class Appointment {
      * @param obj
      * @param log Logger to be used in case of failures
      */
-    public static parse(obj: any, log: Logger = logger) {
+    public static parse(obj: any, log?: Logger) {
         const valid = appointmentRequestValidation(obj);
         if (!valid) {
             (log || logger).info({ results: appointmentRequestValidation.errors }, "Schema error.");
             throw new PublicDataValidationError(appointmentRequestValidation.errors!.map(e => e.message).join("\n"));
         }
         const request = obj as IAppointmentRequest;
-        Appointment.parseBigNumber(request.refund, "Refund", log);
-        Appointment.parseBigNumber(request.gasLimit, "Gas limit", log);
+        Appointment.parseBigNumber(request.refund, "Refund", log || logger);
+        Appointment.parseBigNumber(request.gasLimit, "Gas limit", log || logger);
         return Appointment.fromIAppointmentRequest(request);
     }
 
@@ -250,7 +250,7 @@ export class Appointment {
      * Validate property values on the appointment
      * @param log Logger to be used in case of failures
      */
-    public validate(log: Logger) {
+    public validate(log: Logger = logger) {
         if (this.paymentHash.toLowerCase() !== Appointment.FreeHash) throw new PublicDataValidationError("Invalid payment hash."); // prettier-ignore
 
         try {
