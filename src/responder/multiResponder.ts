@@ -217,7 +217,7 @@ export class MultiResponder {
      */
     public async checkBalance(){
         const currentBalance = await this.signer.provider!.getBalance(this.address);
-        if(currentBalance.gt(this.balanceThreshold)){
+        if(currentBalance.lt(this.balanceThreshold)){
             logger.error("Responder balance is becoming low. Current balance: "+ currentBalance);
          }
     }
