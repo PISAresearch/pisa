@@ -291,7 +291,7 @@ export class PisaService extends StartStopService {
             </head>
             <body>
                 <!-- we provide is specification here -->
-                <redoc spec-url='http://${host}:${port}/api-docs.json' expand-responses="all"></redoc>
+                <redoc spec-url='./api-docs.json' expand-responses="all"></redoc>
                 <script src="https://cdn.jsdelivr.net/npm/redoc@next/bundles/redoc.standalone.js"> </script>
             </body>
         </html>`;
