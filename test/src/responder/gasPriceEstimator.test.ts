@@ -139,9 +139,11 @@ describe("GasPriceEstimator", () => {
             jobId: 1,
             mode: 1,
             paymentHash: "paymentHash",
+            preCondition: "preCondition",
             postCondition: "postCondition",
             refund: "3",
-            startBlock: 7
+            startBlock: 7,
+            customerSig: "sig"
         });
     };
 

@@ -7,6 +7,7 @@
         "challengePeriod",
         "contractAddress",
         "customerAddress",
+        "customerSig",
         "data",
         "endBlock",
         "eventABI",
@@ -15,10 +16,11 @@
         "id",
         "jobId",
         "mode",
+        "paymentHash",
+        "preCondition",
         "postCondition",
         "refund",
-        "startBlock",
-        "paymentHash"
+        "startBlock"
     ],
     "additionalProperties": false,
     "properties": {
@@ -43,6 +45,13 @@
             "type": "string",
             "title": "Customer address",
             "description": "The address of the customer hiring PISA.",
+            "examples": ["0x9e64b53b935602cd0657343C69Fe200fb3cD05c8"]
+        },
+        "customerSig": {
+            "$id": "#/properties/customerSig",
+            "type": "string",
+            "title": "Customer signature",
+            "description": "The customers signature for this appointment",
             "examples": ["0x9e64b53b935602cd0657343C69Fe200fb3cD05c8"]
         },
         "data": {
@@ -117,6 +126,13 @@
             "title": "Payment hash",
             "description": "The hash received during payment.",
             "examples": ["0x11359291abdee43476905204ea224bd2c1ccc775f283d280ed61f8f0ce94483e"]
+        },
+        "preCondition": {
+            "$id": "#/properties/preCondition",
+            "type": "string",
+            "title": "Pre-condition",
+            "description": "The pre-condition that must be satisfied before PISA can respond.",
+            "examples": ["0x5bf2b49d8b43dbc21ab4b757d5bebcd3ed6d50c092aa2648c49cd76bce28c9cc"]
         },
         "postCondition": {
             "$id": "#/properties/postCondition",

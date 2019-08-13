@@ -23,9 +23,11 @@ const getAppointment = (id: number, endBlock: number, jobId: number) => {
         jobId,
         mode: 1,
         paymentHash: "paymentHash",
+        preCondition: "precondition",
         postCondition: "postCondition",
         refund: "3",
-        startBlock: 7
+        startBlock: 7,
+        customerSig: "sig"
     });
 };
 

@@ -126,10 +126,12 @@ describe("Integration", function() {
                 id: 1,
                 jobId: 0,
                 mode: 1,
+                preCondition: "0x",
                 postCondition: "0x",
                 refund: "0",
                 startBlock: 0,
-                paymentHash: Appointment.FreeHash
+                paymentHash: Appointment.FreeHash,
+                customerSig: "0x"
             };
         };
 

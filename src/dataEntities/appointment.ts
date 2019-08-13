@@ -71,6 +71,11 @@ export interface IAppointmentBase {
     readonly eventArgs: string;
 
     /**
+     * The pre-condition that must be satisfied before PISA can respond
+     */
+    readonly preCondition: string;
+
+    /**
      * The post-condition data to be passed to the dispute handler to verify whether
      * recouse is required
      */
@@ -81,6 +86,11 @@ export interface IAppointmentBase {
      * reveal the pre-image of this to seek recourse, which will only be given to them upon payment
      */
     readonly paymentHash: string;
+
+    /**
+     * The customers signature for this appointment
+     */
+    readonly customerSig: string;
 }
 
 export interface IAppointmentRequest extends IAppointmentBase {
@@ -125,8 +135,10 @@ export class Appointment {
         public readonly mode: number,
         public readonly eventABI: string,
         public readonly eventArgs: string,
+        public readonly preCondition: string,
         public readonly postCondition: string,
-        public readonly paymentHash: string
+        public readonly paymentHash: string,
+        public readonly customerSig: string
     ) {}
 
     public static fromIAppointment(appointment: IAppointment): Appointment {
@@ -144,8 +156,10 @@ export class Appointment {
             appointment.mode,
             appointment.eventABI,
             appointment.eventArgs,
+            appointment.preCondition,
             appointment.postCondition,
-            appointment.paymentHash
+            appointment.paymentHash,
+            appointment.customerSig
         );
     }
 
@@ -164,8 +178,10 @@ export class Appointment {
             mode: appointment.mode,
             eventABI: appointment.eventABI,
             eventArgs: appointment.eventArgs,
+            preCondition: appointment.preCondition,
             postCondition: appointment.postCondition,
-            paymentHash: appointment.paymentHash
+            paymentHash: appointment.paymentHash,
+            customerSig: appointment.customerSig
         };
     }
 
@@ -184,8 +200,10 @@ export class Appointment {
             appointmentRequest.mode,
             appointmentRequest.eventABI,
             appointmentRequest.eventArgs,
+            appointmentRequest.preCondition,
             appointmentRequest.postCondition,
-            appointmentRequest.paymentHash
+            appointmentRequest.paymentHash,
+            appointmentRequest.customerSig
         );
     }
 
@@ -204,8 +222,10 @@ export class Appointment {
             mode: appointment.mode,
             eventABI: appointment.eventABI,
             eventArgs: appointment.eventArgs,
+            preCondition: appointment.preCondition,
             postCondition: appointment.postCondition,
-            paymentHash: appointment.paymentHash
+            paymentHash: appointment.paymentHash,
+            customerSig: appointment.customerSig
         };
     }
 
@@ -236,6 +256,7 @@ export class Appointment {
      */
     public static parse(obj: any, log: Logger = logger) {
         const valid = appointmentRequestValidation(obj);
+        
         if (!valid) {
             log.info({ results: appointmentRequestValidation.errors }, "Schema error.");
             throw new PublicDataValidationError(appointmentRequestValidation.errors!.map(e => e.message).join("\n"));
@@ -250,7 +271,7 @@ export class Appointment {
      * Validate property values on the appointment
      * @param log Logger to be used in case of failures
      */
-    public validate(log: Logger = logger) {
+    public async validate(log: Logger = logger) {
         if (this.paymentHash.toLowerCase() !== Appointment.FreeHash) throw new PublicDataValidationError("Invalid payment hash."); // prettier-ignore
 
         try {
@@ -264,6 +285,12 @@ export class Appointment {
         // check refund and gas limit are reasonable
         if (this.gasLimit.gt(6000000)) throw new PublicDataValidationError("Gas limit cannot be greater than 6000000.");
         if (this.refund.gt(ethers.utils.parseEther("0.1"))) throw new PublicDataValidationError("Refund cannot be greater than 0.1 ether."); // prettier-ignore
+
+        // check the sig
+        const recoveredAddress = ethers.utils.verifyMessage(this.encode(), this.customerSig);
+        if (this.customerAddress.toLowerCase() !== recoveredAddress.toLowerCase()) {
+            throw new PublicDataValidationError("Invalid signature");
+        }
     }
 
     /**
@@ -364,27 +391,42 @@ export class Appointment {
     }
 
     /**
-     * The ABI encoded tightly packed representation for this appointment
+     * The ABI encoded representation for this appointment
      */
-    public solidityPacked() {
-        return ethers.utils.solidityPack(
+    public encode() {
+        const appointmentInfo = ethers.utils.defaultAbiCoder.encode(
             ...groupTuples([
-                ["address", this.contractAddress],
-                ["address", this.customerAddress],
+                ["uint", this.customerChosenId],
+                ["uint", this.jobId],
                 ["uint", this.startBlock],
                 ["uint", this.endBlock],
                 ["uint", this.challengePeriod],
-                ["uint", this.customerChosenId],
-                ["uint", this.jobId],
-                ["bytes", this.data],
                 ["uint", this.refund],
-                ["uint", this.gasLimit],
-                ["uint", this.mode],
-                ["bytes", ethers.utils.toUtf8Bytes(this.eventABI)], // eventAbi is in human readable form, so needs to be encoded for 'bytes'
-                ["bytes", this.eventArgs],
-                ["bytes", this.postCondition],
                 ["bytes32", this.paymentHash]
             ])
+        );
+        const contractInfo = ethers.utils.defaultAbiCoder.encode(
+            ...groupTuples([
+                ["address", this.contractAddress],
+                ["address", this.customerAddress],
+                ["uint", this.gasLimit],
+                ["bytes", this.data]
+            ])
+        );
+        const conditionInfo = ethers.utils.defaultAbiCoder.encode(
+            ...groupTuples([
+                ["bytes", ethers.utils.toUtf8Bytes(this.eventABI)],
+                ["bytes", this.eventArgs],
+                ["bytes", this.preCondition],
+                ["bytes", this.postCondition],
+                ["uint", this.mode]
+            ])
+        );
+
+        return ethers.utils.keccak256(
+            ethers.utils.defaultAbiCoder.encode(
+                ...groupTuples([["bytes", appointmentInfo], ["bytes", contractInfo], ["bytes", conditionInfo]])
+            )
         );
     }
 }
