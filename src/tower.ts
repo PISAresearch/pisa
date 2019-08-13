@@ -3,7 +3,7 @@ import { ethers } from "ethers";
 import { SignedAppointment, IAppointment, Appointment, PublicDataValidationError } from "./dataEntities";
 import { AppointmentMode } from "./dataEntities/appointment";
 import { MultiResponder } from "./responder";
-import logger from "./logger";
+import logger, { Logger } from "./logger";
 
 /**
  * A PISA tower, configured to watch for specified appointment types
@@ -20,11 +20,11 @@ export class PisaTower {
      * Checks that the object is well formed, that it meets the conditions necessary for watching and assigns it to be watched.
      * @param obj
      */
-    public async addAppointment(obj: any): Promise<SignedAppointment> {
+    public async addAppointment(obj: any, log: Logger): Promise<SignedAppointment> {
         if (!obj) throw new PublicDataValidationError("Json request body empty.");
-        const appointment = Appointment.parse(obj);
+        const appointment = Appointment.parse(obj, log);
         // check the appointment is valid
-        appointment.validate();
+        appointment.validate(log);
 
         // is this a relay transaction, if so, add it to the responder.
         // if not, add it to the watcher
