@@ -1,5 +1,5 @@
 import { Appointment } from "../dataEntities";
-import { ApplicationError, ArgumentError } from "../dataEntities/errors";
+import { ApplicationError, ArgumentError, UnreachableCaseError } from "../dataEntities/errors";
 import { AppointmentStore } from "./store";
 import { ReadOnlyBlockCache } from "../blockMonitor";
 import { Logs, IBlockStub, hasLogMatchingEventFilter } from "../dataEntities/block";
@@ -198,18 +198,16 @@ export class Watcher extends Component<WatcherAnchorState, IBlockStub & Logs, Wa
         return actions;
     }
 
-    public async handleChanges(actions: WatcherAction[]) {
-        for (const action of actions) {
-            switch (action.kind) {
-                case WatcherActionKind.StartResponse:
-                    await this.responder.startResponse(action.appointment);
-                    break;
-                case WatcherActionKind.RemoveAppointment:
-                    await this.store.removeById(action.appointmentId);
-                    break;
-                default:
-                    throw new ArgumentError("Unrecognised action kind.", action);
-            }
+    public async applyAction(action: WatcherAction) {
+        switch (action.kind) {
+            case WatcherActionKind.StartResponse:
+                await this.responder.startResponse(action.appointment);
+                break;
+            case WatcherActionKind.RemoveAppointment:
+                await this.store.removeById(action.appointmentId);
+                break;
+            default:
+                throw new UnreachableCaseError(action, "Unrecognised watcher action kind.");
         }
     }
 }

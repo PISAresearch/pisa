@@ -46,13 +46,6 @@ module.exports = {
     advanceTimeAndBlock
 }
 
-function getCurrentTime() {
-    return new Promise(function(resolve) {
-      web3.eth.getBlock("latest").then(function(block) {
-            resolve(block.timestamp)
-        });
-    })
-}
 
 function timeout(ms) {
         return new Promise(resolve => setTimeout(resolve, ms));
@@ -63,12 +56,13 @@ contract('DataRegistry', (accounts) => {
     var registryInstance = await DataRegistry.deployed();
     var accounts =  await web3.eth.getAccounts();
 
-    assert.equal(await registryInstance.getDataShardIndex.call(1555236000),0, "Shard 0");
-    assert.equal(await registryInstance.getDataShardIndex.call(1559556000),1, "Shard 1");
-    assert.equal(await registryInstance.getDataShardIndex.call(1563876000),0, "Shard 0");
-    assert.equal(await registryInstance.getDataShardIndex.call(1568196000),1, "Shard 1");
-    assert.equal(await registryInstance.getDataShardIndex.call(1572516000),0, "Shard 0");
-    assert.equal(await registryInstance.getDataShardIndex.call(1576836000),1, "Shard 1");
+    var interval = await registryInstance.getInterval.call();
+    assert.equal(await registryInstance.getDataShardIndex.call(0),0, "Shard 0");
+    assert.equal(await registryInstance.getDataShardIndex.call(1 * interval.toNumber()),1, "Shard 1");
+    assert.equal(await registryInstance.getDataShardIndex.call(2 * interval.toNumber()),0, "Shard 0");
+    assert.equal(await registryInstance.getDataShardIndex.call(3 * interval.toNumber()),1, "Shard 1");
+    assert.equal(await registryInstance.getDataShardIndex.call(4 * interval.toNumber()),0, "Shard 0");
+    assert.equal(await registryInstance.getDataShardIndex.call(5 * interval.toNumber()),1, "Shard 1");
 
   });
 
@@ -77,14 +71,14 @@ contract('DataRegistry', (accounts) => {
     var accounts =  await web3.eth.getAccounts();
 
     // Current time (latest block)
-    let timenow = await getCurrentTime();
+    let blockNo = await web3.eth.getBlockNumber();
 
     // Store a dispute
     let encoded = web3.eth.abi.encodeParameters(['uint','uint','uint'], [1,2,3]);
 
     // Store the data
     await registryInstance.setRecord(123, encoded, {from: accounts[7]});
-    let shard = await registryInstance.getDataShardIndex.call(timenow);
+    let shard = await registryInstance.getDataShardIndex.call(blockNo);
     let data = await registryInstance.fetchRecord.call(shard, accounts[7], 123, 0);
     assert.equal(encoded,data, "Encoded data should be stored in the data registry");
 
@@ -98,7 +92,7 @@ contract('DataRegistry', (accounts) => {
     var accounts =  await web3.eth.getAccounts();
 
     // Current time (latest block)
-    let timenow = await getCurrentTime();
+    let blockNo = await web3.eth.getBlockNumber();
 
     // Store a dispute
     let encoded0 = web3.eth.abi.encodeParameters(['uint','uint','uint'], [9123,123,1328]);
@@ -107,7 +101,7 @@ contract('DataRegistry', (accounts) => {
     // Store the data
     await registryInstance.setRecord(123, encoded0, {from: accounts[6]});
     await registryInstance.setRecord(123, encoded1, {from: accounts[6]});
-    let shard = await registryInstance.getDataShardIndex.call(timenow);
+    let shard = await registryInstance.getDataShardIndex.call(blockNo);
     let data = await registryInstance.fetchRecords.call(shard, accounts[6], 123);
 
     // Check the fetch was successful and then check what we fetched
@@ -125,7 +119,7 @@ contract('DataRegistry', (accounts) => {
     var accounts =  await web3.eth.getAccounts();
 
     // Current time (latest block)
-    let timenow = await getCurrentTime();
+    let blockNo = await web3.eth.getBlockNumber();
 
     // Store a dispute
     let encoded = web3.eth.abi.encodeParameters(['uint','uint','uint'], [3,2,1]);
@@ -133,7 +127,7 @@ contract('DataRegistry', (accounts) => {
 
     // Store the data
     await registryInstance.setHash(111111, encoded, {from: accounts[7]});
-    let shard = await registryInstance.getDataShardIndex.call(timenow);
+    let shard = await registryInstance.getDataShardIndex.call(blockNo);
     let h = await registryInstance.fetchHash.call(shard, accounts[7], 111111, 0);
     assert.equal(h, hash, "Hash should be stored in the data registry");
 
@@ -147,7 +141,7 @@ contract('DataRegistry', (accounts) => {
     var accounts =  await web3.eth.getAccounts();
 
     // Current time (latest block)
-    let timenow = await getCurrentTime();
+    let blockNo = await web3.eth.getBlockNumber();
 
     // Store a dispute
     let encoded0 = web3.eth.abi.encodeParameters(['uint','uint','uint'], [312809,312789,903812]);
@@ -156,7 +150,7 @@ contract('DataRegistry', (accounts) => {
     // Store the data
     await registryInstance.setHash(999, encoded0, {from: accounts[6]});
     await registryInstance.setHash(999, encoded1, {from: accounts[6]});
-    let shard = await registryInstance.getDataShardIndex.call(timenow);
+    let shard = await registryInstance.getDataShardIndex.call(blockNo);
     let data = await registryInstance.fetchHashes.call(shard, accounts[6], 999);
 
     // Check the fetch was successful and then check what we fetched
@@ -174,20 +168,15 @@ contract('DataRegistry', (accounts) => {
     var accounts =  await web3.eth.getAccounts();
 
     var TOTAL_SHARDS = await registryInstance.getTotalShards.call();
-    var previousweek = new Array();
-
-    for(let j=0; j<TOTAL_SHARDS; j++) {
-      previousweek[j] = '123123912391';
-    }
-
+    var prevAddr = '12321312213';
     // Lets try for some many weeks
-    for(let i=0; i<4; i++) {
+    for(let i=0; i<2; i++) {
 
       // Go through each day and create a new daily record!
       // We'll compare it with the address we fgot the previous week.
       for(let k=0; k<TOTAL_SHARDS; k++) {
 
-        var oldtimestamp = await getCurrentTime();
+        var oldtimestamp = await web3.eth.getBlockNumber();
         var interval = await registryInstance.getInterval.call();
         let encoded = web3.eth.abi.encodeParameters(['uint','uint','uint'], [oldtimestamp,oldtimestamp+20,3]);
         let encoded2 = web3.eth.abi.encodeParameters(['uint','uint','uint'], [oldtimestamp-10,oldtimestamp+10,5]);
@@ -204,17 +193,15 @@ contract('DataRegistry', (accounts) => {
 
         assert.equal(datashard.toNumber(),samedatashard.toNumber(), "Both days should be the same!");
         assert.equal(addr,sameaddr, "DataShard address should not change. Disputes on same day. ");
-        assert.notEqual(previousweek[k],addr, "Daily record contract should have a new address");
+        assert.notEqual(prevAddr,addr, "Daily record contract should have a new address");
 
         // Move to next day!
-        oldtimestamp = await getCurrentTime();
-        newBlock = await advanceTimeAndBlock(interval.toNumber());
-        newtimestamp = newBlock['timestamp'];
-        timeDiff = newtimestamp - oldtimestamp;
+        oldtimestamp = await web3.eth.getBlockNumber();
 
-        // Did it work ok?
-        assert.isTrue(timeDiff >= interval.toNumber());
-        previousweek[k] = addr; // keep for next round
+        for(let i=0; i<interval.toNumber(); i++) {
+          await advanceBlock();
+        }
+        prevAddr = addr; // keep for next round
       }
     }
   });

@@ -31,7 +31,7 @@ contract CommandChannelHandler {
      // [trigger,refute] events should directly follow each other...
      // we must avoid the situation [trigger,...,refute] as while
      // it is not obvious how it can hurt an honest PISA, we must avoid that.
-    require(_dataindex[1] - _dataindex[0] == 1);
+    // require(_dataindex[1] - _dataindex[0] == 1);
 
   }
 
@@ -67,12 +67,12 @@ contract CommandChannelHandler {
       // Fetch the "starting dispute record"
       // Does the log data match up with on-chain commitment?
       bytes32 h = DataRegistryInterface(_dataregistry).fetchHash(_datashard[0], _sc, _logid, _dataindex[0]);
-      require(h == keccak256(_logdata[0]));
+      require(h == keccak256(_logdata[0]), "Cannot find first dispute record");
 
       // Fetch the "resolved dispute record"
       // Does the log data match up with the on-chain commitment?
       h = DataRegistryInterface(_dataregistry).fetchHash(_datashard[1], _sc, _logid, _dataindex[1]);
-      require(h == keccak256(_logdata[1]));
+      require(h == keccak256(_logdata[1]), "Canot find second dispute record");
 
       // Fetch start time and challenge time from log
       // Also compute the "finish time" of the dispute

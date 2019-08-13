@@ -1,10 +1,10 @@
-import { Appointment, ArgumentError, ApplicationError } from "../dataEntities";
+import { Appointment, ArgumentError, ApplicationError, IAppointment } from "../dataEntities";
 import { BigNumber } from "ethers/utils";
 import { ethers } from "ethers";
 
 export class GasQueueError extends ArgumentError {
     constructor(public readonly kind: GasQueueErrorKind, message: string, ...args: any[]) {
-        super(message, args)
+        super(message, args);
     }
 }
 
@@ -12,7 +12,35 @@ export enum GasQueueErrorKind {
     AlreadyAdded = 0
 }
 
+interface PisaTransactionIdentifierSerialisation {
+    readonly chainId: number;
+    readonly data: string;
+    readonly to: string;
+    readonly value: string;
+    readonly gasLimit: string;
+}
+
 export class PisaTransactionIdentifier {
+    public static serialise(identifier: PisaTransactionIdentifier): PisaTransactionIdentifierSerialisation {
+        return {
+            chainId: identifier.chainId,
+            data: identifier.data,
+            to: identifier.to,
+            value: identifier.value.toString(),
+            gasLimit: identifier.gasLimit.toString()
+        };
+    }
+
+    public static deserialise(serialisation: PisaTransactionIdentifierSerialisation): PisaTransactionIdentifier {
+        return new PisaTransactionIdentifier(
+            serialisation.chainId,
+            serialisation.data,
+            serialisation.to,
+            new BigNumber(serialisation.value),
+            new BigNumber(serialisation.gasLimit)
+        );
+    }
+
     /**
      * Enough information for uniquely identify a pisa related transaction
      */
@@ -39,7 +67,28 @@ export class PisaTransactionIdentifier {
     }
 }
 
+interface GasQueueItemRequestSerialisation {
+    readonly identifier: PisaTransactionIdentifierSerialisation;
+    readonly idealGasPrice: string;
+    readonly appointment: IAppointment;
+}
+
 export class GasQueueItemRequest {
+    public static serialise(request: GasQueueItemRequest): GasQueueItemRequestSerialisation {
+        return {
+            appointment: Appointment.toIAppointment(request.appointment),
+            idealGasPrice: request.idealGasPrice.toString(),
+            identifier: PisaTransactionIdentifier.serialise(request.identifier)
+        };
+    }
+    public static deserialise(serialisation: GasQueueItemRequestSerialisation): GasQueueItemRequest {
+        return new GasQueueItemRequest(
+            PisaTransactionIdentifier.deserialise(serialisation.identifier),
+            new BigNumber(serialisation.idealGasPrice),
+            Appointment.fromIAppointment(serialisation.appointment)
+        );
+    }
+
     /**
      * A request to a queue a transaction at a specified gas price.
      * @param identifier
@@ -53,7 +102,31 @@ export class GasQueueItemRequest {
     ) {}
 }
 
+interface GasQueueItemSerialisation {
+    request: GasQueueItemRequestSerialisation;
+    nonceGasPrice: string;
+    idealGasPrice: string;
+    nonce: number;
+}
+
 export class GasQueueItem {
+    public static serialise(item: GasQueueItem): GasQueueItemSerialisation {
+        return {
+            idealGasPrice: item.idealGasPrice.toString(),
+            nonce: item.nonce,
+            nonceGasPrice: item.nonceGasPrice.toString(),
+            request: GasQueueItemRequest.serialise(item.request)
+        };
+    }
+    public static deserialise(serialisation: GasQueueItemSerialisation): GasQueueItem {
+        return new GasQueueItem(
+            GasQueueItemRequest.deserialise(serialisation.request),
+            new BigNumber(serialisation.nonceGasPrice),
+            new BigNumber(serialisation.idealGasPrice),
+            serialisation.nonce
+        );
+    }
+
     /**
      * A queued transaction
      * @param request
@@ -94,7 +167,32 @@ export class GasQueueItem {
     }
 }
 
+interface GasQueueSerialisation {
+    readonly queueItems: Array<GasQueueItemSerialisation>;
+    readonly emptyNonce: number;
+    readonly replacementRate: number;
+    readonly maxQueueDepth: number;
+}
+
 export class GasQueue {
+    public static deserialise(serialisation: GasQueueSerialisation): GasQueue {
+        return new GasQueue(
+            serialisation.queueItems.map(i => GasQueueItem.deserialise(i)),
+            serialisation.emptyNonce,
+            serialisation.replacementRate,
+            serialisation.maxQueueDepth
+        );
+    }
+
+    public static serialise(queue: GasQueue): GasQueueSerialisation {
+        return {
+            queueItems: queue.queueItems.map(i => GasQueueItem.serialise(i)),
+            emptyNonce: queue.emptyNonce,
+            maxQueueDepth: queue.maxQueueDepth,
+            replacementRate: queue.replacementRate
+        };
+    }
+
     /**
      * Items ordered by an ideal gas prices. Items in the queue
      * will always be ordered from highest ideal gas price to lowest ideal gas price.
@@ -111,11 +209,17 @@ export class GasQueue {
      * @param emptyNonce
      *      The next empty nonce. Must equal the last queue item nonce + 1
      *      if any queue items exists
-     * @param replacementRate
-     *      The amount by which the current gas price of a transaction must be greater than
-     *      an existing transaction if it is to replace it. Expresses as an integer pertange eg
-     *      increase by 13 percent = 13
      * @param maxQueueDepth The maximum possible number of items that can be put into this queue
+     *   Parity and Geth set maximums on the number of pending transactions in the
+     *   pool that can emanate from a single account. Current defaults:
+     *   Parity: max(16, 1% of the pool): https://wiki.parity.io/Configuring-Parity-Ethereum --tx-queue-per-sender
+     *   Geth: 64: https://github.com/ethereum/go-ethereum/wiki/Command-Line-Options --txpool.accountqueue
+     * @param replacementRate
+     *   This responder replaces existing transactions on the network.
+     *   This replacement rate is set by the nodes. The value should be the percentage increase
+     *   eg. 13. Must be positive.
+     *   Parity: 12.5%: https://github.com/paritytech/parity-ethereum/blob/master/miner/src/pool/scoring.rs#L38
+     *   Geth: 10% default : https://github.com/ethereum/go-ethereum/wiki/Command-Line-Options --txpool.pricebump
      */
     public constructor(
         public readonly queueItems: ReadonlyArray<GasQueueItem>,
@@ -143,7 +247,12 @@ export class GasQueue {
                 }
 
                 if (queueItems.find((q, i) => q.request.identifier.equals(item.request.identifier) && i !== index)) {
-                    throw new GasQueueError(GasQueueErrorKind.AlreadyAdded, "Identifier found twice in queue.", item.request.identifier, queueItems);
+                    throw new GasQueueError(
+                        GasQueueErrorKind.AlreadyAdded,
+                        "Identifier found twice in queue.",
+                        item.request.identifier,
+                        queueItems
+                    );
                 }
             }
         }

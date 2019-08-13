@@ -1,6 +1,6 @@
 import { PisaService } from "./service";
 import { ethers } from "ethers";
-import jsonConfig, { IArgConfig, ConfigManager } from "./dataEntities/config";
+import jsonConfig, { ConfigManager } from "./dataEntities/config";
 import { validateProvider, getJsonRPCProvider } from "./utils/ethers";
 import logger, { setLogLevel, LogLevel, LogLevelInfo } from "./logger";
 import levelup, { LevelUp } from "levelup";
@@ -32,9 +32,10 @@ async function startUp() {
     const watcherWallet = new ethers.Wallet(config.responderKey, provider);
     const receiptSigner = new ethers.Wallet(config.receiptKey);
     const db = levelup(encodingDown(leveldown(config.dbDir), { valueEncoding: "json" }));
+    const nonce = await provider.getTransactionCount(watcherWallet.address, "pending");
 
     // start the pisa service
-    const service = new PisaService(config, provider, watcherWallet, receiptSigner, db);
+    const service = new PisaService(config, provider, watcherWallet, nonce, provider.network.chainId, receiptSigner, db);
     service.start();
 
     // listen for stop events
