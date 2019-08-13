@@ -75,7 +75,7 @@ jobs:
       - store_artifacts:
           path: ./logs/
       - store_artifacts:
-          path: ./integration/remote/logs/
+          path: ./test/integration/remote/logs/
 workflows:
   version: 2
   build:
