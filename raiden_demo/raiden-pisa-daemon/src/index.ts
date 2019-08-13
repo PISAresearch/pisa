@@ -67,7 +67,6 @@ const run = async (startingRowId: number) => {
                 paymentHash: ethers.utils.keccak256(ethers.utils.toUtf8Bytes("on-the-house")),
                 customerSig: "0x"
             };
-            console.log(request);
             const encoded = encode(request);
             const sig = await wallet.signMessage(encoded);
             request.customerSig = sig;
@@ -100,7 +99,7 @@ function groupTuples(tupleArray: [string, any][]): [string[], any[]] {
 const encode = (request: any) => {
     const appointmentInfo = ethers.utils.defaultAbiCoder.encode(
         ...groupTuples([
-            ["uint", request.customerChosenId],
+            ["uint", request.id],
             ["uint", request.jobId],
             ["uint", request.startBlock],
             ["uint", request.endBlock],
@@ -109,7 +108,6 @@ const encode = (request: any) => {
             ["bytes32", request.paymentHash]
         ])
     );
-    console.log(appointmentInfo)
     const contractInfo = ethers.utils.defaultAbiCoder.encode(
         ...groupTuples([
             ["address", request.contractAddress],
@@ -118,7 +116,6 @@ const encode = (request: any) => {
             ["bytes", request.data]
         ])
     );
-    console.log(contractInfo)
     const conditionInfo = ethers.utils.defaultAbiCoder.encode(
         ...groupTuples([
             ["bytes", ethers.utils.toUtf8Bytes(request.eventABI)],
@@ -128,7 +125,6 @@ const encode = (request: any) => {
             ["uint", request.mode]
         ])
     );
-    console.log(conditionInfo)
 
     return ethers.utils.keccak256(
         ethers.utils.defaultAbiCoder.encode(
