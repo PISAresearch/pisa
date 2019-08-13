@@ -72,6 +72,10 @@ jobs:
       - run:
           name: test
           command: TAG_NAME=$CIRCLE_BRANCH npm run test-integration
+      - store_artifacts:
+          path: ./logs/
+      - store_artifacts:
+          path: ./test/integration/remote/logs/
 workflows:
   version: 2
   build:

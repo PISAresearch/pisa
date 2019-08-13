@@ -7,9 +7,9 @@ contract DataRegistryInterface {
      * Data Registry is a global contract for "temporary" storage.
      * It will record disputes from channels (used as evidence) and PISA will store its job there.
      */
+    function getInterval() public pure returns (uint);
     function getTotalShards() public returns (uint);
     function setRecord(uint _appointmentid, bytes memory _data) public returns(uint _datashard, uint _index);
-    function fetchRecord(uint _datashard, address _sc,  uint _appointmentid, uint _index) public returns (bytes memory);
     function fetchRecords(uint _datashard, address _sc, uint _appointmentid) public returns (bytes[] memory);
 
 }
@@ -17,8 +17,8 @@ contract DataRegistryInterface {
 contract PreconditionHandlerInterface {
 
     // Given particular data, is the precondition satisified?
-    // Important: PISA should only call function whne external contract is in a special state
-    // For example, only authorise transfer is the external contract has the correct balance
+    // Important: PISA should only call function when external contract is in a special state
+    // For example, only authorise transfer if the external contract has the correct balance
     function canPISARespond(address _sc, address _cus, bytes memory _precondition) public returns(bool);
 }
 
@@ -45,7 +45,7 @@ contract PISAHash {
     uint public cheatedtimer; // How long does PISA have to send customer a refund?
 
     // List of addresses for PISA
-    mapping(address => bool) watchers;
+    mapping(address => bool) public watchers;
 
     // Every "mode" can have a pre-condition and post-condition
     mapping(uint => bool) modeInstalled;
@@ -53,18 +53,26 @@ contract PISAHash {
     mapping(uint => address) postconditionHandlers;
     mapping(uint => address) challengetimeDecoders;
 
+    // Used to install watchers / modes. Generally its a cold-wallet.
     address payable public admin;
+
+    // Built-in fail safe for the defenders... k-of-n
     address[] public defenders;
-    uint public k; // How many signatures do we need from the defenders?
+    uint public k;
+
+    // We have a built-in fail safe that can lock down the contract
     bool public frozen;
+    modifier isNotFrozen() {
+      require(!frozen);
+      _;
+    }
 
     // Cheated record
     struct Cheated {
-        // The "PISAID" includes customer address and jobid
+        uint jobid;
         uint refund;
         uint refundby;
         bool triggered;
-        bool resolved;
     }
 
     // Customer appointment
@@ -96,35 +104,25 @@ contract PISAHash {
     // Keep a record of who was cheated.
     // Ideally, this should be small (or zero!)
     mapping(uint => Cheated) public cheated;
+    mapping(address => uint) public refunds;
     uint public pendingrefunds;
+
+    // Did customer try to maliciously hurt PISA? Refund PISA their bond.
     uint public challengeBond;
-    uint public refundsForPISA; // Did customer cheat? Take their bond
 
     // Data registry for looking up the logs
     address public dataregistry;
-    address public disputeoutcome;
 
-    // A single withdraw period for PISA (i.e. 2-3 months)
-    uint public withdrawperiod;
-
-    event PISAClosed(address watcher, uint timestamp);
-    event PISACheated(address watcher, address sc, uint timestamp);
     event PISARefunded(address watcher, address cus, uint refund, uint timestamp);
     event PISARecordedResponse(uint pisad, address watcher, uint timestamp, uint gas, bytes data);
 
-    // We have a built-in fail safe that can lock down the contract
-    modifier isNotFrozen() {
-      require(!frozen);
-      _;
-    }
-
     // Set up PISA with data registry, timers and the admin address.
-    constructor(address _dataregistry, uint _withdrawperiod, uint _cheatedtimer, address payable _admin, address[] memory _defenders, uint _k) public {
+    constructor(address _dataregistry, uint _cheatedtimer, uint _challengeBond, address payable _admin, address[] memory _defenders, uint _k) public {
         dataregistry = _dataregistry;
-        withdrawperiod = _withdrawperiod;
         cheatedtimer = _cheatedtimer;
+        challengeBond = _challengeBond;
         admin = _admin;
-        defenders = _defenders; // Built-in safety feature.
+        defenders = _defenders;
         k = _k;
 
         require(defenders.length >= k);// Built-in sanity check
@@ -132,42 +130,41 @@ contract PISAHash {
 
     // Given an apoointment, PISA will respond on behalf of the customer.
     // The function call is recorded in the DataRegistry (and timestamped).
-    function respond(address _sc, address _cus, uint _appointmentid, uint _jobid, uint _mode, bytes memory _calldata, uint _gas, bytes memory _precondition) public {
+    function respond(bytes memory _appointment, bytes memory _cussig) public {
         // Only a PISA wallet can respond
         // Customer and SC addresses should have nothing to do with PISA.
         require(watchers[msg.sender], "Only watcher can send this job");
 
-        // H(sc, cus, logid) -> block number, customer address, jobid, gas
-        // It will "append" this entry to the list. So if we handle the job for multiple customers,
-        // it'll be appended to the list.
-        uint pisaid = uint(keccak256(abi.encode(_sc, _cus, _appointmentid, _jobid)));
+        // Fetch appointment signed by the customer
+        Appointment memory appointment = computeAppointment(_appointment);
+        bytes32 sighash = keccak256(abi.encode(_appointment, address(this)));
+        require(appointment.cus == recoverEthereumSignedMessage(sighash, _cussig), "PISA response cancelled as customer did not authorise this job");
 
-        // Check if a pre-condition needs to be handled
-        // TODO: There is some risk that other contract can throw exception/fail
-        // We should treat it as an external call so we can catch it.
-        if(preconditionHandlers[_mode] != address(0)) {
-            require(PreconditionHandlerInterface(preconditionHandlers[_mode]).canPISARespond(_sc, _cus, _precondition));
+        // Sometimes PISA should only respond if some condition is satisified
+        // - If it fails by returning "false", then PISA shouldn't respond
+        // - If it fails by throwing an exception, then PISA should try and respond
+        // TODO: Change from function in solidity to external_call approach
+        if(preconditionHandlers[appointment.mode] != address(0)) {
+            require(PreconditionHandlerInterface(preconditionHandlers[appointment.mode]).canPISARespond(appointment.sc, appointment.cus, appointment.precondition));
         }
 
-        // Record the type of call made by PISA.
-        // This must EXACTLY match what was in the latest signed appointment
-        // If not.... game over for PISA.... recourse will work!
-        bytes32 expectedLog = keccak256(abi.encode(_mode, _precondition, _calldata, _gas));
+        // Keep a timestamp of when we tried to call + the jobid.
+        // JobID lets us do a quick sanity check later if PISA sent latest job
+        bytes memory callLog = abi.encode(block.number, appointment.jobid, keccak256(_appointment));
 
-        // Make a record of our call attempt
-        // Only gets stored if the transaction terminates/completes (i.e. we dont run out of gas)
-        bytes memory callLog = abi.encode(block.number, expectedLog);
+        // We need the PISAID in order to quickly look it up during recourse.
+        uint pisaid = uint(keccak256(abi.encode(appointment.sc, appointment.cus, appointment.appointmentid)));
         DataRegistryInterface(dataregistry).setRecord(pisaid, callLog);
 
         // Emit event about our response
-        emit PISARecordedResponse(pisaid, msg.sender, block.number, _gas, _calldata);
+        emit PISARecordedResponse(pisaid, msg.sender, block.number, appointment.gas, appointment.call);
 
         // ALL GOOD! Looks like we should call the function and then store it.
         // By the way, _callData should be formatted as abi.encodeWithSignature("cool(uint256)", inputdata).
         // PISA should check before accepting job, but really it is up to customer to get this right.
         // If the function call fails, it isn't our fault.
-        require(gasleft() > _gas, "Sufficient gas in job request was not allocated");
-        external_call(_sc, 0, _calldata.length, _calldata, _gas);
+        require(gasleft() > appointment.gas, "Sufficient gas in job request was not allocated");
+        external_call(appointment.sc, 0, appointment.call.length, appointment.call, appointment.gas);
 
     }
 
@@ -190,12 +187,19 @@ contract PISAHash {
         bytes32 h = keccak256(abi.encode(_r));
         require(appointment.h == h, "Wrong R" );
 
+        // PISA's log will eventually disappear. So the customer needs to seek recourse
+        // within the "disappear" time period. This is set by the DataRegistry.
+        // (of course, if we kept logs around forever, this wouldn't be an issue,
+        // but then we bloat the network and we are bad citizens to the world,
+        // this is ok though since logs should be around for 50,100+ days)
+        require(appointment.startTime + DataRegistryInterface(dataregistry).getInterval() > block.number, "PISA log is likely deleted, so unfair to seek recourse");
+        require(block.number > appointment.finishTime, "PISA still has time to finish the job"); // Give or take, could be end of dispute time, but easier here.
+
         // Prevent replay attacks
-        // Customer ID is part of the "PISAID" so if we cheat two customers, then there are two different pisaid
-        // And thus both customers can seek recourse.
-        // We check if "customer" is set in cheated, if so then we've already sought recourse!
-        uint pisaid = uint(keccak256(abi.encode(appointment.sc, appointment.cus, appointment.appointmentid, appointment.jobid)));
-        require(!cheated[pisaid].triggered, "Recourse was already successful");
+        // Every PISAID is unique to a customer's appointment.
+        // Care must be taken, if two customers hire us for the same job, then we need to respond twice (if postcondition fails)
+        uint pisaid = uint(keccak256(abi.encode(appointment.sc, appointment.cus, appointment.appointmentid)));
+        require(appointment.jobid > cheated[pisaid].jobid, "Recourse was already successful");
 
         // Both PISA and the customer must have authorised it!
         // This is to avoid PISA faking a receipt and sending it as "recourse"
@@ -239,49 +243,53 @@ contract PISAHash {
 
         // Make sure the values are set to something meaningful
         require(timewindow[0] > 0 && timewindow[1] > 0, "Timing information is not meaningful");
-        require(timewindow[1] > timewindow[0]); // Finish time must be in the future after start time..
 
-        // Did PISA respond within the appointment?
-        // Remember - PISA must respond with the LATEST job information...
-        // This implies the calldata, precondition, allocated gas, mode, etc. All must be CORRECT during respond().
-        bytes32 expectedLog = keccak256(abi.encode(appointment.mode, appointment.precondition, appointment.call, appointment.gas));
-        require(!didPISARespond(pisaid, expectedLog, timewindow), "PISA sent the right job during the appointment time");
+        // Here we check if PISA has responded...
+        // Lots of things may have happened (i.e. new appointment is completely different to old one)
+        require(!didPISARespond(pisaid, appointment.jobid, keccak256(abi.encode(appointment)), timewindow), "PISA sent the right job during the appointment time");
 
         // PISA has cheated. Provide opportunity for PISA to respond.
-        pendingrefunds = pendingrefunds + 1;
-        cheated[pisaid] = Cheated(appointment.refund + challengeBond, block.number + cheatedtimer, true, false);
+        // Of course... customer may send multiple appointments where PISA failed...
+        // We only take into account the log with the largest jobid... and increment
+        // pending refund once!
+        if(!cheated[pisaid].triggered) {
+          pendingrefunds = pendingrefunds + 1;
+        }
 
-        // Nothing to do... dispute is OK.
+        cheated[pisaid] = Cheated(appointment.jobid, appointment.refund + challengeBond, block.number + cheatedtimer, true);
     }
 
     // Check if PISA recorded a function call for the given appointment/job
-    function didPISARespond(uint _pisaid, bytes32 _expectedLog, uint[3] memory _timewindow) internal returns (bool) {
+    function didPISARespond(uint _pisaid, uint _jobid, bytes32 _expectedHash, uint[3] memory _timewindow) internal returns (bool) {
 
         // Look through every shard (should be two in practice)
         for(uint i=0; i<DataRegistryInterface(dataregistry).getTotalShards(); i++) {
 
+            // [timestamp, jobid, Hash(appointment)]
             bytes[] memory response = DataRegistryInterface(dataregistry).fetchRecords(i, address(this), _pisaid);
 
             // It'll return a list of jobs for this given appointment (i.e. if PISA had to respond more than once)
             for(uint j=0; j<response.length; j++) {
+                uint jobID;
                 uint recordedTime;
-                bytes32 recordedLog;
+                bytes32 recordedHash;
 
                 // Block number + job id recorded
-                (recordedTime,recordedLog) = abi.decode(response[j], (uint, bytes32));
+                (recordedTime, jobID, recordedHash) = abi.decode(response[j], (uint, uint, bytes32));
 
-                // It must be a meaningful value..
+                // A future JobID was used? Will be all good... appointment may be completely different
+                if(jobID >= _jobid) { return true; }
+
+                // It must meaningful
                 require(recordedTime != 0);
 
-                // Is the recorded job equal (or better) than the hired job from this receipt?
-                // Did PISA respond during the challenge time
-                // IMPORTANT FACTS TO CONSIDER
-                // - PISA should always respond with a larger or equal Job ID
-                // - We confirm PISA used the CORRECT call data (i.e. if PISA hired to call x() but does y(), it'll return false)
-                // - TODO: We also need to confirm that PISA considered the "precondition", if one was included for the appointment.
+                // PISA should respond between the start time and finish time
+                // _timewindow[0] -> recordedTime <- _timewindow[1]
+                //
+                // We should also find the exact same AppointmentHash :) if so jobid is good too
                 if(recordedTime >= _timewindow[0] && // Did PISA respond after the start time?
                    recordedTime <= _timewindow[1] &&
-                   _expectedLog == recordedLog) {
+                   recordedHash == _expectedHash) {
                    return true;
                 }
             }
@@ -289,6 +297,39 @@ contract PISAHash {
 
        // Couldn't find a PISA response
         return false;
+    }
+
+    // To cancel an appointment, just need to sign a larger jobid with mode=496 (perfect number)
+    // Customer may send older (and cancelled) appointment via recourse... PISA can just respond
+    // with the cancelled receipt and claim the bond :)
+    function cancelledAppointment(bytes memory _appointment, bytes memory _cussig) public {
+      // TODO: It doesn't look like we need this check (anything bad can happen if customer sets jobid too large?
+      // I don't think so.... will just cancel their own refund lol
+      // require(watchers[msg.sender] || admin == msg.sender, "Only PISA can call it");
+
+      // Compute Appointment (avoid callstack issues)
+      Appointment memory appointment = computeAppointment(_appointment);
+
+      // Check signature
+      bytes32 sighash = keccak256(abi.encode(_appointment, address(this)));
+      require(appointment.cus == recoverEthereumSignedMessage(sighash, _cussig), "Customer did not sign job");
+
+      // Compute PISAID
+      uint pisaid = uint(keccak256(abi.encode(appointment.sc, appointment.cus, appointment.appointmentid)));
+
+      // Is the jobid here larger than the cheat log?
+      require(appointment.jobid > cheated[pisaid].jobid, "PISA submitted an older appointment");
+
+      // OK we can remove cheat log and give PISA the bond
+      refunds[admin] = refunds[admin] + challengeBond;
+
+      // Update cheat log + pending refunds accordingly
+      cheated[pisaid].jobid = appointment.jobid;
+      cheated[pisaid].triggered = false; // No longer triggered!
+      cheated[pisaid].refund = 0;
+      cheated[pisaid].refundby = 0;
+      pendingrefunds = pendingrefunds - 1;
+
     }
 
     // To avoid gas-issue, we compute the struct here.
@@ -299,7 +340,6 @@ contract PISAHash {
         bytes memory conditions;
 
         (appointmentinfo, contractinfo, conditions) = abi.decode(_appointment, (bytes, bytes, bytes));
-
         Appointment memory appointment;
 
         // Get appointment information
@@ -319,44 +359,12 @@ contract PISAHash {
         return appointment;
     }
 
-    // Customer may send older job that was replaced and PISA wasn't required to do anything.
-    // What do we do? PISA can simply prove it was hired to watch for a future and new job.
-    // Great! If the customer just wants to cancel, then the mode can be an ereonous number like 7000000000 (approx human population)
-    function customerCancelledJob(bytes memory _appointment, bytes memory _cusSig, uint _cancelledJobID) public payable {
-        // Compute Appointment (avoid callstack issues)
-        // A future appointment authorised by the customer
-        Appointment memory appointment = computeAppointment(_appointment);
-
-        bytes32 sighash = keccak256(abi.encode(_appointment, address(this)));
-        require(appointment.cus == recoverEthereumSignedMessage(sighash, _cusSig), "Customer did not sign job");
-
-        // Given the appointment and cancelled job id... lets look up the cheating record.
-        // No need to check signature for _cancelledJobID since it cant be recorded here without a prior signature by customer.
-        // When the recourse was issued!
-        uint pisaid = uint(keccak256(abi.encode(appointment.sc, appointment.cus, appointment.appointmentid, _cancelledJobID)));
-        Cheated memory cheatlog = cheated[pisaid];
-
-        // Sanity checks on this cheat log
-        require(cheatlog.triggered, "Evidence of cheating should already be triggered");
-        require(!cheatlog.resolved, "PISA should not have already resolved cheating log");
-
-        // OK... now we know a cheat log exists for _cancelledJobID.
-        // It has been triggered and NOT resolved..... so does the appointmentTime
-        // signed by the customer have a later/larger jobid?
-        // Is this really an old and already cancelled job?
-        require(appointment.jobid > _cancelledJobID, "Appointment did not have a future jobid");
-
-        // Yup.. no point refunding customer
-        cheated[pisaid].resolved = true;
-        pendingrefunds = pendingrefunds - 1;
-    }
-
     // PISA must refund the customer before a deadline. If not, the security deposit is burnt/frozen
-    function refundCustomer(address _sc, address _cus, uint _appointmentid, uint _jobid) payable public {
+    function refundCustomer(address _sc, address _cus, uint _appointmentid) payable public {
 
         // Should be some refunds ready...
         require(pendingrefunds > 0, "No refunds pending");
-        uint pisaid = uint(keccak256(abi.encode(_sc, _cus, _appointmentid, _jobid)));
+        uint pisaid = uint(keccak256(abi.encode(_sc, _cus, _appointmentid)));
 
         // Fetch cheated record.
         Cheated memory record = cheated[pisaid];
@@ -364,13 +372,13 @@ contract PISAHash {
         // Make sure coins sent to contract matches up with the refund amount
         // Note we don't really who care who issues refund - as long as it is refunded.
         require(record.refund == msg.value, "PISA must refund the exact value");
-        require(!record.resolved, "Already refunded, cant do it twice");
+        require(record.triggered, "Cheating record must still be triggered");
 
-        // It is resolved! Horray!
-        cheated[pisaid].resolved = true; // Delete array altogether (to remove empty slots)
-
-        // Coins deposited into contract
-        // And they can now be withdrawn by the customer
+        // All good! Let's update our state
+        cheated[pisaid].triggered = false; // No longer triggered!
+        cheated[pisaid].refund = 0;
+        cheated[pisaid].refundby = 0;
+        refunds[_cus] = refunds[_cus] + msg.value; // Increment how much we owe the customer
         pendingrefunds = pendingrefunds - 1;
 
         // Yup! All records gone.
@@ -380,22 +388,19 @@ contract PISAHash {
     }
 
     // Once PISA has deposited coins, the customer can withdraw it!
-    function customerWithdrawRefund(address _sc, address payable _cus, uint _appointmentid, uint _jobid) payable public {
+    // All must be withdrawan at once... should avoid potential replay (i.e. if A sends 10 refunded coins to B and 10 refunded coins to C, then C can replay message twice)
+    function withdraw(address payable _receiver, uint _amount, uint _blockstamp, address _customer, bytes memory _cussig) payable public {
+        require(_amount == refunds[_customer]); // Make sure the customer has sufficient balance
+        require(_blockstamp > block.number - 100 && block.number + 100 > _blockstamp); // blockno - 100 -> timestamp <- blockno + 100 (200 block window)
 
-      // Compute PISAID
-      uint pisaid = uint(keccak256(abi.encode(_sc, _cus, _appointmentid, _jobid)));
+        bytes32 h = keccak256(abi.encode(_receiver, _amount, _blockstamp, address(this)));
+        address signer = recoverEthereumSignedMessage(h, _cussig);
+        require(signer == _customer, "Customer did not authorise this withdrawal");
 
-      // Only customer can withdraw the coins
-      require(cheated[pisaid].resolved);
-      require(cheated[pisaid].refund > 0);
-
-      // Send refund (and return their challenge bond)
-      uint toRefund = cheated[pisaid].refund;
-      cheated[pisaid].refund = 0;
-
-      // Safe to use _cus since that is linked by the pisaid
-      _cus.transfer(toRefund);
-
+        // Perform the transfer
+        uint bal = refunds[_customer];
+        refunds[_customer] = 0;
+        _receiver.transfer(bal);
     }
 
     // PISA hasn't refunded the customer by the desired time?
@@ -407,12 +412,16 @@ contract PISAHash {
 
         // Fetch cheated record.
         require(cheated[_pisaid].triggered, "Cheat log should be triggered!");
+        require(cheated[_pisaid].refund != 0, "There must be a balance to refund");
         require(cheated[_pisaid].refundby != 0, "There must be a refund time..."); // Make sure it is not zero!!!
         require(block.number > cheated[_pisaid].refundby, "Time has not yet passed since refund was due by PISA"); // Refund period should have expired
-        require(!cheated[_pisaid].resolved, "PISA did not issue a refund"); // Has PISA resolved refund?
 
-        // It has finally been resolved...
-        cheated[_pisaid].resolved = true;
+        // Remove record (just in case contract is re-activated in future by failsafe)
+        cheated[_pisaid].triggered = false;
+        cheated[_pisaid].refund = 0;
+        cheated[_pisaid].refundby = 0;
+
+        // PISA has cheated... flag it... shuts everything down.
         flag = Flag.CHEATED;
     }
 
@@ -515,15 +524,6 @@ contract PISAHash {
             }
         }
     }
-
-    function getPendingRefunds() public view returns(uint) {
-        return pendingrefunds;
-    }
-
-    function isWatcher(address _watcher) public view returns(bool) {
-        return watchers[_watcher];
-    }
-
     function getMode(uint _mode) public view returns(address[3] memory, bool) {
         return ([preconditionHandlers[_mode],postconditionHandlers[_mode],challengetimeDecoders[_mode]], modeInstalled[_mode]);
     }

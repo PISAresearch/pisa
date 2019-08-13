@@ -10,13 +10,13 @@ module.exports = {
       host: "127.0.0.1",
       port: 7545,
       network_id: "*",
-      gas: 6500000
+      gas: 7500000
     },
     test: {
       host: "127.0.0.1",
       port: 7545,
       network_id: "*",
-      gas: 6500000
+      gas: 7500000
     }
   }
 
