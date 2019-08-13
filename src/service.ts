@@ -103,14 +103,15 @@ export class PisaService extends StartStopService {
         app.post("/appointment", this.appointment(tower));
 
         // api docs
-        const hostAndPort = `${config.hostPort}:${config.hostPort}`;
+        const hostAndPort = `${config.hostName}:${config.hostPort}`;
         const docs = swaggerJsDoc(this.createSwaggerDocs(hostAndPort));
         app.get("/api-docs.json", (req, res) => {
             res.setHeader("Content-Type", "application/json");
             res.send(docs);
         });
-        app.get("/docs", (req, res) => {
-            res.sendFile(path.join(__dirname, "../docs/redoc.html"));
+        app.get("/docs.html", (req, res) => {
+            res.setHeader("Content-Type", "text/html");
+            res.send(this.redocHtml(config.hostName, config.hostPort));
         });
         app.get("/schemas/appointmentRequest.json", (req, res) => {
             res.sendFile(path.join(__dirname, "dataEntities/appointmentRequestSchema.json"));
@@ -172,7 +173,7 @@ export class PisaService extends StartStopService {
             const startNano = process.hrtime.bigint();
             res.on("finish", () => {
                 const endNano = process.hrtime.bigint();
-                const microDuration =   Number.parseInt((endNano - startNano).toString()) / 1000
+                const microDuration = Number.parseInt((endNano - startNano).toString()) / 1000;
                 const logEntry = { req: req, res: res, duration: microDuration };
 
                 if (res.statusCode !== 200) {
@@ -186,29 +187,29 @@ export class PisaService extends StartStopService {
             next();
         });
 
-        // rate limits	
-        if (config.rateLimitGlobalMax && config.rateLimitGlobalWindowMs) {	
-            app.use(	
-                new rateLimit({	
-                    keyGenerator: () => "global", // use the same key for all users	
-                    statusCode: 503, // = Too Many Requests (RFC 7231)	
-                    message: config.rateLimitGlobalMessage || "Server request limit reached. Please try again later.",	
-                    windowMs: config.rateLimitGlobalWindowMs,	
-                    max: config.rateLimitGlobalMax	
-                })	
-            );	
-        }	
+        // rate limits
+        if (config.rateLimitGlobalMax && config.rateLimitGlobalWindowMs) {
+            app.use(
+                new rateLimit({
+                    keyGenerator: () => "global", // use the same key for all users
+                    statusCode: 503, // = Too Many Requests (RFC 7231)
+                    message: config.rateLimitGlobalMessage || "Server request limit reached. Please try again later.",
+                    windowMs: config.rateLimitGlobalWindowMs,
+                    max: config.rateLimitGlobalMax
+                })
+            );
+        }
 
-         if (config.rateLimitUserMax && config.rateLimitUserWindowMs) {	
-            app.use(	
-                new rateLimit({	
-                    keyGenerator: req => req.ip, // limit per IP	
-                    statusCode: 429, // = Too Many Requests (RFC 6585)	
-                    message: config.rateLimitUserMessage || "Too many requests. Please try again later.",	
-                    windowMs: config.rateLimitUserWindowMs,	
-                    max: config.rateLimitUserMax	
-                })	
-            );	
+        if (config.rateLimitUserMax && config.rateLimitUserWindowMs) {
+            app.use(
+                new rateLimit({
+                    keyGenerator: req => req.ip, // limit per IP
+                    statusCode: 429, // = Too Many Requests (RFC 6585)
+                    message: config.rateLimitUserMessage || "Too many requests. Please try again later.",
+                    windowMs: config.rateLimitUserWindowMs,
+                    max: config.rateLimitUserMax
+                })
+            );
         }
     }
 
@@ -265,5 +266,34 @@ export class PisaService extends StartStopService {
         req.log.error(error);
         res.status(code);
         res.send({ message: responseMessage });
+    }
+
+    private redocHtml(host: string, port: number) {
+        return `<!DOCTYPE html>
+            <html>
+            <head>
+                <title>Quizizz Docs</title>
+                <!-- needed for adaptive design -->
+                <meta charset="utf-8"/>
+                <link rel="shortcut icon" type="image/x-icon" href="https://quizizz.com/favicon.ico" />
+                <meta name="viewport" content="width=device-width, initial-scale=1">
+                <link href="https://fonts.googleapis.com/css?family=Montserrat:300,400,700|Roboto:300,400,700" rel="stylesheet">
+
+                <!--
+                ReDoc doesn't change outer page styles
+                -->
+                <style>
+                body {
+                    margin: 0;
+                    padding: 0;
+                }
+                </style>
+            </head>
+            <body>
+                <!-- we provide is specification here -->
+                <redoc spec-url='http://${host}:${port}/api-docs.json' expand-responses="all"></redoc>
+                <script src="https://cdn.jsdelivr.net/npm/redoc@next/bundles/redoc.standalone.js"> </script>
+            </body>
+        </html>`;
     }
 }
