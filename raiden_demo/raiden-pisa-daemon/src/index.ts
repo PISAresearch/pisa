@@ -65,8 +65,9 @@ const run = async (startingRowId: number) => {
                 refund: "0",
                 startBlock: 0,
                 paymentHash: ethers.utils.keccak256(ethers.utils.toUtf8Bytes("on-the-house")),
-                customerSig: ""
+                customerSig: "0x"
             };
+            console.log(request);
             const encoded = encode(request);
             const sig = await wallet.signMessage(encoded);
             request.customerSig = sig;
