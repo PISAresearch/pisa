@@ -482,4 +482,18 @@ describe("GasQueue", () => {
         const q = new GasQueue(items, 5, 15, 5);
         expect(() => q.prepend(lowerNonceItems)).to.throw(ArgumentError);
     });
+
+    fnIt<GasQueue>(() => GasQueue.serialise, "correctly deserialises and serialises", () => {
+        const item1 = createGasQueueItem(1, 1, new BigNumber(90), new BigNumber(90), createIdentifier("data1", "to1"));
+        const item2 = createGasQueueItem(2, 2, new BigNumber(50), new BigNumber(60), createIdentifier("data2", "to2"));        
+        const item3 = createGasQueueItem(3, 3, new BigNumber(30), new BigNumber(40), createIdentifier("data3", "to3"));        
+
+
+        const queue = new GasQueue([item1, item2, item3], 4, 12, 10)
+
+        const serialised = GasQueue.serialise(queue);
+        const deserialised = GasQueue.deserialise(serialised);
+
+        expect(deserialised).to.deep.equal(queue);
+    })
 });

@@ -1,5 +1,5 @@
 /**
- * Thrown by the application when it encounters an unrecoverable error. Errors of this kind represent a bug.
+ * An error thrown by the application.
  */
 export class ApplicationError extends Error {
     constructor(message: string) {
@@ -13,9 +13,10 @@ export class ApplicationError extends Error {
  * cases in a switch statement over an enum or union types is exhaustive, in a type-safe way.
  * Errors of this kind represent a bug.
  */
-export class UnreachableCaseError extends Error {
-    constructor(val: never) {
-        super(`Unreachable code: ${val}`);
+export class UnreachableCaseError extends ApplicationError {
+    constructor(val: never, message?: string) {
+        const msg = `Unreachable code: ${val}`;
+        super(message ? `${message} ${msg}` : msg);
         this.name = "UnreachableCaseError";
     }
 }
@@ -71,7 +72,7 @@ export class ArgumentError extends ApplicationError {
     constructor(message: string);
     constructor(message: string, ...args: any[]);
     constructor(message: string, ...args: any[]) {
-        super(message)
+        super(message);
         this.args = args;
         this.name = "ArgumentError";
     }

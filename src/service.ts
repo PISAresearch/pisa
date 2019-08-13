@@ -1,13 +1,12 @@
 import express, { Response } from "express";
 import httpContext from "express-http-context";
-import rateLimit from "express-rate-limit";
 import { Server } from "http";
 import { ethers } from "ethers";
 import { PublicInspectionError, PublicDataValidationError, ApplicationError, StartStopService } from "./dataEntities";
 import { Watcher, AppointmentStore } from "./watcher";
 import { PisaTower, HotEthereumAppointmentSigner } from "./tower";
 import { setRequestId } from "./customExpressHttpContext";
-import { GasPriceEstimator, MultiResponder, MultiResponderComponent } from "./responder";
+import { GasPriceEstimator, MultiResponder, MultiResponderComponent, ResponderStore } from "./responder";
 import { IArgConfig } from "./dataEntities/config";
 import { BlockProcessor, BlockCache } from "./blockMonitor";
 import { LevelUp } from "levelup";
@@ -17,6 +16,7 @@ import { Block } from "./dataEntities/block";
 import { BlockchainMachine } from "./blockMonitor/blockchainMachine";
 import swaggerJsDoc from "swagger-jsdoc";
 import path from "path";
+import { GasQueue } from "./responder/gasQueue";
 
 /**
  * Hosts a PISA service at the endpoint.
@@ -24,7 +24,7 @@ import path from "path";
 export class PisaService extends StartStopService {
     private readonly server: Server;
     private readonly blockProcessor: BlockProcessor<Block>;
-    private readonly multiResponder: MultiResponder;
+    private readonly responderStore: ResponderStore;
     private readonly appointmentStore: AppointmentStore;
     private readonly blockchainMachine: BlockchainMachine<Block>;
 
@@ -41,6 +41,8 @@ export class PisaService extends StartStopService {
         config: IArgConfig,
         provider: ethers.providers.BaseProvider,
         wallet: ethers.Wallet,
+        walletNonce: number,
+        chainId: number,
         receiptSigner: ethers.Signer,
         db: LevelUp<encodingDown<string, any>>
     ) {
@@ -49,29 +51,35 @@ export class PisaService extends StartStopService {
 
         this.applyMiddlewares(app, config);
 
-        // start reorg detector and block monitor
-        const blockCache = new BlockCache<Block>(
-            config.maximumReorgLimit === undefined ? 200 : config.maximumReorgLimit
-        );
+        // block cache and processor
+        const cacheLimit = config.maximumReorgLimit === undefined ? 200 : config.maximumReorgLimit;
+        const blockCache = new BlockCache<Block>(cacheLimit);
         this.blockProcessor = new BlockProcessor<Block>(provider, blockFactory, blockCache);
 
-        // dependencies
+        // stores
         this.appointmentStore = new AppointmentStore(db);
+        const seedQueue = new GasQueue([], walletNonce, 12, 13);
+        this.responderStore = new ResponderStore(db, wallet.address, seedQueue);
 
-        this.multiResponder = new MultiResponder(
+        // managers
+        const multiResponder = new MultiResponder(
             wallet,
-            new GasPriceEstimator(wallet.provider, this.blockProcessor.blockCache)
+            new GasPriceEstimator(wallet.provider, this.blockProcessor.blockCache),
+            chainId,
+            this.responderStore,
+            wallet.address
         );
 
+        // components and machine
         const watcher = new Watcher(
-            this.multiResponder,
+            multiResponder,
             this.blockProcessor.blockCache,
             this.appointmentStore,
             config.watcherResponseConfirmations === undefined ? 5 : config.watcherResponseConfirmations,
             config.maximumReorgLimit === undefined ? 100 : config.maximumReorgLimit
         );
         const responder = new MultiResponderComponent(
-            this.multiResponder,
+            multiResponder,
             this.blockProcessor.blockCache,
             config.maximumReorgLimit == undefined ? 100 : config.maximumReorgLimit
         );
@@ -83,7 +91,7 @@ export class PisaService extends StartStopService {
         const appointmentSigner = new HotEthereumAppointmentSigner(receiptSigner);
 
         // tower
-        const tower = new PisaTower(provider, this.appointmentStore, appointmentSigner, this.multiResponder);
+        const tower = new PisaTower(provider, this.appointmentStore, appointmentSigner, multiResponder);
 
         app.post("/appointment", this.appointment(tower));
 
@@ -118,7 +126,7 @@ export class PisaService extends StartStopService {
                 basePath: "/"
             },
             // Path to the API docs
-            apis: ["./src/service.ts", "./src/service.js"]
+            apis: ["./src/service.ts", "./src/service.js", "./build/src/service.js"]
         };
 
         return options;
@@ -128,11 +136,11 @@ export class PisaService extends StartStopService {
         await this.blockchainMachine.start();
         await this.blockProcessor.start();
         await this.appointmentStore.start();
-        await this.multiResponder.start();
+        await this.responderStore.start();
     }
 
     protected async stopInternal() {
-        await this.multiResponder.stop();
+        await this.responderStore.stop();
         await this.appointmentStore.stop();
         await this.blockProcessor.stop();
         await this.blockchainMachine.stop();

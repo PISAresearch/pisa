@@ -12,7 +12,7 @@ import levelup, { LevelUp } from "levelup";
 import MemDown from "memdown";
 import encodingDown from "encoding-down";
 import { StatusCodeError } from "request-promise/errors";
-chai.use(chaiAsPromised)
+chai.use(chaiAsPromised);
 
 const ganache = Ganache.provider({
     mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect"
@@ -73,8 +73,17 @@ describe("Service end-to-end", () => {
 
         const signerWallet = new ethers.Wallet(nextConfig.receiptKey!, provider);
         signerWallet.connect(provider);
+        const nonce = await responderWallet.getTransactionCount();
 
-        service = new PisaService(nextConfig, provider, responderWallet, signerWallet, db);
+        service = new PisaService(
+            nextConfig,
+            provider,
+            responderWallet,
+            nonce,
+            provider.network.chainId,
+            signerWallet,
+            db
+        );
         await service.start();
 
         // accounts
@@ -103,13 +112,16 @@ describe("Service end-to-end", () => {
     });
 
     it("service cannot be accessed during startup", async () => {
-        const watcherWallet = new ethers.Wallet(nextConfig.responderKey, provider);
+        const responderWallet = new ethers.Wallet(nextConfig.responderKey, provider);
         const signerWallet = new ethers.Wallet(nextConfig.receiptKey!, provider);
+        const nonce = await responderWallet.getTransactionCount();
 
         const exService = new PisaService(
             { ...nextConfig, hostPort: nextConfig.hostPort + 1 },
             provider,
-            watcherWallet,
+            responderWallet,
+            nonce,
+            provider.network.chainId,
             signerWallet,
             db
         );
@@ -187,9 +199,11 @@ describe("Service end-to-end", () => {
             json: appRequest
         });
 
-        expect(request.post(`http://${nextConfig.hostName}:${nextConfig.hostPort}/appointment`, {
-            json: appRequest
-        })).to.be.rejected;
+        expect(
+            request.post(`http://${nextConfig.hostName}:${nextConfig.hostPort}/appointment`, {
+                json: appRequest
+            })
+        ).to.be.rejected;
 
         // now register a callback on the setstate event and trigger a response
         const setStateEvent = "EventEvidence(uint256, bytes32)";
@@ -211,7 +225,6 @@ describe("Service end-to-end", () => {
             chai.assert.fail(true, false, "EventEvidence not successfully registered.");
         }
     }).timeout(3000);
-
 
     it("create channel, relay trigger dispute", async () => {
         const data = KitsuneTools.encodeTriggerDisputeData();
@@ -238,7 +251,6 @@ describe("Service end-to-end", () => {
         }
     }).timeout(3000);
 
-    
     it("create channel, relay twice throws error trigger dispute", async () => {
         const data = KitsuneTools.encodeTriggerDisputeData();
         const appRequest = appointmentRequest(data, account0, oneWayChannelContract.address, 0);
@@ -246,9 +258,11 @@ describe("Service end-to-end", () => {
         const res = await request.post(`http://${nextConfig.hostName}:${nextConfig.hostPort}/appointment`, {
             json: appRequest
         });
-        expect(request.post(`http://${nextConfig.hostName}:${nextConfig.hostPort}/appointment`, {
-            json: appRequest
-        })).to.eventually.be.rejected;
+        expect(
+            request.post(`http://${nextConfig.hostName}:${nextConfig.hostPort}/appointment`, {
+                json: appRequest
+            })
+        ).to.eventually.be.rejected;
 
         // now register a callback on the setstate event and trigger a response
         const triggerDisputeEvent = "EventDispute(uint256)";
