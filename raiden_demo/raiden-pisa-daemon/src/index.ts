@@ -109,6 +109,7 @@ const encode = (request: any) => {
             ["bytes32", request.paymentHash]
         ])
     );
+    console.log(appointmentInfo)
     const contractInfo = ethers.utils.defaultAbiCoder.encode(
         ...groupTuples([
             ["address", request.contractAddress],
@@ -117,6 +118,7 @@ const encode = (request: any) => {
             ["bytes", request.data]
         ])
     );
+    console.log(contractInfo)
     const conditionInfo = ethers.utils.defaultAbiCoder.encode(
         ...groupTuples([
             ["bytes", ethers.utils.toUtf8Bytes(request.eventABI)],
@@ -126,6 +128,7 @@ const encode = (request: any) => {
             ["uint", request.mode]
         ])
     );
+    console.log(conditionInfo)
 
     return ethers.utils.keccak256(
         ethers.utils.defaultAbiCoder.encode(
