@@ -234,15 +234,15 @@ export class Appointment {
      * @param obj
      * @param log Logger to be used in case of failures
      */
-    public static parse(obj: any, log: Logger) {
+    public static parse(obj: any, log?: Logger) {
         const valid = appointmentRequestValidation(obj);
         if (!valid) {
-            log.info({ results: appointmentRequestValidation.errors }, "Schema error.");
+            (log || logger).info({ results: appointmentRequestValidation.errors }, "Schema error.");
             throw new PublicDataValidationError(appointmentRequestValidation.errors!.map(e => e.message).join("\n"));
         }
         const request = obj as IAppointmentRequest;
-        Appointment.parseBigNumber(request.refund, "Refund", log);
-        Appointment.parseBigNumber(request.gasLimit, "Gas limit", log);
+        Appointment.parseBigNumber(request.refund, "Refund", log || logger);
+        Appointment.parseBigNumber(request.gasLimit, "Gas limit", log || logger);
         return Appointment.fromIAppointmentRequest(request);
     }
 
@@ -250,14 +250,14 @@ export class Appointment {
      * Validate property values on the appointment
      * @param log Logger to be used in case of failures
      */
-    public validate(log: Logger) {
+    public validate(log?: Logger) {
         if (this.paymentHash.toLowerCase() !== Appointment.FreeHash) throw new PublicDataValidationError("Invalid payment hash."); // prettier-ignore
 
         try {
             this.mEventFilter = this.parseEventArgs();
         } catch (doh) {
             if (doh instanceof PublicDataValidationError) throw doh;
-            log.error(doh);
+            (log || logger).error(doh);
             throw new PublicDataValidationError("Invalid event arguments for ABI.");
         }
 

@@ -171,10 +171,16 @@ export class PisaService extends StartStopService {
             const startNano = process.hrtime.bigint();
             res.on("finish", () => {
                 const endNano = process.hrtime.bigint();
-                const logEntry = { req: req, res: res, duration: (endNano - startNano).toString(10) };
+                const microDuration =   Number.parseInt((endNano - startNano).toString()) / 1000
+                const logEntry = { req: req, res: res, duration: microDuration };
 
-                if (res.statusCode !== 200) req.log.error({ ...logEntry, requestBody: req.body }, "Error response.");
-                else req.log.info(logEntry, "Success response.");
+                if (res.statusCode !== 200) {
+                    req.log.error({ ...logEntry, requestBody: req.body }, "Error response.");
+                }
+                // right now we log the request body as well even on a success response
+                // this probably isnt sutainable in the long term, but it should help us
+                // get a good idea of usage in the short term
+                else req.log.info({ ...logEntry, requestBody: req.body }, "Success response.");
             });
             next();
         });
