@@ -135,12 +135,13 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
                 : 0;
             const blocksToEmit = ancestry.slice(firstBlockIndex);
 
-            // TODO:227: this is different than before, as a NEW_BLOCK_EVENT will happen multiple times for the same block in case of multiple reorgs.
-            //           Could restore a behavior similar to the old one by keeping track of all the emitted blocks (rather than only the heads) in a WeakMap.
+            // Emit all the blocks past the latest block in the ancestry that was emitted as head
+            // In case of re-orgs, some blocks might be re-emitted multiple times.
             for (const block of blocksToEmit) {
                 this.emit(BlockProcessor.NEW_BLOCK_EVENT, block);
             }
 
+            // Emit the new head
             this.emit(BlockProcessor.NEW_HEAD_EVENT, headBlock, nearestEmittedHeadInAncestry);
             this.emittedBlockHeads.add(headBlock);
         }
@@ -160,7 +161,8 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
         try {
             const observedBlock = await this.getBlockRemote(blockNumber);
             if (observedBlock == null) {
-                // TODO:227: what to do if block is null? Is failing silently ok?
+                // No recovery needed, will pick this block up a next new_head event
+                this.logger.info(`Failed to retreive block with number ${blockNumber}.`);
                 return;
             }
 
@@ -169,10 +171,11 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
             // fetch ancestors until one is found that can be added
             let curBlock: Readonly<TBlock> | null = observedBlock;
             while (!this.mBlockCache.addBlock(curBlock!)) {
-                curBlock = await this.getBlock(curBlock.parentHash);
+                const lastHash: string = curBlock.parentHash;
+                curBlock = await this.getBlock(lastHash);
 
                 if (!curBlock) {
-                    // TODO:227: how to recover if block returns null here? Fail silently?
+                    this.logger.info(`Failed to retreive block with hash ${lastHash}.`);
                     break;
                 }
             }
@@ -182,9 +185,7 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
                 this.processNewHead(observedBlock);
             }
         } catch (doh) {
-            const error = doh as Error;
-            this.logger.error(`There was an error fetching blocks: ${error.message}`);
-            this.logger.error(error.stack!);
+            this.logger.error(doh);
         }
     }
 }
