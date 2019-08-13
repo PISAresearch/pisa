@@ -75,7 +75,11 @@ describe("BlockProcessor", () => {
     // Instructs the mock provider to switch to the chain given by block `hash` (and its ancestors),
     // then emits the block number corresponding to `hash`.
     // If `returnNullAtHash` is provided, getBlock will return null for that block hash (simulating a provider failure).
-    function emitBlockHash(hash: string, returnNullAtHash: string | null = null) {
+    function emitBlockHash(
+        hash: string,
+        returnNullAtHash: string | null = null,
+        throwErrorAtHash: string | null = null
+    ) {
         let curBlockHash: string = hash;
         while (curBlockHash in blocksByHash) {
             const curBlock = blocksByHash[curBlockHash];
@@ -89,6 +93,10 @@ describe("BlockProcessor", () => {
 
         if (returnNullAtHash != null) {
             when(mockProvider.getBlock(returnNullAtHash)).thenResolve((null as any) as ethers.providers.Block);
+        }
+
+        if (throwErrorAtHash != null) {
+            when(mockProvider.getBlock(throwErrorAtHash)).thenThrow(new Error("unknown block"));
         }
 
         provider.emit("block", blocksByHash[hash].number);
@@ -239,6 +247,9 @@ describe("BlockProcessor", () => {
         }
     });
 
+    // In this test, we simulate a situation where a call to getBlock returns `null` despite being for a block that is known to exists,
+    // namely the parent of a known block.
+    // This situation occurred in tests on Ropsten using Infura, see https://github.com/PISAresearch/pisa/issues/227.
     it("resumes adding blocks after a previous failure when a new block is emitted", async () => {
         blockProcessor = new BlockProcessor(provider, blockStubAndTxFactory, blockCache);
 
@@ -248,6 +259,38 @@ describe("BlockProcessor", () => {
 
         // Try adding a new head, but fail at block "a3"
         emitBlockHash("a5", "a3");
+
+        await wait(20);
+
+        expect(blockCache.hasBlock("a5", true), "has pending block a5").to.be.true;
+        expect(blockCache.hasBlock("a4", true), "has pending block a4").to.be.true;
+
+        expect(blockCache.hasBlock("a3", true), "does not have block a3").to.be.false;
+
+        // Now add successfully
+        emitBlockHash("a6");
+
+        await wait(20);
+
+        expect(blockCache.hasBlock("a6", false), "has complete block a6").to.be.true;
+        expect(blockCache.hasBlock("a5", false), "has complete block a5").to.be.true;
+        expect(blockCache.hasBlock("a4", false), "has complete block a4").to.be.true;
+        expect(blockCache.hasBlock("a3", false), "has complete block a3").to.be.true;
+    });
+
+    // In this test, we simulate a situation where a call to getBlock throws an exception despite being for a block that is known to exists,
+    // namely the parent of a known block.
+    // While documentation of ethers.js does not currently state this possibility, this situation occurred in tests on Ropsten using Infura,
+    // see https://github.com/PISAresearch/pisa/issues/227.
+    it("resumes adding blocks after a previous failure due to getBlock throwing an error when a new block is emitted", async () => {
+        blockProcessor = new BlockProcessor(provider, blockStubAndTxFactory, blockCache);
+
+        emitBlockHash("a1");
+
+        await blockProcessor.start();
+
+        // Try adding a new head, but make getBlock throw an error at block "a3"
+        emitBlockHash("a5", null, "a3");
 
         await wait(20);
 
