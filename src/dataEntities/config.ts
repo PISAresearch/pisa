@@ -12,6 +12,13 @@ export interface IArgConfig {
     dbDir: string;
     watcherResponseConfirmations?: number;
     maximumReorgLimit?: number;
+
+    rateLimitUserWindowMs?: number;
+    rateLimitUserMax?: number;
+    rateLimitUserMessage?: string;
+    rateLimitGlobalWindowMs?: number;
+    rateLimitGlobalMax?: number;
+    rateLimitGlobalMessage?: string;
 }
 
 class ConfigProperty {
@@ -63,6 +70,31 @@ export class ConfigManager {
         new ConfigProperty("watcher-response-confirmations", config => config.watcherResponseConfirmations, {
             description: "The number of confirmations on an event before the watcher responds.",
             number: true
+        }),
+
+        new ConfigProperty("rate-limit-user-window-ms", config => config.rateLimitUserWindowMs, {
+            description: "Size of the per-user rate limit window in milliseconds",
+            number: true
+        }),
+        new ConfigProperty("rate-limit-user-max", config => config.rateLimitUserMax, {
+            description: "Maximum number of per-user requests in the time window",
+            number: true
+        }),
+        new ConfigProperty("rate-limit-user-message", config => config.rateLimitUserMessage, {
+            description: "Per-user message to emit when limit is reached",
+            string: true
+        }),
+        new ConfigProperty("rate-limit-global-window-ms", config => config.rateLimitGlobalWindowMs, {
+            description: "Size of the global rate limit window in milliseconds",
+            number: true
+        }),
+        new ConfigProperty("rate-limit-global-max", config => config.rateLimitGlobalMax, {
+            description: "Maximum number of global requests in the time window",
+            number: true
+        }),
+        new ConfigProperty("rate-limit-global-message", config => config.rateLimitGlobalMessage, {
+            description: "Global message to emit when limit is reached",
+            string: true
         })
     ];
 

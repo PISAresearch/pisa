@@ -1,6 +1,6 @@
 import { PisaService } from "./service";
 import { ethers } from "ethers";
-import jsonConfig, { ConfigManager } from "./dataEntities/config";
+import jsonConfig, { ConfigManager, IArgConfig } from "./dataEntities/config";
 import { validateProvider, getJsonRPCProvider } from "./utils/ethers";
 import logger, { setLogLevel, LogLevel, LogLevelInfo } from "./logger";
 import levelup, { LevelUp } from "levelup";
@@ -20,7 +20,26 @@ function checkLogLevel(logLevel: string): LogLevelInfo {
     return logLevelInfo;
 }
 
+function checkArgs(args: IArgConfig) {	
+    if (	
+        (args.rateLimitUserWindowMs && !args.rateLimitUserMax) ||	
+        (!args.rateLimitUserWindowMs && args.rateLimitUserMax)	
+    ) {	
+        console.error("Options 'rate-limit-user-windowms' and 'rate-limit-user-max' must be provided together.");	
+        process.exit(1);	
+    }	
+
+     if (	
+        (commandLineConfig.rateLimitGlobalWindowMs && !commandLineConfig.rateLimitGlobalMax) ||	
+        (!commandLineConfig.rateLimitGlobalWindowMs && commandLineConfig.rateLimitGlobalMax)	
+    ) {	
+        console.error("Options 'rate-limit-global-windowms' and 'rate-limit-global-max' must be provided together.");	
+        process.exit(1);	
+    }	
+}
+
 async function startUp() {
+    checkArgs(commandLineConfig);
     const config = Object.assign(jsonConfig, commandLineConfig);
 
     const logLevelInfo = checkLogLevel(config.loglevel);

@@ -17,6 +17,7 @@ import swaggerJsDoc from "swagger-jsdoc";
 import { Logger } from "./logger";
 import path from "path";
 import { GasQueue } from "./responder/gasQueue";
+import rateLimit from "express-rate-limit";
 import uuid = require("uuid/v4");
 
 /**
@@ -54,7 +55,7 @@ export class PisaService extends StartStopService {
     ) {
         super("pisa");
         const app = express();
-        this.applyMiddlewares(app);
+        this.applyMiddlewares(app, config);
 
         // block cache and processor
         const cacheLimit = config.maximumReorgLimit === undefined ? 200 : config.maximumReorgLimit;
@@ -157,7 +158,7 @@ export class PisaService extends StartStopService {
         });
     }
 
-    private applyMiddlewares(app: express.Express) {
+    private applyMiddlewares(app: express.Express, config: IArgConfig) {
         // accept json request bodies
         app.use(express.json());
         // use http context middleware to create a request id available on all requests
@@ -184,6 +185,31 @@ export class PisaService extends StartStopService {
             });
             next();
         });
+
+        // rate limits	
+        if (config.rateLimitGlobalMax && config.rateLimitGlobalWindowMs) {	
+            app.use(	
+                new rateLimit({	
+                    keyGenerator: () => "global", // use the same key for all users	
+                    statusCode: 503, // = Too Many Requests (RFC 7231)	
+                    message: config.rateLimitGlobalMessage || "Server request limit reached. Please try again later.",	
+                    windowMs: config.rateLimitGlobalWindowMs,	
+                    max: config.rateLimitGlobalMax	
+                })	
+            );	
+        }	
+
+         if (config.rateLimitUserMax && config.rateLimitUserWindowMs) {	
+            app.use(	
+                new rateLimit({	
+                    keyGenerator: req => req.ip, // limit per IP	
+                    statusCode: 429, // = Too Many Requests (RFC 6585)	
+                    message: config.rateLimitUserMessage || "Too many requests. Please try again later.",	
+                    windowMs: config.rateLimitUserWindowMs,	
+                    max: config.rateLimitUserMax	
+                })	
+            );	
+        }
     }
 
     /**
