@@ -75,6 +75,7 @@ describe("Integration", function() {
 
         await parity.start(true);
         await pisa.start(true);
+        await wait(10000);
     });
 
     after(async () => {
