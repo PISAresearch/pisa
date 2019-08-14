@@ -155,7 +155,7 @@ describe("Integration", function() {
 
         const createAppointmentRequest = (data: string, acc: string): IAppointmentRequest => {
             return {
-                challengePeriod: 20,
+                challengePeriod: 100,
                 contractAddress: channelContract.address,
                 customerAddress: acc,
                 data,
