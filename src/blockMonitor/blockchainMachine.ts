@@ -42,36 +42,40 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
     }
 
     private processNewBlock(block: TBlock) {
-        // every time a new block is received we calculate the anchor state for
-        // that block and store it
+        // Every time a new block is received we calculate the anchor state for that block and store it
 
         for (const { component, states } of this.componentsAndStates) {
             // If the parent is available and its anchor state is known, the state can be computed with the reducer.
             // If the parent is available but its anchor state is not known, first compute its parent's initial state, then apply the reducer.
             // Finally, if the parent is not available at all in the block cache, compute the initial state based on the current block.
 
+            let newState: AnchorState;
             if (this.blockProcessor.blockCache.hasBlock(block.parentHash)) {
                 const parentBlock = this.blockProcessor.blockCache.getBlock(block.parentHash);
                 const prevAnchorState = states.get(parentBlock) || component.reducer.getInitialState(parentBlock);
 
-                states.set(block, component.reducer.reduce(prevAnchorState, block));
+                newState = component.reducer.reduce(prevAnchorState, block);
             } else {
-                states.set(block, component.reducer.getInitialState(block));
+                newState = component.reducer.getInitialState(block);
             }
+
+            states.set(block, newState);
         }
     }
 
     private processNewHead(head: Readonly<TBlock>, prevHead: Readonly<TBlock> | null) {
-        // the components can specify some behaviour that is computed as a diff
+        // The components can specify some behaviour that is computed as a diff
         // between the old head and the head. We compute this now for each of the
         // components
 
         for (const { component, states } of this.componentsAndStates) {
             const state = states.get(head);
             if (state == undefined) {
-                // as processNewBlock is always called before processNewHead, this should never happen
+                // Since processNewBlock is always called before processNewHead, this should never happen
                 this.logger.error(
-                    `State for block ${head.hash} (number ${head.number}) was not set, but it should have been`
+                    `State for component ${component.constructor.name} for block ${head.hash} (number ${
+                        head.number
+                    }) was not set, but it should have been.`
                 );
                 return;
             }

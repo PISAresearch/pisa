@@ -162,7 +162,15 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
             const observedBlock = await this.getBlockRemote(blockNumber);
             if (observedBlock == null) {
                 // No recovery needed, will pick this block up a next new_head event
-                this.logger.info(`Failed to retreive block with number ${blockNumber}.`);
+                this.logger.info(`Failed to retrieve block with number ${blockNumber}.`);
+                return;
+            }
+
+            if (this.blockCache.hasBlock(observedBlock.hash, true)) {
+                // We received a block that we already processed before. Ignore, but log that it happened
+                this.logger.info(
+                    `Received block #${blockNumber} with hash ${observedBlock.hash}, that was already known. Skipping.`
+                );
                 return;
             }
 
