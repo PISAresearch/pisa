@@ -50,9 +50,6 @@ export class ResponderStore extends StartStopService {
         for (const [key, value] of respondedTransactions.entries()) {
             this.mTransactions.set(key, value);
         }
-
-        this.logger.info(this.mQueue, "Loaded queue from responder db.")
-        this.logger.info(this.mTransactions, "Loaded transactions from responder db.")
     }
     protected async stopInternal() {}
 
