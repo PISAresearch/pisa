@@ -76,6 +76,7 @@ export class MultiResponder {
                 const idealGas = await this.gasEstimator.estimate(appointment);
                 const request = new GasQueueItemRequest(txIdentifier, idealGas, appointment, blockObserved);
                 logger.info(request, `Enqueueing request for ${appointment.id}.`);
+                logger.info({ queueLength: this.zStore.queue.queueItems.length}, `Queue is now length: ${this.zStore.queue.queueItems.length}`) //prettier-ignore
 
                 // add the queue item to the queue, since the queue is ordered this may mean
                 // that we need to replace some transactions on the network. Find those and
