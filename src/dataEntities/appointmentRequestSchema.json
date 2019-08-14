@@ -29,8 +29,8 @@
             "type": "integer",
             "title": "Challenge period",
             "description": "The number of blocks that PISA has to respond if an event is noticed.",
-            "minimum": 0,
-            "maximum": 9007199254740991,
+            "minimum": 100,
+            "maximum": 60000,
             "examples": [100]
         },
         "contractAddress": {

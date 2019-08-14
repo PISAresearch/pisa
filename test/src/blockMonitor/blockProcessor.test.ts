@@ -7,7 +7,6 @@ import { EventEmitter } from "events";
 import { BlockProcessor, BlockCache, blockStubAndTxFactory } from "../../../src/blockMonitor";
 import { IBlockStub } from "../../../src/dataEntities";
 import throwingInstance from "../../utils/throwingInstance";
-import { groupTuples } from "../../../src/utils/ethers";
 
 chai.use(chaiAsPromised);
 const expect = chai.expect;
