@@ -9,7 +9,7 @@ chai.use(chaiAsPromised)
 const customerPrivKey = "0xd40be03d93b1ab00d334df3fe683da2d360e95fbfd132178facc3a8f5d9eb620";
 const customerSigner = new ethers.Wallet(customerPrivKey);
 const testAppointmentRequest = {
-    challengePeriod: 20,
+    challengePeriod: 100,
     contractAddress: "0x254dffcd3277C0b1660F6d42EFbB754edaBAbC2B",
     customerAddress: "0x70397134f9c6941831626763807c3B88f7DD3520",
     data:
