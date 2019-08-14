@@ -16,6 +16,7 @@ export class AppointmentStore extends StartStopService {
     protected async startInternal() {
         // access the db and load all state
         for await (const record of this.db.createValueStream()) {
+            this.logger.info(record, "Loading appointment")
             const appointment = Appointment.fromIAppointment((record as any) as IAppointment);
             // add too the indexes
             this.mAppointmentsById.set(appointment.id, appointment);
