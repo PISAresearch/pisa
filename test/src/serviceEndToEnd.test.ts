@@ -40,7 +40,7 @@ const appointmentRequest = async (
     customerAddress: string
 ): Promise<IAppointmentRequest> => {
     const bareAppointment = {
-        challengePeriod: 20,
+        challengePeriod: 100,
         contractAddress,
         customerAddress: customerAddress,
         data,
