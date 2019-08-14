@@ -153,7 +153,7 @@ export class BlockProcessor<T extends IBlockStub> extends StartStopService {
                 this.processNewHead(observedBlock);
             }
         } catch (doh) {
-            this.logger.error(doh);
+            // this.logger.error(doh);
         }
     }
 }
