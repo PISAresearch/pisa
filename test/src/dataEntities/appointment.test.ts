@@ -192,6 +192,19 @@ describe("Appointment", () => {
         await signedAppointment.validate();
     });
 
+
+    // TODO:274:should not be able to specufy "uint8[]", [[2]] - with a 2 in here
+    fnIt<Appointment>(a => a.validate, "can specify none of the indexed arguments", async () => {
+        const clone = { ...testAppointmentRequest };
+        clone.eventABI = "event Face(address indexed, uint256, uint256 indexed)";
+        clone.eventArgs = ethers.utils.defaultAbiCoder.encode(["uint8[]"], [[]]);
+        
+        const testAppointment = Appointment.parse(clone);
+        const signedAppointment = await sign(testAppointment, customerSigner);
+
+        await signedAppointment.validate();
+    });
+
     fnIt<Appointment>(a => a.validate, "index must be less than number of arguments to event", async () => {
         const clone = { ...testAppointmentRequest };
         clone.eventABI = "event Face(address indexed, uint256)";
