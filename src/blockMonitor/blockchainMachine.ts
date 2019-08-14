@@ -42,6 +42,7 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
     }
 
     private processNewBlock(block: TBlock) {
+        this.logger.info(`Processing new block: ${JSON.stringify(block)}`);
         // every time a new block is received we calculate the anchor state for
         // that block and store it
 
@@ -58,10 +59,13 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
             } else {
                 states.set(block, component.reducer.getInitialState(block));
             }
+            this.logger.info(`Set state for block ${block.hash}: ${JSON.stringify(states.get(block))}`);
         }
     }
 
     private processNewHead(head: Readonly<TBlock>, prevHead: Readonly<TBlock> | null) {
+        this.logger.info(`Processing new head: ${JSON.stringify(head)}`);
+
         // the components can specify some behaviour that is computed as a diff
         // between the old head and the head. We compute this now for each of the
         // components
