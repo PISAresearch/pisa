@@ -124,8 +124,8 @@
             "$id": "#/properties/paymentHash",
             "type": "string",
             "title": "Payment hash",
-            "description": "The hash received during payment.",
-            "examples": ["0x11359291abdee43476905204ea224bd2c1ccc775f283d280ed61f8f0ce94483e"]
+            "description": "The hash received during payment. Use `0xfc1624bdc50da30f2ea37b7debabeac1f6166db013c5880dcf63907b04199138` for free access.",
+            "examples": ["0xfc1624bdc50da30f2ea37b7debabeac1f6166db013c5880dcf63907b04199138"]
         },
         "preCondition": {
             "$id": "#/properties/preCondition",
