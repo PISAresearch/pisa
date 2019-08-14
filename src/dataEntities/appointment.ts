@@ -296,9 +296,22 @@ export class Appointment {
         if (this.refund.gt(ethers.utils.parseEther("0.1"))) throw new PublicDataValidationError("Refund cannot be greater than 0.1 ether."); // prettier-ignore
 
         // check the sig
-        const recoveredAddress = ethers.utils.verifyMessage(this.encode(), this.customerSig);
+        let encoded;
+        try {
+            encoded = this.encode();
+        } catch (doh) {
+            log.error(doh);
+            throw new PublicDataValidationError("Invalid solidity type. An error has occurred ABI encoding a field. This may be due to incorrect bytes encoding, please ensure that all byte(s) fields are of the correct length and are prefixed with 0x."); //prettier-ignore
+        }
+        let recoveredAddress;
+        try {
+            recoveredAddress = ethers.utils.verifyMessage(encoded, this.customerSig);
+        } catch (doh) {
+            log.error(doh);
+            throw new PublicDataValidationError("Invalid signature.");
+        }
         if (this.customerAddress.toLowerCase() !== recoveredAddress.toLowerCase()) {
-            throw new PublicDataValidationError("Invalid signature");
+            throw new PublicDataValidationError("Invalid signature.");
         }
     }
 
@@ -358,13 +371,14 @@ export class Appointment {
             indexes = ethers.utils.defaultAbiCoder.decode(["uint8[]"], this.eventArgs)[0];
         } catch (doh) {
             logger.info(doh);
-            throw new PublicDataValidationError("Incorrect first argument. First argument must be a uint8[] encoded array of the indexes of the event arguments to be filtered on.") // prettier-ignore
+            throw new PublicDataValidationError("Invalid EventArgs. Incorrect first argument. First argument must be a uint8[] encoded array of the indexes of the event arguments to be filtered on.") // prettier-ignore
         }
 
         const maxIndex = indexes.reduce((a, b) => (a > b ? a : b), 0);
         if (maxIndex > inputs.length - 1)
             throw new PublicInspectionError(
-                `Index ${maxIndex} greater than number of arguments in event. Arg length: ${inputs.length - 1}.`
+                `Invalid EventArgs. Index ${maxIndex} greater than number of arguments in event. Arg length: ${inputs.length -
+                    1}.`
             );
 
         const namedInputs = indexes.map(i => inputs[i]);
@@ -373,7 +387,7 @@ export class Appointment {
         namedInputs
             .filter(i => !i.indexed)
             .forEach(i => {
-                throw new PublicDataValidationError(`Only indexed event parameters can be specified as event arguments.  ${i.name ? `Parameter: ${i.name}` : ""}. Specified paramed: ${indexes}`); // prettier-ignore
+                throw new PublicDataValidationError(`Invalid EventArgs. Only indexed event parameters can be specified as event arguments.  ${i.name ? `Parameter: ${i.name}` : ""}. Specified paramed: ${indexes}`); // prettier-ignore
             });
 
         // decode the inputs that have been specified
