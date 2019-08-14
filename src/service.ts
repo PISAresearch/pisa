@@ -111,10 +111,16 @@ export class PisaService extends StartStopService {
         });
         app.get("/docs.html", (req, res) => {
             res.setHeader("Content-Type", "text/html");
-            res.send(this.redocHtml(config.hostName, config.hostPort));
+            res.send(this.redocHtml());
         });
         app.get("/schemas/appointmentRequest.json", (req, res) => {
             res.sendFile(path.join(__dirname, "dataEntities/appointmentRequestSchema.json"));
+        });
+        // set up 404
+        app.get("*", function(req, res) {
+            res.status(404).json({
+                message: "Route not found, only availale routes are POST at /appointment and GET at /docs.html"
+            });
         });
 
         const service = app.listen(config.hostPort, config.hostName);
@@ -167,6 +173,21 @@ export class PisaService extends StartStopService {
         app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
             (req as any).log = this.logger.child({ requestId: uuid() });
             next();
+        });
+        // set up base error handler
+        app.use((err: Error, req: requestAndLog, res: express.Response, next: express.NextFunction) => {
+            this.logger.error({ err, req, res, requestBody: req.body }, "Base handler");
+            if ((err as any).statusCode === 400) {
+                res.status(400);
+                res.send({ message: "Bad request" });
+            } else if ((err as any).statusCode) {
+                Number.parseInt((err as any).statusCode)
+                res.status((err as any).statusCode);
+                res.send({});
+            } else {
+                res.status(500);
+                res.send({ message: "Internal server error" });
+            }
         });
         app.use((req: requestAndLog, res: express.Response, next: express.NextFunction) => {
             //log the duration of every request, and the body in case of error
@@ -268,7 +289,7 @@ export class PisaService extends StartStopService {
         res.send({ message: responseMessage });
     }
 
-    private redocHtml(host: string, port: number) {
+    private redocHtml() {
         return `<!DOCTYPE html>
             <html>
             <head>
