@@ -24,7 +24,7 @@ export class PisaTower {
         if (!obj) throw new PublicDataValidationError("Json request body empty.");
         const appointment = Appointment.parse(obj, log);
         // check the appointment is valid
-        appointment.validate(log);
+        await appointment.validate(log);
 
         // is this a relay transaction, if so, add it to the responder.
         // if not, add it to the watcher
@@ -34,7 +34,6 @@ export class PisaTower {
             // add this to the store so that other components can pick up on it
             const currentAppointment = this.store.appointmentsByLocator.get(appointment.locator);
             if (!currentAppointment || appointment.jobId > currentAppointment.jobId) {   
-                
                 await this.store.addOrUpdateByLocator(appointment);
             } else throw new PublicDataValidationError(`Appointment already exists and job id too low. Should be greater than ${appointment.jobId}.`); // prettier-ignore
         }
@@ -70,7 +69,7 @@ export class HotEthereumAppointmentSigner extends EthereumAppointmentSigner {
      * @param appointment
      */
     public async signAppointment(appointment: Appointment): Promise<string> {
-        const packedData = appointment.solidityPacked();
+        const packedData = appointment.encode();
         const digest = ethers.utils.keccak256(packedData);
         return await this.signer.signMessage(digest);
     }

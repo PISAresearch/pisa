@@ -32,11 +32,17 @@ provider.pollingInterval = 100;
 
 const expect = chai.expect;
 
-const appointmentRequest = (data: string, acc: string, contractAddress: string, mode: number): IAppointmentRequest => {
-    return {
+const appointmentRequest = async (
+    data: string,
+    contractAddress: string,
+    mode: number,
+    customer: ethers.Signer,
+    customerAddress: string
+): Promise<IAppointmentRequest> => {
+    const bareAppointment = {
         challengePeriod: 20,
         contractAddress,
-        customerAddress: acc,
+        customerAddress: customerAddress,
         data,
         endBlock: 22,
         eventABI: KitsuneTools.eventABI(),
@@ -45,16 +51,30 @@ const appointmentRequest = (data: string, acc: string, contractAddress: string, 
         id: 1,
         jobId: 0,
         mode,
+        preCondition: "0x",
         postCondition: "0x",
         refund: "0",
         startBlock: 0,
-        paymentHash: Appointment.FreeHash
+        paymentHash: Appointment.FreeHash,
+        customerSig: "ox"
+    };
+
+    const app = Appointment.parse(bareAppointment);
+    const encoded = app.encode();
+    const sig = await customer.signMessage(encoded);
+    return {
+        ...Appointment.toIAppointmentRequest(app),
+        customerSig: sig,
+        refund: app.refund.toString(),
+        gasLimit: app.gasLimit.toString()
     };
 };
 
 describe("Service end-to-end", () => {
     let account0: string,
         account1: string,
+        wallet0: ethers.Signer,
+        wallet1: ethers.Signer,
         channelContract: ethers.Contract,
         oneWayChannelContract: ethers.Contract,
         hashState: string,
@@ -88,7 +108,9 @@ describe("Service end-to-end", () => {
 
         // accounts
         const accounts = await provider.listAccounts();
+        wallet0 = provider.getSigner(account0);
         account0 = accounts[0];
+        wallet1 = provider.getSigner(account0);
         account1 = accounts[1];
 
         // set the dispute period, greater than the inspector period
@@ -131,7 +153,7 @@ describe("Service end-to-end", () => {
         const sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash));
         const sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash));
         const data = KitsuneTools.encodeSetStateData(hashState, round, sig0, sig1);
-        const appRequest = appointmentRequest(data, account0, channelContract.address, 1);
+        const appRequest = await appointmentRequest(data, channelContract.address, 1, wallet0, account0);
 
         try {
             await request.post(`http://${nextConfig.hostName}:${nextConfig.hostPort + 1}/appointment`, {
@@ -160,7 +182,7 @@ describe("Service end-to-end", () => {
         const sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash));
         const sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash));
         const data = KitsuneTools.encodeSetStateData(hashState, round, sig0, sig1);
-        const appRequest = appointmentRequest(data, account0, channelContract.address, 1);
+        const appRequest = await appointmentRequest(data, channelContract.address, 1, wallet0, account0);
 
         const res = await request.post(`http://${nextConfig.hostName}:${nextConfig.hostPort}/appointment`, {
             json: appRequest
@@ -193,7 +215,7 @@ describe("Service end-to-end", () => {
         const sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash));
         const sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash));
         const data = KitsuneTools.encodeSetStateData(hashState, round, sig0, sig1);
-        const appRequest = appointmentRequest(data, account0, channelContract.address, 1);
+        const appRequest = await appointmentRequest(data, channelContract.address, 1, wallet0, account0);
 
         const res = await request.post(`http://${nextConfig.hostName}:${nextConfig.hostPort}/appointment`, {
             json: appRequest
@@ -228,7 +250,7 @@ describe("Service end-to-end", () => {
 
     it("create channel, relay trigger dispute", async () => {
         const data = KitsuneTools.encodeTriggerDisputeData();
-        const appRequest = appointmentRequest(data, account0, oneWayChannelContract.address, 0);
+        const appRequest = await appointmentRequest(data, oneWayChannelContract.address, 0, wallet0, account0);
 
         const res = await request.post(`http://${nextConfig.hostName}:${nextConfig.hostPort}/appointment`, {
             json: appRequest
@@ -253,7 +275,7 @@ describe("Service end-to-end", () => {
 
     it("create channel, relay twice throws error trigger dispute", async () => {
         const data = KitsuneTools.encodeTriggerDisputeData();
-        const appRequest = appointmentRequest(data, account0, oneWayChannelContract.address, 0);
+        const appRequest = await appointmentRequest(data, oneWayChannelContract.address, 0, wallet0, account0);
 
         const res = await request.post(`http://${nextConfig.hostName}:${nextConfig.hostPort}/appointment`, {
             json: appRequest

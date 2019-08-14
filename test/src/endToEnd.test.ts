@@ -72,10 +72,12 @@ describe("End to end", () => {
             customerChosenId: 10,
             jobId: 0,
             mode: 1,
+            preCondition: "0x",
             postCondition: "0x",
             refund: "0",
             startBlock: 0,
-            paymentHash: "on-the-house"
+            paymentHash: "on-the-house",
+            customerSig: "sig"
         });
 
         const blockCache = new BlockCache<Block>(200);
