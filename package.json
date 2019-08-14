@@ -49,6 +49,7 @@
     "dependencies": {
         "@types/swagger-jsdoc": "^3.0.1",
         "ajv": "^6.10.2",
+        "better-ajv-errors": "^0.6.4",
         "bunyan": "^1.8.12",
         "encoding-down": "^6.0.2",
         "ethers": "^4.0.27",
