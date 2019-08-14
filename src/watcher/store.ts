@@ -3,20 +3,23 @@ import { LevelUp } from "levelup";
 import encodingDown from "encoding-down";
 import { LockManager } from "../utils/lock";
 import { Appointment } from "../dataEntities/appointment";
+import EncodingDown from "encoding-down";
+const sub = require("subleveldown");
 
 /**
  * Stores all appointments in memory and in the db. Has an inefficient processes for
  * determining expired appointments so this function should not be used in a loop.
  */
 export class AppointmentStore extends StartStopService {
-    constructor(private readonly db: LevelUp<encodingDown<string, any>>) {
+    private readonly subDb: LevelUp<EncodingDown<string, any>>;
+    constructor(db: LevelUp<encodingDown<string, any>>) {
         super("appointment-store");
+        this.subDb = sub(db, `watcher`, { valueEncoding: 'json' });
     }
 
     protected async startInternal() {
         // access the db and load all state
-        for await (const record of this.db.createValueStream()) {
-            this.logger.info(record, "Loading appointment")
+        for await (const record of this.subDb.createValueStream()) {
             const appointment = Appointment.fromIAppointment((record as any) as IAppointment);
             // add too the indexes
             this.mAppointmentsById.set(appointment.id, appointment);
@@ -67,7 +70,7 @@ export class AppointmentStore extends StartStopService {
             }
 
             // update the db
-            const batch = this.db.batch().put(appointment.id, Appointment.toIAppointment(appointment));
+            const batch = this.subDb.batch().put(appointment.id, Appointment.toIAppointment(appointment));
             if (currentAppointment) await batch.del(currentAppointment.id).write();
             else await batch.write();
 
@@ -102,7 +105,7 @@ export class AppointmentStore extends StartStopService {
             });
 
             // and remove from remote storage
-            await this.db.del(appointmentId);
+            await this.subDb.del(appointmentId);
             return true;
         }
         return false;
