@@ -117,9 +117,9 @@ interface GasQueueItemSerialisation {
 export class GasQueueItem {
     public static serialise(item: GasQueueItem): GasQueueItemSerialisation {
         return {
-            idealGasPrice: item.idealGasPrice.toString(),
+            idealGasPrice: item.idealGasPrice.toHexString(),
             nonce: item.nonce,
-            nonceGasPrice: item.nonceGasPrice.toString(),
+            nonceGasPrice: item.nonceGasPrice.toHexString(),
             request: GasQueueItemRequest.serialise(item.request)
         };
     }
