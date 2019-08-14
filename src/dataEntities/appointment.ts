@@ -6,7 +6,8 @@ import logger from "../logger";
 import { BigNumber } from "ethers/utils";
 import { groupTuples } from "../utils/ethers";
 import { Logger } from "../logger";
-const ajv = new Ajv();
+import betterAjvErrors from "better-ajv-errors";
+const ajv = new Ajv({ jsonPointers: true, allErrors: true });
 const appointmentRequestValidation = ajv.compile(appointmentRequestSchemaJson);
 
 export enum AppointmentMode {
@@ -256,10 +257,18 @@ export class Appointment {
      */
     public static parse(obj: any, log: Logger = logger) {
         const valid = appointmentRequestValidation(obj);
-        
+
         if (!valid) {
-            log.info({ results: appointmentRequestValidation.errors }, "Schema error.");
-            throw new PublicDataValidationError(appointmentRequestValidation.errors!.map(e => e.message).join("\n"));
+            const betterErrors = betterAjvErrors(
+                appointmentRequestSchemaJson,
+                obj,
+                appointmentRequestValidation.errors,
+                { format: "js" }
+            );
+            if (betterErrors) {
+                log.info({ results: betterErrors }, "Schema error.");
+                throw new PublicDataValidationError(betterErrors.map(e => e.error).join("\n"));
+            }
         }
         const request = obj as IAppointmentRequest;
         Appointment.parseBigNumber(request.refund, "Refund", log);

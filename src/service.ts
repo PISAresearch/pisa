@@ -218,7 +218,7 @@ export class PisaService extends StartStopService {
      *
      * /appointment:
      *   post:
-     *     description: Request an appointmnt
+     *     description: Request an appointment
      *     produces:
      *       - application/json
      *     parameters:
