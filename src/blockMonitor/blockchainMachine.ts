@@ -4,7 +4,7 @@ import { Component, AnchorState, ComponentAction } from "./component";
 
 interface ComponentAndStates {
     component: Component<AnchorState, IBlockStub, ComponentAction>;
-    states: WeakMap<IBlockStub, {}>;
+    states: WeakMap<IBlockStub, object>;
 }
 
 // Generic class to handle the anchor statee of a blockchain state machine
@@ -72,7 +72,7 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
 
         for (const { component, states } of this.componentsAndStates) {
             const state = states.get(head);
-            if (!state) {
+            if (state == undefined) {
                 // as processNewBlock is always called before processNewHead, this should never happen
                 this.logger.error(
                     `State for block ${head.hash} (number ${head.number}) was not set, but it should have been`
