@@ -104,11 +104,9 @@ export class ResponderStore extends StartStopService {
             const { key, value } = keyValue as any;
             if (key === this.queueKey) {
                 // this is the queue
-                this.logger.info(value, "queue")
                 queue = GasQueue.deserialise(value);
             } else {
                 // this is a transactions
-                this.logger.info(value, "item")
                 transactions.set(key, GasQueueItem.deserialise(value));
             }
         }
