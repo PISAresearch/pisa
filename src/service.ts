@@ -181,9 +181,14 @@ export class PisaService extends StartStopService {
                 res.status(400);
                 res.send({ message: "Bad request" });
             } else if ((err as any).statusCode) {
-                Number.parseInt((err as any).statusCode)
-                res.status((err as any).statusCode);
-                res.send({});
+                try {
+                    Number.parseInt((err as any).statusCode);
+                    res.status((err as any).statusCode);
+                    res.send({});
+                } catch (doh) {
+                    res.status(500);
+                    res.send({ message: "Internal server error" });
+                }
             } else {
                 res.status(500);
                 res.send({ message: "Internal server error" });
