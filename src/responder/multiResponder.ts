@@ -43,7 +43,7 @@ export class MultiResponder {
         private readonly chainId: number,
         store: ResponderStore,
         public readonly address: string,
-        public readonly balanceThreshold: number
+        public readonly balanceThreshold: BigNumber
     ) {
         this.broadcast = this.broadcast.bind(this);
         this.zStore = store;
@@ -76,12 +76,12 @@ export class MultiResponder {
                 const idealGas = await this.gasEstimator.estimate(appointment);
                 const request = new GasQueueItemRequest(txIdentifier, idealGas, appointment, blockObserved);
                 logger.info(request, `Enqueueing request for ${appointment.id}.`);
-                logger.info({ queueLength: this.zStore.queue.queueItems.length}, `Queue is now length: ${this.zStore.queue.queueItems.length}`) //prettier-ignore
 
                 // add the queue item to the queue, since the queue is ordered this may mean
                 // that we need to replace some transactions on the network. Find those and
                 // broadcast them
                 const replacedQueue = this.zStore.queue.add(request);
+                logger.info({ queueLength: this.zStore.queue.queueItems.length}, `Queue is now length: ${this.zStore.queue.queueItems.length}.`) //prettier-ignore
                 return await this.zStore.updateQueue(replacedQueue);
             });
 
@@ -215,6 +215,7 @@ export class MultiResponder {
             logger.error(doh);
         }
     }
+    
     /**
      * Checks to see if the responder balance is lower than the threshold set in the constructor.
      * If the balance is lower, a warning will be outputted by the logger
