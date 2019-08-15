@@ -305,7 +305,7 @@ export class Appointment {
         }
         let recoveredAddress;
         try {
-            recoveredAddress = ethers.utils.verifyMessage(encoded, this.customerSig);
+            recoveredAddress = ethers.utils.verifyMessage(ethers.utils.arrayify(encoded), this.customerSig);
         } catch (doh) {
             log.error(doh);
             throw new PublicDataValidationError("Invalid signature.");
@@ -428,6 +428,7 @@ export class Appointment {
                 ["bytes32", this.paymentHash]
             ])
         );
+
         const contractInfo = ethers.utils.defaultAbiCoder.encode(
             ...groupTuples([
                 ["address", this.contractAddress],
@@ -436,6 +437,7 @@ export class Appointment {
                 ["bytes", this.data]
             ])
         );
+
         const conditionInfo = ethers.utils.defaultAbiCoder.encode(
             ...groupTuples([
                 ["bytes", ethers.utils.toUtf8Bytes(this.eventABI)],
@@ -446,11 +448,11 @@ export class Appointment {
             ])
         );
 
-        return ethers.utils.keccak256(
-            ethers.utils.defaultAbiCoder.encode(
-                ...groupTuples([["bytes", appointmentInfo], ["bytes", contractInfo], ["bytes", conditionInfo]])
-            )
-        );
+        const encodedAppointment = ethers.utils.defaultAbiCoder.encode(
+            ...groupTuples([["bytes", appointmentInfo], ["bytes", contractInfo], ["bytes", conditionInfo]])
+        )
+
+        return ethers.utils.keccak256(encodedAppointment);
     }
 }
 
