@@ -177,8 +177,9 @@ describe("Integration", function() {
 
         const appointment = createAppointmentRequest(data, key0.account);
         const hash = encode(appointment);
-        const sig = await key0.wallet.signMessage(hash);
-        const clone = { ...appointment, customerSig: sig };
+        const sig = await key0.wallet.signMessage(ethers.utils.arrayify(hash))
+        const clone = { ...appointment, customerSig: sig};
+
 
         const res = await request.post(`http://localhost:${pisa.config.hostPort}/appointment`, {
             json: clone
