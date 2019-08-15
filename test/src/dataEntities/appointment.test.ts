@@ -128,7 +128,7 @@ describe("Appointment", () => {
 
     const sign = async (appointment: Appointment, wallet: ethers.Wallet)  => {
         const encoded = appointment.encode()
-        const sig = await wallet.signMessage(encoded)
+        const sig = await wallet.signMessage(ethers.utils.arrayify(encoded))
         const clone = { ...Appointment.toIAppointmentRequest(appointment), customerSig: sig };
         return Appointment.parse(clone)
     }

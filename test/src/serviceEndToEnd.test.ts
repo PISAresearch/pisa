@@ -61,7 +61,7 @@ const appointmentRequest = async (
 
     const app = Appointment.parse(bareAppointment);
     const encoded = app.encode();
-    const sig = await customer.signMessage(encoded);
+    const sig = await customer.signMessage(ethers.utils.arrayify(encoded));
     return {
         ...Appointment.toIAppointmentRequest(app),
         customerSig: sig,
