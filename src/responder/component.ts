@@ -54,6 +54,8 @@ export class ResponderAppointmentReducer implements StateReducer<ResponderAppoin
             if (!tx.to) continue;
 
             // look for matching transactions
+            // we should use chain id, but for some reason chain id is not present in transactions from ethersjs
+            // therefore we fallback to network id when chain id is not present
             const txChainId = tx.chainId || (tx as any).networkId;
             const txIdentifier = new PisaTransactionIdentifier(txChainId, tx.data, tx.to, tx.value, tx.gasLimit);
             if (txIdentifier.equals(identifier) && tx.from.toLowerCase() === this.address.toLowerCase()) {
