@@ -19,6 +19,7 @@ import path from "path";
 import { GasQueue } from "./responder/gasQueue";
 import rateLimit from "express-rate-limit";
 import uuid = require("uuid/v4");
+import { BigNumber } from "ethers/utils";
 
 /**
  * Request object supplemented with a log
@@ -74,7 +75,7 @@ export class PisaService extends StartStopService {
             chainId,
             this.responderStore,
             wallet.address,
-            500000000000000000
+            new BigNumber("500000000000000000")
         );
 
         // components and machine

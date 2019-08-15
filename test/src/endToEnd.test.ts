@@ -13,6 +13,7 @@ import MemDown from "memdown";
 import { BlockchainMachine } from "../../src/blockMonitor/blockchainMachine";
 import encodingDown from "encoding-down";
 import { GasQueue } from "../../src/responder/gasQueue";
+import { BigNumber } from "ethers/utils";
 
 const ganache = Ganache.provider({
     mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect"
@@ -94,7 +95,7 @@ describe("End to end", () => {
             provider.network.chainId,
             responderStore,
             pisaAccount,
-            500000000000000000
+            new BigNumber("500000000000000000")
         );
 
         const store = new AppointmentStore(db);
