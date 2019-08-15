@@ -176,7 +176,7 @@ describe("Integration", function() {
 
         const appointment = createAppointmentRequest(data, key0.account)
         const hash = encode(appointment);
-        const sig = await key0.wallet.signMessage(hash)
+        const sig = await key0.wallet.signMessage(ethers.utils.arrayify(hash))
         const clone = { ...appointment, customerSig: sig};
 
 

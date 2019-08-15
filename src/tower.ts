@@ -71,6 +71,6 @@ export class HotEthereumAppointmentSigner extends EthereumAppointmentSigner {
     public async signAppointment(appointment: Appointment): Promise<string> {
         const packedData = appointment.encode();
         const digest = ethers.utils.keccak256(packedData);
-        return await this.signer.signMessage(digest);
+        return await this.signer.signMessage(ethers.utils.arrayify(digest));
     }
 }

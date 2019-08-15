@@ -68,7 +68,7 @@ const run = async (startingRowId: number) => {
                 customerSig: "0x"
             };
             const encoded = encode(request);
-            const sig = await wallet.signMessage(encoded);
+            const sig = await wallet.signMessage(ethers.utils.arrayify(encoded));
             request.customerSig = sig;
             console.log(request);
             await pisaClient.requestAppointment(request);
