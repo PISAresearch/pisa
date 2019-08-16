@@ -1,4 +1,4 @@
-import { ConfigurationError } from "./errors";
+import { ApplicationError, ConfigurationError } from "./errors";
 import { createNamedLogger, Logger } from "../logger";
 import { EventEmitter } from "events";
 

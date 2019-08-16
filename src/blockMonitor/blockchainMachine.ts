@@ -22,9 +22,8 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
 
     constructor(private blockProcessor: BlockProcessor<TBlock>) {
         super("blockchain-machine");
-        /* NB must be wrapped in asProtectedMethod even though the method is not run at this stage. (see silimar in MultiResponder) */
-        this.processNewHead = this.asProtectedMethod(this.processNewHead).bind(this);
-        this.processNewBlock = this.asProtectedMethod(this.processNewBlock).bind(this);
+        this.processNewHead = this.processNewHead.bind(this);
+        this.processNewBlock = this.processNewBlock.bind(this);
     }
 
     /**

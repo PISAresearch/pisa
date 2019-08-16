@@ -90,7 +90,7 @@ export class BlockProcessor<T extends IBlockStub> extends StartStopService {
         this.mBlockCache = blockCache;
 
         /* NB must be wrapped in asProtectedMethod even though the method is not run at this stage. (see silimar in MultiResponder) */
-        this.processBlockNumber =  this.asProtectedMethod(this.processBlockNumber).bind(this);
+        this.processBlockNumber =  this.processBlockNumber.bind(this);
     }
 
     protected async startInternal(): Promise<void> {

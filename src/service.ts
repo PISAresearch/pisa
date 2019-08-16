@@ -100,7 +100,7 @@ export class PisaService extends StartStopService {
         // tower
         const tower = new PisaTower(provider, this.appointmentStore, appointmentSigner, multiResponder);
 
-        app.post("/appointment", this.asProtectedMethod(this.appointment(tower)));
+        app.post("/appointment", this.appointment(tower));
 
         // api docs
         const hostAndPort = `${config.hostName}:${config.hostPort}`;
