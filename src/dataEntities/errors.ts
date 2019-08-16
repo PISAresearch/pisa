@@ -34,7 +34,7 @@ export class ConfigurationError extends ApplicationError {
 /**
  * Thrown when an event times out.
  **/
-export class TimeoutError extends Error {
+export class TimeoutError extends ApplicationError {
     constructor(message: string) {
         super(message);
         this.name = "TimeoutError";
@@ -91,7 +91,7 @@ export class BlockThresholdReachedError extends Error {
  * Thrown when no block has been received by the provider for too long.
  * This might signal either a failure in the provider, or abnormal blockchain conditions.
  */
-export class BlockTimeoutError extends Error {
+export class BlockTimeoutError extends ApplicationError {
     constructor(message: string) {
         super(message);
         this.name = "BlockTimeoutError";
@@ -101,7 +101,7 @@ export class BlockTimeoutError extends Error {
 /**
  * Thrown when there was a re-org.
  */
-export class ReorgError extends Error {
+export class ReorgError extends ApplicationError {
     constructor(message: string) {
         super(message);
         this.name = "ReorgError";
@@ -123,7 +123,7 @@ export class QueueConsistencyError extends ApplicationError {
  * Customizes the stack trace in order to show the full stack trace of both the current
  * error and the originating error.
  */
-export class NestedError extends Error {
+export class NestedError extends ApplicationError {
     /**
      *
      * @param message The error message.
