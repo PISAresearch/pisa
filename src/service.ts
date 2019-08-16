@@ -214,7 +214,7 @@ export class PisaService extends StartStopService {
                     // is this a docs request
                     [this.JSON_SCHEMA_ROUTE, this.API_DOCS_JSON_ROUTE, this.API_DOCS_HTML_ROUTE]
                         .map(a => a.toLowerCase())
-                        .indexOf(req.url.toLowerCase()) &&
+                        .indexOf(req.url.toLowerCase()) !== -1 &&
                     res.statusCode < 400
                 ) {
                     req.log.info(logEntry, "Docs request.");
