@@ -81,7 +81,7 @@ export class MultiResponder {
                 // that we need to replace some transactions on the network. Find those and
                 // broadcast them
                 const replacedQueue = this.zStore.queue.add(request);
-                logger.info({ queueLength: this.zStore.queue.queueItems.length}, `Queue is now length: ${this.zStore.queue.queueItems.length}.`) //prettier-ignore
+                logger.info({ queueLength: this.zStore.queue.queueItems.length}, `Queue is now length: ${replacedQueue}.`) //prettier-ignore
                 return await this.zStore.updateQueue(replacedQueue);
             });
 

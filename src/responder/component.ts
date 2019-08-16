@@ -62,11 +62,13 @@ export class ResponderAppointmentReducer implements StateReducer<ResponderAppoin
                 logger.error(tx, "Potential transaction match.")
                 logger.error(txIdentifier, "Formed tx identfier.")
                 logger.error(identifier, "State identifier.")
+                logger.error({number: block.number, hash: block.hash}, "Block info.")
             }
             if(tx.from.toLowerCase() === this.address.toLowerCase()) {
                 logger.info(tx, "Potential transaction match.")
                 logger.info(txIdentifier, "Formed tx identfier.")
                 logger.info(identifier, "State identifier.")
+                logger.info({number: block.number, hash: block.hash}, "Block info.")
             }
             if (txIdentifier.equals(identifier) && tx.from.toLowerCase() === this.address.toLowerCase()) {
                 return {
