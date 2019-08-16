@@ -23,7 +23,7 @@ export abstract class StartStopService extends EventEmitter {
      */
     protected logger: Logger;
 
-    protected logVerbosityOfNotStartedError: number = 0;
+    protected logVerbosityOfNotStartedError: number = 5;
 
     /**
      * A service that requires starting and stopping.
@@ -152,6 +152,9 @@ export abstract class StartStopService extends EventEmitter {
                 if (isWithinConstructor())
                     return target[prop];
 
+                // Throw no notStarted errors at all - obvs remove this line!
+                return target[prop];
+
                 if ((instance.logVerbosityOfNotStartedError >= 4) && (prop==="on" || prop==="off"))
                     return logOnOffEvents (target[prop]);
 
@@ -161,7 +164,7 @@ export abstract class StartStopService extends EventEmitter {
 
 
         this.logger = createNamedLogger(name);
-        // return new Proxy(this,proxyHandler);
+        return new Proxy(this,proxyHandler);
     }
 
     protected callsLog : string[] = [];
