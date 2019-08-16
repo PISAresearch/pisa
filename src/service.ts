@@ -35,6 +35,10 @@ export class PisaService extends StartStopService {
     private readonly responderStore: ResponderStore;
     private readonly appointmentStore: AppointmentStore;
     private readonly blockchainMachine: BlockchainMachine<Block>;
+    private readonly JSON_SCHEMA_ROUTE = "/schemas/appointmentRequest.json";
+    private readonly API_DOCS_JSON_ROUTE = "/api-docs.json";
+    private readonly API_DOCS_HTML_ROUTE = "/docs.html";
+    private readonly APPOINTMENT_ROUTE = "/appointment";
 
     /**
      *
@@ -101,20 +105,20 @@ export class PisaService extends StartStopService {
         // tower
         const tower = new PisaTower(provider, this.appointmentStore, appointmentSigner, multiResponder);
 
-        app.post("/appointment", this.appointment(tower));
+        app.post(this.APPOINTMENT_ROUTE, this.appointment(tower));
 
         // api docs
         const hostAndPort = `${config.hostName}:${config.hostPort}`;
         const docs = swaggerJsDoc(this.createSwaggerDocs(hostAndPort));
-        app.get("/api-docs.json", (req, res) => {
+        app.get(this.API_DOCS_JSON_ROUTE, (req, res) => {
             res.setHeader("Content-Type", "application/json");
             res.send(docs);
         });
-        app.get("/docs.html", (req, res) => {
+        app.get(this.API_DOCS_HTML_ROUTE, (req, res) => {
             res.setHeader("Content-Type", "text/html");
             res.send(this.redocHtml());
         });
-        app.get("/schemas/appointmentRequest.json", (req, res) => {
+        app.get(this.JSON_SCHEMA_ROUTE, (req, res) => {
             res.sendFile(path.join(__dirname, "dataEntities/appointmentRequestSchema.json"));
         });
         // set up 404
@@ -125,7 +129,7 @@ export class PisaService extends StartStopService {
         });
 
         const service = app.listen(config.hostPort, config.hostName);
-        this.logger.info(config);
+        this.logger.info(config, "PISA config settings.");
         this.server = service;
     }
 
@@ -201,15 +205,24 @@ export class PisaService extends StartStopService {
             res.on("finish", () => {
                 const endNano = process.hrtime.bigint();
                 const microDuration = Number.parseInt((endNano - startNano).toString()) / 1000;
-                const logEntry = { req: req, res: res, duration: microDuration };
-
-                if (res.statusCode !== 200) {
-                    req.log.error({ ...logEntry, requestBody: req.body }, "Error response.");
-                }
-                // right now we log the request body as well even on a success response
+                // right now we log the request body 
                 // this probably isn't sutainable in the long term, but it should help us
                 // get a good idea of usage in the short term
-                else req.log.info({ ...logEntry, requestBody: req.body }, "Success response.");
+                const logEntry = { req: req, res: res, duration: microDuration, requestBody: req.body };
+
+                if (
+                    // is this a docs request
+                    [this.JSON_SCHEMA_ROUTE, this.API_DOCS_JSON_ROUTE, this.API_DOCS_HTML_ROUTE]
+                        .map(a => a.toLowerCase())
+                        .indexOf(req.url.toLowerCase()) &&
+                    res.statusCode < 400
+                ) {
+                    req.log.info(logEntry, "Docs request.");
+                } else if (res.statusCode == 200) {
+                    req.log.info(logEntry, "Sucess response.");
+                } else if (res.statusCode >= 400) {
+                    req.log.error(logEntry, "Error response.");
+                } else req.log.error(logEntry, "Other response.");
             });
             next();
         });
