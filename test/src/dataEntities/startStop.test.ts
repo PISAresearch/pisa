@@ -19,7 +19,7 @@ class ManualStartStop extends StartStopService {
     }
     public async startInternal() {
         await new Promise(resolve => {
-            this.resolve = this.asProtectedMethod (resolve);
+            this.resolve = resolve;
         });
     }
     public async stopInternal() {}

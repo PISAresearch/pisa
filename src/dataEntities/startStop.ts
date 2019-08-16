@@ -24,6 +24,8 @@ export abstract class StartStopService extends EventEmitter {
      */
     protected logger: Logger;
 
+    protected logVerbosityOfNotStartedError: number = 0;
+
     /**
      * A service that requires starting and stopping.
      * Whoever constructs this service must start it before using it.
@@ -37,35 +39,67 @@ export abstract class StartStopService extends EventEmitter {
         let instance = this;
 
         function detailsOfNotStartedError (instance: any, prop : string) :string {
-            let message : string = `    If the stack trace involves 'new' (constructing an instance or child of startStopService), ensure that methods in the constructor are run asProtectedMethod.`;
-            message += `\n  Attempt was: ${instance.constructor.name}.${prop}`;
-            if (instance.mStarted || instance.suppressNotStartedError)
-                message += `\n  start states are: .mStarted: ${instance.mStarted}, called internally: ${instance.suppressNotStartedError>1 ? instance.suppressNotStartedError : !!instance.suppressNotStartedError}`
-            if (instance.callsLog.length>1)
-                message += `\n  Previous get chain on instance was: ${instance.callsLog.join('; ')}`;
-            else
-                message += `\nNo previous calls on this instance` ;
-            if (instance.callsLog.indexOf(' start') ===-1)
-                message += `\n  !! Cannot find any previous call to start !!`;
-            if (instance.callsLog.indexOf(' stop') >-1)
-                message += `\n  !! Found call to stop, previous to this call !!`;
-            return message;
+            if (instance.logVerbosityOfNotStartedError) {
+                let message : string = `    `;
+                message += `\n  Attempt was: ${instance.constructor.name}.${prop}`;
+                if (instance.mStarted || instance.suppressNotStartedError)
+                    message += `\n  start states are: .mStarted: ${instance.mStarted}, called internally: ${instance.suppressNotStartedError>1 ? instance.suppressNotStartedError : !!instance.suppressNotStartedError}`
+                if (instance.callsLog.length>1)
+                    message += `\n  Previous get chain on instance was: ${instance.callsLog.join('; ')}`;
+                else
+                    message += `\n  No previous calls on this instance` ;
+                if (instance.callsLog.indexOf(' start') ===-1)
+                    message += `\n  Cannot find any previous call to start`;
+                if (instance.callsLog.indexOf(' stop') >-1)
+                    message += `\n  Found call to stop, previous to this call`;
+                return message;
+            }
+            return '';
         };
 
         let proxyHandler = {
             construct (target: any, prop: string) {
                 throw new Error ('Should not have reached here! (startStopService.construct)');
-                return instance.asProtectedMethod (target[prop]) ();
+                // return asProtectedMethod (target[prop]) ();
             },
 
             /**
-            * If method called is a protected one (or is within constructor, inc. Spy constructor), return the requested function, though wrapped in
+            * If method called is a protected one, return the requested function, though wrapped in
             * checking/ setting of the appropriate flag to avoid errors in the functions contained calls to public methods.
             * If method called is a public one, return the unmodified function as normal only if
             * that flag is set or service is started - else error.
             **/
-
             get (target: any, prop: string) {
+
+                /**
+                * protected methods are:
+                * startInternal; stopInternal; start; stop; They, and their internals, can use public methods without start having yet been called.
+                * For constructors, a different means is used to detect whether the requested method is called below a constructor.
+                * This function is NOT safe for general use, eg for constructors, as it does not return the return value of the
+                * wrapped function (due to async / await complexity).
+                */
+                function asProtectedMethod (targetMethod : Function) {
+                    return async function (...args: any[]) {
+                        instance.suppressNotStartedError++;
+                        await targetMethod.apply(this, args);
+                        instance.suppressNotStartedError--;
+                        // we return nothing here (or, rather an empty Promise)
+                    };
+                }
+
+                /**
+                 *  Throws, since it is currently only called when, otherwise, a notStarted Error would be reached.
+                 *  Unreachable return behaviour is to allow for turning the error on/ off
+                **/
+                function logOnOffEvents (targetMethod : Function) {
+                    return function (...args: any[]) {
+                        if (instance.logVerbosityOfNotStartedError)
+                            instance.callsLog.push (` "${args[0].toString()}"`);
+                        throw new ApplicationError (`Service not started.\n${detailsOfNotStartedError (instance, 'on/off')}`);
+                        const result = targetMethod.apply(this, args);
+                        return result;
+                    };
+                }
 
                 /* relies on error.stack which is still stage 1. In particular some JSs will not set it at construction of Error
                  * https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Error/stack
@@ -85,29 +119,38 @@ export abstract class StartStopService extends EventEmitter {
                     return (stack.indexOf(ownClassHallmark) > -1 || stack.indexOf(spyHallmark) > -1);
                 };
 
-                let toLog : string = '';
-                if (instance.suppressNotStartedError)
-                      toLog += `(${instance.suppressNotStartedError})`;
-                toLog += ` ${prop}`;
-                if (isWithinConstructor())
-                      toLog +=  ` (within constructor of ${instance.constructor.name})`;
-                instance.callsLog.push (toLog);
+                if (instance.logVerbosityOfNotStartedError) {
+                    let toLog : string = '';
+                    if (instance.suppressNotStartedError)
+                          toLog += `(${instance.suppressNotStartedError})`;
+                    toLog += ` ${prop}`;
+                    if (isWithinConstructor())
+                          toLog +=  ` (within constructor of ${instance.constructor.name})`;
+                    instance.callsLog.push (toLog);
+                }
 
                 // Do not intercept these
-                if (typeof target[prop] !== 'function' || prop==='start' || prop==='stop' || prop==='asProtectedMethod')
+                if (typeof target[prop] !== 'function' || prop==='asProtectedMethod')
                     return target[prop];
 
-                if (prop==='startInternal' || prop==='stopInternal')
-                    return instance.asProtectedMethod (target[prop]);
+                if (prop==='start' || prop==='stop' || prop==='startInternal' || prop==='stopInternal')
+                    return asProtectedMethod (target[prop]);
 
-                // NB check if the second test is shortcircuited - test >0 is correct.
                 if (instance.mStarted || (instance.suppressNotStartedError >0) )
                     return target[prop];
 
+                // Temporary - remove this!
+                const knownErrorsWillBeFixed = ['addComponent',''];
+                if (knownErrorsWillBeFixed.indexOf(prop) > -1)
+                    return target[prop];
+
                 if (isWithinConstructor())
                     return target[prop];
 
-                throw new ApplicationError (`Service not started.\n${detailsOfNotStartedError (instance, prop)}`);
+                if ((instance.logVerbosityOfNotStartedError >= 4) && (prop==="on" || prop==="off"))
+                    return logOnOffEvents (target[prop]);
+
+                throw new ApplicationError (`Service not started.${detailsOfNotStartedError (instance, prop)}`);
             }
         }
 
@@ -128,27 +171,6 @@ export abstract class StartStopService extends EventEmitter {
     }
     private mStarting: boolean = false;
     private suppressNotStartedError: number = 0;
-
-
-    /**
-    * protected methods are:
-    * startInternal; stopInternal; start; stop
-    * They, and their internals, can use public methods without start having yet been called.
-    * Ideally constructors would also be, but we couldn;t get the construct trap to trap them. So..
-    * Constructors of subclasses extending startStopService must apply asProtectedMethod to
-    * any of their own methods called.
-    */
-    protected asProtectedMethod (targetMethod : Function) {
-        return function (...args: any[]) {
-            this.suppressNotStartedError++;
-            // This could better be a warn, for debugging.
-            if (this.suppressNotStartedError >=2)
-                throw new Error (`Multiple (${this.suppressNotStartedError}) protected methods suppressing the NotStartedError on ${this.constructor.name}`)
-            const result = targetMethod.apply(this, args);
-            this.suppressNotStartedError--;
-            return result;
-        };
-    }
 
     /**
      * Start this service
