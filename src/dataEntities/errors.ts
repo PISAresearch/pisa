@@ -132,16 +132,18 @@ export class NestedError extends ApplicationError {
      *             Subclasses of `NestedError` should always pass their name.
      *             If not provided, the default value `"NestedError"` will be used.
      */
-    constructor(message: string, nestedError: Error, name: string = "NestedError") {
+    constructor(message: string, nestedError?: Error, name: string = "NestedError") {
         super(message);
 
         this.name = name;
 
-        // As the stack property is not standard (and browsers might differ in behavior compared to Node's implementation),
-        // we guard for its existence and keep the behavior simple.
-        if (nestedError.stack != undefined && this.stack != undefined) {
-            // Concatenate the stack traces
-            this.stack += "\nCaused by: " + nestedError.stack;
+        if (nestedError) {
+            // As the stack property is not standard (and browsers might differ in behavior compared to Node's implementation),
+            // we guard for its existence and keep the behavior simple.
+            if (nestedError.stack != undefined && this.stack != undefined) {
+                // Concatenate the stack traces
+                this.stack += "\nCaused by: " + nestedError.stack;
+            }
         }
     }
 }
