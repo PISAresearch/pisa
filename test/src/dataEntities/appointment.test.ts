@@ -1,10 +1,12 @@
 import "mocha";
 import chai, { expect } from "chai";
 import fnIt from "../../utils/fnIt";
-import { Appointment, PublicDataValidationError } from "../../../src/dataEntities";
+import { Appointment, PublicDataValidationError, IBlockStub } from "../../../src/dataEntities";
 import { ethers } from "ethers";
-import chaiAsPromised  from "chai-as-promised";
-chai.use(chaiAsPromised)
+import chaiAsPromised from "chai-as-promised";
+import { ReadOnlyBlockCache, BlockCache } from "../../../src/blockMonitor";
+import { mock, when, instance } from "ts-mockito";
+chai.use(chaiAsPromised);
 
 const customerPrivKey = "0xd40be03d93b1ab00d334df3fe683da2d360e95fbfd132178facc3a8f5d9eb620";
 const customerSigner = new ethers.Wallet(customerPrivKey);
@@ -25,7 +27,7 @@ const testAppointmentRequest = {
     preCondition: "0xfc1624bdc50da30f2ea37b7debabeac1f6166db013c5880dcf63907b04199138",
     postCondition: "0xfc1624bdc50da30f2ea37b7debabeac1f6166db013c5880dcf63907b04199138",
     refund: "0",
-    startBlock: 0,
+    startBlock: 6,
     paymentHash: "0xfc1624bdc50da30f2ea37b7debabeac1f6166db013c5880dcf63907b04199138",
     customerSig: "0xfc1624bdc50da30f2ea37b7debabeac1f6166db013c5880dcf63907b04199138"
 };
@@ -36,6 +38,14 @@ const stringifyBigNumbers = (appointment: Appointment) => {
 };
 
 describe("Appointment", () => {
+    let blockCache: BlockCache<IBlockStub>;
+
+    beforeEach(() => {
+        const blockCacheMock: BlockCache<IBlockStub> = mock(BlockCache);
+        when(blockCacheMock.head).thenReturn({ parentHash: "parent", hash: "hash", number: 7 });
+        blockCache = instance(blockCacheMock);
+    });
+
     fnIt<Appointment>(() => Appointment.parse, "correctly parse valid appointment", () => {
         const { id, gasLimit, refund, ...requestRest } = testAppointmentRequest;
         const app = Appointment.parse(testAppointmentRequest);
@@ -126,12 +136,12 @@ describe("Appointment", () => {
         expect(refund).to.deep.equal(refundString);
     });
 
-    const sign = async (appointment: Appointment, wallet: ethers.Wallet)  => {
-        const encoded = appointment.encode()
-        const sig = await wallet.signMessage(ethers.utils.arrayify(encoded))
+    const sign = async (appointment: Appointment, wallet: ethers.Wallet) => {
+        const encoded = appointment.encode();
+        const sig = await wallet.signMessage(ethers.utils.arrayify(encoded));
         const clone = { ...Appointment.toIAppointmentRequest(appointment), customerSig: sig };
-        return Appointment.parse(clone)
-    }
+        return Appointment.parse(clone);
+    };
 
     fnIt<Appointment>(a => a.validate, "passes for correct appointment", async () => {
         const clone = { ...testAppointmentRequest };
@@ -143,7 +153,7 @@ describe("Appointment", () => {
         );
         const testAppointment = Appointment.parse(clone);
         const signedAppointment = await sign(testAppointment, customerSigner);
-        await signedAppointment.validate();
+        await signedAppointment.validate(blockCache);
     });
 
     fnIt<Appointment>(a => a.validate, "throws for non freeHash", async () => {
@@ -153,7 +163,7 @@ describe("Appointment", () => {
         const testAppointment = Appointment.parse(clone);
         const signedAppointment = await sign(testAppointment, customerSigner);
 
-        return expect(signedAppointment.validate()).to.eventually.be.rejectedWith(PublicDataValidationError);
+        return expect(signedAppointment.validate(blockCache)).to.eventually.be.rejectedWith(PublicDataValidationError);
     });
 
     fnIt<Appointment>(a => a.validate, "abi must be an event", async () => {
@@ -166,7 +176,7 @@ describe("Appointment", () => {
         const testAppointment = Appointment.parse(clone);
         const signedAppointment = await sign(testAppointment, customerSigner);
 
-        return expect(signedAppointment.validate()).to.eventually.be.rejectedWith(PublicDataValidationError);
+        return expect(signedAppointment.validate(blockCache)).to.eventually.be.rejectedWith(PublicDataValidationError);
     });
 
     fnIt<Appointment>(a => a.validate, "abi first args must be uint8[]", async () => {
@@ -179,7 +189,7 @@ describe("Appointment", () => {
         const testAppointment = Appointment.parse(clone);
         const signedAppointment = await sign(testAppointment, customerSigner);
 
-        return expect(signedAppointment.validate()).to.eventually.be.rejectedWith(PublicDataValidationError);
+        return expect(signedAppointment.validate(blockCache)).to.eventually.be.rejectedWith(PublicDataValidationError);
     });
 
     fnIt<Appointment>(a => a.validate, "can specify only some of the indexed arguments", async () => {
@@ -189,20 +199,19 @@ describe("Appointment", () => {
         const testAppointment = Appointment.parse(clone);
         const signedAppointment = await sign(testAppointment, customerSigner);
 
-        await signedAppointment.validate();
+        await signedAppointment.validate(blockCache);
     });
-
 
     // TODO:274:should not be able to specufy "uint8[]", [[2]] - with a 2 in here
     fnIt<Appointment>(a => a.validate, "can specify none of the indexed arguments", async () => {
         const clone = { ...testAppointmentRequest };
         clone.eventABI = "event Face(address indexed, uint256, uint256 indexed)";
         clone.eventArgs = ethers.utils.defaultAbiCoder.encode(["uint8[]"], [[]]);
-        
+
         const testAppointment = Appointment.parse(clone);
         const signedAppointment = await sign(testAppointment, customerSigner);
 
-        await signedAppointment.validate();
+        await signedAppointment.validate(blockCache);
     });
 
     fnIt<Appointment>(a => a.validate, "index must be less than number of arguments to event", async () => {
@@ -214,7 +223,7 @@ describe("Appointment", () => {
         );
         const testAppointment = Appointment.parse(clone);
         const signedAppointment = await sign(testAppointment, customerSigner);
-        return expect(signedAppointment.validate()).to.eventually.be.rejectedWith(PublicDataValidationError);
+        return expect(signedAppointment.validate(blockCache)).to.eventually.be.rejectedWith(PublicDataValidationError);
     });
 
     fnIt<Appointment>(a => a.validate, "can parse booleans", async () => {
@@ -223,7 +232,7 @@ describe("Appointment", () => {
         clone.eventArgs = ethers.utils.defaultAbiCoder.encode(["uint8[]", "bool", "uint256"], [[0, 2], true, 20]);
         const testAppointment = Appointment.parse(clone);
         const signedAppointment = await sign(testAppointment, customerSigner);
-        await signedAppointment.validate();
+        await signedAppointment.validate(blockCache);
     });
 
     fnIt<Appointment>(a => a.validate, "non indexed types cannot be specified", async () => {
@@ -235,7 +244,7 @@ describe("Appointment", () => {
         );
         const testAppointment = Appointment.parse(clone);
         const signedAppointment = await sign(testAppointment, customerSigner);
-        return expect(signedAppointment.validate()).to.eventually.be.rejectedWith(PublicDataValidationError);
+        return expect(signedAppointment.validate(blockCache)).to.eventually.be.rejectedWith(PublicDataValidationError);
     });
 
     fnIt<Appointment>(a => a.validate, "struct types cannot be specified", async () => {
@@ -248,7 +257,7 @@ describe("Appointment", () => {
         );
         const testAppointment = Appointment.parse(clone);
         const signedAppointment = await sign(testAppointment, customerSigner);
-        return expect(signedAppointment.validate()).to.eventually.be.rejectedWith(PublicDataValidationError);
+        return expect(signedAppointment.validate(blockCache)).to.eventually.be.rejectedWith(PublicDataValidationError);
     });
 
     fnIt<Appointment>(a => a.validate, "throws gas limit > 6000000", async () => {
@@ -256,15 +265,18 @@ describe("Appointment", () => {
         clone.gasLimit = "6000001";
         const app = Appointment.parse(clone);
         const signedAppointment = await sign(app, customerSigner);
-        return expect(signedAppointment.validate()).to.eventually.be.rejectedWith(PublicDataValidationError);
+        return expect(signedAppointment.validate(blockCache)).to.eventually.be.rejectedWith(PublicDataValidationError);
     });
 
     fnIt<Appointment>(a => a.validate, "throws refund > 0.1 ether", async () => {
         const clone = { ...testAppointmentRequest };
-        clone.refund = ethers.utils.parseEther("0.1").add(1).toString();
+        clone.refund = ethers.utils
+            .parseEther("0.1")
+            .add(1)
+            .toString();
         const app = Appointment.parse(clone);
         const signedAppointment = await sign(app, customerSigner);
-        return expect(signedAppointment.validate()).to.eventually.be.rejectedWith(PublicDataValidationError);
+        return expect(signedAppointment.validate(blockCache)).to.eventually.be.rejectedWith(PublicDataValidationError);
     });
 
     fnIt<Appointment>(a => a.validate, "throws for invalid signature", async () => {
@@ -278,6 +290,31 @@ describe("Appointment", () => {
         const testAppointment = Appointment.parse(clone);
         const differentSigner = new ethers.Wallet("0x2206ec9b25a3dd5233b78a56a7b03ed424ba3731eaa1d14a5dd8bfa8328e1d1a");
         const signedAppointment = await sign(testAppointment, differentSigner);
-        return expect(signedAppointment.validate()).to.eventually.be.rejectedWith(PublicDataValidationError);
+        return expect(signedAppointment.validate(blockCache)).to.eventually.be.rejectedWith(PublicDataValidationError);
+    });
+
+    fnIt<Appointment>(a => a.validate, "throws for start block too low", async () => {
+        const clone = { ...testAppointmentRequest };
+        clone.startBlock = 1;
+        const testAppointment = Appointment.parse(clone);
+        const signedAppointment = await sign(testAppointment, customerSigner);
+        return expect(signedAppointment.validate(blockCache)).to.eventually.be.rejectedWith(PublicDataValidationError);
+    });
+
+    fnIt<Appointment>(a => a.validate, "throws for start block too high", async () => {
+        const clone = { ...testAppointmentRequest };
+        clone.startBlock = 13;
+        const testAppointment = Appointment.parse(clone);
+        const signedAppointment = await sign(testAppointment, customerSigner);
+        return expect(signedAppointment.validate(blockCache)).to.eventually.be.rejectedWith(PublicDataValidationError);
+    });
+
+    fnIt<Appointment>(a => a.validate, "start block - end block > 60000", async () => {
+        const clone = { ...testAppointmentRequest };
+        clone.startBlock = 7;
+        clone.endBlock = 60008;
+        const testAppointment = Appointment.parse(clone);
+        const signedAppointment = await sign(testAppointment, customerSigner);
+        return expect(signedAppointment.validate(blockCache)).to.eventually.be.rejectedWith(PublicDataValidationError);
     });
 });

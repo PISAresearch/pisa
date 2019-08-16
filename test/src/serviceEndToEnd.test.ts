@@ -37,7 +37,8 @@ const appointmentRequest = async (
     contractAddress: string,
     mode: number,
     customer: ethers.Signer,
-    customerAddress: string
+    customerAddress: string,
+    startBlock: number
 ): Promise<IAppointmentRequest> => {
     const bareAppointment = {
         challengePeriod: 100,
@@ -54,7 +55,7 @@ const appointmentRequest = async (
         preCondition: "0x",
         postCondition: "0x",
         refund: "0",
-        startBlock: 0,
+        startBlock,
         paymentHash: Appointment.FreeHash,
         customerSig: "ox"
     };
@@ -153,7 +154,8 @@ describe("Service end-to-end", () => {
         const sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash));
         const sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash));
         const data = KitsuneTools.encodeSetStateData(hashState, round, sig0, sig1);
-        const appRequest = await appointmentRequest(data, channelContract.address, 1, wallet0, account0);
+        const currentBlockNumber = await provider.getBlockNumber();
+        const appRequest = await appointmentRequest(data, channelContract.address, 1, wallet0, account0, currentBlockNumber);
 
         try {
             await request.post(`http://${nextConfig.hostName}:${nextConfig.hostPort + 1}/appointment`, {
@@ -182,7 +184,8 @@ describe("Service end-to-end", () => {
         const sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash));
         const sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash));
         const data = KitsuneTools.encodeSetStateData(hashState, round, sig0, sig1);
-        const appRequest = await appointmentRequest(data, channelContract.address, 1, wallet0, account0);
+        const currentBlockNumber = await provider.getBlockNumber();
+        const appRequest = await appointmentRequest(data, channelContract.address, 1, wallet0, account0, currentBlockNumber);
 
         const res = await request.post(`http://${nextConfig.hostName}:${nextConfig.hostPort}/appointment`, {
             json: appRequest
@@ -215,7 +218,8 @@ describe("Service end-to-end", () => {
         const sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash));
         const sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash));
         const data = KitsuneTools.encodeSetStateData(hashState, round, sig0, sig1);
-        const appRequest = await appointmentRequest(data, channelContract.address, 1, wallet0, account0);
+        const currentBlockNumber = await provider.getBlockNumber();
+        const appRequest = await appointmentRequest(data, channelContract.address, 1, wallet0, account0, currentBlockNumber);
 
         const res = await request.post(`http://${nextConfig.hostName}:${nextConfig.hostPort}/appointment`, {
             json: appRequest
@@ -250,7 +254,8 @@ describe("Service end-to-end", () => {
 
     it("create channel, relay trigger dispute", async () => {
         const data = KitsuneTools.encodeTriggerDisputeData();
-        const appRequest = await appointmentRequest(data, oneWayChannelContract.address, 0, wallet0, account0);
+        const currentBlockNumber = await provider.getBlockNumber();
+        const appRequest = await appointmentRequest(data, oneWayChannelContract.address, 0, wallet0, account0, currentBlockNumber);
 
         const res = await request.post(`http://${nextConfig.hostName}:${nextConfig.hostPort}/appointment`, {
             json: appRequest
@@ -275,7 +280,8 @@ describe("Service end-to-end", () => {
 
     it("create channel, relay twice throws error trigger dispute", async () => {
         const data = KitsuneTools.encodeTriggerDisputeData();
-        const appRequest = await appointmentRequest(data, oneWayChannelContract.address, 0, wallet0, account0);
+        const currentBlockNumber = await provider.getBlockNumber();
+        const appRequest = await appointmentRequest(data, oneWayChannelContract.address, 0, wallet0, account0, currentBlockNumber);
 
         const res = await request.post(`http://${nextConfig.hostName}:${nextConfig.hostPort}/appointment`, {
             json: appRequest

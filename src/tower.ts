@@ -1,19 +1,20 @@
 import { AppointmentStore } from "./watcher";
 import { ethers } from "ethers";
-import { SignedAppointment, IAppointment, Appointment, PublicDataValidationError } from "./dataEntities";
+import { SignedAppointment, Appointment, PublicDataValidationError, IBlockStub } from "./dataEntities";
 import { AppointmentMode } from "./dataEntities/appointment";
 import { MultiResponder } from "./responder";
-import logger, { Logger } from "./logger";
+import { Logger } from "./logger";
+import { ReadOnlyBlockCache } from "./blockMonitor";
 
 /**
  * A PISA tower, configured to watch for specified appointment types
  */
 export class PisaTower {
     constructor(
-        public readonly provider: ethers.providers.Provider,
         private readonly store: AppointmentStore,
         private readonly appointmentSigner: EthereumAppointmentSigner,
-        private readonly multiResponder: MultiResponder
+        private readonly multiResponder: MultiResponder,
+        private readonly blockCache: ReadOnlyBlockCache<IBlockStub>
     ) {}
 
     /**
@@ -24,7 +25,7 @@ export class PisaTower {
         if (!obj) throw new PublicDataValidationError("Json request body empty.");
         const appointment = Appointment.parse(obj, log);
         // check the appointment is valid
-        await appointment.validate(log);
+        await appointment.validate(this.blockCache, log);
 
         // is this a relay transaction, if so, add it to the responder.
         // if not, add it to the watcher

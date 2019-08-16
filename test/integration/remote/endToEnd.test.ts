@@ -151,9 +151,10 @@ describe("Integration", function() {
         const setStateHash = KitsuneTools.hashForSetState(hashState, round, channelContract.address);
         const sig0 = await key0.wallet.signMessage(ethers.utils.arrayify(setStateHash));
         const sig1 = await key1.wallet.signMessage(ethers.utils.arrayify(setStateHash));
+        const currentBlock = await provider.getBlockNumber();
         const data = KitsuneTools.encodeSetStateData(hashState, round, sig0, sig1);
 
-        const createAppointmentRequest = (data: string, acc: string): IAppointmentRequest => {
+        const createAppointmentRequest = (data: string, acc: string, currentBlock: number): IAppointmentRequest => {
             return {
                 challengePeriod: 100,
                 contractAddress: channelContract.address,
@@ -169,13 +170,13 @@ describe("Integration", function() {
                 preCondition: "0x",
                 postCondition: "0x",
                 refund: "0",
-                startBlock: 0,
+                startBlock: currentBlock,
                 paymentHash: Appointment.FreeHash,
                 customerSig: "0x"
             };
         };
 
-        const appointment = createAppointmentRequest(data, key0.account);
+        const appointment = createAppointmentRequest(data, key0.account, currentBlock)
         const hash = encode(appointment);
         const sig = await key0.wallet.signMessage(ethers.utils.arrayify(hash))
         const clone = { ...appointment, customerSig: sig};
