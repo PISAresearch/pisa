@@ -9,6 +9,7 @@ class TestStartStop extends StartStopService {
     }
     public async startInternal() {}
     public async stopInternal() {}
+    public async emptyTestMethod() {}
 }
 
 class ManualStartStop extends StartStopService {
