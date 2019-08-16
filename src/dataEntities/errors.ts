@@ -22,6 +22,36 @@ export class UnreachableCaseError extends ApplicationError {
 }
 
 /**
+ * Base class for errors that ar thrown when a deeper error cannot be handled.
+ * Customizes the stack trace in order to show the full stack trace of both the current
+ * error and the originating error.
+ */
+export class NestedError extends ApplicationError {
+    /**
+     *
+     * @param message The error message.
+     * @param nestedError The `Error` instance of the originating error.
+     * @param name The name of the error shown in the stack trace; the `name` property is set to this value.
+     *             Subclasses of `NestedError` should always pass their name.
+     *             If not provided, the default value `"NestedError"` will be used.
+     */
+    constructor(message: string, nestedError?: Error, name: string = "NestedError") {
+        super(message);
+
+        this.name = name;
+
+        if (nestedError) {
+            // As the stack property is not standard (and browsers might differ in behavior compared to Node's implementation),
+            // we guard for its existence and keep the behavior simple.
+            if (nestedError.stack != undefined && this.stack != undefined) {
+                // Concatenate the stack traces
+                this.stack += "\nCaused by: " + nestedError.stack;
+            }
+        }
+    }
+}
+
+/**
  * Thrown when startup configuration is incorrect.
  */
 export class ConfigurationError extends ApplicationError {
@@ -45,7 +75,7 @@ export class TimeoutError extends ApplicationError {
  * Thrown when data does not match a specified format
  * Error messages must be safe to expose publicly
  */
-export class PublicDataValidationError extends ApplicationError {
+export class PublicDataValidationError extends NestedError {
     constructor(message: string) {
         super(message);
         this.name = "PublicDataValidationError";
@@ -56,10 +86,9 @@ export class PublicDataValidationError extends ApplicationError {
  * Thrown when an appointment fails inspection
  * Error messages must be safe to expose publicly
  */
-export class PublicInspectionError extends ApplicationError {
-    constructor(message: string) {
-        super(message);
-        this.name = "PublicInspectionError";
+export class PublicInspectionError extends NestedError {
+    constructor(message: string, nestedError?: Error) {
+        super(message, nestedError, "PublicInspectionError");
     }
 }
 
@@ -115,35 +144,5 @@ export class QueueConsistencyError extends ApplicationError {
     constructor(message: string) {
         super(message);
         this.name = "QueueConsistencyError";
-    }
-}
-
-/**
- * Base class for errors that ar thrown when a deeper error cannot be handled.
- * Customizes the stack trace in order to show the full stack trace of both the current
- * error and the originating error.
- */
-export class NestedError extends ApplicationError {
-    /**
-     *
-     * @param message The error message.
-     * @param nestedError The `Error` instance of the originating error.
-     * @param name The name of the error shown in the stack trace; the `name` property is set to this value.
-     *             Subclasses of `NestedError` should always pass their name.
-     *             If not provided, the default value `"NestedError"` will be used.
-     */
-    constructor(message: string, nestedError?: Error, name: string = "NestedError") {
-        super(message);
-
-        this.name = name;
-
-        if (nestedError) {
-            // As the stack property is not standard (and browsers might differ in behavior compared to Node's implementation),
-            // we guard for its existence and keep the behavior simple.
-            if (nestedError.stack != undefined && this.stack != undefined) {
-                // Concatenate the stack traces
-                this.stack += "\nCaused by: " + nestedError.stack;
-            }
-        }
     }
 }
