@@ -117,3 +117,31 @@ export class QueueConsistencyError extends ApplicationError {
         this.name = "QueueConsistencyError";
     }
 }
+
+/**
+ * Base class for errors that ar thrown when a deeper error cannot be handled.
+ * Customizes the stack trace in order to show the full stack trace of both the current
+ * error and the originating error.
+ */
+export class NestedError extends Error {
+    /**
+     *
+     * @param message The error message.
+     * @param nestedError The `Error` instance of the originating error.
+     * @param name The name of the error shown in the stack trace; the `name` property is set to this value.
+     *             Subclasses of `NestedError` should always pass their name.
+     *             If not provided, the default value `"NestedError"` will be used.
+     */
+    constructor(message: string, nestedError: Error, name: string = "NestedError") {
+        super(message);
+
+        this.name = name;
+
+        // As the stack property is not standard (and browsers might differ in behavior compared to Node's implementation),
+        // we guard for its existence and keep the behavior simple.
+        if (nestedError.stack != undefined && this.stack != undefined) {
+            // Concatenate the stack traces
+            this.stack += "\nCaused by: " + nestedError.stack;
+        }
+    }
+}
