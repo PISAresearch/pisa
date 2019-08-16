@@ -311,7 +311,7 @@ export class Appointment {
             throw new PublicDataValidationError("Invalid signature.");
         }
         if (this.customerAddress.toLowerCase() !== recoveredAddress.toLowerCase()) {
-            throw new PublicDataValidationError("Invalid signature.");
+            throw new PublicDataValidationError(`Invalid signature - did not recover customer address ${this.customerAddress}.`);
         }
     }
 
