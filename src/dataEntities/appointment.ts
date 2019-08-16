@@ -7,6 +7,8 @@ import { BigNumber } from "ethers/utils";
 import { groupTuples } from "../utils/ethers";
 import { Logger } from "../logger";
 import betterAjvErrors from "better-ajv-errors";
+import { BlockCache, ReadOnlyBlockCache } from "../blockMonitor/index.js";
+import { IBlockStub } from "./block.js";
 const ajv = new Ajv({ jsonPointers: true, allErrors: true });
 const appointmentRequestValidation = ajv.compile(appointmentRequestSchemaJson);
 
@@ -280,8 +282,14 @@ export class Appointment {
      * Validate property values on the appointment
      * @param log Logger to be used in case of failures
      */
-    public async validate(log: Logger = logger) {
+    public async validate(blockCache: ReadOnlyBlockCache<IBlockStub>, log: Logger = logger) {
         if (this.paymentHash.toLowerCase() !== Appointment.FreeHash) throw new PublicDataValidationError("Invalid payment hash."); // prettier-ignore
+
+        // the start block must be close to the current block +/- 5
+        const currentHead = blockCache.head.number;
+        if(this.startBlock < (currentHead - 5)) throw new PublicDataValidationError(`Start block too low. Start block must be within 5 blocks of the current block ${currentHead}.`); // prettier-ignore
+        if(this.startBlock > (currentHead + 5)) throw new PublicDataValidationError(`Start block too high. Start block must be within 5 blocks of the current block ${currentHead}.`); // prettier-ignore
+        if((this.endBlock - this.startBlock) > 60000) throw new PublicDataValidationError(`Appointment duration too great. Maximum duration between start and block is 60000.`); // prettier-ignore
 
         try {
             this.mEventFilter = this.parseEventArgs();
