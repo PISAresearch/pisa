@@ -1,5 +1,6 @@
 import * as chai from "chai";
 import "mocha";
+import chaiAsPromised from "chai-as-promised";
 import request from "request-promise";
 import { KitsuneTools } from "../external/kitsune/tools";
 import { ethers } from "ethers";
@@ -7,14 +8,11 @@ import { PisaService } from "../../src/service";
 import config from "../../src/dataEntities/config";
 import Ganache from "ganache-core";
 import { Appointment, IAppointmentRequest } from "../../src/dataEntities";
-import logger from "../../src/logger";
 import levelup, { LevelUp } from "levelup";
 import MemDown from "memdown";
 import encodingDown from "encoding-down";
 import { StatusCodeError } from "request-promise/errors";
-logger.transports.forEach(l => (l.level = "max"));
-
-
+chai.use(chaiAsPromised);
 
 const ganache = Ganache.provider({
     mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect"
@@ -34,29 +32,49 @@ provider.pollingInterval = 100;
 
 const expect = chai.expect;
 
-const appointmentRequest = (data: string, acc: string, contractAddress: string, mode: number): IAppointmentRequest => {
-    return {
+const appointmentRequest = async (
+    data: string,
+    contractAddress: string,
+    mode: number,
+    customer: ethers.Signer,
+    customerAddress: string
+): Promise<IAppointmentRequest> => {
+    const bareAppointment = {
         challengePeriod: 20,
         contractAddress,
-        customerAddress: acc,
+        customerAddress: customerAddress,
         data,
         endBlock: 22,
         eventABI: KitsuneTools.eventABI(),
         eventArgs: KitsuneTools.eventArgs(),
-        gas: 100000,
+        gasLimit: "100000",
         id: 1,
         jobId: 0,
         mode,
+        preCondition: "0x",
         postCondition: "0x",
-        refund: 0,
+        refund: "0",
         startBlock: 0,
-        paymentHash: Appointment.FreeHash
+        paymentHash: Appointment.FreeHash,
+        customerSig: "ox"
+    };
+
+    const app = Appointment.parse(bareAppointment);
+    const encoded = app.encode();
+    const sig = await customer.signMessage(encoded);
+    return {
+        ...Appointment.toIAppointmentRequest(app),
+        customerSig: sig,
+        refund: app.refund.toString(),
+        gasLimit: app.gasLimit.toString()
     };
 };
 
 describe("Service end-to-end", () => {
     let account0: string,
         account1: string,
+        wallet0: ethers.Signer,
+        wallet1: ethers.Signer,
         channelContract: ethers.Contract,
         oneWayChannelContract: ethers.Contract,
         hashState: string,
@@ -75,13 +93,24 @@ describe("Service end-to-end", () => {
 
         const signerWallet = new ethers.Wallet(nextConfig.receiptKey!, provider);
         signerWallet.connect(provider);
+        const nonce = await responderWallet.getTransactionCount();
 
-        service = new PisaService(nextConfig, provider, responderWallet, signerWallet, db);
+        service = new PisaService(
+            nextConfig,
+            provider,
+            responderWallet,
+            nonce,
+            provider.network.chainId,
+            signerWallet,
+            db
+        );
         await service.start();
 
         // accounts
         const accounts = await provider.listAccounts();
+        wallet0 = provider.getSigner(account0);
         account0 = accounts[0];
+        wallet1 = provider.getSigner(account0);
         account1 = accounts[1];
 
         // set the dispute period, greater than the inspector period
@@ -105,13 +134,16 @@ describe("Service end-to-end", () => {
     });
 
     it("service cannot be accessed during startup", async () => {
-        const watcherWallet = new ethers.Wallet(nextConfig.responderKey, provider);
+        const responderWallet = new ethers.Wallet(nextConfig.responderKey, provider);
         const signerWallet = new ethers.Wallet(nextConfig.receiptKey!, provider);
+        const nonce = await responderWallet.getTransactionCount();
 
         const exService = new PisaService(
             { ...nextConfig, hostPort: nextConfig.hostPort + 1 },
             provider,
-            watcherWallet,
+            responderWallet,
+            nonce,
+            provider.network.chainId,
             signerWallet,
             db
         );
@@ -121,7 +153,7 @@ describe("Service end-to-end", () => {
         const sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash));
         const sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash));
         const data = KitsuneTools.encodeSetStateData(hashState, round, sig0, sig1);
-        const appRequest = appointmentRequest(data, account0, channelContract.address, 1);
+        const appRequest = await appointmentRequest(data, channelContract.address, 1, wallet0, account0);
 
         try {
             await request.post(`http://${nextConfig.hostName}:${nextConfig.hostPort + 1}/appointment`, {
@@ -132,7 +164,7 @@ describe("Service end-to-end", () => {
         } catch (doh) {
             const statusCodeError = doh as StatusCodeError;
             expect(statusCodeError.statusCode).to.equal(503);
-            expect(statusCodeError.error).to.equal("Service initialising, please try again later.");
+            expect(statusCodeError.error.message).to.equal("Service initialising, please try again later.");
         }
 
         await exService.start();
@@ -150,7 +182,7 @@ describe("Service end-to-end", () => {
         const sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash));
         const sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash));
         const data = KitsuneTools.encodeSetStateData(hashState, round, sig0, sig1);
-        const appRequest = appointmentRequest(data, account0, channelContract.address, 1);
+        const appRequest = await appointmentRequest(data, channelContract.address, 1, wallet0, account0);
 
         const res = await request.post(`http://${nextConfig.hostName}:${nextConfig.hostPort}/appointment`, {
             json: appRequest
@@ -177,13 +209,82 @@ describe("Service end-to-end", () => {
         }
     }).timeout(3000);
 
-    it("create channel, relay trigger dispute", async () => {
-        const data = KitsuneTools.encodeTriggerDisputeData();
-        const appRequest = appointmentRequest(data, account0, oneWayChannelContract.address, 0);
+    it("create channel, submit appointment twice, trigger dispute, wait for response throws error", async () => {
+        const round = 1;
+        const setStateHash = KitsuneTools.hashForSetState(hashState, round, channelContract.address);
+        const sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash));
+        const sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash));
+        const data = KitsuneTools.encodeSetStateData(hashState, round, sig0, sig1);
+        const appRequest = await appointmentRequest(data, channelContract.address, 1, wallet0, account0);
 
         const res = await request.post(`http://${nextConfig.hostName}:${nextConfig.hostPort}/appointment`, {
             json: appRequest
         });
+
+        expect(
+            request.post(`http://${nextConfig.hostName}:${nextConfig.hostPort}/appointment`, {
+                json: appRequest
+            })
+        ).to.be.rejected;
+
+        // now register a callback on the setstate event and trigger a response
+        const setStateEvent = "EventEvidence(uint256, bytes32)";
+        let successResult = { success: false };
+        channelContract.on(setStateEvent, () => {
+            channelContract.removeAllListeners(setStateEvent);
+            successResult.success = true;
+        });
+
+        // trigger a dispute
+        const tx = await channelContract.triggerDispute();
+        await tx.wait();
+
+        try {
+            // wait for the success result
+            await waitForPredicate(successResult, s => s.success, 400);
+        } catch (doh) {
+            // fail if we dont get it
+            chai.assert.fail(true, false, "EventEvidence not successfully registered.");
+        }
+    }).timeout(3000);
+
+    it("create channel, relay trigger dispute", async () => {
+        const data = KitsuneTools.encodeTriggerDisputeData();
+        const appRequest = await appointmentRequest(data, oneWayChannelContract.address, 0, wallet0, account0);
+
+        const res = await request.post(`http://${nextConfig.hostName}:${nextConfig.hostPort}/appointment`, {
+            json: appRequest
+        });
+
+        // now register a callback on the setstate event and trigger a response
+        const triggerDisputeEvent = "EventDispute(uint256)";
+        let successResult = { success: false };
+        oneWayChannelContract.on(triggerDisputeEvent, async () => {
+            oneWayChannelContract.removeAllListeners(triggerDisputeEvent);
+            successResult.success = true;
+        });
+
+        try {
+            // wait for the success result
+            await waitForPredicate(successResult, s => s.success, 200);
+        } catch (doh) {
+            // fail if we dont get it
+            chai.assert.fail(true, false, "EventEvidence not successfully registered.");
+        }
+    }).timeout(3000);
+
+    it("create channel, relay twice throws error trigger dispute", async () => {
+        const data = KitsuneTools.encodeTriggerDisputeData();
+        const appRequest = await appointmentRequest(data, oneWayChannelContract.address, 0, wallet0, account0);
+
+        const res = await request.post(`http://${nextConfig.hostName}:${nextConfig.hostPort}/appointment`, {
+            json: appRequest
+        });
+        expect(
+            request.post(`http://${nextConfig.hostName}:${nextConfig.hostPort}/appointment`, {
+                json: appRequest
+            })
+        ).to.eventually.be.rejected;
 
         // now register a callback on the setstate event and trigger a response
         const triggerDisputeEvent = "EventDispute(uint256)";

@@ -1,6 +1,5 @@
-import { Logger } from "winston";
-import { ApplicationError, ConfigurationError } from "./errors";
-import { createNamedLogger } from "../logger";
+import { ConfigurationError } from "./errors";
+import { createNamedLogger, Logger } from "../logger";
 import { EventEmitter } from "events";
 
 /**

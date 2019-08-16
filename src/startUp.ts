@@ -1,6 +1,6 @@
 import { PisaService } from "./service";
 import { ethers } from "ethers";
-import jsonConfig, { IArgConfig, ConfigManager } from "./dataEntities/config";
+import jsonConfig, { ConfigManager, IArgConfig } from "./dataEntities/config";
 import { validateProvider, getJsonRPCProvider } from "./utils/ethers";
 import logger, { setLogLevel, LogLevel, LogLevelInfo } from "./logger";
 import levelup, { LevelUp } from "levelup";
@@ -10,24 +10,6 @@ import leveldown from "leveldown";
 const configManager = new ConfigManager(ConfigManager.PisaConfigProperties);
 const commandLineConfig = configManager.fromCommandLineArgs(process.argv);
 
-function checkArgs(args: IArgConfig) {
-    if (
-        (args.rateLimitUserWindowMs && !args.rateLimitUserMax) ||
-        (!args.rateLimitUserWindowMs && args.rateLimitUserMax)
-    ) {
-        console.error("Options 'rate-limit-user-windowms' and 'rate-limit-user-max' must be provided together.");
-        process.exit(1);
-    }
-
-    if (
-        (commandLineConfig.rateLimitGlobalWindowMs && !commandLineConfig.rateLimitGlobalMax) ||
-        (!commandLineConfig.rateLimitGlobalWindowMs && commandLineConfig.rateLimitGlobalMax)
-    ) {
-        console.error("Options 'rate-limit-global-windowms' and 'rate-limit-global-max' must be provided together.");
-        process.exit(1);
-    }
-}
-
 // Validates the 'loglevel' argument and returns the appropriate LogLevelInfo instance
 function checkLogLevel(logLevel: string): LogLevelInfo {
     const logLevelInfo = LogLevelInfo.tryParse(logLevel);
@@ -36,6 +18,24 @@ function checkLogLevel(logLevel: string): LogLevelInfo {
         return process.exit(1); // never returns
     }
     return logLevelInfo;
+}
+
+function checkArgs(args: IArgConfig) {	
+    if (	
+        (args.rateLimitUserWindowMs && !args.rateLimitUserMax) ||	
+        (!args.rateLimitUserWindowMs && args.rateLimitUserMax)	
+    ) {	
+        console.error("Options 'rate-limit-user-windowms' and 'rate-limit-user-max' must be provided together.");	
+        process.exit(1);	
+    }	
+
+     if (	
+        (commandLineConfig.rateLimitGlobalWindowMs && !commandLineConfig.rateLimitGlobalMax) ||	
+        (!commandLineConfig.rateLimitGlobalWindowMs && commandLineConfig.rateLimitGlobalMax)	
+    ) {	
+        console.error("Options 'rate-limit-global-windowms' and 'rate-limit-global-max' must be provided together.");	
+        process.exit(1);	
+    }	
 }
 
 async function startUp() {
@@ -51,9 +51,10 @@ async function startUp() {
     const watcherWallet = new ethers.Wallet(config.responderKey, provider);
     const receiptSigner = new ethers.Wallet(config.receiptKey);
     const db = levelup(encodingDown(leveldown(config.dbDir), { valueEncoding: "json" }));
+    const nonce = await provider.getTransactionCount(watcherWallet.address, "pending");
 
     // start the pisa service
-    const service = new PisaService(config, provider, watcherWallet, receiptSigner, db);
+    const service = new PisaService(config, provider, watcherWallet, nonce, provider.network.chainId, receiptSigner, db);
     service.start();
 
     // listen for stop events
@@ -74,4 +75,4 @@ async function stop(service: PisaService, db: LevelUp<encodingDown<string, any>>
     process.exit(0);
 }
 
-startUp().catch((doh: Error) => logger.error(doh.stack!));
+startUp().catch((doh: Error) => logger.error(doh));

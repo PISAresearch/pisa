@@ -1,6 +1,6 @@
 import "mocha";
 import { expect } from "chai";
-import { mock, instance, when, resetCalls, verify } from "ts-mockito";
+import { mock, when, resetCalls, verify, anything, capture } from "ts-mockito";
 import { AppointmentStore } from "../../../src/watcher";
 import { MultiResponder } from "../../../src/responder";
 import { BlockCache } from "../../../src/blockMonitor";
@@ -9,8 +9,11 @@ import {
     WatcherAppointmentStateReducer,
     WatcherAppointmentState,
     Watcher,
-    WatcherAppointmentAnchorState
+    WatcherAppointmentAnchorState,
+    WatcherActionKind
 } from "../../../src/watcher/watcher";
+import fnIt from "../../utils/fnIt";
+import throwingInstance from "../../utils/throwingInstance";
 
 const observedEventAddress = "0x1234abcd";
 const observedEventTopics = ["0x1234"];
@@ -55,7 +58,7 @@ describe("WatcherAppointmentStateReducer", () => {
         topics: observedEventTopics
     });
     when(appMock.id).thenReturn("app1");
-    const appointment = instance(appMock);
+    const appointment = throwingInstance(appMock);
 
     const blockCache = new BlockCache<IBlockStub & Logs>(100);
     blocks.forEach(b => blockCache.addBlock(b));
@@ -64,47 +67,63 @@ describe("WatcherAppointmentStateReducer", () => {
         const emptyAppMock = mock(Appointment);
         when(emptyAppMock.eventFilter).thenReturn({});
         when(appMock.id).thenReturn("app1");
-        const emptyAppointment = instance(emptyAppMock);
+        const emptyAppointment = throwingInstance(emptyAppMock);
 
         expect(() => new WatcherAppointmentStateReducer(blockCache, emptyAppointment)).to.throw(ApplicationError);
     });
 
-    it("getInitialState initializes to WATCHING if event not present in ancestry", () => {
-        const asr = new WatcherAppointmentStateReducer(blockCache, appointment);
+    fnIt<WatcherAppointmentStateReducer>(
+        w => w.getInitialState,
+        "initializes to WATCHING if event not present in ancestry",
+        () => {
+            const asr = new WatcherAppointmentStateReducer(blockCache, appointment);
 
-        expect(asr.getInitialState(blocks[1])).to.deep.equal({ state: WatcherAppointmentState.WATCHING });
-    });
+            expect(asr.getInitialState(blocks[1])).to.deep.equal({ state: WatcherAppointmentState.WATCHING });
+        }
+    );
 
-    it("getInitialState initializes to OBSERVED if event is present in the last block", () => {
-        const asr = new WatcherAppointmentStateReducer(blockCache, appointment);
-        expect(asr.getInitialState(blocks[2])).to.deep.equal({
-            state: WatcherAppointmentState.OBSERVED,
-            blockObserved: blocks[2].number
-        });
-    });
+    fnIt<WatcherAppointmentStateReducer>(
+        w => w.getInitialState,
+        "initializes to OBSERVED if event is present in the last block",
+        () => {
+            const asr = new WatcherAppointmentStateReducer(blockCache, appointment);
+            expect(asr.getInitialState(blocks[2])).to.deep.equal({
+                state: WatcherAppointmentState.OBSERVED,
+                blockObserved: blocks[2].number
+            });
+        }
+    );
 
-    it("getInitialState initializes to OBSERVED if event is present in ancestry, updates blockObserved", () => {
-        const asr = new WatcherAppointmentStateReducer(blockCache, appointment);
-        expect(asr.getInitialState(blocks[3])).to.deep.equal({
-            state: WatcherAppointmentState.OBSERVED,
-            blockObserved: blocks[2].number
-        });
-    });
+    fnIt<WatcherAppointmentStateReducer>(
+        w => w.getInitialState,
+        "initializes to OBSERVED if event is present in ancestry, updates blockObserved",
+        () => {
+            const asr = new WatcherAppointmentStateReducer(blockCache, appointment);
+            expect(asr.getInitialState(blocks[3])).to.deep.equal({
+                state: WatcherAppointmentState.OBSERVED,
+                blockObserved: blocks[2].number
+            });
+        }
+    );
 
-    it("reduce does not change state if event is not observed in new block", () => {
-        const asr = new WatcherAppointmentStateReducer(blockCache, appointment);
+    fnIt<WatcherAppointmentStateReducer>(
+        w => w.reduce,
+        "does not change state if event is not observed in new block",
+        () => {
+            const asr = new WatcherAppointmentStateReducer(blockCache, appointment);
 
-        const result = asr.reduce(
-            {
-                state: WatcherAppointmentState.WATCHING
-            },
-            blocks[1]
-        );
+            const result = asr.reduce(
+                {
+                    state: WatcherAppointmentState.WATCHING
+                },
+                blocks[1]
+            );
 
-        expect(result).to.deep.equal({ state: WatcherAppointmentState.WATCHING });
-    });
+            expect(result).to.deep.equal({ state: WatcherAppointmentState.WATCHING });
+        }
+    );
 
-    it("reduce does change state if event is observed in new block", () => {
+    fnIt<WatcherAppointmentStateReducer>(w => w.reduce, "does change state if event is observed in new block", () => {
         const asr = new WatcherAppointmentStateReducer(blockCache, appointment);
 
         const result = asr.reduce(
@@ -120,7 +139,7 @@ describe("WatcherAppointmentStateReducer", () => {
         });
     });
 
-    it("reduce does not change from OBSERVED when new blocks come", () => {
+    fnIt<WatcherAppointmentStateReducer>(w => w.reduce, "does not change from OBSERVED when new blocks come", () => {
         const asr = new WatcherAppointmentStateReducer(blockCache, appointment);
 
         const result = asr.reduce(
@@ -145,11 +164,11 @@ describe("Watcher", () => {
     const blockCache = new BlockCache<IBlockStub & Logs>(100);
     blocks.forEach(b => blockCache.addBlock(b));
 
-    const mockedResponder = mock(MultiResponder);
-    const responder = instance(mockedResponder);
-
     let mockedStore: AppointmentStore;
     let store: AppointmentStore;
+
+    let mockedResponder: MultiResponder;
+    let responder: MultiResponder;
 
     let appointment: Appointment;
 
@@ -161,14 +180,19 @@ describe("Watcher", () => {
         });
         when(appMock.id).thenReturn("app1");
         when(appMock.endBlock).thenReturn(100);
-        appointment = instance(appMock);
+        appointment = throwingInstance(appMock);
 
         mockedStore = mock(AppointmentStore);
         when(mockedStore.getAll()).thenReturn([appointment]);
+        when(mockedStore.removeById(anything())).thenResolve();
         const appointmentsById = new Map<string, Appointment>();
         appointmentsById.set(appointment.id, appointment);
         when(mockedStore.appointmentsById).thenReturn(appointmentsById);
-        store = instance(mockedStore);
+        store = throwingInstance(mockedStore);
+
+        mockedResponder = mock(MultiResponder);
+        when(mockedResponder.startResponse(appointment)).thenResolve();
+        responder = throwingInstance(mockedResponder);
     });
 
     function makeMap(appId: string, appState: WatcherAppointmentAnchorState) {
@@ -179,7 +203,7 @@ describe("Watcher", () => {
         resetCalls(mockedResponder);
     });
 
-    it("handleChanges calls startResponse after event is OBSERVED for long enough", async () => {
+    fnIt<Watcher>(w => w.detectChanges, "calls startResponse after event is OBSERVED for long enough", async () => {
         const watcher = new Watcher(
             responder,
             blockCache,
@@ -188,27 +212,98 @@ describe("Watcher", () => {
             CONFIRMATIONS_BEFORE_REMOVAL
         );
 
-        await watcher.handleChanges(
+        const actions = watcher.detectChanges(
             {
-                items: makeMap(appointment.id, {
-                    state: WatcherAppointmentState.OBSERVED,
-                    blockObserved: 2
-                }),
+                items: makeMap(appointment.id, { state: WatcherAppointmentState.OBSERVED, blockObserved: 2 }),
                 blockNumber: 2 + CONFIRMATIONS_BEFORE_RESPONSE - 2
             },
             {
-                items: makeMap(appointment.id, {
-                    state: WatcherAppointmentState.OBSERVED,
-                    blockObserved: 2
-                }),
+                items: makeMap(appointment.id, { state: WatcherAppointmentState.OBSERVED, blockObserved: 2 }),
                 blockNumber: 2 + CONFIRMATIONS_BEFORE_RESPONSE - 1
             }
         );
-
-        verify(mockedResponder.startResponse(appointment)).once();
+        expect(actions).to.deep.equal([{ kind: WatcherActionKind.StartResponse, appointment: appointment }]);
     });
 
-    it("handleChanges does not call startResponse before event is OBSERVED for long enough", async () => {
+    fnIt<Watcher>(
+        w => w.detectChanges,
+        "does not call startResponse before event is OBSERVED for long enough",
+        async () => {
+            const watcher = new Watcher(
+                responder,
+                blockCache,
+                store,
+                CONFIRMATIONS_BEFORE_RESPONSE,
+                CONFIRMATIONS_BEFORE_REMOVAL
+            );
+
+            const actions = watcher.detectChanges(
+                {
+                    items: makeMap(appointment.id, { state: WatcherAppointmentState.OBSERVED, blockObserved: 2 }),
+                    blockNumber: 2 + CONFIRMATIONS_BEFORE_RESPONSE - 3
+                },
+                {
+                    items: makeMap(appointment.id, { state: WatcherAppointmentState.OBSERVED, blockObserved: 2 }),
+                    blockNumber: 2 + CONFIRMATIONS_BEFORE_RESPONSE - 2
+                }
+            );
+            expect(actions).to.deep.equal([]);
+        }
+    );
+
+    fnIt<Watcher>(
+        w => w.detectChanges,
+        "calls startResponse immediately after event is OBSERVED for long enough even if just added to the store",
+        async () => {
+            const watcher = new Watcher(
+                responder,
+                blockCache,
+                store,
+                CONFIRMATIONS_BEFORE_RESPONSE,
+                CONFIRMATIONS_BEFORE_REMOVAL
+            );
+
+            const actions = watcher.detectChanges(
+                {
+                    items: new Map<string, WatcherAppointmentAnchorState>(),
+                    blockNumber: 0
+                },
+                {
+                    items: makeMap(appointment.id, { state: WatcherAppointmentState.OBSERVED, blockObserved: 2 }),
+                    blockNumber: 2 + CONFIRMATIONS_BEFORE_RESPONSE - 1
+                }
+            );
+            expect(actions).to.deep.equal([{ kind: WatcherActionKind.StartResponse, appointment: appointment }]);
+        }
+    );
+
+    fnIt<Watcher>(
+        w => w.detectChanges,
+        "does not call startResponse again if a previous state already caused startResponse",
+        async () => {
+            const watcher = new Watcher(
+                responder,
+                blockCache,
+                store,
+                CONFIRMATIONS_BEFORE_RESPONSE,
+                CONFIRMATIONS_BEFORE_REMOVAL
+            );
+
+            const actions = watcher.detectChanges(
+                {
+                    items: makeMap(appointment.id, { state: WatcherAppointmentState.OBSERVED, blockObserved: 2 }),
+                    blockNumber: 2 + CONFIRMATIONS_BEFORE_RESPONSE - 1
+                },
+                {
+                    items: makeMap(appointment.id, { state: WatcherAppointmentState.OBSERVED, blockObserved: 2 }),
+                    blockNumber: 2 + CONFIRMATIONS_BEFORE_RESPONSE
+                }
+            );
+            expect(actions).to.deep.equal([]);
+        }
+    );
+
+    fnIt<Watcher>(w => w.detectChanges, "calls removeById after event is OBSERVED for long enoug", async () => {
         const watcher = new Watcher(
             responder,
             blockCache,
@@ -217,217 +312,123 @@ describe("Watcher", () => {
             CONFIRMATIONS_BEFORE_REMOVAL
         );
 
-        await watcher.handleChanges(
+        const actions = watcher.detectChanges(
             {
-                items: makeMap(appointment.id, {
-                    state: WatcherAppointmentState.OBSERVED,
-                    blockObserved: 2
-                }),
-                blockNumber: 2 + CONFIRMATIONS_BEFORE_RESPONSE - 3
-            },
-            {
-                items: makeMap(appointment.id, {
-                    state: WatcherAppointmentState.OBSERVED,
-                    blockObserved: 2
-                }),
-                blockNumber: 2 + CONFIRMATIONS_BEFORE_RESPONSE - 2
-            }
-        );
-
-        verify(mockedResponder.startResponse(appointment)).never();
-    });
-
-    it("handleChanges calls startResponse immediately after event is OBSERVED for long enough even if just added to the store", async () => {
-        const watcher = new Watcher(
-            responder,
-            blockCache,
-            store,
-            CONFIRMATIONS_BEFORE_RESPONSE,
-            CONFIRMATIONS_BEFORE_REMOVAL
-        );
-
-        await watcher.handleChanges(
-            {
-                items: new Map<string, WatcherAppointmentAnchorState>(),
-                blockNumber: 0
-            },
-            {
-                items: makeMap(appointment.id, {
-                    state: WatcherAppointmentState.OBSERVED,
-                    blockObserved: 2
-                }),
-                blockNumber: 2 + CONFIRMATIONS_BEFORE_RESPONSE - 1
-            }
-        );
-
-        verify(mockedResponder.startResponse(appointment)).once();
-    });
-
-    it("handleChanges does not call startResponse again if a previous state already caused startResponse", async () => {
-        const watcher = new Watcher(
-            responder,
-            blockCache,
-            store,
-            CONFIRMATIONS_BEFORE_RESPONSE,
-            CONFIRMATIONS_BEFORE_REMOVAL
-        );
-
-        await watcher.handleChanges(
-            {
-                items: makeMap(appointment.id, {
-                    state: WatcherAppointmentState.OBSERVED,
-                    blockObserved: 2
-                }),
-                blockNumber: 2 + CONFIRMATIONS_BEFORE_RESPONSE - 1
-            },
-            {
-                items: makeMap(appointment.id, {
-                    state: WatcherAppointmentState.OBSERVED,
-                    blockObserved: 2
-                }),
-                blockNumber: 2 + CONFIRMATIONS_BEFORE_RESPONSE
-            }
-        );
-
-        verify(mockedResponder.startResponse(appointment)).never();
-    });
-
-    it("handleChanges calls removeById after event is OBSERVED for long enough", async () => {
-        const watcher = new Watcher(
-            responder,
-            blockCache,
-            store,
-            CONFIRMATIONS_BEFORE_RESPONSE,
-            CONFIRMATIONS_BEFORE_REMOVAL
-        );
-
-        await watcher.handleChanges(
-            {
-                items: makeMap(appointment.id, {
-                    state: WatcherAppointmentState.OBSERVED,
-                    blockObserved: 2
-                }),
+                items: makeMap(appointment.id, { state: WatcherAppointmentState.OBSERVED, blockObserved: 2 }),
                 blockNumber: 2 + CONFIRMATIONS_BEFORE_REMOVAL - 2
             },
             {
-                items: makeMap(appointment.id, {
-                    state: WatcherAppointmentState.OBSERVED,
-                    blockObserved: 2
-                }),
+                items: makeMap(appointment.id, { state: WatcherAppointmentState.OBSERVED, blockObserved: 2 }),
                 blockNumber: 2 + CONFIRMATIONS_BEFORE_REMOVAL - 1
             }
         );
-
-        verify(mockedStore.removeById(appointment.id)).once();
+        expect(actions).to.deep.equal([{ kind: WatcherActionKind.RemoveAppointment, appointmentId: appointment.id }]);
     });
 
-    it("handleChanges does not call removeById before event is OBSERVED for long enough", async () => {
-        const watcher = new Watcher(
-            responder,
-            blockCache,
-            store,
-            CONFIRMATIONS_BEFORE_RESPONSE,
-            CONFIRMATIONS_BEFORE_REMOVAL
-        );
+    fnIt<Watcher>(
+        w => w.detectChanges,
+        "does not call removeById before event is OBSERVED for long enough",
+        async () => {
+            const watcher = new Watcher(
+                responder,
+                blockCache,
+                store,
+                CONFIRMATIONS_BEFORE_RESPONSE,
+                CONFIRMATIONS_BEFORE_REMOVAL
+            );
 
-        await watcher.handleChanges(
-            {
-                items: makeMap(appointment.id, {
-                    state: WatcherAppointmentState.OBSERVED,
-                    blockObserved: 2
-                }),
-                blockNumber: 2 + CONFIRMATIONS_BEFORE_REMOVAL - 3
-            },
-            {
-                items: makeMap(appointment.id, {
-                    state: WatcherAppointmentState.OBSERVED,
-                    blockObserved: 2
-                }),
-                blockNumber: 2 + CONFIRMATIONS_BEFORE_REMOVAL - 2
-            }
-        );
+            const actions = watcher.detectChanges(
+                {
+                    items: makeMap(appointment.id, { state: WatcherAppointmentState.OBSERVED, blockObserved: 2 }),
+                    blockNumber: 2 + CONFIRMATIONS_BEFORE_REMOVAL - 3
+                },
+                {
+                    items: makeMap(appointment.id, { state: WatcherAppointmentState.OBSERVED, blockObserved: 2 }),
+                    blockNumber: 2 + CONFIRMATIONS_BEFORE_REMOVAL - 2
+                }
+            );
+            expect(actions).to.deep.equal([]);
+        }
+    );
 
-        verify(mockedStore.removeById(appointment.id)).never();
-    });
+    fnIt<Watcher>(
+        w => w.detectChanges,
+        "calls removeById after an appointment has expired for long enough",
+        async () => {
+            const watcher = new Watcher(
+                responder,
+                blockCache,
+                store,
+                CONFIRMATIONS_BEFORE_RESPONSE,
+                CONFIRMATIONS_BEFORE_REMOVAL
+            );
 
-    it("handleChanges calls removeById after an appointment has expired for long enough", async () => {
-        const watcher = new Watcher(
-            responder,
-            blockCache,
-            store,
-            CONFIRMATIONS_BEFORE_RESPONSE,
-            CONFIRMATIONS_BEFORE_REMOVAL
-        );
+            const actions = watcher.detectChanges(
+                {
+                    items: makeMap(appointment.id, { state: WatcherAppointmentState.WATCHING }),
+                    blockNumber: 101 + CONFIRMATIONS_BEFORE_REMOVAL - 1
+                },
+                {
+                    items: makeMap(appointment.id, { state: WatcherAppointmentState.WATCHING }),
+                    blockNumber: 101 + CONFIRMATIONS_BEFORE_REMOVAL
+                }
+            );
+            expect(actions).to.deep.equal([
+                { kind: WatcherActionKind.RemoveAppointment, appointmentId: appointment.id }
+            ]);
+        }
+    );
 
-        await watcher.handleChanges(
-            {
-                items: makeMap(appointment.id, {
-                    state: WatcherAppointmentState.WATCHING
-                }),
-                blockNumber: 101 + CONFIRMATIONS_BEFORE_REMOVAL - 1
-            },
-            {
-                items: makeMap(appointment.id, {
-                    state: WatcherAppointmentState.WATCHING
-                }),
-                blockNumber: 101 + CONFIRMATIONS_BEFORE_REMOVAL
-            }
-        );
+    fnIt<Watcher>(
+        w => w.detectChanges,
+        "does not call removeById before an appointment has expired for long enough",
+        async () => {
+            const watcher = new Watcher(
+                responder,
+                blockCache,
+                store,
+                CONFIRMATIONS_BEFORE_RESPONSE,
+                CONFIRMATIONS_BEFORE_REMOVAL
+            );
 
-        verify(mockedStore.removeById(appointment.id)).once();
-    });
+            const actions = watcher.detectChanges(
+                {
+                    items: makeMap(appointment.id, { state: WatcherAppointmentState.WATCHING }),
+                    blockNumber: 101 + CONFIRMATIONS_BEFORE_REMOVAL - 2
+                },
+                {
+                    items: makeMap(appointment.id, { state: WatcherAppointmentState.WATCHING }),
+                    blockNumber: 101 + CONFIRMATIONS_BEFORE_REMOVAL - 1
+                }
+            );
+            expect(actions).to.deep.equal([]);
+        }
+    );
 
-    it("handleChanges dooes not call removeById before an appointment has expired for long enough", async () => {
-        const watcher = new Watcher(
-            responder,
-            blockCache,
-            store,
-            CONFIRMATIONS_BEFORE_RESPONSE,
-            CONFIRMATIONS_BEFORE_REMOVAL
-        );
+    fnIt<Watcher>(
+        w => w.detectChanges,
+        "does not call removeById if an appointment is already expired for long enough",
+        async () => {
+            const watcher = new Watcher(
+                responder,
+                blockCache,
+                store,
+                CONFIRMATIONS_BEFORE_RESPONSE,
+                CONFIRMATIONS_BEFORE_REMOVAL
+            );
 
-        await watcher.handleChanges(
-            {
-                items: makeMap(appointment.id, {
-                    state: WatcherAppointmentState.WATCHING
-                }),
-                blockNumber: 101 + CONFIRMATIONS_BEFORE_REMOVAL - 2
-            },
-            {
-                items: makeMap(appointment.id, {
-                    state: WatcherAppointmentState.WATCHING
-                }),
-                blockNumber: 101 + CONFIRMATIONS_BEFORE_REMOVAL - 1
-            }
-        );
+            const actions = watcher.detectChanges(
+                {
+                    items: makeMap(appointment.id, { state: WatcherAppointmentState.WATCHING }),
+                    blockNumber: 101 + CONFIRMATIONS_BEFORE_REMOVAL
+                },
+                {
+                    items: makeMap(appointment.id, { state: WatcherAppointmentState.WATCHING }),
+                    blockNumber: 101 + CONFIRMATIONS_BEFORE_REMOVAL + 1
+                }
+            );
 
-        verify(mockedStore.removeById(appointment.id)).never();
-    });
-
-    it("handleChanges dooes not call removeById if an appointment is already expired for long enough", async () => {
-        const watcher = new Watcher(
-            responder,
-            blockCache,
-            store,
-            CONFIRMATIONS_BEFORE_RESPONSE,
-            CONFIRMATIONS_BEFORE_REMOVAL
-        );
-
-        await watcher.handleChanges(
-            {
-                items: makeMap(appointment.id, {
-                    state: WatcherAppointmentState.WATCHING
-                }),
-                blockNumber: 101 + CONFIRMATIONS_BEFORE_REMOVAL 
-            },
-            {
-                items: makeMap(appointment.id, {
-                    state: WatcherAppointmentState.WATCHING
-                }),
-                blockNumber: 101 + CONFIRMATIONS_BEFORE_REMOVAL + 1
-            }
-        );
-
-        verify(mockedStore.removeById(appointment.id)).never();
-    });
+            expect(actions).to.deep.equal([]);
+        }
+    );
 });

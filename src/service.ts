@@ -1,14 +1,11 @@
 import express, { Response } from "express";
 import httpContext from "express-http-context";
-import rateLimit from "express-rate-limit";
 import { Server } from "http";
-import { inspect } from "util";
 import { ethers } from "ethers";
 import { PublicInspectionError, PublicDataValidationError, ApplicationError, StartStopService } from "./dataEntities";
 import { Watcher, AppointmentStore } from "./watcher";
 import { PisaTower, HotEthereumAppointmentSigner } from "./tower";
-import { setRequestId } from "./customExpressHttpContext";
-import { GasPriceEstimator, MultiResponder, MultiResponderComponent } from "./responder";
+import { GasPriceEstimator, MultiResponder, MultiResponderComponent, ResponderStore } from "./responder";
 import { IArgConfig } from "./dataEntities/config";
 import { BlockProcessor, BlockCache } from "./blockMonitor";
 import { LevelUp } from "levelup";
@@ -16,6 +13,17 @@ import encodingDown from "encoding-down";
 import { blockFactory } from "./blockMonitor";
 import { Block } from "./dataEntities/block";
 import { BlockchainMachine } from "./blockMonitor/blockchainMachine";
+import swaggerJsDoc from "swagger-jsdoc";
+import { Logger } from "./logger";
+import path from "path";
+import { GasQueue } from "./responder/gasQueue";
+import rateLimit from "express-rate-limit";
+import uuid = require("uuid/v4");
+
+/**
+ * Request object supplemented with a log
+ */
+type requestAndLog = express.Request & { log: Logger };
 
 /**
  * Hosts a PISA service at the endpoint.
@@ -23,7 +31,7 @@ import { BlockchainMachine } from "./blockMonitor/blockchainMachine";
 export class PisaService extends StartStopService {
     private readonly server: Server;
     private readonly blockProcessor: BlockProcessor<Block>;
-    private readonly multiResponder: MultiResponder;
+    private readonly responderStore: ResponderStore;
     private readonly appointmentStore: AppointmentStore;
     private readonly blockchainMachine: BlockchainMachine<Block>;
 
@@ -40,37 +48,45 @@ export class PisaService extends StartStopService {
         config: IArgConfig,
         provider: ethers.providers.BaseProvider,
         wallet: ethers.Wallet,
+        walletNonce: number,
+        chainId: number,
         receiptSigner: ethers.Signer,
         db: LevelUp<encodingDown<string, any>>
     ) {
         super("pisa");
         const app = express();
-
         this.applyMiddlewares(app, config);
 
-        // start reorg detector and block monitor
-        const blockCache = new BlockCache<Block>(
-            config.maximumReorgLimit === undefined ? 200 : config.maximumReorgLimit
-        );
+        // block cache and processor
+        const cacheLimit = config.maximumReorgLimit === undefined ? 200 : config.maximumReorgLimit;
+        const blockCache = new BlockCache<Block>(cacheLimit);
         this.blockProcessor = new BlockProcessor<Block>(provider, blockFactory, blockCache);
 
-        // dependencies
+        // stores
         this.appointmentStore = new AppointmentStore(db);
+        const seedQueue = new GasQueue([], walletNonce, 12, 13);
+        this.responderStore = new ResponderStore(db, wallet.address, seedQueue);
 
-        this.multiResponder = new MultiResponder(
+        // managers
+        const multiResponder = new MultiResponder(
             wallet,
-            new GasPriceEstimator(wallet.provider, this.blockProcessor.blockCache)
+            new GasPriceEstimator(wallet.provider, this.blockProcessor.blockCache),
+            chainId,
+            this.responderStore,
+            wallet.address,
+            500000000000000000
         );
 
+        // components and machine
         const watcher = new Watcher(
-            this.multiResponder,
+            multiResponder,
             this.blockProcessor.blockCache,
             this.appointmentStore,
             config.watcherResponseConfirmations === undefined ? 5 : config.watcherResponseConfirmations,
             config.maximumReorgLimit === undefined ? 100 : config.maximumReorgLimit
         );
         const responder = new MultiResponderComponent(
-            this.multiResponder,
+            multiResponder,
             this.blockProcessor.blockCache,
             config.maximumReorgLimit == undefined ? 100 : config.maximumReorgLimit
         );
@@ -82,30 +98,63 @@ export class PisaService extends StartStopService {
         const appointmentSigner = new HotEthereumAppointmentSigner(receiptSigner);
 
         // tower
-        const tower = new PisaTower(provider, this.appointmentStore, appointmentSigner, this.multiResponder);
+        const tower = new PisaTower(provider, this.appointmentStore, appointmentSigner, multiResponder);
 
         app.post("/appointment", this.appointment(tower));
 
+        // api docs
+        const hostAndPort = `${config.hostName}:${config.hostPort}`;
+        const docs = swaggerJsDoc(this.createSwaggerDocs(hostAndPort));
+        app.get("/api-docs.json", (req, res) => {
+            res.setHeader("Content-Type", "application/json");
+            res.send(docs);
+        });
+        app.get("/docs.html", (req, res) => {
+            res.setHeader("Content-Type", "text/html");
+            res.send(this.redocHtml(config.hostName, config.hostPort));
+        });
+        app.get("/schemas/appointmentRequest.json", (req, res) => {
+            res.sendFile(path.join(__dirname, "dataEntities/appointmentRequestSchema.json"));
+        });
+
         const service = app.listen(config.hostPort, config.hostName);
-        this.logger.info(`Listening on: ${config.hostName}:${config.hostPort}.`);
+        this.logger.info(config);
         this.server = service;
+    }
+
+    private createSwaggerDocs(hostAndPort: string): swaggerJsDoc.Options {
+        const options = {
+            definition: {
+                //openapi: "3.0.0", // Specification (optional, defaults to swagger: '2.0')
+                info: {
+                    title: "PISA",
+                    version: "0.1.0"
+                },
+                host: hostAndPort,
+                basePath: "/"
+            },
+            // Path to the API docs
+            apis: ["./src/service.ts", "./src/service.js", "./build/src/service.js"]
+        };
+
+        return options;
     }
 
     protected async startInternal() {
         await this.blockchainMachine.start();
         await this.blockProcessor.start();
         await this.appointmentStore.start();
-        await this.multiResponder.start();
+        await this.responderStore.start();
     }
 
     protected async stopInternal() {
-        await this.multiResponder.stop();
+        await this.responderStore.stop();
         await this.appointmentStore.stop();
         await this.blockProcessor.stop();
         await this.blockchainMachine.stop();
 
         this.server.close(error => {
-            if (error) this.logger.error(error.stack!);
+            if (error) this.logger.error(error);
             this.logger.info(`Shutdown.`);
         });
     }
@@ -116,7 +165,25 @@ export class PisaService extends StartStopService {
         // use http context middleware to create a request id available on all requests
         app.use(httpContext.middleware);
         app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
-            setRequestId();
+            (req as any).log = this.logger.child({ requestId: uuid() });
+            next();
+        });
+        app.use((req: requestAndLog, res: express.Response, next: express.NextFunction) => {
+            //log the duration of every request, and the body in case of error
+            const startNano = process.hrtime.bigint();
+            res.on("finish", () => {
+                const endNano = process.hrtime.bigint();
+                const microDuration = Number.parseInt((endNano - startNano).toString()) / 1000;
+                const logEntry = { req: req, res: res, duration: microDuration };
+
+                if (res.statusCode !== 200) {
+                    req.log.error({ ...logEntry, requestBody: req.body }, "Error response.");
+                }
+                // right now we log the request body as well even on a success response
+                // this probably isn't sutainable in the long term, but it should help us
+                // get a good idea of usage in the short term
+                else req.log.info({ ...logEntry, requestBody: req.body }, "Success response.");
+            });
             next();
         });
 
@@ -131,12 +198,6 @@ export class PisaService extends StartStopService {
                     max: config.rateLimitGlobalMax
                 })
             );
-            this.logger.info(
-                `Api global rate limit: ${config.rateLimitGlobalMax} requests every: ${config.rateLimitGlobalWindowMs /
-                    1000} seconds.`
-            );
-        } else {
-            this.logger.warn(`Api global rate limit: NOT SET.`);
         }
 
         if (config.rateLimitUserMax && config.rateLimitUserWindowMs) {
@@ -149,29 +210,38 @@ export class PisaService extends StartStopService {
                     max: config.rateLimitUserMax
                 })
             );
-            this.logger.info(
-                `Api per-user rate limit: ${config.rateLimitUserMax} requests every: ${config.rateLimitUserWindowMs /
-                    1000} seconds.`
-            );
-        } else {
-            this.logger.warn(`Api per-user rate limit: NOT SET.`);
         }
     }
 
-    // PISA: it would be much nicer to log with appointment data in this handler
-    // PISA: perhaps we can attach to the logger? should we be passing a logger to the tower itself?
-
+    /**
+     * @swagger
+     *
+     * /appointment:
+     *   post:
+     *     description: Request an appointmnt
+     *     produces:
+     *       - application/json
+     *     parameters:
+     *       - name: appointment request
+     *         description: Appointment request
+     *         in: body
+     *         required: true
+     *         type: object
+     *         schema:
+     *           $ref: 'schemas/appointmentRequest.json'
+     *     responses:
+     *       200:
+     */
     private appointment(tower: PisaTower) {
-        return async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+        return async (req: requestAndLog, res: express.Response, next: express.NextFunction) => {
             if (!this.started) {
-                this.logger.error("Service initialising. Could not serve request: \n" + inspect(req.body));
                 res.status(503);
-                res.send("Service initialising, please try again later.");
+                res.send({ message: "Service initialising, please try again later." });
                 return;
             }
 
             try {
-                const signedAppointment = await tower.addAppointment(req.body);
+                const signedAppointment = await tower.addAppointment(req.body, req.log);
 
                 // return the appointment
                 res.status(200);
@@ -179,23 +249,51 @@ export class PisaService extends StartStopService {
                 // with signature
                 res.send(signedAppointment.serialise());
             } catch (doh) {
-                if (doh instanceof PublicInspectionError) this.logAndSend(400, doh.message, doh, res);
-                else if (doh instanceof PublicDataValidationError) this.logAndSend(400, doh.message, doh, res);
-                else if (doh instanceof ApplicationError) this.logAndSend(500, doh.message, doh, res);
-                else if (doh instanceof Error) this.logAndSend(500, "Internal server error.", doh, res);
+                if (doh instanceof PublicInspectionError) this.logAndSend(400, doh.message, doh, res, req);
+                else if (doh instanceof PublicDataValidationError) this.logAndSend(400, doh.message, doh, res, req);
+                else if (doh instanceof ApplicationError) this.logAndSend(500, "Internal server error", doh, res, req);
+                else if (doh instanceof Error) this.logAndSend(500, "Internal server error.", doh, res, req);
                 else {
-                    this.logger.error("Error: 500. \n" + inspect(doh));
+                    req.log.error(doh);
                     res.status(500);
-                    res.send("Internal server error.");
+                    res.send({ message: "Internal server error." });
                 }
             }
         };
     }
 
-    private logAndSend(code: number, responseMessage: string, error: Error, res: Response) {
-        this.logger.error(`HTTP Status: ${code}.`);
-        this.logger.error(error.stack!);
+    private logAndSend(code: number, responseMessage: string, error: Error, res: Response, req: requestAndLog) {
+        req.log.error(error);
         res.status(code);
-        res.send(responseMessage);
+        res.send({ message: responseMessage });
+    }
+
+    private redocHtml(host: string, port: number) {
+        return `<!DOCTYPE html>
+            <html>
+            <head>
+                <title>Quizizz Docs</title>
+                <!-- needed for adaptive design -->
+                <meta charset="utf-8"/>
+                <link rel="shortcut icon" type="image/x-icon" href="https://quizizz.com/favicon.ico" />
+                <meta name="viewport" content="width=device-width, initial-scale=1">
+                <link href="https://fonts.googleapis.com/css?family=Montserrat:300,400,700|Roboto:300,400,700" rel="stylesheet">
+
+                <!--
+                ReDoc doesn't change outer page styles
+                -->
+                <style>
+                body {
+                    margin: 0;
+                    padding: 0;
+                }
+                </style>
+            </head>
+            <body>
+                <!-- we provide is specification here -->
+                <redoc spec-url='./api-docs.json' expand-responses="all"></redoc>
+                <script src="https://cdn.jsdelivr.net/npm/redoc@next/bundles/redoc.standalone.js"> </script>
+            </body>
+        </html>`;
     }
 }

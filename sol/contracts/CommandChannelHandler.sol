@@ -31,7 +31,7 @@ contract CommandChannelHandler {
      // [trigger,refute] events should directly follow each other...
      // we must avoid the situation [trigger,...,refute] as while
      // it is not obvious how it can hurt an honest PISA, we must avoid that.
-    require(_dataindex[1] - _dataindex[0] == 1);
+    // require(_dataindex[1] - _dataindex[0] == 1);
 
   }
 
@@ -59,7 +59,7 @@ contract CommandChannelHandler {
   // CHECKS HASH COMMITMENT
   // Return TRUE if PISA failed
   // Return FALSE if PISA did its job (or if there was a problem with the information)
-  function getTime(address _dataregistry, uint[] memory _datashard, address _sc, uint _logid, uint[] memory _dataindex, bytes[] memory _logdata) public returns (uint[2] memory) {
+  function getTime(address _dataregistry, uint[] memory _datashard, address _sc, uint _logid, uint[] memory _dataindex, bytes[] memory _logdata) public returns (uint[3] memory) {
 
       // Check shard information
       basicShardSanityChecks(_datashard, _dataindex, _dataregistry);
@@ -67,22 +67,22 @@ contract CommandChannelHandler {
       // Fetch the "starting dispute record"
       // Does the log data match up with on-chain commitment?
       bytes32 h = DataRegistryInterface(_dataregistry).fetchHash(_datashard[0], _sc, _logid, _dataindex[0]);
-      require(h == keccak256(_logdata[0]));
+      require(h == keccak256(_logdata[0]), "Cannot find first dispute record");
 
       // Fetch the "resolved dispute record"
       // Does the log data match up with the on-chain commitment?
       h = DataRegistryInterface(_dataregistry).fetchHash(_datashard[1], _sc, _logid, _dataindex[1]);
-      require(h == keccak256(_logdata[1]));
+      require(h == keccak256(_logdata[1]), "Canot find second dispute record");
 
       // Fetch start time and challenge time from log
       // Also compute the "finish time" of the dispute
-      uint[2] memory times;
+      uint[3] memory times;
 
       //, startTime, challengePeriod,
-      (, times[0], times[1], ) = abi.decode(_logdata[0], (uint, uint, uint, uint));
+      (, times[0], times[2], ) = abi.decode(_logdata[0], (uint, uint, uint, uint));
 
       // Compute the "finish time" of the dispute
-      times[1] = times[0] + times[1];
+      times[1] = times[0] + times[2];
 
       return times;
 
