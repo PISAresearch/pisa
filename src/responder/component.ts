@@ -58,21 +58,9 @@ export class ResponderAppointmentReducer implements StateReducer<ResponderAppoin
             // therefore we fallback to network id when chain id is not present
             const txChainId = tx.chainId || (tx as any).networkId;
             const txIdentifier = new PisaTransactionIdentifier(txChainId, tx.data, tx.to, tx.value, tx.gasLimit);
-            if(txIdentifier.equals(identifier)) {
-                logger.error(tx, "Potential transaction match.")
-                logger.error(txIdentifier, "Formed tx identfier.")
-                logger.error(identifier, "State identifier.")
-                logger.error({number: block.number, hash: block.hash}, "Block info.")
-            }
-            if(tx.from.toLowerCase() === this.address.toLowerCase()) {
-                logger.info(tx, "Potential transaction match.")
-                logger.info(txIdentifier, "Formed tx identfier.")
-                logger.info(identifier, "State identifier.")
-                logger.info({number: block.number, hash: block.hash}, "Block info.")
-                logger.info(txIdentifier.gasLimit.eq(identifier.gasLimit), `Gas limits ${txIdentifier.gasLimit.toString()} == ${identifier.gasLimit.toString()} .`);
-                
-            }
             if (txIdentifier.equals(identifier) && tx.from.toLowerCase() === this.address.toLowerCase()) {
+                logger.info({ tx: tx, identifier: identifier }, "Observed transaction mined.");
+
                 return {
                     blockNumber: tx.blockNumber!,
                     nonce: tx.nonce
