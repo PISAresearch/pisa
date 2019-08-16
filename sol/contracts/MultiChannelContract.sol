@@ -31,6 +31,7 @@ contract MultiChannelContract {
     event ChallengeEvent(uint shard, address addr, uint id, uint index, bytes data);
     event RefuteEvent(address addr, uint channelid, uint v);
     event ResolveEvent(uint shard, address addr, uint id, uint index, bytes data);
+    event Test(bytes32 h, uint no, uint blockno, uint v);
 
     // Install data registry upon startup.
     constructor(address _registry) public {
@@ -134,7 +135,7 @@ contract MultiChannelContract {
         uint datashard;
         uint index;
         (datashard, index) = DataRegistryInterface(dataregistry).setHash(_id, encoded);
-
+        emit Test(keccak256(encoded), 1, block.number, channels[_id].v);
         emit ResolveEvent(datashard, address(this), _id, index, encoded);
     }
 

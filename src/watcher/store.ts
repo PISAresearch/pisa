@@ -17,7 +17,7 @@ export class AppointmentStore extends StartStopService {
         // access the db and load all state
         for await (const record of this.db.createValueStream()) {
             const appointment = Appointment.fromIAppointment((record as any) as IAppointment);
-            // // add too the indexes
+            // add too the indexes
             this.mAppointmentsById.set(appointment.id, appointment);
             this.mAppointmentsByLocator.set(appointment.locator, appointment);
         }

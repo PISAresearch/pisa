@@ -1,5 +1,5 @@
 import { Appointment } from "../dataEntities";
-import { ApplicationError, ArgumentError } from "../dataEntities/errors";
+import { ApplicationError, ArgumentError, UnreachableCaseError } from "../dataEntities/errors";
 import { AppointmentStore } from "./store";
 import { ReadOnlyBlockCache } from "../blockMonitor";
 import { Logs, IBlockStub, hasLogMatchingEventFilter } from "../dataEntities/block";
@@ -70,12 +70,29 @@ export class WatcherAppointmentStateReducer implements StateReducer<WatcherAppoi
     }
 }
 
+export enum WatcherActionKind {
+    StartResponse = 1,
+    RemoveAppointment = 2
+}
+
+type StartResponseAction = {
+    kind: WatcherActionKind.StartResponse;
+    appointment: Appointment;
+};
+
+type RemoveAppointmentAction = {
+    kind: WatcherActionKind.RemoveAppointment;
+    appointmentId: string;
+};
+
+export type WatcherAction = StartResponseAction | RemoveAppointmentAction;
+
 /**
  * Watches the chain for events related to the supplied appointments. When an event is noticed data is forwarded to the
  * observe method to complete the task. The watcher is not responsible for ensuring that observed events are properly
  * acted upon, that is the responsibility of the responder.
  */
-export class Watcher extends Component<WatcherAnchorState, IBlockStub & Logs> {
+export class Watcher extends Component<WatcherAnchorState, IBlockStub & Logs, WatcherAction> {
     /**
      * Watches the chain for events related to the supplied appointments. When an event is noticed data is forwarded to the
      * observe method to complete the task. The watcher is not responsible for ensuring that observed events are properly
@@ -125,28 +142,24 @@ export class Watcher extends Component<WatcherAnchorState, IBlockStub & Logs> {
     private shouldRemoveExpiredAppointment = (
         state: WatcherAnchorState,
         appointmentState: WatcherAppointmentAnchorState | undefined,
-        endBlock : number 
+        endBlock: number
     ): boolean =>
         appointmentState != undefined &&
         appointmentState.state === WatcherAppointmentState.WATCHING &&
-        state.blockNumber - endBlock  > this.confirmationsBeforeRemoval
+        state.blockNumber - endBlock > this.confirmationsBeforeRemoval;
 
-    public async handleChanges(prevState: WatcherAnchorState, state: WatcherAnchorState) {
+    public detectChanges(prevState: WatcherAnchorState, state: WatcherAnchorState) {
+        const actions: WatcherAction[] = [];
+
         for (const [appointmentId, appointmentState] of state.items.entries()) {
             const prevWatcherAppointmentState = prevState.items.get(appointmentId);
 
             // Log if started watching a new appointment
             if (!prevWatcherAppointmentState && appointmentState.state === WatcherAppointmentState.WATCHING) {
-                logger.info(`Watching for appointment ${appointmentId}.`);
-            }
-
-            // Log if an appointment was observed, wether it is a new one or a previously watched one
-            if (
-                (!prevWatcherAppointmentState ||
-                    prevWatcherAppointmentState.state === WatcherAppointmentState.WATCHING) &&
-                appointmentState.state === WatcherAppointmentState.OBSERVED
-            ) {
-                logger.info(`Observed appointment ${appointmentId} in block ${appointmentState.blockObserved}.`);
+                logger.info(
+                    { state: appointmentState, id: appointmentId, blockNumber: state.blockNumber },
+                    `Started watching for appointment.`
+                );
             }
 
             // Start response if necessary
@@ -155,8 +168,11 @@ export class Watcher extends Component<WatcherAnchorState, IBlockStub & Logs> {
                 this.shouldHaveStartedResponder(state, appointmentState)
             ) {
                 const appointment = this.store.appointmentsById.get(appointmentId)!;
-                logger.info(`Responding to appointment ${appointmentId}, block ${state.blockNumber}.`);
-                await this.responder.startResponse(appointment);
+                logger.info({ state: appointmentState, id: appointmentId, blockNumber: state.blockNumber }, `Responding to appointment.`); // prettier-ignore
+                actions.push({
+                    kind: WatcherActionKind.StartResponse,
+                    appointment: appointment
+                });
             }
 
             // Cleanup if done with appointment
@@ -164,21 +180,34 @@ export class Watcher extends Component<WatcherAnchorState, IBlockStub & Logs> {
                 !this.shouldRemoveObservedAppointment(prevState, prevWatcherAppointmentState) &&
                 this.shouldRemoveObservedAppointment(state, appointmentState)
             ) {
-                logger.info(`Removing appointment ${appointmentId}, block ${state.blockNumber} from watcher.`);
-                await this.store.removeById(appointmentId);
+                logger.info({ state: appointmentState, id: appointmentId, blockNumber: state.blockNumber }, `Removing fulfilled appointment from watcher.`); // prettier-ignore
+                actions.push({ kind: WatcherActionKind.RemoveAppointment, appointmentId: appointmentId });
             }
 
             // Cleanup if appointment expired
             let endBlock = this.store.appointmentsById.get(appointmentId)!.endBlock;
             if (
-                !this.shouldRemoveExpiredAppointment(prevState, prevWatcherAppointmentState,endBlock) && 
-                this.shouldRemoveExpiredAppointment(state, appointmentState,endBlock)
-            )
-            {
-                logger.info(`Removing appointment ${appointmentId}, block ${state.blockNumber} from watcher.`);
-                await this.store.removeById(appointmentId);
+                !this.shouldRemoveExpiredAppointment(prevState, prevWatcherAppointmentState, endBlock) &&
+                this.shouldRemoveExpiredAppointment(state, appointmentState, endBlock)
+            ) {
+                logger.info({ state: appointmentState, id: appointmentId, blockNumber: state.blockNumber }, `Removing expired appointment from watcher.`); // prettier-ignore
+                actions.push({ kind: WatcherActionKind.RemoveAppointment, appointmentId: appointmentId });
             }
+        }
 
+        return actions;
+    }
+
+    public async applyAction(action: WatcherAction) {
+        switch (action.kind) {
+            case WatcherActionKind.StartResponse:
+                await this.responder.startResponse(action.appointment);
+                break;
+            case WatcherActionKind.RemoveAppointment:
+                await this.store.removeById(action.appointmentId);
+                break;
+            default:
+                throw new UnreachableCaseError(action, "Unrecognised watcher action kind.");
         }
     }
 }

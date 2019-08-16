@@ -1,6 +1,9 @@
-import { createLogger, format, transports } from "winston";
-import { getRequestId } from "./customExpressHttpContext";
+import { createLogger, Stream, stdSerializers } from "bunyan";
 import fs from "fs";
+import path from "path";
+import { ArgumentError } from "./dataEntities";
+import * as Logger from "bunyan";
+export { Logger };
 
 const logDir = "logs";
 
@@ -49,21 +52,12 @@ export class LogLevelInfo {
 }
 
 // Default to log level "info", unless we are running tests, then "debug"
-let currentLogLevelInfo: LogLevelInfo = process.env.NODE_ENV === "test" ? LogLevelInfo.Debug : LogLevelInfo.Info;
+let currentLogLevelInfo = LogLevelInfo.Info;
 
 // create the log directory if it does not exist
 if (!fs.existsSync("./" + logDir)) {
     fs.mkdirSync("./" + logDir);
 }
-
-const myFormat = format.printf(info => {
-    // get the current request id
-    const requestId = getRequestId();
-    const requestString = requestId ? `[${requestId}] ` : "";
-    return `${info.timestamp} ${requestString}${info.level}: ${info.message}`;
-});
-
-const combinedFormats = format.combine(format.timestamp(), myFormat);
 
 // Default logger
 const logger = createNamedLogger(null);
@@ -79,33 +73,46 @@ export function setLogLevel(level: LogLevelInfo) {
     currentLogLevelInfo = level;
 }
 
+function ArgumentErrorSerialiser(err: Error) {
+    if (err instanceof ArgumentError) {
+        return {
+            args: err.args,
+            ...stdSerializers.err(err)
+        };
+    } else return stdSerializers.err(err);
+}
+
 /**
  * Creates a named logger with name `name`. If `name` is given, the logs are saved in a file with the `${name}-` prefix.
  * Otherwise, there will be no prefix.
  * @param name
  */
 export function createNamedLogger(name: string | null) {
-    const prefix = name !== null ? name + "-" : "";
+    name = name || "app";
+    const prefix = name + "-";
 
-    const selectedTransports: transports.FileTransportInstance[] = [];
+    const streams: Stream[] = [];
     for (const levelInfo of currentLogLevelInfo.getLevelsBelow()) {
-        const level = levelInfo.logLevel;
-        selectedTransports.push(new transports.File({ dirname: logDir, filename: `${prefix}${level}.log`, level }));
+        streams.push({ path: path.join(logDir, `${prefix}${levelInfo.logLevel}.log`), level: levelInfo.logLevel });
     }
-
-    const newLogger = createLogger({
-        format: combinedFormats,
-        transports: selectedTransports
-    });
 
     // console log if we're not in production
     if (process.env.NODE_ENV !== "production" && process.env.NODE_ENV !== "test") {
-        newLogger.add(
-            new transports.Console({
-                format: combinedFormats
-            })
-        );
+        streams.push({
+            stream: process.stdout,
+            level: LogLevel.Info
+        });
     }
+
+    const newLogger = createLogger({
+        name,
+        streams,
+        serializers: {
+            err: ArgumentErrorSerialiser,
+            res: stdSerializers.res,
+            req: stdSerializers.req
+        }
+    });
 
     return newLogger;
 }

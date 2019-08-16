@@ -1,35 +1,29 @@
-import { Appointment, StartStopService } from "../dataEntities";
-import { GasQueue, PisaTransactionIdentifier, GasQueueItem, GasQueueItemRequest } from "./gasQueue";
+import { Appointment } from "../dataEntities";
+import {
+    PisaTransactionIdentifier,
+    GasQueueItem,
+    GasQueueItemRequest,
+    GasQueueError,
+    GasQueueErrorKind
+} from "./gasQueue";
 import { GasPriceEstimator } from "./gasPriceEstimator";
 import { ethers } from "ethers";
 import { BigNumber } from "ethers/utils";
 import { inspect } from "util";
 import logger from "../logger";
-import { QueueConsistencyError, ArgumentError } from "../dataEntities/errors";
+import { QueueConsistencyError, ArgumentError, PublicInspectionError } from "../dataEntities/errors";
+import { LockManager } from "../utils/lock";
+import { ResponderStore } from "./store";
 
-export class MultiResponder extends StartStopService {
-    // TODO-93: the correct gas limit should be provided based on the appointment/integration.
-    //          200000 is enough for Kitsune and Raiden (see https://github.com/raiden-network/raiden-contracts/blob/master/raiden_contracts/data/gas.json).
-    private static readonly GAS_LIMIT = 200000;
-
-    private readonly provider: ethers.providers.Provider;
+export class MultiResponder {
+    private readonly zStore: ResponderStore;
+    private readonly lockManager = new LockManager();
     /**
      * The current queue of pending transaction being handled by this responder
      */
-    public get queue() {
-        return this.mQueue;
+    public get transactions() {
+        return this.zStore.transactions;
     }
-    private mQueue: GasQueue;
-    public readonly respondedTransactions: Map<string, GasQueueItem> = new Map();
-    private chainId: number;
-    /**
-     * The address of the private signing key being used to create responses
-     *
-     */
-    public get address() {
-        return this.mAddress;
-    }
-    private mAddress: string;
 
     /**
      * Can handle multiple response for a given signer. This responder requires exclusive
@@ -39,46 +33,20 @@ export class MultiResponder extends StartStopService {
      *   The signer used to sign transaction created by this responder. This responder
      *   requires exclusive use of this signer.
      * @param gasEstimator
-     * @param maxConcurrentResponses
-     *   Parity and Geth set maximums on the number of pending transactions in the
-     *   pool that can emanate from a single account. Current defaults:
-     *   Parity: max(16, 1% of the pool): https://wiki.parity.io/Configuring-Parity-Ethereum --tx-queue-per-sender
-     *   Geth: 64: https://github.com/ethereum/go-ethereum/wiki/Command-Line-Options --txpool.accountqueue
-     * @param replacementRate
-     *   This responder replaces existing transactions on the network.
-     *   This replacement rate is set by the nodes. The value should be the percentage increase
-     *   eg. 13. Must be positive.
-     *   Parity: 12.5%: https://github.com/paritytech/parity-ethereum/blob/master/miner/src/pool/scoring.rs#L38
-     *   Geth: 10% default : https://github.com/ethereum/go-ethereum/wiki/Command-Line-Options --txpool.pricebump
+     * @param balanceThreshold
+     *   This value respresents the minimum threshold the responder balance (in wei) can reach before a
+     *   "low balance warning" will be issued
      */
     public constructor(
         public readonly signer: ethers.Signer,
         public readonly gasEstimator: GasPriceEstimator,
-        public readonly maxConcurrentResponses: number = 12,
-        public readonly replacementRate: number = 13
+        private readonly chainId: number,
+        store: ResponderStore,
+        public readonly address: string,
+        public readonly balanceThreshold: number
     ) {
-        super("multi-responder");
-        this.provider = signer.provider!;
-        if (replacementRate < 0) throw new ArgumentError("Cannot have negative replacement rate.", replacementRate);
-        if (maxConcurrentResponses < 1) {
-            throw new ArgumentError("Maximum concurrent requests must be greater than 0.", maxConcurrentResponses);
-        }
-        /* NB startStopService's proxyHandler will intercept get(this.broadcast), even though the method is not run at this stage.
-         * NotStartedError would throw on this get, so needs to be wrapped in asProtectedMethod. That error will NOT protect future running
-         * of the bound broadcast method, but it is private, so should be protected instead through whichever public function calls it.
-         */
-        this.broadcast = this.asProtectedMethod(this.broadcast).bind(this);
-    }
-
-    protected async startInternal() {
-        this.mAddress = await this.signer.getAddress();
-        const nonce = await this.provider.getTransactionCount(this.mAddress, "pending");
-        this.chainId = (await this.provider.getNetwork()).chainId;
-        this.mQueue = new GasQueue([], nonce, this.replacementRate, this.maxConcurrentResponses);
-    }
-
-    protected async stopInternal() {
-        // do nothing
+        this.broadcast = this.broadcast.bind(this);
+        this.zStore = store;
     }
 
     /**
@@ -86,40 +54,40 @@ export class MultiResponder extends StartStopService {
      */
     public async startResponse(appointment: Appointment) {
         try {
-            if (this.mQueue.depthReached()) {
-                throw new QueueConsistencyError(
-                    `Cannot add to queue. Max queue depth ${this.mQueue.maxQueueDepth} reached.`
+            const replacedTransactions = await this.lockManager.withLock(this.zStore.lock, async () => {
+                if (this.zStore.queue.depthReached()) {
+                    throw new QueueConsistencyError(
+                        `Cannot add to queue. Max queue depth ${this.zStore.queue.maxQueueDepth} reached.`
+                    );
+                }
+
+                // form a queue item request
+                const txIdentifier = new PisaTransactionIdentifier(
+                    this.chainId,
+                    appointment.data,
+                    appointment.contractAddress,
+                    new BigNumber(0),
+                    appointment.gasLimit
                 );
-            }
 
-            // form a queue item request
-            const txIdentifier = new PisaTransactionIdentifier(
-                this.chainId,
-                appointment.data,
-                appointment.contractAddress,
-                new BigNumber(0),
-                new BigNumber(MultiResponder.GAS_LIMIT)
-            );
-            const idealGas = await this.gasEstimator.estimate(appointment);
-            const request = new GasQueueItemRequest(txIdentifier, idealGas, appointment);
-            logger.info(`Enqueueing request for ${appointment.id}. ${JSON.stringify(request)}.`);
+                const idealGas = await this.gasEstimator.estimate(appointment);
+                const request = new GasQueueItemRequest(txIdentifier, idealGas, appointment);
+                logger.info(request, `Enqueueing request for ${appointment.id}.`);
 
-            // add the queue item to the queue, since the queue is ordered this may mean
-            // that we need to replace some transactions on the network. Find those and
-            // broadcast them
-            const replacedQueue = this.mQueue.add(request);
-            const replacedTransactions = replacedQueue.difference(this.mQueue);
-            this.mQueue = replacedQueue;
+                // add the queue item to the queue, since the queue is ordered this may mean
+                // that we need to replace some transactions on the network. Find those and
+                // broadcast them
+                const replacedQueue = this.zStore.queue.add(request);
+                return await this.zStore.updateQueue(replacedQueue);
+            });
 
-            // and update the local list of tx identifiers for the latest data, then broadcast
-            replacedTransactions.forEach(q => this.respondedTransactions.set(q.request.appointment.id, q));
             await Promise.all(replacedTransactions.map(b => this.broadcast(b)));
         } catch (doh) {
-            if (doh instanceof QueueConsistencyError) logger.error(doh.stack!);
-            else {
-                logger.error(`Unexpected error trying to respond for: ${appointment.id}.`);
-                if (doh.stack) logger.error(doh.stack);
-                else logger.error(doh);
+            logger.error(doh);
+
+            // we rethrow to the public if this item is already enqueued.
+            if (doh instanceof GasQueueError && doh.kind === GasQueueErrorKind.AlreadyAdded) {
+                throw new PublicInspectionError(`Appointment already in queue.`);
             }
         }
     }
@@ -137,54 +105,54 @@ export class MultiResponder extends StartStopService {
      */
     public async txMined(txIdentifier: PisaTransactionIdentifier, nonce: number) {
         try {
-            logger.info(`Transaction mined. ${txIdentifier}. ${nonce}.`);
-            if (this.mQueue.queueItems.length === 0) {
-                throw new QueueConsistencyError(
-                    `Transaction mined for empty queue at nonce ${nonce}. ${inspect(txIdentifier)}`
-                );
-            }
-            if (this.mQueue.queueItems.findIndex(item => item.request.identifier.equals(txIdentifier)) === -1) {
-                throw new QueueConsistencyError(`Transaction identifier not found in queue. ${inspect(txIdentifier)}`);
-            }
-            const frontItem = this.mQueue.queueItems[0];
-            if (frontItem.nonce !== nonce) {
-                throw new QueueConsistencyError(
-                    `Front of queue nonce ${frontItem.nonce} does not correspond to nonce ${nonce}. ${inspect(
-                        txIdentifier
-                    )}`
-                );
-            }
+            const replacedTransactions = await this.lockManager.withLock(this.zStore.lock, async () => {
+                if (this.zStore.queue.queueItems.length === 0) {
+                    throw new QueueConsistencyError(
+                        `Transaction mined for empty queue at nonce ${nonce}. ${inspect(txIdentifier)}`
+                    );
+                }
+                if (
+                    this.zStore.queue.queueItems.findIndex(item => item.request.identifier.equals(txIdentifier)) === -1
+                ) {
+                    throw new QueueConsistencyError(
+                        `Transaction identifier not found in queue. ${inspect(txIdentifier)}`
+                    );
+                }
+                const frontItem = this.zStore.queue.queueItems[0];
+                if (frontItem.nonce !== nonce) {
+                    throw new QueueConsistencyError(
+                        `Front of queue nonce ${frontItem.nonce} does not correspond to nonce ${nonce}. ${inspect(
+                            txIdentifier
+                        )}`
+                    );
+                }
 
-            if (txIdentifier.equals(frontItem.request.identifier)) {
-                // the mined transaction was the one at the front of the current queue
-                // this is what we hoped for, simply dequeue the transaction
-                logger.info(`Transaction is front of queue.`);
-                this.mQueue = this.mQueue.dequeue();
-            } else {
-                // the mined transaction was not the one at the front of the current queue
-                // - it was at the front of a past queue. This means that the transaction
-                // at the front of the current queue can no longer be mined as it shares the same
-                // nonce. We need to find the transaction in the current queue that corresponds to
-                // the mined tx and remove it. In doing so free up a later nonce.
-                // and bump up all transactions with a lower nonce so that the tx that is
-                // at the front of the current queue - but was not mined - remains there
-                logger.info(`Transaction has since been replaced.`);
-                const reducedQueue = this.mQueue.consume(txIdentifier);
-                const replacedTransactions = reducedQueue.difference(this.mQueue);
-                this.mQueue = reducedQueue;
-                replacedTransactions.forEach(q => this.respondedTransactions.set(q.request.appointment.id, q));
+                if (txIdentifier.equals(frontItem.request.identifier)) {
+                    // the mined transaction was the one at the front of the current queue
+                    // this is what we hoped for, simply dequeue the transaction
+                    logger.info(`Transaction is front of queue.`);
+                    const dequeuedQueue = this.zStore.queue.dequeue();
+                    return await this.zStore.updateQueue(dequeuedQueue);
+                } else {
+                    // the mined transaction was not the one at the front of the current queue
+                    // - it was at the front of a past queue. This means that the transaction
+                    // at the front of the current queue can no longer be mined as it shares the same
+                    // nonce. We need to find the transaction in the current queue that corresponds to
+                    // the mined tx and remove it. In doing so free up a later nonce.
+                    // and bump up all transactions with a lower nonce so that the tx that is
+                    // at the front of the current queue - but was not mined - remains there
+                    logger.info(`Transaction has since been replaced.`);
+                    const reducedQueue = this.zStore.queue.consume(txIdentifier);
+                    return await this.zStore.updateQueue(reducedQueue);
+                }
+            });
 
-                // since we had to bump up some transactions - change their nonces
-                // we'll have to issue new transactions to the network
-                await Promise.all(replacedTransactions.map(b => this.broadcast(b)));
-            }
+            // since we had to bump up some transactions - change their nonces
+            // we'll have to issue new transactions to the network - we dont need to do this in the lock
+            // we can just assume so may fail in a race condition
+            if (replacedTransactions) await Promise.all(replacedTransactions.map(b => this.broadcast(b)));
         } catch (doh) {
-            if (doh instanceof QueueConsistencyError) logger.error(doh.stack!);
-            else {
-                logger.error(`Unexpected error after mining transaction. ${txIdentifier}.`);
-                if (doh.stack) logger.error(doh.stack);
-                else logger.error(doh);
-            }
+            logger.error(doh);
         }
     }
 
@@ -195,53 +163,62 @@ export class MultiResponder extends StartStopService {
      * @param queueItems
      */
     public async reEnqueueMissingItems(appointmentIdsStillPending: string[]) {
-        // a reorg may have occurred, if this is the case then we need to check whether
-        // then some transactions that we had previously considered mined may no longer
-        // be. We can find these transactions by comparing the current gas queue to the
-        // transactions that we currently observe in pending. Transactions in pending
-        // but not in the gas queue need to be added there.
-        const missingQueueItems = appointmentIdsStillPending
-            .map(appId => this.respondedTransactions.get(appId))
-            .map(txRecord => {
-                if (!txRecord) throw new ArgumentError("No record of appointment in responder.", txRecord);
-                else return txRecord;
-            })
-            .filter(item => !this.mQueue.contains(item.request.identifier));
+        const replacedTransactions = await this.lockManager.withLock(this.zStore.lock, async () => {
+            // a reorg may have occurred, if this is the case then we need to check whether
+            // then some transactions that we had previously considered mined may no longer
+            // be. We can find these transactions by comparing the current gas queue to the
+            // transactions that we currently observe in pending. Transactions in pending
+            // but not in the gas queue need to be added there.
+            const missingQueueItems = appointmentIdsStillPending
+                .map(appId => this.zStore.transactions.get(appId))
+                .map(txRecord => {
+                    if (!txRecord) throw new ArgumentError("No record of appointment in responder.", txRecord);
+                    else return txRecord;
+                })
+                .filter(item => !this.zStore.queue.contains(item.request.identifier));
 
-        // no need to unlock anything if we dont have any missing items
-        if (missingQueueItems.length !== 0) {
-            logger.info(`${missingQueueItems.length} items missing from the gas queue. Re-enqueueing: ${JSON.stringify(missingQueueItems)}.`); //prettier-ignore
-            const unlockedQueue = this.mQueue.prepend(missingQueueItems);
-            const replacedTransactions = unlockedQueue.difference(this.mQueue);
-            this.mQueue = unlockedQueue;
-            replacedTransactions.forEach(q => this.respondedTransactions.set(q.request.appointment.id, q));
-            await Promise.all(replacedTransactions.map(b => this.broadcast(b)));
-        }
+            // no need to unlock anything if we dont have any missing items
+            if (missingQueueItems.length !== 0) {
+                logger.info({ missingItems: missingQueueItems }, `${missingQueueItems.length} items missing from the gas queue. Re-enqueueing.`); //prettier-ignore
+
+                const unlockedQueue = this.zStore.queue.prepend(missingQueueItems);
+                return await this.zStore.updateQueue(unlockedQueue);
+            }
+        });
+        if (replacedTransactions) await Promise.all(replacedTransactions.map(b => this.broadcast(b)));
     }
 
     /**
      * Informs the responder that it can stop tracking a specific appointment
      * @param appointmentId
      */
-    public endResponse(appointmentId: string) {
-        logger.info(`Removing appointment from responder: ${appointmentId}.`);
-        this.respondedTransactions.delete(appointmentId);
+    public async endResponse(appointmentId: string) {
+        await this.lockManager.withLock(this.zStore.lock, async () => {
+            await this.zStore.removeResponse(appointmentId);
+        });
     }
 
     private async broadcast(queueItem: GasQueueItem) {
         try {
             const tx = queueItem.toTransactionRequest();
-
-            logger.info(`Broadcasting tx for ${queueItem.request.appointment.id}. ${JSON.stringify(queueItem)}. ${JSON.stringify(tx)}.`); // prettier-ignore
+            logger.info({ tx: tx, queueItem: queueItem }, `Broadcasting tx for ${queueItem.request.appointment.id}`); // prettier-ignore
             await this.signer.sendTransaction(tx);
         } catch (doh) {
-            console.log(doh)
             // we've failed to broadcast a transaction however this isn't a fatal
             // error. Periodically, we look to see if a transaction has been mined
             // for whatever reason if not then we'll need to re-issue the transaction
             // anyway
-            if (doh.stack) logger.error(doh.stack);
-            else logger.error(doh);
+            logger.error(doh);
         }
+    }
+    /**
+     * Checks to see if the responder balance is lower than the threshold set in the constructor.
+     * If the balance is lower, a warning will be outputted by the logger
+     */
+    public async checkBalance(){
+        const currentBalance = await this.signer.provider!.getBalance(this.address);
+        if(currentBalance.lt(this.balanceThreshold)){
+            logger.error("Responder balance is becoming low. Current balance: "+ currentBalance);
+         }
     }
 }

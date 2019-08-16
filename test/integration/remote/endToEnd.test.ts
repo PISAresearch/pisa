@@ -14,6 +14,7 @@ import { FileUtils } from "../fileUtil";
 import { ChainData } from "../chainData";
 import { KeyStore } from "../keyStore";
 import { Appointment, IAppointmentRequest } from "../../../src/dataEntities";
+import { groupTuples } from "../../../src/utils/ethers";
 
 const newId = () => {
     return uuid().substr(0, 8);
@@ -25,6 +26,43 @@ const prepareLogsDir = (dirPath: string) => {
     }
 
     fs.mkdirSync(dirPath);
+};
+
+const encode = (request: IAppointmentRequest) => {
+    const appointmentInfo = ethers.utils.defaultAbiCoder.encode(
+        ...groupTuples([
+            ["uint", request.id],
+            ["uint", request.jobId],
+            ["uint", request.startBlock],
+            ["uint", request.endBlock],
+            ["uint", request.challengePeriod],
+            ["uint", request.refund],
+            ["bytes32", request.paymentHash]
+        ])
+    );
+    const contractInfo = ethers.utils.defaultAbiCoder.encode(
+        ...groupTuples([
+            ["address", request.contractAddress],
+            ["address", request.customerAddress],
+            ["uint", request.gasLimit],
+            ["bytes", request.data]
+        ])
+    );
+    const conditionInfo = ethers.utils.defaultAbiCoder.encode(
+        ...groupTuples([
+            ["bytes", ethers.utils.toUtf8Bytes(request.eventABI)],
+            ["bytes", request.eventArgs],
+            ["bytes", request.preCondition],
+            ["bytes", request.postCondition],
+            ["uint", request.mode]
+        ])
+    );
+
+    return ethers.utils.keccak256(
+        ethers.utils.defaultAbiCoder.encode(
+            ...groupTuples([["bytes", appointmentInfo], ["bytes", contractInfo], ["bytes", conditionInfo]])
+        )
+    );
 };
 
 describe("Integration", function() {
@@ -75,6 +113,10 @@ describe("Integration", function() {
 
         await parity.start(true);
         await pisa.start(true);
+        // adding a wait here appears to stop intermittent errors that occur
+        // during the integration tests. This isnt a great solution but it works
+        // for now
+        await wait(10000);
     });
 
     after(async () => {
@@ -118,21 +160,28 @@ describe("Integration", function() {
                 endBlock: 22,
                 eventABI: KitsuneTools.eventABI(),
                 eventArgs: KitsuneTools.eventArgs(),
-                gas: 100000,
+                gasLimit: "100000",
                 id: 1,
                 jobId: 0,
                 mode: 1,
+                preCondition: "0x",
                 postCondition: "0x",
-                refund: 0,
+                refund: "0",
                 startBlock: 0,
-                paymentHash: Appointment.FreeHash
+                paymentHash: Appointment.FreeHash,
+                customerSig: "0x"
             };
         };
+        
 
         const appointment = createAppointmentRequest(data, key0.account)
+        const hash = encode(appointment);
+        const sig = await key0.wallet.signMessage(hash)
+        const clone = { ...appointment, customerSig: sig};
+
 
         const res = await request.post(`http://localhost:${pisa.config.hostPort}/appointment`, {
-            json: appointment
+            json: clone
         });
         
         // now register a callback on the setstate event and trigger a response

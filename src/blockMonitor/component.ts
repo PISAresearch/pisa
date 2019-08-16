@@ -4,10 +4,10 @@ import { IBlockStub } from "../dataEntities";
  * Anchor state is derived from new blocks. If the block an anchor state is associated
  * with is reverted, then so is the anchor state
  */
-interface AnchorState {
+export interface AnchorState {
     // although an empty interface provides no type safety, it does help to provide
     // some semantic meaning when using this type as a generic constraint
-};
+}
 
 /**
  * A base for object that define the initial anchor state and the changes in state when a new block is processed.
@@ -81,7 +81,7 @@ export class MappedStateReducer<
         const items: Map<string, TMappedState> = new Map();
         for (const obj of this.getItems()) {
             const baseReducer = this.getBaseReducer(obj);
-            const id = this.idSelector(obj)
+            const id = this.idSelector(obj);
             const prevObjState = prevState.items.get(id);
             items.set(
                 id,
@@ -96,16 +96,37 @@ export class MappedStateReducer<
 }
 
 /**
+ * An action that needs to be taken within a component
+ */
+export interface ComponentAction {
+    // Although this is empty its useful to ascribe some semantic meaning to the generic type
+    // that we need in the component
+}
+
+/**
  * A `Component` contains a state reducer and receives and processes the state changes after being added to a `BlockchainMachine`.
  */
-export abstract class Component<TState extends AnchorState, TBlock extends IBlockStub> {
+export abstract class Component<
+    TState extends AnchorState,
+    TBlock extends IBlockStub,
+    TAction extends ComponentAction
+> {
     constructor(public readonly reducer: StateReducer<TState, TBlock>) {}
     /**
-     * Detect changes between the two states and triggers any necessary side effects
+     * Triggers side effects specified by the actions
+     * All side-effect must be thread safe so that they can be applied concurrently
      * @param prevState
-     * @param state 
+     * @param state
      */
-    public abstract handleChanges(prevState: TState, state: TState): void;
+    public abstract async applyAction(action: TAction): Promise<void>;
+
+    /**
+     * Detects changes between the previous and current state, and specifies any changes that need
+     * to be applied as a result
+     * @param prevState
+     * @param state
+     */
+    public abstract detectChanges(prevState: TState, state: TState): TAction[];
 }
 
 export interface BlockNumberState {

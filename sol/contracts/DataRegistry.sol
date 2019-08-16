@@ -6,7 +6,7 @@ pragma experimental ABIEncoderV2;
 // - DataRegistry maintains a list of DataShards, and ensures delete/create each DataShard after a long INTERVAL.
 contract DataShard {
 
-   uint public creationTime; // What unix timestamp was this record created?
+   uint public creationBlock; // What block number was this record created?
 
    address payable owner; // DataRegistry Contract
 
@@ -21,8 +21,8 @@ contract DataShard {
    mapping (address => mapping (uint => bytes32[])) hashes;
 
    // Creation time for this daily record.
-   constructor(uint t) public {
-       creationTime = t;
+   constructor(uint blockNo) public {
+       creationBlock = blockNo;
        owner = msg.sender;
    }
 
@@ -32,8 +32,8 @@ contract DataShard {
    }
 
    // Get creation time
-   function getCreationTime() public view returns (uint) {
-       return creationTime;
+   function getCreationBlock() public view returns (uint) {
+       return creationBlock;
    }
 
    // The following will store BYTES in the DataShard (i.e. timestamp data)
@@ -100,7 +100,7 @@ contract DataRegistry {
    mapping (uint => address) datashards;
 
    // Time helper function
-   uint constant INTERVAL = 86400*50;
+   uint constant INTERVAL = 100*5; // Approximately 6000 blocks a day
    uint constant TOTAL_SHARDS = 2;
 
    function getInterval() public pure returns (uint) {
@@ -112,13 +112,13 @@ contract DataRegistry {
 
    constructor() public {
      // Create data shards from today onwards.
-     uint timestamp = now;
+     uint blockno = block.number;
 
      // Create the data shards (and set timestamps in future)
      for(uint i=0; i<TOTAL_SHARDS; i++) {
-        uint datashard = getDataShardIndex(timestamp);
-        createDataShard(timestamp, datashard);
-        timestamp = timestamp + INTERVAL;
+        uint datashard = getDataShardIndex(blockno);
+        createDataShard(blockno, datashard);
+        blockno = blockno + INTERVAL;
      }
 
    }
@@ -136,11 +136,11 @@ contract DataRegistry {
    // We may need to re-set it by deleting/recreating data shard.
    function resetDataShard(uint _datashard) internal returns (DataShard) {
 
-      // Is it older than today?
-      if(now - DataShard(datashards[_datashard]).getCreationTime() > INTERVAL) {
-          emit KillDataShard(datashards[_datashard], now, _datashard);
+      // We need to do full loop before deleting an old shard! 
+      if(block.number - DataShard(datashards[_datashard]).getCreationBlock() >= INTERVAL*2) {
+          emit KillDataShard(datashards[_datashard], block.number, _datashard);
           DataShard(datashards[_datashard]).kill();
-          createDataShard(now, _datashard);
+          createDataShard(block.number, _datashard);
           return DataShard(datashards[_datashard]);
       } else {
           // Not older than today... just return... all good!
@@ -186,7 +186,7 @@ contract DataRegistry {
    function setRecord(uint _id, bytes memory _data) public returns (uint, uint) {
 
       // Fetch Index
-      uint datashard = (getDataShardIndex(now));
+      uint datashard = (getDataShardIndex(block.number));
 
       // Fetch the DataShard for this day. (It may reset it under the hood)
       DataShard rc = resetDataShard(datashard);
@@ -226,7 +226,7 @@ contract DataRegistry {
    function setHash(uint _id, bytes memory _data) public returns (uint, uint) {
 
       // Fetch Index
-      uint datashard = (getDataShardIndex(now));
+      uint datashard = (getDataShardIndex(block.number));
 
       // Fetch the DataShard for this day. (It may reset it under the hood)
       DataShard rc = resetDataShard(datashard);
