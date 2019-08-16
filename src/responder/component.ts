@@ -69,6 +69,8 @@ export class ResponderAppointmentReducer implements StateReducer<ResponderAppoin
                 logger.info(txIdentifier, "Formed tx identfier.")
                 logger.info(identifier, "State identifier.")
                 logger.info({number: block.number, hash: block.hash}, "Block info.")
+                logger.info(txIdentifier.gasLimit.eq(identifier.gasLimit), `Gas limits ${txIdentifier.gasLimit.toString()} == ${identifier.gasLimit.toString()} .`);
+                
             }
             if (txIdentifier.equals(identifier) && tx.from.toLowerCase() === this.address.toLowerCase()) {
                 return {
