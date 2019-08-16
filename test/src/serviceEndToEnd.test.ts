@@ -57,7 +57,7 @@ const appointmentRequest = async (
         refund: "0",
         startBlock,
         paymentHash: Appointment.FreeHash,
-        customerSig: "ox"
+        customerSig: "0x"
     };
 
     const app = Appointment.parse(bareAppointment);

@@ -22,6 +22,8 @@ const argv = require("yargs")
     .describe("db", "The location of the raiden db instance that is hiring pisa")
     .describe("startId", "Tells the daemon to start processing raiden db from this row id onward")
     .default("startId", null)
+    .demandOption(["jsonRpcUrl"])
+    .describe("jsonRpcUrl", "The connected ethereum client.")
     .help().argv;
 
 const run = async (startingRowId: number) => {
@@ -32,6 +34,7 @@ const run = async (startingRowId: number) => {
             .trim();
         const wallet = await getWallet(argv.keyfile, password);
         const pisaClient = new PisaClient(argv.pisa);
+        const provider = new ethers.providers.JsonRpcProvider(argv.jsonRpcUrl);
 
         const callback = async (bp: IRawBalanceProof) => {
             const sigGroup = BalanceProofSigGroup.fromBalanceProof(bp);
@@ -48,6 +51,8 @@ const run = async (startingRowId: number) => {
                 nonClosingSig
             );
 
+            const blockNumber = await provider.getBlockNumber();
+
             const request = {
                 challengePeriod: 200,
                 contractAddress: sigGroup.token_network_identifier,
@@ -63,7 +68,7 @@ const run = async (startingRowId: number) => {
                 preCondition: "0x",
                 postCondition: "0x",
                 refund: "0",
-                startBlock: 0,
+                startBlock: blockNumber,
                 paymentHash: ethers.utils.keccak256(ethers.utils.toUtf8Bytes("on-the-house")),
                 customerSig: "0x"
             };

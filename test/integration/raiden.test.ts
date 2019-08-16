@@ -189,7 +189,7 @@ describe("Raiden end-to-end tests for scenario 2 (with Pisa)", function() {
         console.log("Starting the daemon");
         // Start raiden-pisa-daemon for Alice
         daemon = exec(
-            `npm run start-dev -- --pisa=0.0.0.0:3000 --keyfile=${demoDir}/docker/test-accounts/UTC--2019-03-22T10-39-56.702Z--0x${aliceAddrLow} --password-file=${demoDir}/docker/test-accounts/password--${aliceAddrLow}.txt --db=${demoDir}/${dbFileName}`,
+            `npm run start-dev -- --pisa=0.0.0.0:3000 --jsonRpcUrl=http://0.0.0.0:8545 --keyfile=${demoDir}/docker/test-accounts/UTC--2019-03-22T10-39-56.702Z--0x${aliceAddrLow} --password-file=${demoDir}/docker/test-accounts/password--${aliceAddrLow}.txt --db=${demoDir}/${dbFileName}`,
             {
                 cwd: `${demoDir}/raiden-pisa-daemon`
             }
