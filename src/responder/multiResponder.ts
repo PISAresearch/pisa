@@ -24,7 +24,7 @@ export class MultiResponder {
     public get transactions() {
         return this.zStore.transactions;
     }
-    
+
     /**
      * Can handle multiple response for a given signer. This responder requires exclusive
      * use of the signer, as it carefully manages the nonces of the transactions created by
@@ -87,7 +87,7 @@ export class MultiResponder {
 
             // we rethrow to the public if this item is already enqueued.
             if (doh instanceof GasQueueError && doh.kind === GasQueueErrorKind.AlreadyAdded) {
-                throw new PublicInspectionError(`Appointment already in queue.`);
+                throw new PublicInspectionError(`Appointment already in queue.`, doh);
             }
         }
     }
@@ -215,10 +215,10 @@ export class MultiResponder {
      * Checks to see if the responder balance is lower than the threshold set in the constructor.
      * If the balance is lower, a warning will be outputted by the logger
      */
-    public async checkBalance(){
+    public async checkBalance() {
         const currentBalance = await this.signer.provider!.getBalance(this.address);
-        if(currentBalance.lt(this.balanceThreshold)){
-            logger.error("Responder balance is becoming low. Current balance: "+ currentBalance);
-         }
+        if (currentBalance.lt(this.balanceThreshold)) {
+            logger.error("Responder balance is becoming low. Current balance: " + currentBalance);
+        }
     }
 }
