@@ -191,7 +191,7 @@ describe("Watcher", () => {
         store = throwingInstance(mockedStore);
 
         mockedResponder = mock(MultiResponder);
-        when(mockedResponder.startResponse(appointment)).thenResolve();
+        when(mockedResponder.startResponse(appointment, anything())).thenResolve();
         responder = throwingInstance(mockedResponder);
     });
 
@@ -222,7 +222,9 @@ describe("Watcher", () => {
                 blockNumber: 2 + CONFIRMATIONS_BEFORE_RESPONSE - 1
             }
         );
-        expect(actions).to.deep.equal([{ kind: WatcherActionKind.StartResponse, appointment: appointment }]);
+        expect(actions).to.deep.equal([
+            { kind: WatcherActionKind.StartResponse, appointment: appointment, blockObserved: 2 }
+        ]);
     });
 
     fnIt<Watcher>(
@@ -273,7 +275,9 @@ describe("Watcher", () => {
                     blockNumber: 2 + CONFIRMATIONS_BEFORE_RESPONSE - 1
                 }
             );
-            expect(actions).to.deep.equal([{ kind: WatcherActionKind.StartResponse, appointment: appointment }]);
+            expect(actions).to.deep.equal([
+                { kind: WatcherActionKind.StartResponse, appointment: appointment, blockObserved: 2 }
+            ]);
         }
     );
 

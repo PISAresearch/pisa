@@ -44,7 +44,7 @@ const createGasQueueItem = (
     identifier: PisaTransactionIdentifier
 ) => {
     return new GasQueueItem(
-        new GasQueueItemRequest(identifier, idealGasPrice, createAppointment(appointmentId)),
+        new GasQueueItemRequest(identifier, idealGasPrice, createAppointment(appointmentId), 0),
         currentGasPrice,
         idealGasPrice,
         nonce
@@ -174,7 +174,8 @@ describe("GasQueue", () => {
         const request = new GasQueueItemRequest(
             createIdentifier("data2", "to2"),
             new BigNumber(8),
-            createAppointment(1)
+            createAppointment(1),
+            0
         );
 
         const queue = new GasQueue(items, emptyNonce, replacementRate, maxQueueDepth);
@@ -204,7 +205,8 @@ describe("GasQueue", () => {
         const request = new GasQueueItemRequest(
             createIdentifier("data3", "to3"),
             new BigNumber(110),
-            createAppointment(1)
+            createAppointment(1),
+            0
         );
 
         const queue = new GasQueue(items, emptyNonce, replacementRate, maxQueueDepth);
@@ -247,7 +249,8 @@ describe("GasQueue", () => {
         const request = new GasQueueItemRequest(
             createIdentifier("data3", "to3"),
             new BigNumber(110),
-            createAppointment(1)
+            createAppointment(1),
+            0
         );
 
         const queue = new GasQueue(items, 4, 15, 3);
@@ -487,15 +490,14 @@ describe("GasQueue", () => {
 
     fnIt<GasQueue>(() => GasQueue.serialise, "correctly deserialises and serialises", () => {
         const item1 = createGasQueueItem(1, 1, new BigNumber(90), new BigNumber(90), createIdentifier("data1", "to1"));
-        const item2 = createGasQueueItem(2, 2, new BigNumber(50), new BigNumber(60), createIdentifier("data2", "to2"));        
-        const item3 = createGasQueueItem(3, 3, new BigNumber(30), new BigNumber(40), createIdentifier("data3", "to3"));        
+        const item2 = createGasQueueItem(2, 2, new BigNumber(50), new BigNumber(60), createIdentifier("data2", "to2"));
+        const item3 = createGasQueueItem(3, 3, new BigNumber(30), new BigNumber(40), createIdentifier("data3", "to3"));
 
-
-        const queue = new GasQueue([item1, item2, item3], 4, 12, 10)
+        const queue = new GasQueue([item1, item2, item3], 4, 12, 10);
 
         const serialised = GasQueue.serialise(queue);
         const deserialised = GasQueue.deserialise(serialised);
 
         expect(deserialised).to.deep.equal(queue);
-    })
+    });
 });

@@ -79,7 +79,7 @@ describe("ResponderAppointmentReducer", () => {
     });
 
     fnIt<ResponderAppointmentReducer>(r => r.getInitialState, "sets pending tx", () => {
-        const reducer = new ResponderAppointmentReducer(blockCache, txID1.identifier, appointmentId1, from1);
+        const reducer = new ResponderAppointmentReducer(blockCache, txID1.identifier, appointmentId1, 0, from1);
 
         const anchorState = reducer.getInitialState(blocks[0]);
         expect(anchorState.identifier).to.equal(txID1.identifier);
@@ -88,7 +88,7 @@ describe("ResponderAppointmentReducer", () => {
     });
 
     fnIt<ResponderAppointmentReducer>(r => r.getInitialState, "sets mined tx", () => {
-        const reducer = new ResponderAppointmentReducer(blockCache, txID1.identifier, appointmentId1, from1);
+        const reducer = new ResponderAppointmentReducer(blockCache, txID1.identifier, appointmentId1, 0, from1);
 
         const anchorState = reducer.getInitialState(blocks[2]);
 
@@ -102,7 +102,7 @@ describe("ResponderAppointmentReducer", () => {
     });
 
     fnIt<ResponderAppointmentReducer>(r => r.reduce, "keeps pending as pending", () => {
-        const reducer = new ResponderAppointmentReducer(blockCache, txID1.identifier, appointmentId1, from1);
+        const reducer = new ResponderAppointmentReducer(blockCache, txID1.identifier, appointmentId1, 0, from1);
 
         const prevAnchorState = reducer.getInitialState(blocks[0]);
         const nextAnchorState = reducer.reduce(prevAnchorState, blocks[0]);
@@ -113,7 +113,7 @@ describe("ResponderAppointmentReducer", () => {
     });
 
     fnIt<ResponderAppointmentReducer>(r => r.reduce, "transitions from pending to mined", () => {
-        const reducer = new ResponderAppointmentReducer(blockCache, txID1.identifier, appointmentId1, from1);
+        const reducer = new ResponderAppointmentReducer(blockCache, txID1.identifier, appointmentId1, 0, from1);
 
         const prevAnchorState = reducer.getInitialState(blocks[0]);
         const nextAnchorState = reducer.reduce(prevAnchorState, blocks[1]);
@@ -128,7 +128,7 @@ describe("ResponderAppointmentReducer", () => {
     });
 
     fnIt<ResponderAppointmentReducer>(r => r.reduce, "keeps mined as mined", () => {
-        const reducer = new ResponderAppointmentReducer(blockCache, txID1.identifier, appointmentId1, from1);
+        const reducer = new ResponderAppointmentReducer(blockCache, txID1.identifier, appointmentId1, 0, from1);
 
         const prevAnchorState = reducer.getInitialState(blocks[0]);
         const nextAnchorState = reducer.reduce(prevAnchorState, blocks[1]);
@@ -138,7 +138,7 @@ describe("ResponderAppointmentReducer", () => {
     });
 
     fnIt<ResponderAppointmentReducer>(r => r.reduce, "doesn't mine tx from different address", () => {
-        const reducer = new ResponderAppointmentReducer(blockCache, txID1.identifier, appointmentId1, from1);
+        const reducer = new ResponderAppointmentReducer(blockCache, txID1.identifier, appointmentId1, 0, from1);
 
         // setup pending
         const prevAnchorState = reducer.getInitialState(blocks[0]);
@@ -261,7 +261,7 @@ describe("MultiResponderComponent", () => {
         const component = new MultiResponderComponent(multiResponder, blockCache, confirmationsRequired);
 
         expect(component.detectChanges(state1, state2)).to.deep.equal([
-            { kind: ResponderActionKind.EndResponse, appointmentId: app2State.appointmentId },
+            { kind: ResponderActionKind.EndResponse, appointmentId: app2State.appointmentId }
         ]);
     });
 

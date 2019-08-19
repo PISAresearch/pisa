@@ -20,14 +20,19 @@ export enum WatcherAppointmentState {
 }
 
 /** Portion of the anchor state for a single appointment */
+
+type WatcherAppointmentAnchorStateWatching = {
+    state: WatcherAppointmentState.WATCHING;
+};
+
+type WatcherAppointmentAnchorStateObserved = {
+    state: WatcherAppointmentState.OBSERVED;
+    blockObserved: number; // block number in which the event was observed
+};
+
 export type WatcherAppointmentAnchorState =
-    | {
-          state: WatcherAppointmentState.WATCHING;
-      }
-    | {
-          state: WatcherAppointmentState.OBSERVED;
-          blockObserved: number; // block number in which the event was observed
-      };
+    | WatcherAppointmentAnchorStateWatching
+    | WatcherAppointmentAnchorStateObserved;
 
 /** The complete anchor state for the watcher, that also includes the block number */
 type WatcherAnchorState = MappedState<WatcherAppointmentAnchorState> & BlockNumberState;
@@ -80,6 +85,7 @@ export enum WatcherActionKind {
 type StartResponseAction = {
     kind: WatcherActionKind.StartResponse;
     appointment: Appointment;
+    blockObserved: number;
 };
 
 type RemoveAppointmentAction = {
@@ -128,7 +134,7 @@ export class Watcher extends Component<WatcherAnchorState, IBlockStub & Logs, Wa
     private shouldHaveStartedResponder = (
         state: WatcherAnchorState,
         appointmentState: WatcherAppointmentAnchorState | undefined
-    ): boolean =>
+    ): appointmentState is WatcherAppointmentAnchorStateObserved =>
         appointmentState != undefined &&
         appointmentState.state === WatcherAppointmentState.OBSERVED &&
         state.blockNumber - appointmentState.blockObserved + 1 >= this.confirmationsBeforeResponse;
@@ -136,7 +142,7 @@ export class Watcher extends Component<WatcherAnchorState, IBlockStub & Logs, Wa
     private shouldRemoveObservedAppointment = (
         state: WatcherAnchorState,
         appointmentState: WatcherAppointmentAnchorState | undefined
-    ): boolean =>
+    ): appointmentState is WatcherAppointmentAnchorStateObserved =>
         appointmentState != undefined &&
         appointmentState.state === WatcherAppointmentState.OBSERVED &&
         state.blockNumber - appointmentState.blockObserved + 1 >= this.confirmationsBeforeRemoval;
@@ -173,7 +179,8 @@ export class Watcher extends Component<WatcherAnchorState, IBlockStub & Logs, Wa
                 logger.info({ state: appointmentState, id: appointmentId, blockNumber: state.blockNumber }, `Responding to appointment.`); // prettier-ignore
                 actions.push({
                     kind: WatcherActionKind.StartResponse,
-                    appointment: appointment
+                    appointment: appointment,
+                    blockObserved: appointmentState.blockObserved
                 });
             }
 
@@ -203,7 +210,7 @@ export class Watcher extends Component<WatcherAnchorState, IBlockStub & Logs, Wa
     public async applyAction(action: WatcherAction) {
         switch (action.kind) {
             case WatcherActionKind.StartResponse:
-                await this.responder.startResponse(action.appointment);
+                await this.responder.startResponse(action.appointment, action.blockObserved);
                 break;
             case WatcherActionKind.RemoveAppointment:
                 await this.store.removeById(action.appointmentId);
