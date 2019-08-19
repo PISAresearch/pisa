@@ -69,7 +69,7 @@ describe("Integration", function() {
     this.timeout(60000);
     let pisa: PisaContainer, parity: ParityContainer, network: DockerClient.Network, parityPort: number;
 
-    before(async () => {
+    beforeEach(async () => {
         const currentDirectory = __dirname;
         const logDir = "logs";
         const logsDirectory = path.join(currentDirectory, logDir);
@@ -119,7 +119,7 @@ describe("Integration", function() {
         await wait(10000);
     });
 
-    after(async () => {
+    afterEach(async () => {
         await pisa.stop();
         await parity.stop();
         await network.remove();
@@ -172,18 +172,16 @@ describe("Integration", function() {
                 customerSig: "0x"
             };
         };
-        
 
-        const appointment = createAppointmentRequest(data, key0.account)
+        const appointment = createAppointmentRequest(data, key0.account);
         const hash = encode(appointment);
-        const sig = await key0.wallet.signMessage(hash)
-        const clone = { ...appointment, customerSig: sig};
-
+        const sig = await key0.wallet.signMessage(hash);
+        const clone = { ...appointment, customerSig: sig };
 
         const res = await request.post(`http://localhost:${pisa.config.hostPort}/appointment`, {
             json: clone
         });
-        
+
         // now register a callback on the setstate event and trigger a response
         const setStateEvent = "EventEvidence(uint256, bytes32)";
         let successResult = { success: false };
@@ -201,6 +199,125 @@ describe("Integration", function() {
         try {
             // wait for the success result
             await waitForPredicate(successResult, s => s.success, 400);
+        } catch (doh) {
+            // fail if we dont get it
+            chai.assert.fail(true, false, "EventEvidence not successfully registered.");
+        }
+    });
+
+    it("End to end, multiple appointments", async () => {
+        // TODO: like the previous test, but with multiple clients sending requests in parallel to Pisa.
+        const provider = new ethers.providers.JsonRpcProvider(`http://localhost:${parityPort}`);
+        provider.pollingInterval = 100;
+
+        const nRuns = 5; // number of channels
+
+        const wallets0: ethers.Wallet[] = [];
+        const wallets1: ethers.Wallet[] = [];
+
+        const channelContractFactories: ethers.ContractFactory[] = [];
+
+        for (let i = 0; i < nRuns; i++) {
+            // prettier-ignore
+            const mnemonic0 = ethers.utils.HDNode.entropyToMnemonic([ // 15 + 1 bytes
+                1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+                i
+            ]);
+
+            const wall0 = ethers.Wallet.fromMnemonic(mnemonic0);
+            wallets0.push(wall0.connect(provider));
+            await wait(2000);
+
+            // prettier-ignore
+            const mnemonic1 = ethers.utils.HDNode.entropyToMnemonic([
+                // 15 + 1 bytes
+                100, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+                i
+            ]);
+            const wall1 = ethers.Wallet.fromMnemonic(mnemonic1);
+            wallets1.push(wall1.connect(provider));
+
+            // contract
+            channelContractFactories.push(
+                new ethers.ContractFactory(KitsuneTools.ContractAbi, KitsuneTools.ContractBytecode, wallets0[i])
+            );
+        }
+
+        const disputePeriod = 11;
+        const channelContractPromises: Promise<ethers.Contract>[] = [];
+
+        for (let i = 0; i < nRuns; i++) {
+            channelContractPromises.push(
+                channelContractFactories[i].deploy([wallets0[i].address, wallets1[i].address], disputePeriod)
+            );
+        }
+
+        const channelContracts = await Promise.all(channelContractPromises);
+
+        // pisa needs some time to initialise -and for some reason the contract needs time to set
+        await wait(4000);
+
+        const successResults = new Array(nRuns).fill(false);
+
+        for (let i = 0; i < nRuns; i++) {
+            const hashState = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("face-off"));
+            const round = 1;
+            const setStateHash = KitsuneTools.hashForSetState(hashState, round, channelContracts[i].address);
+            const sig0 = await wallets0[i].signMessage(ethers.utils.arrayify(setStateHash));
+            const sig1 = await wallets1[i].signMessage(ethers.utils.arrayify(setStateHash));
+            const data = KitsuneTools.encodeSetStateData(hashState, round, sig0, sig1);
+
+            const createAppointmentRequest = (data: string, acc: string): IAppointmentRequest => {
+                return {
+                    challengePeriod: 20,
+                    contractAddress: channelContracts[i].address,
+                    customerAddress: acc,
+                    data,
+                    endBlock: 22,
+                    eventABI: KitsuneTools.eventABI(),
+                    eventArgs: KitsuneTools.eventArgs(),
+                    gasLimit: "100000",
+                    id: 1,
+                    jobId: 0,
+                    mode: 1,
+                    preCondition: "0x",
+                    postCondition: "0x",
+                    refund: "0",
+                    startBlock: 0,
+                    paymentHash: Appointment.FreeHash,
+                    customerSig: "0x"
+                };
+            };
+
+            const appointment = createAppointmentRequest(data, wallets0[i].address);
+            const hash = encode(appointment);
+            const sig = await wallets0[i].signMessage(hash);
+            const clone = { ...appointment, customerSig: sig };
+
+            request.post(`http://localhost:${pisa.config.hostPort}/appointment`, {
+                json: clone
+            });
+
+            // now register a callback on the setstate event and trigger a response
+            const setStateEvent = "EventEvidence(uint256, bytes32)";
+
+            const makeListener = (idx: number) => () => {
+                channelContracts[idx].removeAllListeners(setStateEvent);
+                successResults[idx] = true;
+            };
+
+            channelContracts[i].on(setStateEvent, makeListener(i));
+
+            // trigger a dispute
+            const tx = await channelContracts[i].triggerDispute();
+            await tx.wait();
+        }
+
+        await mineBlocks(5, wallets0[0]);
+
+        try {
+            // wait for the success results
+            await waitForPredicate(successResults, s => s.every(t => t === true), 2000);
         } catch (doh) {
             // fail if we dont get it
             chai.assert.fail(true, false, "EventEvidence not successfully registered.");
