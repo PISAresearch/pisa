@@ -36,7 +36,7 @@ export abstract class StartStopService extends EventEmitter {
         super();
         let instance = this;
 
-        function detailsOfNotStartedError (instance: any, prop : string) :string {
+        function detailsOfNotStartedError (instance: any, prop : string): string {
             if (instance.logVerbosityOfNotStartedError) {
                 let message : string = `    `;
                 message += `\n  Attempt was: ${instance.constructor.name}.${prop}`;
@@ -63,7 +63,7 @@ export abstract class StartStopService extends EventEmitter {
         }
 
         let proxyHandler = {
-            construct (target: any, prop: string) {
+            construct (target: any, prop: string): never {
                 throw new Error ('Should not have reached here! (startStopService.construct)');
                 // return asProtectedMethod (target[prop]) ();
             },
@@ -83,7 +83,7 @@ export abstract class StartStopService extends EventEmitter {
                 * This function is NOT safe for general use, eg for constructors, as it does not return the return value of the
                 * wrapped function (due to async / await complexity).
                 */
-                function asProtectedMethod (targetMethod : Function) {
+                function asProtectedMethod (targetMethod : Function): Function {
                     return async function (...args: any[]) {
                         instance.suppressNotStartedError++;
                         await targetMethod.apply(this, args);
@@ -96,7 +96,7 @@ export abstract class StartStopService extends EventEmitter {
                  *  Throws, since it is currently only called when, otherwise, a notStarted Error would be reached.
                  *  Unreachable return behaviour is to allow for turning the error on/ off
                 **/
-                function logOnOffEvents (targetMethod : Function) {
+                function logOnOffEvents (targetMethod : Function): any {
                     return function (...args: any[]) {
                         if (instance.logVerbosityOfNotStartedError)
                             instance.callsLog.push (` "${args[0].toString()}"`);
