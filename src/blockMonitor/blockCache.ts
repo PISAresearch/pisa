@@ -12,7 +12,11 @@ export interface ReadOnlyBlockCache<TBlock extends IBlockStub> {
     getBlockStub(blockHash: string): Readonly<TBlock>;
     hasBlock(blockHash: string): boolean;
     ancestry(initialBlockHash: string): IterableIterator<Readonly<TBlock>>;
-    findAncestor(initialBlockHash: string, predicate: (block: Readonly<TBlock>) => boolean): Readonly<TBlock> | null;
+    findAncestor(
+        initialBlockHash: string,
+        predicate: (block: Readonly<TBlock>) => boolean,
+        minHeight?: number
+    ): Readonly<TBlock> | null;
     getOldestAncestorInCache(blockHash: string): TBlock;
     head: TBlock;
 }
@@ -201,9 +205,16 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
     /**
      * Finds and returns the nearest ancestor that satisfies `predicate`.
      * Returns `null` if no such ancestor is found.
+     * Only tests blocks with height bigger than or equal to `minHeight`, 0 by default.
      */
-    public findAncestor(initialBlockHash: string, predicate: (block: Readonly<TBlock>) => boolean): Readonly<TBlock> | null {
+    public findAncestor(
+        initialBlockHash: string,
+        predicate: (block: Readonly<TBlock>) => boolean,
+        minHeight: number = 0
+    ): Readonly<TBlock> | null {
         for (const block of this.ancestry(initialBlockHash)) {
+            if (block.number < minHeight) return null; // early abort if below minHeight
+
             if (predicate(block)) {
                 return block;
             }

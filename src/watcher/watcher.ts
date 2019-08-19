@@ -40,8 +40,10 @@ export class WatcherAppointmentStateReducer implements StateReducer<WatcherAppoi
     public getInitialState(block: IBlockStub & Logs): WatcherAppointmentAnchorState {
         const filter = this.appointment.eventFilter;
 
-        const eventAncestor = this.cache.findAncestor(block.hash, ancestor =>
-            hasLogMatchingEventFilter(ancestor, filter)
+        const eventAncestor = this.cache.findAncestor(
+            block.hash,
+            ancestor => hasLogMatchingEventFilter(ancestor, filter),
+            this.appointment.startBlock
         );
 
         if (!eventAncestor) {
