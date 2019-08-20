@@ -24,7 +24,7 @@ export class MultiResponder {
     public get transactions() {
         return this.zStore.transactions;
     }
-    
+
     /**
      * Can handle multiple response for a given signer. This responder requires exclusive
      * use of the signer, as it carefully manages the nonces of the transactions created by
@@ -51,8 +51,11 @@ export class MultiResponder {
 
     /**
      * Issue a transaction to the network, and add a record to the responded transactions list
+     * @param appointment the Appointment
+     * @param blockObserved the height of the block where the response was triggered, or 0 if not relevant
+     *
      */
-    public async startResponse(appointment: Appointment) {
+    public async startResponse(appointment: Appointment, blockObserved: number) {
         try {
             const replacedTransactions = await this.lockManager.withLock(this.zStore.lock, async () => {
                 if (this.zStore.queue.depthReached()) {
@@ -71,7 +74,7 @@ export class MultiResponder {
                 );
 
                 const idealGas = await this.gasEstimator.estimate(appointment);
-                const request = new GasQueueItemRequest(txIdentifier, idealGas, appointment);
+                const request = new GasQueueItemRequest(txIdentifier, idealGas, appointment, blockObserved);
                 logger.info(request, `Enqueueing request for ${appointment.id}.`);
 
                 // add the queue item to the queue, since the queue is ordered this may mean
@@ -215,10 +218,10 @@ export class MultiResponder {
      * Checks to see if the responder balance is lower than the threshold set in the constructor.
      * If the balance is lower, a warning will be outputted by the logger
      */
-    public async checkBalance(){
+    public async checkBalance() {
         const currentBalance = await this.signer.provider!.getBalance(this.address);
-        if(currentBalance.lt(this.balanceThreshold)){
-            logger.error("Responder balance is becoming low. Current balance: "+ currentBalance);
-         }
+        if (currentBalance.lt(this.balanceThreshold)) {
+            logger.error("Responder balance is becoming low. Current balance: " + currentBalance);
+        }
     }
 }
