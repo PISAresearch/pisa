@@ -90,7 +90,7 @@ describe("MultiResponder", () => {
         const appointment = createAppointment(1, "data1");
 
         const responder = new MultiResponder(signer, increasingGasPriceEstimator, chainId, store, signer.address, new BigNumber("500000000000000000"));
-        await responder.startResponse(appointment);
+        await responder.startResponse(appointment, 0);
 
         verify(responderStoreMock.updateQueue(anything())).once();
         verify(signerMock.sendTransaction(anything())).once();
