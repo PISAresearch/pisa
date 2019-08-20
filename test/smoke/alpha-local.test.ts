@@ -102,13 +102,13 @@ describe("end to end", () => {
             json: rescueRequest1
         });
 
+        console.log("a")
+
         let success = false;
         rescueContract.once(SosContract.RESCUE_EVENT_METHOD_SIGNATURE, () => (success = true));
         const tx = await rescueContract.help(rescueMessage);
         await tx.wait();
-
-        await mineBlocks(10, user);
-        
+        await mineBlocks(10, user);        
 
         await waitForPredicate(() => success, 50, 20, rescueMessage);
         console.log(`${rescueMessage} rescued!`);
@@ -154,7 +154,7 @@ const waitForPredicate = (predicate: () => boolean, interval: number, repetition
                 resolve();
                 clearInterval(intervalHandle);
             } else if (--repetitions <= 0) {
-                reject(message);
+                reject(new Error(message));
             }
         }, interval);
     });
