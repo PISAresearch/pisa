@@ -102,8 +102,6 @@ describe("end to end", () => {
             json: rescueRequest1
         });
 
-        console.log("a")
-
         let success = false;
         rescueContract.once(SosContract.RESCUE_EVENT_METHOD_SIGNATURE, () => (success = true));
         const tx = await rescueContract.help(rescueMessage);
