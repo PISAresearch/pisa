@@ -1,6 +1,8 @@
 import "mocha";
 import request from "request-promise";
 import * as SosContract from "./../smoke/SOSContract";
+import * as PisaContract from "./../../src/contractInfo/pisa";
+import * as DataRegistryContract from "./../../src/contractInfo/dataRegistry";
 import { Wallet, ethers } from "ethers";
 import levelup, { LevelUp } from "levelup";
 import MemDown from "memdown";
@@ -10,7 +12,9 @@ import Ganache from "ganache-core";
 import { Appointment, IAppointmentRequest } from "../../src/dataEntities";
 import { PisaService } from "../../src/service";
 import { wait } from "../../src/utils";
-import { BigNumber } from "ethers/utils";
+import { BigNumber, keccak256, arrayify, defaultAbiCoder } from "ethers/utils";
+import { expect } from "chai";
+import { deployPisa } from "./utils/contract";
 const ganache = Ganache.provider({
     mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect"
 });
@@ -45,7 +49,7 @@ describe("sos end to end", () => {
             contractAddress,
             customerAddress: customerAddress,
             data,
-            endBlock: startBlock + 30,
+            endBlock: startBlock + 200,
             eventABI: eventAbi,
             eventArgs: eventArgs,
             gasLimit: "100000",
@@ -61,8 +65,9 @@ describe("sos end to end", () => {
         };
     };
 
-    const createRescueRequest = async (
+    const createRescueRequestAppointment = async (
         rescueContract: ethers.Contract,
+        pisaContractAddress: string,
         provider: ethers.providers.BaseProvider,
         user: ethers.Wallet,
         appointmentId: number,
@@ -85,21 +90,27 @@ describe("sos end to end", () => {
         // encode the request and sign it
         const appointment = Appointment.fromIAppointmentRequest(appointmentRequest);
         const encoded = appointment.encode();
-        const customerSig = await user.signMessage(ethers.utils.arrayify(encoded));
-        return {
+        const hashedWithAddress = keccak256(
+            defaultAbiCoder.encode(["bytes", "address"], [encoded, pisaContractAddress])
+        );
+        const customerSig = await user.signMessage(arrayify(hashedWithAddress));
+
+        return Appointment.fromIAppointmentRequest({
             ...appointmentRequest,
             customerSig: customerSig
-        };
+        });
     };
 
     const getAppointmentForMessage = async (
+        pisaContractAddress: string,
         user: ethers.Wallet,
         helpMessage: string,
         rescueMessage: string,
         appointmentId: number
     ) => {
-        const rescueRequest1 = await createRescueRequest(
+        const rescueRequest1 = await createRescueRequestAppointment(
             rescueContract,
+            pisaContractAddress,
             provider,
             user,
             appointmentId,
@@ -108,7 +119,7 @@ describe("sos end to end", () => {
         );
 
         return await request.post(`http://${nextConfig.hostName}:${nextConfig.hostPort}/appointment`, {
-            json: rescueRequest1
+            json: Appointment.toIAppointmentRequest(rescueRequest1)
         });
     };
 
@@ -132,7 +143,7 @@ describe("sos end to end", () => {
             async () => ((await rescueContract.rescueCount()) as BigNumber).eq(count),
             50,
             20,
-            async () => `Count ${((await rescueContract.rescueCount())).toNumber()} is not expected value ${count}.`
+            async () => `Count ${(await rescueContract.rescueCount()).toNumber()} is not expected value ${count}.`
         );
     };
 
@@ -140,7 +151,9 @@ describe("sos end to end", () => {
         exService: PisaService,
         user1: ethers.Wallet,
         user2: ethers.Wallet,
-        rescueContract: ethers.Contract;
+        rescueContract: ethers.Contract,
+        responderWallet: ethers.Wallet,
+        pisaContractAddress: string;
 
     beforeEach(async () => {
         db = levelup(
@@ -148,9 +161,13 @@ describe("sos end to end", () => {
                 valueEncoding: "json"
             })
         );
-        const responderWallet = new ethers.Wallet(nextConfig.responderKey, provider);
+        responderWallet = new ethers.Wallet(nextConfig.responderKey, provider);
         user1 = new Wallet(userKey1, provider);
         user2 = new Wallet(userKey2, provider);
+        const pisaContract = await deployPisa(responderWallet);
+        pisaContractAddress = pisaContract.address;
+        nextConfig.pisaContractAddress =pisaContractAddress;
+
         const nonce = await responderWallet.getTransactionCount();
         exService = new PisaService(
             nextConfig,
@@ -164,57 +181,76 @@ describe("sos end to end", () => {
         await exService.start();
 
         // deploy the contract
-        const channelContractFactory = new ethers.ContractFactory(SosContract.ABI, SosContract.ByteCode, user1);
-        rescueContract = await channelContractFactory.deploy();
+        const sosContractFactory = new ethers.ContractFactory(SosContract.ABI, SosContract.ByteCode, user1);
+        rescueContract = await sosContractFactory.deploy();
     });
 
     afterEach(async () => {
         await exService.stop();
     });
 
+    it("setup pisa and call sos", async () => {
+        const pisaContract = await deployPisa(responderWallet);
+        const appointment = await createRescueRequestAppointment(
+            rescueContract,
+            pisaContract.address,
+            provider,
+            user1,
+            1,
+            "sos",
+            "yay"
+        );
+        await pisaContract.respond(appointment.encode(), appointment.customerSig, {
+            gasLimit: appointment.gasLimit.add(200000)
+        });
+
+        const rescueCount: BigNumber = await rescueContract.rescueCount();
+        expect(rescueCount.toNumber()).to.equal(1);
+    });
+
     it("two of the same appointment back to back", async () => {
-        await getAppointmentForMessage(user1, "sos", "yay", 1);
+        await getAppointmentForMessage(pisaContractAddress, user1, "sos", "yay", 1);
         await callDistressAndWaitForRescue(rescueContract, "sos", "Failed 1");
 
-        await getAppointmentForMessage(user1, "sos", "yay", 2);
+        await getAppointmentForMessage(pisaContractAddress, user1, "sos", "yay", 2);
         await callDistressAndWaitForRescue(rescueContract, "sos", "Failed 2");
     }).timeout(30000);
 
     it("two of the same appointment from different customers back to back", async () => {
-        await getAppointmentForMessage(user1, "sos", "yay", 1);
+        await getAppointmentForMessage(pisaContractAddress, user1, "sos", "yay", 1);
         await callDistressAndWaitForRescue(rescueContract, "sos", "Failed 1");
 
-        await getAppointmentForMessage(user2, "sos", "yay", 1);
+        await getAppointmentForMessage(pisaContractAddress, user2, "sos", "yay", 1);
         await callDistressAndWaitForRescue(rescueContract, "sos", "Failed 2");
     }).timeout(30000);
 
     it("two different appointments back to back", async () => {
-        await getAppointmentForMessage(user1, "sos", "yay1", 1);
+        await getAppointmentForMessage(pisaContractAddress, user1, "sos", "yay1", 1);
         await callDistressAndWaitForRescue(rescueContract, "sos", "Failed 1");
 
-        await getAppointmentForMessage(user2, "sos", "yay2", 1);
+        await getAppointmentForMessage(pisaContractAddress, user2, "sos", "yay2", 1);
         await callDistressAndWaitForRescue(rescueContract, "sos", "Failed 2");
     }).timeout(30000);
 
     it("two different appointments at the same time same users", async () => {
-        await getAppointmentForMessage(user1, "sos", "yay1", 1);
-        await getAppointmentForMessage(user1, "sos", "yay2", 2);
+        await getAppointmentForMessage(pisaContractAddress, user1, "sos", "yay1", 1);
+        await getAppointmentForMessage(pisaContractAddress, user1, "sos", "yay2", 2);
 
-        await callDistressAndWaitForCounter("sos",  2);
+        await callDistressAndWaitForCounter("sos", 2);
     }).timeout(30000);
 
     it("two same appointments at the same time same users", async () => {
-        await getAppointmentForMessage(user1, "sos", "yay1", 1);
-        await getAppointmentForMessage(user1, "sos", "yay1", 2);
+        await getAppointmentForMessage(pisaContractAddress, user1, "sos", "yay1", 1);
+        await getAppointmentForMessage(pisaContractAddress, user1, "sos", "yay1", 2);
 
-        await callDistressAndWaitForCounter("sos",  2);
+        await callDistressAndWaitForCounter("sos", 2);
     }).timeout(30000);
 
     it("two same appointments at the same time different users", async () => {
-        await getAppointmentForMessage(user1, "sos", "yay1", 1);
-        await getAppointmentForMessage(user2, "sos", "yay1", 1);
+        await getAppointmentForMessage(pisaContractAddress, user1, "sos", "yay1", 1);
+        await getAppointmentForMessage(pisaContractAddress, user2, "sos", "yay1", 1);
 
-        await callDistressAndWaitForCounter("sos",  2);
+        await callDistressAndWaitForCounter("sos", 2);
     }).timeout(30000);
 });
 

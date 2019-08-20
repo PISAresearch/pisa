@@ -5,7 +5,7 @@ import { ethers } from "ethers";
 // contract Testy {
 //   event Distress(string indexed message);
 //   event Rescue(address indexed rescuer, string indexed message);
-
+//   uint256 public rescueCount = 0;
 //   bool public inTrouble = false;
 //   function help(string memory message) public {
 //      inTrouble = true;
@@ -13,6 +13,7 @@ import { ethers } from "ethers";
 //   }
 
 //   function rescue(string memory message) public {
+//      rescueCount++;
 //      inTrouble = false;
 //      emit Rescue(msg.sender, message);
 //   }

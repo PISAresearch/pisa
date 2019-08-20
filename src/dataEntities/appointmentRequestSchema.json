@@ -52,7 +52,7 @@
             "type": "string",
             "title": "Customer signature",
             "description": "The customers signature for this appointment",
-            "examples": ["0x9e64b53b935602cd0657343C69Fe200fb3cD05c8"]
+            "examples": ["0x0870ede99ad9547ca2f45140ac5088291da331379283383278886814419c795d5571f560f302ba9ec45485a5e6cb237224baed39d15597cf530cac162556a6a000"]
         },
         "data": {
             "$id": "#/properties/data",

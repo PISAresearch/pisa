@@ -24,6 +24,8 @@ const argv = require("yargs")
     .default("startId", null)
     .demandOption(["jsonRpcUrl"])
     .describe("jsonRpcUrl", "The connected ethereum client.")
+    .demandOption(["pisaContractAddress"])
+    .describe("pisaContractAddress", "The address of the on-chain PISA contract.")
     .help().argv;
 
 const run = async (startingRowId: number) => {
@@ -34,6 +36,7 @@ const run = async (startingRowId: number) => {
             .trim();
         const wallet = await getWallet(argv.keyfile, password);
         const pisaClient = new PisaClient(argv.pisa);
+        const pisaContractAddress = argv.pisaContractAddress;
         const provider = new ethers.providers.JsonRpcProvider(argv.jsonRpcUrl);
 
         const callback = async (bp: IRawBalanceProof) => {
@@ -73,7 +76,10 @@ const run = async (startingRowId: number) => {
                 customerSig: "0x"
             };
             const encoded = encode(request);
-            const sig = await wallet.signMessage(ethers.utils.arrayify(encoded));
+            const hashedWithAddress = keccak256(
+                ethers.utils.defaultAbiCoder.encode(["bytes", "address"], [encoded, pisaContractAddress])
+            );
+            const sig = await wallet.signMessage(ethers.utils.arrayify(hashedWithAddress));
             request.customerSig = sig;
             console.log(request);
             await pisaClient.requestAppointment(request);

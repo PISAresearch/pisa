@@ -12,6 +12,7 @@ export interface IArgConfig {
     dbDir: string;
     watcherResponseConfirmations?: number;
     maximumReorgLimit?: number;
+    pisaContractAddress: string;
 
     rateLimitUserWindowMs?: number;
     rateLimitUserMax?: number;
@@ -70,6 +71,10 @@ export class ConfigManager {
         new ConfigProperty("watcher-response-confirmations", config => config.watcherResponseConfirmations, {
             description: "The number of confirmations on an event before the watcher responds.",
             number: true
+        }),
+        new ConfigProperty("pisa-contract-address", config => config.pisaContractAddress, {
+            description: "The on-chain address of the PISA contract.",
+            string: true
         }),
 
         new ConfigProperty("rate-limit-user-window-ms", config => config.rateLimitUserWindowMs, {
