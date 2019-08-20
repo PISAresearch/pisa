@@ -100,7 +100,7 @@ describe("alpha", () => {
         const appointmentRequest = createAppointmentRequest(
             rescueContract.address,
             customer.address,
-            encodeData(),
+            encodeData("remote"),
             DISTRESS_EVENT_ABI,
             encodeArgs(message),
             id,
