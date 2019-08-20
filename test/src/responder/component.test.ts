@@ -7,8 +7,7 @@ import {
     ResponderAppointmentAnchorState,
     PendingResponseState,
     MinedResponseState,
-    ResponderActionKind,
-    TxMinedAction
+    ResponderActionKind
 } from "../../../src/responder/component";
 import { BlockCache } from "../../../src/blockMonitor";
 import { PisaTransactionIdentifier } from "../../../src/responder/gasQueue";
@@ -100,6 +99,19 @@ describe("ResponderAppointmentReducer", () => {
             expect(anchorState.nonce).to.equal(txID1.tx.nonce);
         }
     });
+
+    fnIt<ResponderAppointmentReducer>(
+        r => r.getInitialState,
+        "stays pending if there is a matching mined tx that is deeper than blockObserved",
+        () => {
+            const reducer = new ResponderAppointmentReducer(blockCache, txID1.identifier, appointmentId1, 2, from1);
+
+            const anchorState = reducer.getInitialState(blocks[2]);
+            expect(anchorState.identifier).to.equal(txID1.identifier);
+            expect(anchorState.appointmentId).to.equal(appointmentId1);
+            expect(anchorState.kind).to.equal(ResponderStateKind.Pending);
+        }
+    );
 
     fnIt<ResponderAppointmentReducer>(r => r.reduce, "keeps pending as pending", () => {
         const reducer = new ResponderAppointmentReducer(blockCache, txID1.identifier, appointmentId1, 0, from1);
