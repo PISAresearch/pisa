@@ -206,8 +206,12 @@ describe("BlockCache", () => {
         blocks.forEach(block => bc.addBlock(block));
         const headBlock = blocks[blocks.length - 1];
 
-        // condition is true only for blocks strictly below minHeight
-        const result = bc.findAncestor(headBlock.hash, block => block.number < blocks[2].number, blocks[2].number);
+        // condition is true only for a block at height strictly below minHeight
+        const result = bc.findAncestor(
+            headBlock.hash,
+            block => block.number === blocks[3].number,
+            blocks[3].number + 1
+        );
         expect(result).to.be.null;
     });
 
@@ -218,9 +222,9 @@ describe("BlockCache", () => {
         const headBlock = blocks[blocks.length - 1];
 
         // condition is true only for blocks at height exactly minHeight
-        const result = bc.findAncestor(headBlock.hash, block => block.number === blocks[2].number, blocks[2].number);
+        const result = bc.findAncestor(headBlock.hash, block => block.number === blocks[3].number, blocks[3].number);
         expect(result).to.not.be.null;
-        expect(blocks[2]).to.deep.include(result!);
+        expect(blocks[3]).to.deep.include(result!);
     });
 
     fnIt<BlockCache<any>>(b => b.getOldestAncestorInCache, "returns the deepest ancestor", () => {
