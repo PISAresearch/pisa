@@ -1,41 +1,18 @@
 /**
- * An error thrown by the application.
+ * Base class for errors thrown by the application.
+ * If a `nestedError` is given, it customizes the stacktrace in order to also show
+ * the full stack trace of the originating error.
  */
 export class ApplicationError extends Error {
-    constructor(message: string) {
-        super(message);
-        this.name = "ApplicationError";
-    }
-}
-
-/**
- * Thrown when code that is not supposed to be reached was actually reached. It can be used to make sure that a series of if-then-else or
- * cases in a switch statement over an enum or union types is exhaustive, in a type-safe way.
- * Errors of this kind represent a bug.
- */
-export class UnreachableCaseError extends ApplicationError {
-    constructor(val: never, message?: string) {
-        const msg = `Unreachable code: ${val}`;
-        super(message ? `${message} ${msg}` : msg);
-        this.name = "UnreachableCaseError";
-    }
-}
-
-/**
- * Base class for errors that ar thrown when a deeper error cannot be handled.
- * Customizes the stack trace in order to show the full stack trace of both the current
- * error and the originating error.
- */
-export class NestedError extends ApplicationError {
     /**
      *
      * @param message The error message.
-     * @param nestedError The `Error` instance of the originating error.
+     * @param nestedError Optionally, the `Error` instance of the originating error.
      * @param name The name of the error shown in the stack trace; the `name` property is set to this value.
-     *             Subclasses of `NestedError` should always pass their name.
-     *             If not provided, the default value `"NestedError"` will be used.
+     *             Subclasses of `ApplicationError` should always pass their name.
+     *             If not provided, the default value `"ApplicationError"` will be used.
      */
-    constructor(message: string, nestedError?: Error, name: string = "NestedError") {
+    constructor(message: string, nestedError?: Error, name: string = "ApplicationError") {
         super(message);
 
         this.name = name;
@@ -52,12 +29,23 @@ export class NestedError extends ApplicationError {
 }
 
 /**
+ * Thrown when code that is not supposed to be reached was actually reached. It can be used to make sure that a series of if-then-else or
+ * cases in a switch statement over an enum or union types is exhaustive, in a type-safe way.
+ * Errors of this kind represent a bug.
+ */
+export class UnreachableCaseError extends ApplicationError {
+    constructor(val: never, message?: string) {
+        const msg = `Unreachable code: ${val}`;
+        super(message ? `${message} ${msg}` : msg, undefined, "UnreachableCaseError");
+    }
+}
+
+/**
  * Thrown when startup configuration is incorrect.
  */
 export class ConfigurationError extends ApplicationError {
     constructor(message: string) {
-        super(message);
-        this.name = "ConfigurationError";
+        super(message, undefined, "ConfigurationError");
     }
 }
 
@@ -66,8 +54,7 @@ export class ConfigurationError extends ApplicationError {
  **/
 export class TimeoutError extends ApplicationError {
     constructor(message: string) {
-        super(message);
-        this.name = "TimeoutError";
+        super(message, undefined, "TimeoutError");
     }
 }
 
@@ -75,10 +62,9 @@ export class TimeoutError extends ApplicationError {
  * Thrown when data does not match a specified format
  * Error messages must be safe to expose publicly
  */
-export class PublicDataValidationError extends NestedError {
+export class PublicDataValidationError extends ApplicationError {
     constructor(message: string) {
-        super(message);
-        this.name = "PublicDataValidationError";
+        super(message, undefined, "PublicDataValidationError");
     }
 }
 
@@ -86,7 +72,7 @@ export class PublicDataValidationError extends NestedError {
  * Thrown when an appointment fails inspection
  * Error messages must be safe to expose publicly
  */
-export class PublicInspectionError extends NestedError {
+export class PublicInspectionError extends ApplicationError {
     constructor(message: string, nestedError?: Error) {
         super(message, nestedError, "PublicInspectionError");
     }
@@ -101,19 +87,17 @@ export class ArgumentError extends ApplicationError {
     constructor(message: string);
     constructor(message: string, ...args: any[]);
     constructor(message: string, ...args: any[]) {
-        super(message);
+        super(message, undefined, "ArgumentError");
         this.args = args;
-        this.name = "ArgumentError";
     }
 }
 
 /**
  * Thrown after some number of blocks has been mined while waiting for something to happen.
  */
-export class BlockThresholdReachedError extends Error {
+export class BlockThresholdReachedError extends ApplicationError {
     constructor(message: string) {
-        super(message);
-        this.name = "BlockThresholdReachedError";
+        super(message, undefined, "BlockThresholdReachedError");
     }
 }
 /**
@@ -122,8 +106,7 @@ export class BlockThresholdReachedError extends Error {
  */
 export class BlockTimeoutError extends ApplicationError {
     constructor(message: string) {
-        super(message);
-        this.name = "BlockTimeoutError";
+        super(message, undefined, "BlockTimeoutError");
     }
 }
 
@@ -132,8 +115,7 @@ export class BlockTimeoutError extends ApplicationError {
  */
 export class ReorgError extends ApplicationError {
     constructor(message: string) {
-        super(message);
-        this.name = "ReorgError";
+        super(message, undefined, "ReorgError");
     }
 }
 
@@ -142,7 +124,6 @@ export class ReorgError extends ApplicationError {
  */
 export class QueueConsistencyError extends ApplicationError {
     constructor(message: string) {
-        super(message);
-        this.name = "QueueConsistencyError";
+        super(message, undefined, "QueueConsistencyError");
     }
 }
