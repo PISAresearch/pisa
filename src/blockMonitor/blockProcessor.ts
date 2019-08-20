@@ -114,11 +114,6 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
         this.provider.removeListener("block", this.processBlockNumber);
     }
 
-    // Returns true if `blockHash` is the last blockHash that was received
-    private isBlockHashLastReceived(blockHash: string) {
-        return this.lastBlockHashReceived === blockHash;
-    }
-
     // updates the new head block in the cache and emits the appropriate events
     private processNewHead(headBlock: Readonly<TBlock>) {
         this.mBlockCache.setHead(headBlock.hash);
@@ -178,18 +173,18 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
 
             // fetch ancestors until one is found that can be added
             let curBlock: Readonly<TBlock> | null = observedBlock;
-            while (!this.mBlockCache.addBlock(curBlock!)) {
+            while (!this.mBlockCache.addBlock(curBlock)) {
                 const lastHash: string = curBlock.parentHash;
                 curBlock = await this.getBlock(lastHash);
 
                 if (!curBlock) {
                     this.logger.info(`Failed to retreive block with hash ${lastHash}.`);
-                    break;
+                    return;
                 }
             }
 
             // is the observed block still the last block received (or the first block during startup)?
-            if (this.isBlockHashLastReceived(observedBlock.hash)) {
+            if (this.lastBlockHashReceived === observedBlock.hash) {
                 this.processNewHead(observedBlock);
             }
         } catch (doh) {
