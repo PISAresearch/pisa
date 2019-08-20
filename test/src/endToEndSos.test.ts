@@ -106,15 +106,12 @@ describe("sos end to end", () => {
         rescueContract.once(SosContract.RESCUE_EVENT_METHOD_SIGNATURE, () => (success = true));
         const tx = await rescueContract.help(rescueMessage);
         await tx.wait(2);
-
-        await mineBlocks(10, user);
-
         
-        await waitForPredicate(() => success, 50, 20, rescueMessage);
+        await waitForPredicate(() => success, 50, 20, rescueMessage + ":" + appointmentId);
         console.log(`${rescueMessage} rescued!`);
     };
 
-    it("two of the same appointment back to back, 10 blocks apart", async () => {
+    it("two of the same appointment back to back", async () => {
         const responderWallet = new ethers.Wallet(nextConfig.responderKey, provider);
         const db = levelup(
             encodingDown<string, any>(MemDown(), {
