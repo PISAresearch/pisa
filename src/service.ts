@@ -219,7 +219,7 @@ export class PisaService extends StartStopService {
                 ) {
                     req.log.info(logEntry, "Docs request.");
                 } else if (res.statusCode == 200) {
-                    req.log.info(logEntry, "Sucess response.");
+                    req.log.info(logEntry, "Success response.");
                 } else if (res.statusCode >= 400) {
                     req.log.error(logEntry, "Error response.");
                 } else req.log.error(logEntry, "Other response.");
