@@ -24,12 +24,14 @@ export class GasPriceEstimator {
     public async estimate(appointment: Appointment): Promise<BigNumber> {
         const currentPrice = await this.provider.getGasPrice();
         const currentHead = this.blockCache.head;
+
+        // TODO:253: estimating for an old appointment throws error!
         const timeLeft = appointment.endBlock - currentHead.number;
 
         // we set that the current gas price should be used at the 
         // very start of the appointment
         const curve = new ExponentialGasCurve(currentPrice, appointment.endBlock - appointment.startBlock);
-        return curve.getGasPrice(timeLeft);
+        return curve.getGasPrice(Math.max(timeLeft, 0));
     }
 }
 

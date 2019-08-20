@@ -18,22 +18,22 @@ chai.use(chaiAsPromised);
 const createAppointment = (id: number, data: string): Appointment => {
     return Appointment.fromIAppointment({
         challengePeriod: 10,
-        contractAddress: "contractAddress",
-        customerAddress: "customerAddress",
-        data,
+        contractAddress: "0x8b80f99ab53476df67202a3224ea365827861f33",
+        customerAddress: "0x13c04fbc8bcfb2b189d0dda12547ec0ff8ecc8fb",
+        data: ethers.utils.hexlify(ethers.utils.toUtf8Bytes(data)),
         endBlock: 10,
-        eventABI: "eventABI",
-        eventArgs: "eventArgs",
+        eventABI: "event Distress(string indexed message)",
+        eventArgs: "0x000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000066d61796461790000000000000000000000000000000000000000000000000000",
         gasLimit: "100",
         customerChosenId: id,
         jobId: 1,
         mode: 1,
-        paymentHash: "paymentHash",
-        preCondition: "preCondition",
-        postCondition: "postCondition",
+        paymentHash: "0xfc1624bdc50da30f2ea37b7debabeac1f6166db013c5880dcf63907b04199138",
+        preCondition: "0x",
+        postCondition: "0x",
         refund: "3",
         startBlock: 7,
-        customerSig: "sig"
+        customerSig: "0x0870ede99ad9547ca2f45140ac5088291da331379283383278886814419c795d5571f560f302ba9ec45485a5e6cb237224baed39d15597cf530cac162556a6a000"
     });
 };
 
@@ -52,6 +52,7 @@ describe("MultiResponder", () => {
     const maxConcurrentResponses = 3;
     const replacementRate = 15;
     const chainId = 1;
+    const pisaContractAddress = "0x3deA9963BF4c1a3716025dE8AE05a5caC66db46E"
 
     beforeEach(() => {
         signerMock = mock(ethers.Wallet);
@@ -89,7 +90,7 @@ describe("MultiResponder", () => {
     fnIt<MultiResponder>(m => m.startResponse, "can issue transaction", async () => {
         const appointment = createAppointment(1, "data1");
 
-        const responder = new MultiResponder(signer, increasingGasPriceEstimator, chainId, store, signer.address, new BigNumber("500000000000000000"));
+        const responder = new MultiResponder(signer, increasingGasPriceEstimator, chainId, store, signer.address, new BigNumber("500000000000000000"), pisaContractAddress);
         await responder.startResponse(appointment, 0);
 
         verify(responderStoreMock.updateQueue(anything())).once();
@@ -100,7 +101,7 @@ describe("MultiResponder", () => {
         const appointment1 = createAppointment(1, "data1");
         const appointment2 = createAppointment(2, "data2");
 
-        const responder = new MultiResponder(signer, increasingGasPriceEstimator, chainId, store, signer.address, new BigNumber("500000000000000000"));
+        const responder = new MultiResponder(signer, increasingGasPriceEstimator, chainId, store, signer.address, new BigNumber("500000000000000000"), pisaContractAddress);
 
         //const queueBefore = responder.queue;
         await responder.startResponse(appointment1, 0);
@@ -121,7 +122,7 @@ describe("MultiResponder", () => {
         const appointment = createAppointment(1, "data1");
         const appointment2 = createAppointment(2, "data2");
         // decreasing
-        const responder = new MultiResponder(signer, decreasingGasPriceEstimator, chainId, store, signer.address, new BigNumber("500000000000000000"));
+        const responder = new MultiResponder(signer, decreasingGasPriceEstimator, chainId, store, signer.address, new BigNumber("500000000000000000"), pisaContractAddress);
 
         await responder.startResponse(appointment, 0);
         expect(store.transactions.get(appointment.id)!.request.appointment).to.deep.equal(appointment);
@@ -139,7 +140,7 @@ describe("MultiResponder", () => {
 
     fnIt<MultiResponder>(m => m.startResponse, "swallows error", async () => {
         const appointment = createAppointment(1, "data1");
-        const responder = new MultiResponder(signer, errorGasPriceEstimator, chainId, store, signer.address, new BigNumber("500000000000000000"));
+        const responder = new MultiResponder(signer, errorGasPriceEstimator, chainId, store, signer.address, new BigNumber("500000000000000000"), pisaContractAddress);
 
         await responder.startResponse(appointment, 0);
         verify(responderStoreMock.updateQueue(anything())).never();
@@ -152,7 +153,7 @@ describe("MultiResponder", () => {
         const appointment3 = createAppointment(3, "data3");
         const max2Store = new ResponderStore(db, "address", new GasQueue([], 0, replacementRate, 2));
         const max2StoreMock = spy(max2Store);
-        const responder = new MultiResponder(signer, decreasingGasPriceEstimator, chainId, max2Store, signer.address, new BigNumber("500000000000000000"));
+        const responder = new MultiResponder(signer, decreasingGasPriceEstimator, chainId, max2Store, signer.address, new BigNumber("500000000000000000"), pisaContractAddress);
 
         await responder.startResponse(appointment, 0);
         await responder.startResponse(appointment2, 0);
@@ -169,7 +170,7 @@ describe("MultiResponder", () => {
 
     fnIt<MultiResponder>(m => m.txMined, "does dequeue", async () => {
         const appointment = createAppointment(1, "data1");
-        const responder = new MultiResponder(signer, increasingGasPriceEstimator, chainId, store, signer.address, new BigNumber("500000000000000000"));
+        const responder = new MultiResponder(signer, increasingGasPriceEstimator, chainId, store, signer.address, new BigNumber("500000000000000000"), pisaContractAddress);
 
         await responder.startResponse(appointment, 0);
         expect(store.transactions.get(appointment.id)!.request.appointment).to.deep.equal(appointment);
@@ -188,7 +189,7 @@ describe("MultiResponder", () => {
     fnIt<MultiResponder>(m => m.txMined, "does replace", async () => {
         const appointment = createAppointment(1, "data1");
         const appointment2 = createAppointment(2, "data2");
-        const responder = new MultiResponder(signer, increasingGasPriceEstimator, chainId, store, signer.address, new BigNumber("500000000000000000"));
+        const responder = new MultiResponder(signer, increasingGasPriceEstimator, chainId, store, signer.address, new BigNumber("500000000000000000"), pisaContractAddress);
 
         await responder.startResponse(appointment, 0);
         const item = store.queue.queueItems[0];
@@ -219,7 +220,7 @@ describe("MultiResponder", () => {
     });
 
     fnIt<MultiResponder>(m => m.txMined, "does nothing when queue is empty", async () => {
-        const responder = new MultiResponder(signer, increasingGasPriceEstimator, chainId, store, signer.address, new BigNumber("500000000000000000"));
+        const responder = new MultiResponder(signer, increasingGasPriceEstimator, chainId, store, signer.address, new BigNumber("500000000000000000"), pisaContractAddress);
         const qBefore = store.queue;
         await responder.txMined(new PisaTransactionIdentifier(1, "data", "to", new BigNumber(0), new BigNumber(10)), 1);
         expect(store.queue).to.deep.equal(qBefore);
@@ -230,7 +231,7 @@ describe("MultiResponder", () => {
 
     fnIt<MultiResponder>(m => m.txMined, "does nothing when item not in queue", async () => {
         const appointment = createAppointment(1, "data1");
-        const responder = new MultiResponder(signer, increasingGasPriceEstimator, chainId, store, signer.address, new BigNumber("500000000000000000"));
+        const responder = new MultiResponder(signer, increasingGasPriceEstimator, chainId, store, signer.address, new BigNumber("500000000000000000"), pisaContractAddress);
 
         await responder.startResponse(appointment, 0);
         verify(responderStoreMock.updateQueue(anything())).once();
@@ -245,7 +246,7 @@ describe("MultiResponder", () => {
 
     fnIt<MultiResponder>(m => m.txMined, "does nothing nonce is not front of queue", async () => {
         const appointment = createAppointment(1, "data1");
-        const responder = new MultiResponder(signer, increasingGasPriceEstimator, chainId, store, signer.address, new BigNumber("500000000000000000"));
+        const responder = new MultiResponder(signer, increasingGasPriceEstimator, chainId, store, signer.address, new BigNumber("500000000000000000"), pisaContractAddress);
 
         await responder.startResponse(appointment, 0);
         verify(responderStoreMock.updateQueue(anything())).once();
@@ -263,7 +264,7 @@ describe("MultiResponder", () => {
 
         // there are some items that are not in the queue, but are in the multi responder
         // we achieve this by adding the items, the mining them, then insisting they're still in pending
-        const responder = new MultiResponder(signer, decreasingGasPriceEstimator, chainId, store, signer.address, new BigNumber("500000000000000000"));
+        const responder = new MultiResponder(signer, decreasingGasPriceEstimator, chainId, store, signer.address, new BigNumber("500000000000000000"), pisaContractAddress);
 
         await responder.startResponse(appointment, 0);
         await responder.startResponse(appointment2, 0);
@@ -288,7 +289,7 @@ describe("MultiResponder", () => {
         const appointment = createAppointment(1, "data1");
         const appointment2 = createAppointment(2, "data2");
 
-        const responder = new MultiResponder(signer, increasingGasPriceEstimator, chainId, store, signer.address, new BigNumber("500000000000000000"));
+        const responder = new MultiResponder(signer, increasingGasPriceEstimator, chainId, store, signer.address, new BigNumber("500000000000000000"), pisaContractAddress);
 
         await responder.startResponse(appointment, 0);
         const item = store.transactions.get(appointment.id)!;
@@ -315,7 +316,7 @@ describe("MultiResponder", () => {
 
     fnIt<MultiResponder>(m => m.reEnqueueMissingItems, "throws error for missing transactions", async () => {
         const appointmentId = "id1";
-        const responder = new MultiResponder(signer, decreasingGasPriceEstimator, chainId, store, signer.address, new BigNumber("500000000000000000"));
+        const responder = new MultiResponder(signer, decreasingGasPriceEstimator, chainId, store, signer.address, new BigNumber("500000000000000000"), pisaContractAddress);
 
         return expect(responder.reEnqueueMissingItems([appointmentId])).to.eventually.be.rejectedWith(ArgumentError);
     });
@@ -323,7 +324,7 @@ describe("MultiResponder", () => {
     fnIt<MultiResponder>(m => m.reEnqueueMissingItems, "does nothing for no missing transactions", async () => {
         const appointment = createAppointment(1, "data1");
         const appointment2 = createAppointment(2, "data2");
-        const responder = new MultiResponder(signer, decreasingGasPriceEstimator, chainId, store, signer.address, new BigNumber("500000000000000000"));
+        const responder = new MultiResponder(signer, decreasingGasPriceEstimator, chainId, store, signer.address, new BigNumber("500000000000000000"), pisaContractAddress);
 
         await responder.startResponse(appointment, 0);
         await responder.startResponse(appointment2, 0);
@@ -339,7 +340,7 @@ describe("MultiResponder", () => {
 
     fnIt<MultiResponder>(m => m.endResponse, "removes item from transactions", async () => {
         const appointment = createAppointment(1, "data1");
-        const responder = new MultiResponder(signer, decreasingGasPriceEstimator, chainId, store, signer.address, new BigNumber("500000000000000000"));
+        const responder = new MultiResponder(signer, decreasingGasPriceEstimator, chainId, store, signer.address, new BigNumber("500000000000000000"), pisaContractAddress);
 
         await responder.startResponse(appointment, 0);
         expect(store.transactions.has(appointment.id)).to.be.true;

@@ -15,6 +15,7 @@ import { ChainData } from "../chainData";
 import { KeyStore } from "../keyStore";
 import { Appointment, IAppointmentRequest } from "../../../src/dataEntities";
 import { groupTuples } from "../../../src/utils/ethers";
+import { deployPisa } from "../../src/utils/contract";
 
 const newId = () => {
     return uuid().substr(0, 8);
@@ -58,17 +59,19 @@ const encode = (request: IAppointmentRequest) => {
         ])
     );
 
-    return ethers.utils.keccak256(
-        ethers.utils.defaultAbiCoder.encode(
-            ...groupTuples([["bytes", appointmentInfo], ["bytes", contractInfo], ["bytes", conditionInfo]])
-        )
+    return ethers.utils.defaultAbiCoder.encode(
+        ...groupTuples([["bytes", appointmentInfo], ["bytes", contractInfo], ["bytes", conditionInfo]])
     );
 };
 
 describe("Integration", function() {
     this.timeout(60000);
-    let pisa: PisaContainer, parity: ParityContainer, network: DockerClient.Network, parityPort: number;
-    let provider: ethers.providers.JsonRpcProvider;
+    let pisa: PisaContainer,
+        parity: ParityContainer,
+        network: DockerClient.Network,
+        parityPort: number,
+        pisaContractAddress: string,
+        provider: ethers.providers.JsonRpcProvider;
 
     beforeEach(async () => {
         const currentDirectory = __dirname;
@@ -96,6 +99,14 @@ describe("Integration", function() {
             KeyStore.theKeyStore.account0,
             [KeyStore.theKeyStore.account1]
         );
+        await parity.start(true);
+
+        provider = new ethers.providers.JsonRpcProvider("http://localhost:8545");
+        provider.pollingInterval = 100;
+        const wallet = new ethers.Wallet(KeyStore.theKeyStore.account1.wallet.privateKey, provider);
+        const pisaContract = await deployPisa(wallet);
+        pisaContractAddress = pisaContract.address;
+
         const config: IArgConfig = {
             dbDir: "db",
             hostName: "0.0.0.0",
@@ -104,7 +115,8 @@ describe("Integration", function() {
             jsonRpcUrl: `http://${parity.name}:${parityPort}`,
             responderKey: KeyStore.theKeyStore.account1.wallet.privateKey,
             receiptKey: KeyStore.theKeyStore.account1.wallet.privateKey,
-            watcherResponseConfirmations: 0
+            watcherResponseConfirmations: 0,
+            pisaContractAddress: pisaContract.address
         };
         pisa = new PisaContainer(dockerClient, `pisa-${newId()}`, config, 3000, logsDirectory, networkName);
 
@@ -112,15 +124,11 @@ describe("Integration", function() {
             Name: networkName
         });
 
-        await parity.start(true);
         await pisa.start(true);
         // adding a wait here appears to stop intermittent errors that occur
         // during the integration tests. This isnt a great solution but it works
         // for now
-        await wait(10000);
-
-        provider = new ethers.providers.JsonRpcProvider(`http://localhost:${parityPort}`);
-        provider.pollingInterval = 100;
+        await wait(10000);        
     });
 
     afterEach(async () => {
@@ -176,11 +184,14 @@ describe("Integration", function() {
             };
         };
 
-        const appointment = createAppointmentRequest(data, key0.account, currentBlock)
+        const appointment = createAppointmentRequest(data, key0.account, currentBlock);
         const hash = encode(appointment);
-        const sig = await key0.wallet.signMessage(ethers.utils.arrayify(hash))
-        const clone = { ...appointment, customerSig: sig};
+        const hashedWithAddress = ethers.utils.keccak256(
+            ethers.utils.defaultAbiCoder.encode(["bytes", "address"], [hash, pisaContractAddress])
+        );
+        const sig = await key0.wallet.signMessage(ethers.utils.arrayify(hashedWithAddress));
 
+        const clone = { ...appointment, customerSig: sig };
 
         const res = await request.post(`http://localhost:${pisa.config.hostPort}/appointment`, {
             json: clone

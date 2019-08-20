@@ -7,8 +7,9 @@ import { BigNumber } from "ethers/utils";
 import { groupTuples } from "../utils/ethers";
 import { Logger } from "../logger";
 import betterAjvErrors from "better-ajv-errors";
-import { BlockCache, ReadOnlyBlockCache } from "../blockMonitor/index.js";
+import { ReadOnlyBlockCache } from "../blockMonitor/index.js";
 import { IBlockStub } from "./block.js";
+import { ABI } from "../contractInfo/pisa";
 const ajv = new Ajv({ jsonPointers: true, allErrors: true });
 const appointmentRequestValidation = ajv.compile(appointmentRequestSchemaJson);
 
@@ -282,7 +283,11 @@ export class Appointment {
      * Validate property values on the appointment
      * @param log Logger to be used in case of failures
      */
-    public async validate(blockCache: ReadOnlyBlockCache<IBlockStub>, log: Logger = logger) {
+    public async validate(
+        blockCache: ReadOnlyBlockCache<IBlockStub>,
+        pisaContractAddress: string,
+        log: Logger = logger
+    ) {
         if (this.paymentHash.toLowerCase() !== Appointment.FreeHash) throw new PublicDataValidationError("Invalid payment hash."); // prettier-ignore
 
         // the start block must be close to the current block +/- 5
@@ -290,6 +295,8 @@ export class Appointment {
         if(this.startBlock < (currentHead - 5)) throw new PublicDataValidationError(`Start block too low. Start block must be within 5 blocks of the current block ${currentHead}.`); // prettier-ignore
         if(this.startBlock > (currentHead + 5)) throw new PublicDataValidationError(`Start block too high. Start block must be within 5 blocks of the current block ${currentHead}.`); // prettier-ignore
         if((this.endBlock - this.startBlock) > 60000) throw new PublicDataValidationError(`Appointment duration too great. Maximum duration between start and block is 60000.`); // prettier-ignore
+        if((this.endBlock - this.startBlock) < 100) throw new PublicDataValidationError(`Appointment duration too small. Minimum duration between start and block is 100.`); // prettier-ignore
+        
 
         try {
             this.mEventFilter = this.parseEventArgs();
@@ -313,13 +320,18 @@ export class Appointment {
         }
         let recoveredAddress;
         try {
-            recoveredAddress = ethers.utils.verifyMessage(ethers.utils.arrayify(encoded), this.customerSig);
+            const hashForSig = ethers.utils.keccak256(
+                ethers.utils.defaultAbiCoder.encode(["bytes", "address"], [encoded, pisaContractAddress])
+            );
+            recoveredAddress = ethers.utils.verifyMessage(ethers.utils.arrayify(hashForSig), this.customerSig);
         } catch (doh) {
             log.error(doh);
             throw new PublicDataValidationError("Invalid signature.");
         }
         if (this.customerAddress.toLowerCase() !== recoveredAddress.toLowerCase()) {
-            throw new PublicDataValidationError(`Invalid signature - did not recover customer address ${this.customerAddress}.`);
+            throw new PublicDataValidationError(
+                `Invalid signature - did not recover customer address ${this.customerAddress}.`
+            );
         }
     }
 
@@ -458,9 +470,29 @@ export class Appointment {
 
         const encodedAppointment = ethers.utils.defaultAbiCoder.encode(
             ...groupTuples([["bytes", appointmentInfo], ["bytes", contractInfo], ["bytes", conditionInfo]])
-        )
+        );
 
-        return ethers.utils.keccak256(encodedAppointment);
+        return encodedAppointment;
+    }
+
+    /**
+     * The hashed ABI representation of this appointment
+     */
+    public encodeAndHash() {
+        return ethers.utils.keccak256(this.encode());
+    }
+
+    /**
+     * Encode this appointment as a function call to response
+     * @param appointment
+     */
+    public encodeForResponse() {
+        const encoded = this.encode();
+        const sig = this.customerSig;
+
+        const iFace = new ethers.utils.Interface(ABI);
+
+        return iFace.functions["respond"].encode([encoded, sig]);
     }
 }
 

@@ -79,7 +79,8 @@ export class PisaService extends StartStopService {
             chainId,
             this.responderStore,
             wallet.address,
-            new BigNumber("500000000000000000")
+            new BigNumber("500000000000000000"),
+            config.pisaContractAddress
         );
 
         // components and machine
@@ -100,10 +101,16 @@ export class PisaService extends StartStopService {
         this.blockchainMachine.addComponent(responder);
 
         // if a key to sign receipts was provided, create an EthereumAppointmentSigner
-        const appointmentSigner = new HotEthereumAppointmentSigner(receiptSigner);
+        const appointmentSigner = new HotEthereumAppointmentSigner(receiptSigner, config.pisaContractAddress);
 
         // tower
-        const tower = new PisaTower(this.appointmentStore, appointmentSigner, multiResponder, blockCache);
+        const tower = new PisaTower(
+            this.appointmentStore,
+            appointmentSigner,
+            multiResponder,
+            blockCache,
+            config.pisaContractAddress
+        );
 
         app.post(this.APPOINTMENT_ROUTE, this.appointment(tower));
 
@@ -205,7 +212,7 @@ export class PisaService extends StartStopService {
             res.on("finish", () => {
                 const endNano = process.hrtime.bigint();
                 const microDuration = Number.parseInt((endNano - startNano).toString()) / 1000;
-                // right now we log the request body 
+                // right now we log the request body
                 // this probably isn't sutainable in the long term, but it should help us
                 // get a good idea of usage in the short term
                 const logEntry = { req: req, res: res, duration: microDuration, requestBody: req.body };

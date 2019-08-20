@@ -43,7 +43,8 @@ export class MultiResponder {
         private readonly chainId: number,
         store: ResponderStore,
         public readonly address: string,
-        public readonly balanceThreshold: BigNumber
+        public readonly balanceThreshold: BigNumber,
+        public readonly pisaContractAddress: string
     ) {
         this.broadcast = this.broadcast.bind(this);
         this.zStore = store;
@@ -63,16 +64,16 @@ export class MultiResponder {
                         `Cannot add to queue. Max queue depth ${this.zStore.queue.maxQueueDepth} reached.`
                     );
                 }
-
+                
                 // form a queue item request
                 const txIdentifier = new PisaTransactionIdentifier(
                     this.chainId,
-                    appointment.data,
-                    appointment.contractAddress,
+                    appointment.encodeForResponse(),
+                    this.pisaContractAddress,
                     new BigNumber(0),
-                    appointment.gasLimit
+                    // TODO:253: we're gonna have to restrict the data size, as the effects how much gas pisa spends
+                    appointment.gasLimit.add(200000)
                 );
-
                 const idealGas = await this.gasEstimator.estimate(appointment);
                 const request = new GasQueueItemRequest(txIdentifier, idealGas, appointment, blockObserved);
                 logger.info(request, `Enqueueing request for ${appointment.id}.`);
@@ -91,7 +92,11 @@ export class MultiResponder {
 
             // we rethrow to the public if this item is already enqueued.
             if (doh instanceof GasQueueError && doh.kind === GasQueueErrorKind.AlreadyAdded) {
+<<<<<<< HEAD
                 throw new PublicInspectionError(`Appointment already in queue.`, doh);
+=======
+                throw new PublicInspectionError(`Appointment already being responded to.`);
+>>>>>>> PISA now forwards appointments to the pisa contract
             }
         }
     }
@@ -215,7 +220,7 @@ export class MultiResponder {
             logger.error(doh);
         }
     }
-    
+
     /**
      * Checks to see if the responder balance is lower than the threshold set in the constructor.
      * If the balance is lower, a warning will be outputted by the logger
