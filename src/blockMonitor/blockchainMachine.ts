@@ -4,7 +4,7 @@ import { Component, AnchorState, ComponentAction } from "./component";
 
 interface ComponentAndStates {
     component: Component<AnchorState, IBlockStub, ComponentAction>;
-    states: WeakMap<IBlockStub, object>;
+    states: WeakMap<IBlockStub, AnchorState>;
 }
 
 // Generic class to handle the anchor statee of a blockchain state machine
