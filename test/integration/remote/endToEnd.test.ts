@@ -141,7 +141,7 @@ describe("Integration", function() {
         );
         const disputePeriod = 11;
         const channelContract = await channelContractFactory.deploy([key0.account, key1.account], disputePeriod);
-        // pisa needs some time to initialise -and for some reason the contract needs time to set
+        // pisa needs some time to initialise - and for some reason the contract needs time to set
         await wait(4000);
 
         const hashState = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("face-off"));
@@ -206,7 +206,7 @@ describe("Integration", function() {
     });
 
     it("End to end, multiple appointments", async () => {
-        // TODO: like the previous test, but with multiple clients sending requests in parallel to Pisa.
+        // like the previous test, but with multiple clients sending requests in parallel to Pisa.
         const provider = new ethers.providers.JsonRpcProvider(`http://localhost:${parityPort}`);
         provider.pollingInterval = 100;
 
@@ -218,6 +218,8 @@ describe("Integration", function() {
         const channelContractFactories: ethers.ContractFactory[] = [];
 
         for (let i = 0; i < nRuns; i++) {
+            // for the i-th request, we create two wallets wallets0[i] and wallet1[i]
+
             // prettier-ignore
             const mnemonic0 = ethers.utils.HDNode.entropyToMnemonic([ // 15 + 1 bytes
                 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
@@ -254,7 +256,7 @@ describe("Integration", function() {
 
         const channelContracts = await Promise.all(channelContractPromises);
 
-        // pisa needs some time to initialise -and for some reason the contract needs time to set
+        // pisa needs some time to initialise - and for some reason the contract needs time to set
         await wait(4000);
 
         const successResults = new Array(nRuns).fill(false);
