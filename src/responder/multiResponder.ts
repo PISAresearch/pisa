@@ -51,8 +51,11 @@ export class MultiResponder {
 
     /**
      * Issue a transaction to the network, and add a record to the responded transactions list
+     * @param appointment the Appointment
+     * @param blockObserved the height of the block where the response was triggered, or 0 if not relevant
+     *
      */
-    public async startResponse(appointment: Appointment) {
+    public async startResponse(appointment: Appointment, blockObserved: number) {
         try {
             const replacedTransactions = await this.lockManager.withLock(this.zStore.lock, async () => {
                 if (this.zStore.queue.depthReached()) {
@@ -71,7 +74,7 @@ export class MultiResponder {
                 );
 
                 const idealGas = await this.gasEstimator.estimate(appointment);
-                const request = new GasQueueItemRequest(txIdentifier, idealGas, appointment);
+                const request = new GasQueueItemRequest(txIdentifier, idealGas, appointment, blockObserved);
                 logger.info(request, `Enqueueing request for ${appointment.id}.`);
 
                 // add the queue item to the queue, since the queue is ordered this may mean

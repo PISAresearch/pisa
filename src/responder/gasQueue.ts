@@ -71,6 +71,7 @@ interface GasQueueItemRequestSerialisation {
     readonly identifier: PisaTransactionIdentifierSerialisation;
     readonly idealGasPrice: string;
     readonly appointment: IAppointment;
+    readonly blockObserved: number;
 }
 
 export class GasQueueItemRequest {
@@ -78,14 +79,16 @@ export class GasQueueItemRequest {
         return {
             appointment: Appointment.toIAppointment(request.appointment),
             idealGasPrice: request.idealGasPrice.toString(),
-            identifier: PisaTransactionIdentifier.serialise(request.identifier)
+            identifier: PisaTransactionIdentifier.serialise(request.identifier),
+            blockObserved: request.blockObserved
         };
     }
     public static deserialise(serialisation: GasQueueItemRequestSerialisation): GasQueueItemRequest {
         return new GasQueueItemRequest(
             PisaTransactionIdentifier.deserialise(serialisation.identifier),
             new BigNumber(serialisation.idealGasPrice),
-            Appointment.fromIAppointment(serialisation.appointment)
+            Appointment.fromIAppointment(serialisation.appointment),
+            serialisation.blockObserved
         );
     }
 
@@ -94,11 +97,13 @@ export class GasQueueItemRequest {
      * @param identifier
      * @param idealGasPrice The minimum gas price at which this item should be submitted to the network
      * @param appointment The appointment data relevant to this request
+     * @param blockObserved The height of the block that triggered the response, or 0 if not relevant
      */
     constructor(
         public readonly identifier: PisaTransactionIdentifier,
         public readonly idealGasPrice: BigNumber,
-        public readonly appointment: Appointment
+        public readonly appointment: Appointment,
+        public readonly blockObserved: number
     ) {}
 }
 
