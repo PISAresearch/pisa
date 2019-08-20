@@ -1,9 +1,8 @@
 import "mocha";
 import request from "request-promise";
-import * as SosContract from "./SOSContract";
+import * as SosContract from "./../smoke/SOSContract";
 import { Wallet, ethers } from "ethers";
-import { JsonRpcProvider } from "ethers/providers";
-import levelup, { LevelUp } from "levelup";
+import levelup from "levelup";
 import MemDown from "memdown";
 import encodingDown from "encoding-down";
 import config from "../../src/dataEntities/config";
@@ -14,7 +13,6 @@ const ganache = Ganache.provider({
     mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect"
 });
 const userPrivKey = "0x829e924fdf021ba3dbbc4225edfece9aca04b929d6e75613329ca6f1d31c0bb4";
-const userPublicKey = "0xACa94ef8bD5ffEE41947b4585a84BdA5a3d3DA6E";
 
 const nextConfig = {
     ...config,
@@ -28,7 +26,7 @@ const nextConfig = {
 const provider = new ethers.providers.Web3Provider(ganache);
 provider.pollingInterval = 100;
 
-describe("end to end", () => {
+describe("sos end to end", () => {
     const createAppointmentRequest = (
         contractAddress: string,
         customerAddress: string,
@@ -106,7 +104,7 @@ describe("end to end", () => {
         rescueContract.once(SosContract.RESCUE_EVENT_METHOD_SIGNATURE, () => (success = true));
         const tx = await rescueContract.help(rescueMessage);
         await tx.wait();
-        await mineBlocks(10, user);        
+        await mineBlocks(10, user);
 
         await waitForPredicate(() => success, 50, 20, rescueMessage);
         console.log(`${rescueMessage} rescued!`);
