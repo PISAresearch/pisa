@@ -9,6 +9,7 @@ import config from "../../src/dataEntities/config";
 import Ganache from "ganache-core";
 import { Appointment, IAppointmentRequest } from "../../src/dataEntities";
 import { PisaService } from "../../src/service";
+import { wait } from "../../src/utils";
 const ganache = Ganache.provider({
     mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect"
 });
@@ -96,6 +97,7 @@ describe("sos end to end", () => {
     ) => {
         const rescueRequest1 = await createRescueRequest(rescueContract, provider, user, appointmentId, rescueMessage);
 
+        
         const response = await request.post(`http://${nextConfig.hostName}:${nextConfig.hostPort}/appointment`, {
             json: rescueRequest1
         });
@@ -103,9 +105,11 @@ describe("sos end to end", () => {
         let success = false;
         rescueContract.once(SosContract.RESCUE_EVENT_METHOD_SIGNATURE, () => (success = true));
         const tx = await rescueContract.help(rescueMessage);
-        await tx.wait();
+        await tx.wait(2);
+
         await mineBlocks(10, user);
 
+        
         await waitForPredicate(() => success, 50, 20, rescueMessage);
         console.log(`${rescueMessage} rescued!`);
     };
