@@ -114,7 +114,7 @@ describe("sos end to end", () => {
         console.log(`${rescueMessage} rescued!`);
     };
 
-    it("pisa", async () => {
+    it("two of the same appointment back to back, 10 blocks apart", async () => {
         const responderWallet = new ethers.Wallet(nextConfig.responderKey, provider);
         const db = levelup(
             encodingDown<string, any>(MemDown(), {
