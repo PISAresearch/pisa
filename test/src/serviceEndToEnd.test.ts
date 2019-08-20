@@ -93,7 +93,6 @@ describe("Service end-to-end", () => {
         );
 
         const signerWallet = new ethers.Wallet(nextConfig.receiptKey!, provider);
-        signerWallet.connect(provider);
         const nonce = await responderWallet.getTransactionCount();
 
         service = new PisaService(
