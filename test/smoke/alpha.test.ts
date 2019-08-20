@@ -122,20 +122,5 @@ describe("alpha", () => {
         await tx.wait();
         console.log("help mined")
         return;
-    
-
-
-        // const tx = await rescueContract.help()
-        // console.log("help broadcast")
-        // await tx.wait();
-        // console.log("help mined")
-        // return;
-
-
-        // trigger the response
-        // const tx = await rescueContract.help()
-        // await tx.wait();
-        // console.log("help requested mined.")
-        
     }).timeout(100000);
 });

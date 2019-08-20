@@ -2,7 +2,7 @@ import "mocha";
 import request from "request-promise";
 import * as SosContract from "./../smoke/SOSContract";
 import { Wallet, ethers } from "ethers";
-import levelup from "levelup";
+import levelup, { LevelUp } from "levelup";
 import MemDown from "memdown";
 import encodingDown from "encoding-down";
 import config from "../../src/dataEntities/config";
@@ -10,10 +10,12 @@ import Ganache from "ganache-core";
 import { Appointment, IAppointmentRequest } from "../../src/dataEntities";
 import { PisaService } from "../../src/service";
 import { wait } from "../../src/utils";
+import { BigNumber } from "ethers/utils";
 const ganache = Ganache.provider({
     mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect"
 });
-const userPrivKey = "0x829e924fdf021ba3dbbc4225edfece9aca04b929d6e75613329ca6f1d31c0bb4";
+const userKey1 = "0x829e924fdf021ba3dbbc4225edfece9aca04b929d6e75613329ca6f1d31c0bb4";
+const userKey2 = "0x67950d009c30c78d1cc65d8427abcdd09195e358810be9ed40512a1e3ec9d83d";
 
 const nextConfig = {
     ...config,
@@ -64,7 +66,8 @@ describe("sos end to end", () => {
         provider: ethers.providers.BaseProvider,
         user: ethers.Wallet,
         appointmentId: number,
-        message: string
+        helpMessage: string,
+        rescueMessage: string
     ) => {
         // setup
         const startBlock = await provider.getBlockNumber();
@@ -72,9 +75,9 @@ describe("sos end to end", () => {
         const appointmentRequest = createAppointmentRequest(
             rescueContract.address,
             user.address,
-            SosContract.encodeData(message),
+            SosContract.encodeData(rescueMessage),
             SosContract.DISTRESS_EVENT_ABI,
-            SosContract.encodeArgs(message),
+            SosContract.encodeArgs(helpMessage),
             appointmentId,
             jobId,
             startBlock
@@ -89,38 +92,67 @@ describe("sos end to end", () => {
         };
     };
 
-    const callDistressAndWaitForRescue = async (
-        rescueContract: ethers.Contract,
+    const getAppointmentForMessage = async (
         user: ethers.Wallet,
+        helpMessage: string,
         rescueMessage: string,
         appointmentId: number
     ) => {
-        const rescueRequest1 = await createRescueRequest(rescueContract, provider, user, appointmentId, rescueMessage);
+        const rescueRequest1 = await createRescueRequest(
+            rescueContract,
+            provider,
+            user,
+            appointmentId,
+            helpMessage,
+            rescueMessage
+        );
 
-        
-        const response = await request.post(`http://${nextConfig.hostName}:${nextConfig.hostPort}/appointment`, {
+        return await request.post(`http://${nextConfig.hostName}:${nextConfig.hostPort}/appointment`, {
             json: rescueRequest1
         });
-
-        let success = false;
-        rescueContract.once(SosContract.RESCUE_EVENT_METHOD_SIGNATURE, () => (success = true));
-        const tx = await rescueContract.help(rescueMessage);
-        await tx.wait(2);
-        
-        await waitForPredicate(() => success, 50, 20, rescueMessage + ":" + appointmentId);
-        console.log(`${rescueMessage} rescued!`);
     };
 
-    it("two of the same appointment back to back", async () => {
-        const responderWallet = new ethers.Wallet(nextConfig.responderKey, provider);
-        const db = levelup(
+    const callDistressAndWaitForRescue = async (
+        rescueContract: ethers.Contract,
+        helpMessage: string,
+        errorMessage: string
+    ) => {
+        let success = false;
+        rescueContract.once(SosContract.RESCUE_EVENT_METHOD_SIGNATURE, () => (success = true));
+        const tx = await rescueContract.help(helpMessage);
+        await tx.wait(2);
+
+        await waitForPredicate(() => success, 50, 20, helpMessage + ":" + errorMessage);
+    };
+
+    const callDistressAndWaitForCounter = async (helpMessage: string, count: number) => {
+        const tx = await rescueContract.help(helpMessage);
+        await tx.wait(2);
+        await waitForPredicate(
+            async () => ((await rescueContract.rescueCount()) as BigNumber).eq(count),
+            50,
+            20,
+            async () => `Count ${((await rescueContract.rescueCount())).toNumber()} is not expected value ${count}.`
+        );
+    };
+
+    let db: LevelUp<encodingDown<string, any>>,
+        exService: PisaService,
+        user1: ethers.Wallet,
+        user2: ethers.Wallet,
+        rescueContract: ethers.Contract;
+
+    beforeEach(async () => {
+        db = levelup(
             encodingDown<string, any>(MemDown(), {
                 valueEncoding: "json"
             })
         );
-        const user = new Wallet(userPrivKey, provider);
+        const responderWallet = new ethers.Wallet(nextConfig.responderKey, provider);
+        user1 = new Wallet(userKey1, provider);
+        user2 = new Wallet(userKey2, provider);
         const nonce = await responderWallet.getTransactionCount();
-        const exService = new PisaService(
+        exService = new PisaService(
             nextConfig,
             provider,
             responderWallet,
@@ -132,26 +164,75 @@ describe("sos end to end", () => {
         await exService.start();
 
         // deploy the contract
-        const channelContractFactory = new ethers.ContractFactory(SosContract.ABI, SosContract.ByteCode, user);
-        const rescueContract = await channelContractFactory.deploy();
+        const channelContractFactory = new ethers.ContractFactory(SosContract.ABI, SosContract.ByteCode, user1);
+        rescueContract = await channelContractFactory.deploy();
+    });
 
-        await callDistressAndWaitForRescue(rescueContract, user, "sos", 1);
-        await callDistressAndWaitForRescue(rescueContract, user, "sos", 2);
-
+    afterEach(async () => {
         await exService.stop();
+    });
 
-        // now go again
+    it("two of the same appointment back to back", async () => {
+        await getAppointmentForMessage(user1, "sos", "yay", 1);
+        await callDistressAndWaitForRescue(rescueContract, "sos", "Failed 1");
+
+        await getAppointmentForMessage(user1, "sos", "yay", 2);
+        await callDistressAndWaitForRescue(rescueContract, "sos", "Failed 2");
+    }).timeout(30000);
+
+    it("two of the same appointment from different customers back to back", async () => {
+        await getAppointmentForMessage(user1, "sos", "yay", 1);
+        await callDistressAndWaitForRescue(rescueContract, "sos", "Failed 1");
+
+        await getAppointmentForMessage(user2, "sos", "yay", 1);
+        await callDistressAndWaitForRescue(rescueContract, "sos", "Failed 2");
+    }).timeout(30000);
+
+    it("two different appointments back to back", async () => {
+        await getAppointmentForMessage(user1, "sos", "yay1", 1);
+        await callDistressAndWaitForRescue(rescueContract, "sos", "Failed 1");
+
+        await getAppointmentForMessage(user2, "sos", "yay2", 1);
+        await callDistressAndWaitForRescue(rescueContract, "sos", "Failed 2");
+    }).timeout(30000);
+
+    it("two different appointments at the same time same users", async () => {
+        await getAppointmentForMessage(user1, "sos", "yay1", 1);
+        await getAppointmentForMessage(user1, "sos", "yay2", 2);
+
+        await callDistressAndWaitForCounter("sos",  2);
+    }).timeout(30000);
+
+    it("two same appointments at the same time same users", async () => {
+        await getAppointmentForMessage(user1, "sos", "yay1", 1);
+        await getAppointmentForMessage(user1, "sos", "yay1", 2);
+
+        await callDistressAndWaitForCounter("sos",  2);
+    }).timeout(30000);
+
+    it("two same appointments at the same time different users", async () => {
+        await getAppointmentForMessage(user1, "sos", "yay1", 1);
+        await getAppointmentForMessage(user2, "sos", "yay1", 1);
+
+        await callDistressAndWaitForCounter("sos",  2);
     }).timeout(30000);
 });
 
-const waitForPredicate = (predicate: () => boolean, interval: number, repetitions: number, message: string) => {
+const waitForPredicate = (
+    predicate: () => Promise<boolean> | boolean,
+    interval: number,
+    repetitions: number,
+    message: string | (() => Promise<string>)
+) => {
     return new Promise((resolve, reject) => {
-        const intervalHandle = setInterval(() => {
-            if (predicate()) {
+        const intervalHandle = setInterval(async () => {
+            const predResult = await predicate();
+            if (predResult) {
                 resolve();
                 clearInterval(intervalHandle);
             } else if (--repetitions <= 0) {
-                reject(new Error(message));
+                if (message.length) reject(new Error(message as string));
+                else reject(new Error(await (message as () => Promise<string>)()));
             }
         }, interval);
     });
