@@ -12,6 +12,9 @@ export class ApplicationError extends Error {
      *             Subclasses of `ApplicationError` should always pass their name.
      *             If not provided, the default value `"ApplicationError"` will be used.
      */
+    constructor(message: string);
+    constructor(message: string, nestedError: Error);
+    constructor(message: string, nestedError: Error | undefined, name: string);
     constructor(message: string, nestedError?: Error, name: string = "ApplicationError") {
         super(message);
 
