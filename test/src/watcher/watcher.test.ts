@@ -58,6 +58,8 @@ describe("WatcherAppointmentStateReducer", () => {
         topics: observedEventTopics
     });
     when(appMock.id).thenReturn("app1");
+    when(appMock.startBlock).thenReturn(0);
+    when(appMock.endBlock).thenReturn(1000);
     const appointment = throwingInstance(appMock);
 
     const blockCache = new BlockCache<IBlockStub & Logs>(100);
@@ -120,6 +122,51 @@ describe("WatcherAppointmentStateReducer", () => {
             );
 
             expect(result).to.deep.equal({ state: WatcherAppointmentState.WATCHING });
+        }
+    );
+
+    fnIt<WatcherAppointmentStateReducer>(
+        w => w.getInitialState,
+        "does not initialize to OBSERVED if event is present, but deeper than startBlock",
+        () => {
+            // Appointment with same locator, but with startBlock past the event trigger
+            const appFromBlock3Mock = mock(Appointment);
+            when(appFromBlock3Mock.eventFilter).thenReturn({
+                address: observedEventAddress,
+                topics: observedEventTopics
+            });
+            when(appFromBlock3Mock.id).thenReturn("app1");
+            when(appFromBlock3Mock.startBlock).thenReturn(3);
+            when(appFromBlock3Mock.endBlock).thenReturn(1000);
+            const appointmentFromBlock3 = throwingInstance(appFromBlock3Mock);
+
+            const asr = new WatcherAppointmentStateReducer(blockCache, appointmentFromBlock3);
+            expect(asr.getInitialState(blocks[3])).to.deep.equal({
+                state: WatcherAppointmentState.WATCHING
+            });
+        }
+    );
+
+    fnIt<WatcherAppointmentStateReducer>(
+        w => w.getInitialState,
+        "does initialize to OBSERVED if event is present exactly at startBlock",
+        () => {
+            // Appointment with same locator, but with startBlock past the event trigger
+            const appFromBlock2Mock = mock(Appointment);
+            when(appFromBlock2Mock.eventFilter).thenReturn({
+                address: observedEventAddress,
+                topics: observedEventTopics
+            });
+            when(appFromBlock2Mock.id).thenReturn("app1");
+            when(appFromBlock2Mock.startBlock).thenReturn(2);
+            when(appFromBlock2Mock.endBlock).thenReturn(1000);
+            const appointmentFromBlock2 = throwingInstance(appFromBlock2Mock);
+
+            const asr = new WatcherAppointmentStateReducer(blockCache, appointmentFromBlock2);
+            expect(asr.getInitialState(blocks[3])).to.deep.equal({
+                state: WatcherAppointmentState.OBSERVED,
+                blockObserved: 2
+            });
         }
     );
 
