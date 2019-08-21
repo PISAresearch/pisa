@@ -107,33 +107,6 @@ export class ArgumentError extends ApplicationError {
 }
 
 /**
- * Thrown after some number of blocks has been mined while waiting for something to happen.
- */
-export class BlockThresholdReachedError extends ApplicationError {
-    constructor(message: string) {
-        super(message, undefined, "BlockThresholdReachedError");
-    }
-}
-/**
- * Thrown when no block has been received by the provider for too long.
- * This might signal either a failure in the provider, or abnormal blockchain conditions.
- */
-export class BlockTimeoutError extends ApplicationError {
-    constructor(message: string) {
-        super(message, undefined, "BlockTimeoutError");
-    }
-}
-
-/**
- * Thrown when there was a re-org.
- */
-export class ReorgError extends ApplicationError {
-    constructor(message: string) {
-        super(message, undefined, "ReorgError");
-    }
-}
-
-/**
  * Thrown when an inconsistency in a queue is observed.
  */
 export class QueueConsistencyError extends ApplicationError {
