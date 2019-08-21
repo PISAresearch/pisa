@@ -72,7 +72,8 @@ export class MultiResponder {
                     this.pisaContractAddress,
                     new BigNumber(0),
                     // TODO:253: we're gonna have to restrict the data size, as the effects how much gas pisa spends
-                    appointment.gasLimit.add(200000)
+                    // it appears that sometimes pisa requires a lot of gas to function - resetting data shards?
+                    appointment.gasLimit.add(1000000)
                 );
                 const idealGas = await this.gasEstimator.estimate(appointment);
                 const request = new GasQueueItemRequest(txIdentifier, idealGas, appointment, blockObserved);

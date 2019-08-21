@@ -15,7 +15,7 @@ export const deployPisa = async (watcherWallet: ethers.Wallet): Promise<ethers.C
     await drContract.deployed();
 
     const pisaContractFactory = new ethers.ContractFactory(PisaContract.ABI, PisaContract.ByteCode, watcherWallet);
-    const pisaContract = await pisaContractFactory.deploy(drContract.address, 100, 0, watcherWallet.address, [], 0, {gasLimit: 6500000}); // prettier-ignore
+    const pisaContract = await pisaContractFactory.deploy(drContract.address, 100, 0, watcherWallet.address, [], 0, {gasLimit: 7000000}); // prettier-ignore
     await pisaContract.deployed();
 
     // install a watcher
