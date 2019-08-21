@@ -167,7 +167,7 @@ describe("Integration", function() {
                 contractAddress: channelContract.address,
                 customerAddress: acc,
                 data,
-                endBlock: 22,
+                endBlock: 1000,
                 eventABI: KitsuneTools.eventABI(),
                 eventArgs: KitsuneTools.eventArgs(),
                 gasLimit: "100000",
