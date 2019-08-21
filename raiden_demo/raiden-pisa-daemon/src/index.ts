@@ -137,10 +137,8 @@ const encode = (request: any) => {
         ])
     );
 
-    return ethers.utils.keccak256(
-        ethers.utils.defaultAbiCoder.encode(
-            ...groupTuples([["bytes", appointmentInfo], ["bytes", contractInfo], ["bytes", conditionInfo]])
-        )
+    return ethers.utils.defaultAbiCoder.encode(
+        ...groupTuples([["bytes", appointmentInfo], ["bytes", contractInfo], ["bytes", conditionInfo]])
     );
 };
 
