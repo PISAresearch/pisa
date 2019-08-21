@@ -4,6 +4,8 @@ const MultiChannelContract = artifacts.require("MultiChannelContract");
 const CommandChannelHandler = artifacts.require("CommandChannelHandler");
 const MockAuction = artifacts.require("MockAuction");
 const MockAuctionHandler = artifacts.require("MockAuctionHandler");
+const Dapp= artifacts.require("Dapp");
+
 
 module.exports = function(deployer, network, accounts) {
   console.log("COLD STORAGE ACCOUNT DURING MIGRATION: " + accounts[0]);
@@ -11,6 +13,7 @@ module.exports = function(deployer, network, accounts) {
   deployer.deploy(CommandChannelHandler);
   deployer.deploy(MockAuction);
   deployer.deploy(MockAuctionHandler);
+  deployer.deploy(Dapp);
 
 
 };
