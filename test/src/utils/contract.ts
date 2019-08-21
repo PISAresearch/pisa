@@ -28,7 +28,8 @@ export const deployPisa = async (watcherWallet: ethers.Wallet): Promise<ethers.C
     );
     const sig = await watcherWallet.signMessage(ethers.utils.arrayify(watcherInstallHash));
 
-    await pisaContract.installWatcher(watcherWallet.address, watcherInstallBlock, sig, { gasLimit: 500000});
+    const tx = await pisaContract.installWatcher(watcherWallet.address, watcherInstallBlock, sig, { gasLimit: 5000000});
+    await tx.wait(1);
 
     return pisaContract;
 };

@@ -103,10 +103,55 @@ describe("Integration", function() {
             [KeyStore.theKeyStore.account1]
         );
         await parity.start(true);
+        await wait(5000);
         provider = new ethers.providers.JsonRpcProvider(`http://localhost:${parityPort}`);
         provider.pollingInterval = 100;
         const wallet = new ethers.Wallet(KeyStore.theKeyStore.account1.wallet.privateKey, provider);
         const pisaContract = await deployPisa(wallet);
+        pisaContract.on("PISARecordedResponse", (...a: any[]) => {
+            console.log();
+            console.log();
+            console.log();
+            console.log();
+            console.log();
+            console.log();
+            console.log();
+            console.log();
+            console.log();
+            console.log();
+            console.log();
+            console.log();
+            console.log();
+            console.log();
+            console.log(a);
+            console.log();
+            console.log();
+            console.log();
+            console.log();
+            console.log();
+            console.log();
+            console.log();
+            console.log();
+            console.log();
+            console.log();
+            console.log();
+            console.log();
+            console.log();
+            console.log();
+            console.log();
+            console.log();
+            console.log();
+            console.log();
+            console.log();
+            console.log();
+            console.log();
+            console.log();
+            console.log();
+        });
+
+        console.log("0", await pisaContract.watchers(wallet.address));
+        console.log("a", await pisaContract.watchers(wallet.address));
+
         pisaContractAddress = pisaContract.address;
 
         const config: IArgConfig = {
@@ -121,7 +166,6 @@ describe("Integration", function() {
             pisaContractAddress: pisaContract.address
         };
         pisa = new PisaContainer(dockerClient, `pisa-${newId()}`, config, 3000, logsDirectory, networkName);
-
 
         await pisa.start(true);
         // adding a wait here appears to stop intermittent errors that occur
