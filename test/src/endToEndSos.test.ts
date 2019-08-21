@@ -1,8 +1,6 @@
 import "mocha";
 import request from "request-promise";
 import * as SosContract from "./../smoke/SOSContract";
-import * as PisaContract from "./../../src/contractInfo/pisa";
-import * as DataRegistryContract from "./../../src/contractInfo/dataRegistry";
 import { Wallet, ethers } from "ethers";
 import levelup, { LevelUp } from "levelup";
 import MemDown from "memdown";
@@ -16,7 +14,8 @@ import { BigNumber, keccak256, arrayify, defaultAbiCoder } from "ethers/utils";
 import { expect } from "chai";
 import { deployPisa } from "./utils/contract";
 const ganache = Ganache.provider({
-    mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect"
+    mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect",
+    gasLimit: 8000000
 });
 const userKey1 = "0x829e924fdf021ba3dbbc4225edfece9aca04b929d6e75613329ca6f1d31c0bb4";
 const userKey2 = "0x67950d009c30c78d1cc65d8427abcdd09195e358810be9ed40512a1e3ec9d83d";
