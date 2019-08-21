@@ -120,15 +120,18 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
 
         // only emit events after it's started
         if (this.started) {
-            const nearestEmittedHeadInAncestry = this.blockCache.findAncestor(headBlock.hash, block =>
-                this.emittedBlockHeads.has(block)
-            );
-
-            const ancestry = [...this.blockCache.ancestry(headBlock.hash)].reverse();
-            const firstBlockIndex = nearestEmittedHeadInAncestry
-                ? ancestry.findIndex(block => block.parentHash === nearestEmittedHeadInAncestry.hash)
-                : 0;
-            const blocksToEmit = ancestry.slice(firstBlockIndex);
+            // Go through the ancestry, add any block that up until (but excluding) the last block
+            // we emitted as head. If we never find a last emitted block, we emit all the ancestors in cache
+            let nearestEmittedHeadInAncestry: Readonly<TBlock> | null = null;
+            const blocksToEmit = [];
+            for (const block of this.blockCache.ancestry(headBlock.hash)) {
+                if (this.emittedBlockHeads.has(block)) {
+                    nearestEmittedHeadInAncestry = block;
+                    break;
+                } else {
+                    blocksToEmit.unshift(block);
+                }
+            }
 
             // Emit all the blocks past the latest block in the ancestry that was emitted as head
             // In case of re-orgs, some blocks might be re-emitted multiple times.
@@ -178,7 +181,7 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
                 curBlock = await this.getBlock(lastHash);
 
                 if (!curBlock) {
-                    this.logger.info(`Failed to retreive block with hash ${lastHash}.`);
+                    this.logger.info(`Failed to retrieve block with hash ${lastHash}.`);
                     return;
                 }
             }
