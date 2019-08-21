@@ -36,6 +36,7 @@ const aliceAddrLow = aliceAddr.toLowerCase();
 const bobAddr = "dddEC4D561eE68F37855fa3245Cb878b10Eb1fA0";
 const bobAddrLow = bobAddr.toLowerCase();
 const dbFileName = ".raiden/node_ccca21b9/netid_3/network_ca70bfde/v16_log.db";
+const pisaDbDir = "build/db";
 
 let provider: ethers.providers.Provider;
 
@@ -45,6 +46,7 @@ let subprocesses: ChildProcess[] = [];
 let parity: ChildProcess | null = null;
 let alice: ChildProcess, bob: ChildProcess, pisa: ChildProcess, daemon: ChildProcess, autominer: ChildProcess;
 let aliceTokenBalance_start: BigNumber, bobTokenBalance_start: BigNumber;
+let pisaContract: ethers.Contract;
 
 const ERC20abi = [
     {
@@ -112,8 +114,11 @@ describe("Raiden end-to-end tests for scenario 2 (with Pisa)", function() {
 
     beforeEach(async () => {
         if (!fse.existsSync(`${pisaRoot}/logs`)) await fse.mkdirp(`${pisaRoot}/logs`);
-        if(fse.existsSync(`${demoDir}/build/docker`)) await fse.remove(`${demoDir}/build/docker`)
-        await fse.copy(`${demoDir}/docker`, `${demoDir}/build/docker`)
+        if (fse.existsSync(`${demoDir}/build/docker`)) await fse.remove(`${demoDir}/build/docker`);
+        await fse.copy(`${demoDir}/docker`, `${demoDir}/build/docker`);
+
+        if (fse.existsSync(`${demoDir}/${pisaDbDir}`)) await fse.remove(`${demoDir}/${pisaDbDir}`);
+        await fse.mkdirp(`${demoDir}/${pisaDbDir}`);
 
         // Test if all the ports we will need are available, abort otherwise
         console.log("Testing availability of ports for the test");
@@ -138,7 +143,7 @@ describe("Raiden end-to-end tests for scenario 2 (with Pisa)", function() {
 
         //Start parity node
         parity = exec(
-            `parity --config dev --base-path ${demoDir}/build/docker/chainData --chain ${demoDir}/docker/test-chain.json --jsonrpc-interface 0.0.0.0 --jsonrpc-port 8545 --jsonrpc-apis=eth,net,web3,parity --network-id 3`
+            `parity --config dev --base-path ${demoDir}/build/docker/chainData --chain ${demoDir}/docker/test-chain.json --jsonrpc-interface 0.0.0.0 --jsonrpc-port 8545 --jsonrpc-apis=all --network-id 3`
         );
 
         subprocesses.push(parity);
@@ -173,18 +178,17 @@ describe("Raiden end-to-end tests for scenario 2 (with Pisa)", function() {
         // Start raiden node for Bob
         bob = await startRaidenNode("bob", bobAddr, bobAddrLow, 6663);
         subprocesses.push(bob);
-        
+
         // deploy pisa
         console.log("Deploying pisa contracts");
+
         const responderKey = "0xc364a5ea32a4c267263e99ddda36e05bcb0e5724601c57d6504cccb68e1fe6ae";
         const responderWallet = new ethers.Wallet(responderKey, provider);
-        const pisaContract = await deployPisa(responderWallet)
+        pisaContract = await deployPisa(responderWallet);
 
         // Start Pisa
         console.log("Starting Pisa");
-        pisa = exec(
-            `ts-node ${pisaRoot}/src/startUp.ts --json-rpc-url=http://localhost:8545 --host-name=0.0.0.0 --host-port:3000 --responder-key=${responderKey} --pisa-contract-address=${pisaContract.address}`
-        );
+        pisa = exec(`ts-node ${pisaRoot}/src/startUp.ts --db-dir=${demoDir}/${pisaDbDir} --json-rpc-url=http://localhost:8545 --host-name=0.0.0.0 --host-port:3000 --responder-key=${responderKey} --pisa-contract-address=${pisaContract.address}`); //prettier-ignore
         subprocesses.push(pisa);
         const pisaLogStream = await fse.createWriteStream(`${pisaRoot}/logs/pisa.test.log`, { flags: "a" });
         pisa.stdout!.pipe(pisaLogStream);
@@ -196,7 +200,9 @@ describe("Raiden end-to-end tests for scenario 2 (with Pisa)", function() {
         console.log("Starting the daemon");
         // Start raiden-pisa-daemon for Alice
         daemon = exec(
-            `npm run start-dev -- --pisa=0.0.0.0:3000 --jsonRpcUrl=http://0.0.0.0:8545 --keyfile=${demoDir}/docker/test-accounts/UTC--2019-03-22T10-39-56.702Z--0x${aliceAddrLow} --password-file=${demoDir}/docker/test-accounts/password--${aliceAddrLow}.txt --db=${demoDir}/${dbFileName} --pisa-contract-address=${pisaContract.address}`,
+            `npm run start-dev -- --pisa=0.0.0.0:3000 --jsonRpcUrl=http://0.0.0.0:8545 --keyfile=${demoDir}/docker/test-accounts/UTC--2019-03-22T10-39-56.702Z--0x${aliceAddrLow} --password-file=${demoDir}/docker/test-accounts/password--${aliceAddrLow}.txt --db=${demoDir}/${dbFileName} --pisa-contract-address=${
+                pisaContract.address
+            }`,
             {
                 cwd: `${demoDir}/raiden-pisa-daemon`
             }
