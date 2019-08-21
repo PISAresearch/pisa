@@ -10,7 +10,7 @@ export interface ReadOnlyBlockCache<TBlock extends IBlockStub> {
     readonly minHeight: number;
     canAddBlock(block: Readonly<TBlock>): boolean;
     getBlock(blockHash: string): Readonly<TBlock>;
-    hasBlock(blockHash: string, includePending?: boolean): boolean;
+    hasBlock(blockHash: string, includeDetached?: boolean): boolean;
     ancestry(initialBlockHash: string): IterableIterator<Readonly<TBlock>>;
     findAncestor(
         initialBlockHash: string,
@@ -25,11 +25,11 @@ export interface ReadOnlyBlockCache<TBlock extends IBlockStub> {
  * Utility class to store and query info on full blocks up to a given maximum depth `maxDepth`, compared to the current
  * maximum height ever seen.
  * It prunes all the blocks at depth bigger than `maxDepth`, or with height smaller than the first block that was added.
- * Added blocks are considered `complete` if they are at depth `maxDepth`, or if their parent is `complete`.
+ * Added `attached` if they are at depth `maxDepth`, or if their parent is `attached`, otherwise they are `detached`.
  *
  * The following invariants are guaranteed:
- * 1) No complete or pending block at depth more than `maxDepth` is still found in the structure, where the depth is computed
- *    with respect to the highest block number of a complete block.
+ * 1) No block at depth more than `maxDepth` is still found in the structure, where the depth is computed
+ *    with respect to the highest block number of an attached block.
  * 2) No block is retained if its height is smaller than the first block ever added.
  * 3) All added blocks are never pruned if their depth is less then `maxDepth`.
  **/
@@ -38,7 +38,7 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
     private blocksByHash: Map<string, TBlock> = new Map();
 
     //blocks that can only be added once their parent is added
-    private pendingBlocksByHash: Map<string, TBlock> = new Map();
+    private detachedBlocksByHash: Map<string, TBlock> = new Map();
 
     // store block hashes at a specific height (there could be more than one at some height because of forks)
     private blockHashesByHeight: Map<number, Set<string>> = new Map();
@@ -79,12 +79,11 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
     private prune() {
         while (this.pruneHeight < this.minHeight) {
             for (const hash of this.blockHashesByHeight.get(this.pruneHeight) || []) {
-                const deleted = this.blocksByHash.delete(hash) || this.pendingBlocksByHash.delete(hash);
+                const deleted = this.blocksByHash.delete(hash) || this.detachedBlocksByHash.delete(hash);
 
-                if (!deleted) {
-                    // This would signal a bug
+                // This would signal a bug
+                if (!deleted)
                     throw new ApplicationError(`Tried to delete block with hash ${hash}, but it does not exist.`);
-                }
             }
             this.blockHashesByHeight.delete(this.pruneHeight);
 
@@ -97,42 +96,42 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
      *   - it is the first block ever seen, or
      *   - its parent is already in the cache, or
      *   - it is at exactly `this.maxDepth`.
-     * If not, it can only be added to the pending.
+     * If not, it can only be added as detached.
      * @param block
      */
     public canAddBlock(block: Readonly<TBlock>): boolean {
         return this.isEmpty || this.hasBlock(block.parentHash) || block.number === this.minHeight;
     }
 
-    // Processes all pending blocks at the given height, moving them to blocksByHeight if they are now complete.
-    // If so, add them and repeat with the next height (as some blocks might now have become complete)
-    private processPending(height: number) {
+    // Processes all the detached blocks at the given height, moving them to blocksByHeight if they are now attached.
+    // If so, add them and repeat with the next height (as some blocks might now have become attached)
+    private processDetached(height: number) {
         const blockHashesAtHeight = this.blockHashesByHeight.get(height) || new Set();
-        const blockHashesToAdd = [...blockHashesAtHeight].filter(h => this.pendingBlocksByHash.has(h));
+        const blockHashesToAdd = [...blockHashesAtHeight].filter(h => this.detachedBlocksByHash.has(h));
 
         for (const blockHash of blockHashesToAdd) {
-            const block = this.pendingBlocksByHash.get(blockHash)!;
+            const block = this.detachedBlocksByHash.get(blockHash)!;
 
-            // Remove block from pendingBlocksByHash, add to blocksByHash
+            // Remove block from detachedBlocksByHash, add to blocksByHash
             this.blocksByHash.set(blockHash, block);
-            this.pendingBlocksByHash.delete(blockHash);
+            this.detachedBlocksByHash.delete(blockHash);
 
             // Might need to update the maximum height
             this.updateMaxHeightAndPrune(block.number);
         }
 
         if (blockHashesToAdd.length > 0) {
-            this.processPending(height + 1);
+            this.processDetached(height + 1);
         }
     }
 
-    // If minHeight is increased after adding some blocks, some previously pending blocks should now be moved into blocksByHash.
+    // If minHeight is increased after adding some blocks, some previously detached blocks should now be moved into blocksByHash.
     // Since the process itself could (in rare circumstances) also increase minHeight, we check if this is the case and repeat the cycle.
-    private processPendingBlocksAtMinHeight() {
+    private processDetachedBlocksAtMinHeight() {
         let prevMinHeight: number;
         do {
             prevMinHeight = this.minHeight;
-            this.processPending(this.minHeight);
+            this.processDetached(this.minHeight);
         } while (this.minHeight > prevMinHeight); // if the minHeight increased, run again
     }
 
@@ -147,16 +146,16 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
     /**
      * Adds `block`to the cache.
      * @param block
-     * @returns `false` if the block was added (or was already present) as pending, `true` otherwise.
+     * @returns `false` if the block was added (or was already present) as detached, `true` otherwise.
      *      Note: it will return `true` even if the block was not actually added because already present, or because deeper than `maxDepth`.
      */
     public addBlock(block: Readonly<TBlock>): boolean {
         if (this.blocksByHash.has(block.hash)) return true; // block already added
         if (block.number < this.minHeight) return true; // block already too deep, nothing to do
 
-        if (this.pendingBlocksByHash.has(block.hash)) return false; // block already pending
+        if (this.detachedBlocksByHash.has(block.hash)) return false; // block already detached
 
-        // From now on, we can assume that the block can be added (pending or not)
+        // From now on, we can assume that the block can be added (detached or not)
 
         if (this.isEmpty) {
             // First block added, store its height, so blocks before this point will not be stored.
@@ -178,39 +177,39 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
             // If the maximum block height increased, we might have to prune some old info
             this.updateMaxHeightAndPrune(block.number);
 
-            // Since we added a new block, some pending blocks might become complete
-            this.processPending(block.number + 1);
+            // Since we added a new block, some detached blocks might become attached
+            this.processDetached(block.number + 1);
 
-            // If the minHeight increased, this could also make some pending blocks complete
-            // This makes sure that they are added if necessary
-            this.processPendingBlocksAtMinHeight();
+            // If the minHeight increased, this could also make some detached blocks ready to be attached
+            // This makes sure that they are attached if necessary
+            this.processDetachedBlocksAtMinHeight();
             return true;
         } else {
-            this.pendingBlocksByHash.set(block.hash, block);
+            this.detachedBlocksByHash.set(block.hash, block);
             return false;
         }
     }
 
     /**
-     * Returns the block with hash `blockHash`, or throws exception if the block is not in cache (complete nor pending).
+     * Returns the block with hash `blockHash`, or throws exception if the block is not in cache (attached nor detached).
      * @param blockHash
      */
     public getBlock(blockHash: string): Readonly<TBlock> {
-        const block = this.blocksByHash.get(blockHash) || this.pendingBlocksByHash.get(blockHash);
+        const block = this.blocksByHash.get(blockHash) || this.detachedBlocksByHash.get(blockHash);
         if (!block) throw new ApplicationError(`Block not found for hash: ${blockHash}.`);
         return block;
     }
 
     /**
-     * Returns true if the block with hash `blockHash` is currently in cache; if `includePending` is `true`, pending blocks are also considered.
+     * Returns true if the block with hash `blockHash` is currently in cache; if `includeDetached` is `true`, detached blocks are also considered.
      **/
-    public hasBlock(blockHash: string, includePending: boolean = false): boolean {
-        return this.blocksByHash.has(blockHash) || (includePending && this.pendingBlocksByHash.has(blockHash));
+    public hasBlock(blockHash: string, includeDetached: boolean = false): boolean {
+        return this.blocksByHash.has(blockHash) || (includeDetached && this.detachedBlocksByHash.has(blockHash));
     }
 
     /**
      * Iterator over all the blocks in the ancestry of the block with hash `initialBlockHash` (inclusive).
-     * The block with hash `initialBlockHash` must be complete.
+     * The block with hash `initialBlockHash` must be attached.
      * @param initialBlockHash
      */
     public *ancestry(initialBlockHash: string): IterableIterator<Readonly<TBlock>> {
@@ -247,7 +246,7 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
      * Returns the oldest ancestor of `blockHash` that is stored in the blockCache.
      * @throws `ArgumentError` if `blockHash` is not in the blockCache.
      * @param blockHash
-     * The block with hash `blockHash` must be complete.
+     * The block with hash `blockHash` must be attached.
      */
     public getOldestAncestorInCache(blockHash: string): Readonly<TBlock> {
         if (!this.hasBlock(blockHash)) {
@@ -267,7 +266,7 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
 
     /**
      * Sets the head block in the cache. AddBlock must be called before setHead can be
-     * called for that hash, and the block must be complete.
+     * called for that hash, and the block must be attached.
      * @param blockHash
      */
     public setHead(blockHash: string) {
@@ -298,7 +297,7 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
  * @param cache
  * @param headHash
  * @param txHash
- * @throws `ArgumentError` if the block with hash `headHash` is not in the cache or is not complete.
+ * @throws `ArgumentError` if the block with hash `headHash` is not in the cache or is not attached.
  */
 export function getConfirmations<T extends IBlockStub & TransactionHashes>(
     cache: ReadOnlyBlockCache<T>,
