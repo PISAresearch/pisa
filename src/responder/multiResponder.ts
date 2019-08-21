@@ -91,7 +91,7 @@ export class MultiResponder {
 
             // we rethrow to the public if this item is already enqueued.
             if (doh instanceof GasQueueError && doh.kind === GasQueueErrorKind.AlreadyAdded) {
-                throw new PublicInspectionError(`Appointment already in queue.`);
+                throw new PublicInspectionError(`Appointment already in queue.`, doh);
             }
         }
     }

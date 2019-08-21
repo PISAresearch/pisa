@@ -1,10 +1,33 @@
 /**
- * An error thrown by the application.
+ * Base class for errors thrown by the application.
+ * If a `nestedError` is given, it customizes the stacktrace in order to also show
+ * the full stack trace of the originating error.
  */
 export class ApplicationError extends Error {
-    constructor(message: string) {
+    /**
+     *
+     * @param message The error message.
+     * @param nestedError Optionally, the `Error` instance of the originating error.
+     * @param name The name of the error shown in the stack trace; the `name` property is set to this value.
+     *             Subclasses of `ApplicationError` should always pass their name.
+     *             If not provided, the default value `"ApplicationError"` will be used.
+     */
+    constructor(message: string);
+    constructor(message: string, nestedError: Error);
+    constructor(message: string, nestedError: Error | undefined, name: string);
+    constructor(message: string, nestedError?: Error, name: string = "ApplicationError") {
         super(message);
-        this.name = "ApplicationError";
+
+        this.name = name;
+
+        if (nestedError) {
+            // As the stack property is not standard (and browsers might differ in behavior compared to Node's implementation),
+            // we guard for its existence and keep the behavior simple.
+            if (nestedError.stack != undefined && this.stack != undefined) {
+                // Concatenate the stack traces
+                this.stack += "\nCaused by: " + nestedError.stack;
+            }
+        }
     }
 }
 
@@ -16,8 +39,7 @@ export class ApplicationError extends Error {
 export class UnreachableCaseError extends ApplicationError {
     constructor(val: never, message?: string) {
         const msg = `Unreachable code: ${val}`;
-        super(message ? `${message} ${msg}` : msg);
-        this.name = "UnreachableCaseError";
+        super(message ? `${message} ${msg}` : msg, undefined, "UnreachableCaseError");
     }
 }
 
@@ -26,18 +48,16 @@ export class UnreachableCaseError extends ApplicationError {
  */
 export class ConfigurationError extends ApplicationError {
     constructor(message: string) {
-        super(message);
-        this.name = "ConfigurationError";
+        super(message, undefined, "ConfigurationError");
     }
 }
 
 /**
  * Thrown when an event times out.
  **/
-export class TimeoutError extends Error {
+export class TimeoutError extends ApplicationError {
     constructor(message: string) {
-        super(message);
-        this.name = "TimeoutError";
+        super(message, undefined, "TimeoutError");
     }
 }
 
@@ -47,8 +67,7 @@ export class TimeoutError extends Error {
  */
 export class PublicDataValidationError extends ApplicationError {
     constructor(message: string) {
-        super(message);
-        this.name = "PublicDataValidationError";
+        super(message, undefined, "PublicDataValidationError");
     }
 }
 
@@ -57,9 +76,8 @@ export class PublicDataValidationError extends ApplicationError {
  * Error messages must be safe to expose publicly
  */
 export class PublicInspectionError extends ApplicationError {
-    constructor(message: string) {
-        super(message);
-        this.name = "PublicInspectionError";
+    constructor(message: string, nestedError?: Error) {
+        super(message, nestedError, "PublicInspectionError");
     }
 }
 
@@ -72,39 +90,35 @@ export class ArgumentError extends ApplicationError {
     constructor(message: string);
     constructor(message: string, ...args: any[]);
     constructor(message: string, ...args: any[]) {
-        super(message);
+        super(message, undefined, "ArgumentError");
         this.args = args;
-        this.name = "ArgumentError";
     }
 }
 
 /**
  * Thrown after some number of blocks has been mined while waiting for something to happen.
  */
-export class BlockThresholdReachedError extends Error {
+export class BlockThresholdReachedError extends ApplicationError {
     constructor(message: string) {
-        super(message);
-        this.name = "BlockThresholdReachedError";
+        super(message, undefined, "BlockThresholdReachedError");
     }
 }
 /**
  * Thrown when no block has been received by the provider for too long.
  * This might signal either a failure in the provider, or abnormal blockchain conditions.
  */
-export class BlockTimeoutError extends Error {
+export class BlockTimeoutError extends ApplicationError {
     constructor(message: string) {
-        super(message);
-        this.name = "BlockTimeoutError";
+        super(message, undefined, "BlockTimeoutError");
     }
 }
 
 /**
  * Thrown when there was a re-org.
  */
-export class ReorgError extends Error {
+export class ReorgError extends ApplicationError {
     constructor(message: string) {
-        super(message);
-        this.name = "ReorgError";
+        super(message, undefined, "ReorgError");
     }
 }
 
@@ -113,7 +127,6 @@ export class ReorgError extends Error {
  */
 export class QueueConsistencyError extends ApplicationError {
     constructor(message: string) {
-        super(message);
-        this.name = "QueueConsistencyError";
+        super(message, undefined, "QueueConsistencyError");
     }
 }
