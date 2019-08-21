@@ -65,7 +65,7 @@ const encode = (request: IAppointmentRequest) => {
 };
 
 describe("Integration", function() {
-    this.timeout(60000);
+    this.timeout(100000);
     let pisa: PisaContainer,
         parity: ParityContainer,
         network: DockerClient.Network,
@@ -102,12 +102,9 @@ describe("Integration", function() {
             [KeyStore.theKeyStore.account1]
         );
         await parity.start(true);
-        
-//        await wait(10000);
-
-        console.log("a")
+        await wait(5000)
         const provider = new ethers.providers.JsonRpcProvider(`http://localhost:${parityPort}`);
-        console.log("here")
+        
         const wallet = new ethers.Wallet(KeyStore.theKeyStore.account1.wallet.privateKey, provider);
         const pisaContract = await deployPisa(wallet);
         pisaContractAddress = pisaContract.address;
