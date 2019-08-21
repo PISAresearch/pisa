@@ -1,6 +1,15 @@
 import { ApplicationError, ArgumentError } from "../dataEntities";
 import { IBlockStub, TransactionHashes } from "../dataEntities/block";
 
+// Possible return values of addBlock
+export enum BlockAddResult {
+    Added = 1,
+    AddedDetached = 2,
+    NotAddedBlockNumberTooLow = 3,
+    NotAddedAlreadyExisted = 4,
+    NotAddedAlreadyExistedDetached = 5
+}
+
 /**
  * This interface represents the read-only view of a BlockCache.
  */
@@ -149,11 +158,11 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
      * @returns `false` if the block was added (or was already present) as detached, `true` otherwise.
      *      Note: it will return `true` even if the block was not actually added because already present, or because deeper than `maxDepth`.
      */
-    public addBlock(block: Readonly<TBlock>): boolean {
-        if (this.blocksByHash.has(block.hash)) return true; // block already added
-        if (block.number < this.minHeight) return true; // block already too deep, nothing to do
+    public addBlock(block: Readonly<TBlock>): BlockAddResult {
+        if (this.blocksByHash.has(block.hash)) return BlockAddResult.NotAddedAlreadyExisted; // block already added
+        if (block.number < this.minHeight) return BlockAddResult.NotAddedBlockNumberTooLow; // block already too deep, nothing to do
 
-        if (this.detachedBlocksByHash.has(block.hash)) return false; // block already detached
+        if (this.detachedBlocksByHash.has(block.hash)) return BlockAddResult.NotAddedAlreadyExistedDetached; // block already detached
 
         // From now on, we can assume that the block can be added (detached or not)
 
@@ -183,10 +192,10 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
             // If the minHeight increased, this could also make some detached blocks ready to be attached
             // This makes sure that they are attached if necessary
             this.processDetachedBlocksAtMinHeight();
-            return true;
+            return BlockAddResult.Added;
         } else {
             this.detachedBlocksByHash.set(block.hash, block);
-            return false;
+            return BlockAddResult.AddedDetached;
         }
     }
 

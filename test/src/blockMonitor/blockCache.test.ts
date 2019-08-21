@@ -3,6 +3,7 @@ import { expect } from "chai";
 import { BlockCache, getConfirmations } from "../../../src/blockMonitor";
 import { ArgumentError, IBlockStub, TransactionHashes, ApplicationError } from "../../../src/dataEntities";
 import fnIt from "../../utils/fnIt";
+import { BlockAddResult } from "../../../src/blockMonitor/blockCache";
 
 function generateBlocks(
     nBlocks: number,
@@ -41,20 +42,20 @@ describe("BlockCache", () => {
         expect(blocks[0]).to.deep.include(bc.getBlock(blocks[0].hash));
     });
 
-    fnIt<BlockCache<any>>(b => b.addBlock, "addBlock adds blocks that are complete and returns true", () => {
+    fnIt<BlockCache<any>>(b => b.addBlock, "adds blocks that are complete and returns Added", () => {
         const bc = new BlockCache(maxDepth);
         const blocks = generateBlocks(10, 5, "main");
-        expect(bc.addBlock(blocks[0])).to.be.true;
-        expect(bc.addBlock(blocks[1])).to.be.true;
-        expect(bc.addBlock(blocks[2])).to.be.true;
+        expect(bc.addBlock(blocks[0])).to.equal(BlockAddResult.Added);
+        expect(bc.addBlock(blocks[1])).to.equal(BlockAddResult.Added);
+        expect(bc.addBlock(blocks[2])).to.equal(BlockAddResult.Added);
     });
 
     fnIt<BlockCache<any>>(b => b.addBlock, "adds pending blocks and returns false", () => {
         const bc = new BlockCache(maxDepth);
         const blocks = generateBlocks(10, 5, "main");
         bc.addBlock(blocks[0]);
-        expect(bc.addBlock(blocks[3])).to.be.false;
-        expect(bc.addBlock(blocks[2])).to.be.false;
+        expect(bc.addBlock(blocks[3])).to.equal(BlockAddResult.AddedDetached);
+        expect(bc.addBlock(blocks[2])).to.equal(BlockAddResult.AddedDetached);
     });
 
     fnIt<BlockCache<any>>(b => b.hasBlock, "returns true for an existing complete block", () => {
@@ -100,7 +101,7 @@ describe("BlockCache", () => {
             bc.addBlock(blocks[0]);
             bc.addBlock(blocks[3]);
             bc.addBlock(blocks[2]);
-            expect(bc.addBlock(blocks[1])).to.be.true;
+            expect(bc.addBlock(blocks[1])).to.equal(BlockAddResult.Added);
             expect(bc.maxHeight).to.equal(blocks[3].number);
             expect(bc.hasBlock(blocks[3].hash)).to.be.true;
         }

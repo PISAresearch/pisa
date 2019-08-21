@@ -1,6 +1,6 @@
 import { ethers } from "ethers";
 import { StartStopService } from "../dataEntities";
-import { ReadOnlyBlockCache, BlockCache } from "./blockCache";
+import { ReadOnlyBlockCache, BlockCache, BlockAddResult } from "./blockCache";
 import { IBlockStub } from "../dataEntities";
 import { Block, TransactionHashes } from "../dataEntities/block";
 import { BlockFetchingError } from "../dataEntities/errors";
@@ -194,9 +194,13 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
 
             this.lastBlockHashReceived = observedBlock.hash;
 
-            // fetch ancestors until one is found that can be added
+            // fetch ancestors and keep adding until one is found that is attached
             let curBlock: Readonly<TBlock> | null = observedBlock;
-            while (!this.mBlockCache.addBlock(curBlock)) {
+            while (
+                [BlockAddResult.AddedDetached, BlockAddResult.NotAddedAlreadyExistedDetached].includes(
+                    this.mBlockCache.addBlock(curBlock)
+                )
+            ) {
                 const lastHash: string = curBlock.parentHash;
                 curBlock = await this.getBlock(lastHash);
 
