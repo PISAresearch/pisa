@@ -87,6 +87,9 @@ describe("Integration", function() {
         );
         const dockerClient = new DockerClient();
         const networkName = `test-network-${newId()}`;
+        network = await dockerClient.createNetwork({
+            Name: networkName
+        });
         parityPort = 8545;
         parity = new ParityContainer(
             dockerClient,
@@ -100,8 +103,10 @@ describe("Integration", function() {
             [KeyStore.theKeyStore.account1]
         );
         await parity.start(true);
+        
+//        await wait(10000);
 
-        provider = new ethers.providers.JsonRpcProvider("http://localhost:8545");
+        provider = new ethers.providers.JsonRpcProvider(`http://localhost:${parityPort}`);
         provider.pollingInterval = 100;
         const wallet = new ethers.Wallet(KeyStore.theKeyStore.account1.wallet.privateKey, provider);
         const pisaContract = await deployPisa(wallet);
@@ -120,9 +125,6 @@ describe("Integration", function() {
         };
         pisa = new PisaContainer(dockerClient, `pisa-${newId()}`, config, 3000, logsDirectory, networkName);
 
-        network = await dockerClient.createNetwork({
-            Name: networkName
-        });
 
         await pisa.start(true);
         // adding a wait here appears to stop intermittent errors that occur

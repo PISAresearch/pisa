@@ -17,7 +17,8 @@ import { keccak256, defaultAbiCoder, arrayify } from "ethers/utils";
 chai.use(chaiAsPromised);
 
 const ganache = Ganache.provider({
-    mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect"
+    mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect",
+    gasLimit: 8000000
 });
 const nextConfig = {
     ...config,
