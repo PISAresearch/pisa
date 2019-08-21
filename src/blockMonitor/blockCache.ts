@@ -17,7 +17,6 @@ export interface ReadOnlyBlockCache<TBlock extends IBlockStub> {
     readonly maxDepth: number;
     readonly maxHeight: number;
     readonly minHeight: number;
-    canAddBlock(block: Readonly<TBlock>): boolean;
     getBlock(blockHash: string): Readonly<TBlock>;
     hasBlock(blockHash: string, includeDetached?: boolean): boolean;
     ancestry(initialBlockHash: string): IterableIterator<Readonly<TBlock>>;
@@ -108,7 +107,7 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
      * If not, it can only be added as detached.
      * @param block
      */
-    public canAddBlock(block: Readonly<TBlock>): boolean {
+    public canAttachBlock(block: Readonly<TBlock>): boolean {
         return this.isEmpty || this.hasBlock(block.parentHash) || block.number === this.minHeight;
     }
 
@@ -180,7 +179,7 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
             hashesByHeight.add(block.hash); // add to existing Set
         }
 
-        if (this.canAddBlock(block)) {
+        if (this.canAttachBlock(block)) {
             this.blocksByHash.set(block.hash, block);
 
             // If the maximum block height increased, we might have to prune some old info
