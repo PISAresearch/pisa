@@ -212,7 +212,7 @@ describe("Integration", function() {
 
         try {
             // wait for the success result
-            await waitForPredicate(successResult, s => s.success, 400);
+            await waitForPredicate(successResult, s => s.success, 1000);
         } catch (doh) {
             // fail if we dont get it
             chai.assert.fail(true, false, "EventEvidence not successfully registered.");
