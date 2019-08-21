@@ -22,7 +22,7 @@ describe("ResponderStore", () => {
         return new Appointment("contractAddress", "customerAddress", 0, 1000, 50, id, 1, data, new BigNumber(0), new BigNumber(20), 1, "abi", "args", "preCondition", "post", "payment", "sig") //prettier-ignore
     };
     const createGasQueueRequest = (id: number, data: string, idealGas: BigNumber) => {
-        return new GasQueueItemRequest(createIdentifier(data), idealGas, createAppointment(id, data));
+        return new GasQueueItemRequest(createIdentifier(data), idealGas, createAppointment(id, data), 0);
     };
 
     let db: LevelUp<EncodingDown<string, any>>;
@@ -91,15 +91,14 @@ describe("ResponderStore", () => {
 
         const req1 = createGasQueueRequest(1, "data1", new BigNumber(20));
         const req2 = createGasQueueRequest(2, "data2", new BigNumber(19));
-        
+
         const q2 = seedQueue.add(req1).add(req2);
-        
 
         await store.updateQueue(q2);
 
         expect(store.queue).to.deep.equal(q2);
         expect([...store.transactions.values()]).to.deep.equal(q2.queueItems);
-        
+
         const req3 = createGasQueueRequest(3, "data3", new BigNumber(18));
         const q3 = q2.add(req3);
 
@@ -117,7 +116,7 @@ describe("ResponderStore", () => {
 
         const req1 = createGasQueueRequest(1, "data1", new BigNumber(20));
         const req2 = createGasQueueRequest(2, "data2", new BigNumber(19));
-        
+
         const q2 = seedQueue.add(req1).add(req2);
         await store.updateQueue(q2);
         await store.removeResponse(req1.appointment.id);
@@ -127,5 +126,5 @@ describe("ResponderStore", () => {
         expect(store.transactions.has(req1.appointment.id)).to.be.false;
 
         await store.stop();
-    })
+    });
 });

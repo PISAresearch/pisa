@@ -29,7 +29,7 @@ export class PisaTower {
         // is this a relay transaction, if so, add it to the responder.
         // if not, add it to the watcher
         if (appointment.mode === AppointmentMode.Relay) {
-            await this.multiResponder.startResponse(appointment);
+            await this.multiResponder.startResponse(appointment, 0);
         } else {
             // add this to the store so that other components can pick up on it
             const currentAppointment = this.store.appointmentsByLocator.get(appointment.locator);

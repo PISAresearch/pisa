@@ -8,7 +8,7 @@ import {
     BlockNumberReducer
 } from "../blockMonitor/component";
 import { ReadOnlyBlockCache } from "../blockMonitor";
-import { Block, ArgumentError } from "../dataEntities";
+import { Block } from "../dataEntities";
 import { MultiResponder } from "./multiResponder";
 import { ResponderBlock } from "../dataEntities/block";
 import logger from "../logger";
@@ -41,6 +41,7 @@ export class ResponderAppointmentReducer implements StateReducer<ResponderAppoin
         private readonly blockCache: ReadOnlyBlockCache<ResponderBlock>,
         private readonly identifier: PisaTransactionIdentifier,
         private readonly appointmentId: string,
+        private readonly blockObserved: number,
         private readonly address: string
     ) {}
 
@@ -67,6 +68,9 @@ export class ResponderAppointmentReducer implements StateReducer<ResponderAppoin
 
     private getMinedTransaction(headHash: string, identifier: PisaTransactionIdentifier) {
         for (const block of this.blockCache.ancestry(headHash)) {
+            // do not search deeper than blockObserved
+            if (block.number < this.blockObserved) return null;
+
             const txInfo = this.txIdentifierInBlock(block, identifier);
             if (txInfo) return txInfo;
         }
@@ -137,21 +141,23 @@ export type EndResponseAction = {
 
 export type CheckResponderBalanceAction = {
     readonly kind: ResponderActionKind.CheckResponderBalance;
-}
+};
 
-
-export type ResponderAction = TxMinedAction | ReEnqueueMissingItemsAction | EndResponseAction | CheckResponderBalanceAction;
+export type ResponderAction =
+    | TxMinedAction
+    | ReEnqueueMissingItemsAction
+    | EndResponseAction
+    | CheckResponderBalanceAction;
 
 /**
  * Handle the state events related to the multiresponder. Knows how to interpret
  * changes in the responder anchor state, and when to fire side effects.
  */
 export class MultiResponderComponent extends Component<ResponderAnchorState, Block, ResponderAction> {
-    
     public constructor(
         private readonly responder: MultiResponder,
         blockCache: ReadOnlyBlockCache<Block>,
-        private readonly confirmationsRequired: number,
+        private readonly confirmationsRequired: number
     ) {
         super(
             new MappedStateReducer(
@@ -161,6 +167,7 @@ export class MultiResponderComponent extends Component<ResponderAnchorState, Blo
                         blockCache,
                         item.request.identifier,
                         item.request.appointment.id,
+                        item.request.blockObserved,
                         responder.address
                     ),
                 item => item.request.appointment.id,
@@ -188,11 +195,11 @@ export class MultiResponderComponent extends Component<ResponderAnchorState, Blo
         // every time the we handle a new head event there could potentially have been
         // a reorg, which in turn may have caused some items to be lost from the pending pool.
         // Therefore we check all of the missing items and re-enqueue them if necessary
-        const reEnqueItems = [...state.items.values()]
+        const reEnqueueItems = [...state.items.values()]
             .filter(appState => appState.kind === ResponderStateKind.Pending)
             .map(q => q.appointmentId);
-        if (reEnqueItems.length > 0) {
-            actions.push({ kind: ResponderActionKind.ReEnqueueMissingItems, appointmentIds: reEnqueItems });
+        if (reEnqueueItems.length > 0) {
+            actions.push({ kind: ResponderActionKind.ReEnqueueMissingItems, appointmentIds: reEnqueueItems });
         }
 
         for (const [appointmentId, currentItem] of state.items.entries()) {
@@ -205,15 +212,17 @@ export class MultiResponderComponent extends Component<ResponderAnchorState, Blo
             // if a transaction has been mined we need to inform the responder and also check the responder balance before responding
             if (!this.hasResponseBeenMined(prevItem) && this.hasResponseBeenMined(currentItem)) {
                 logger.info({state: currentItem, id: appointmentId, blockNumber: state.blockNumber }, "Transaction mined.") // prettier-ignore
-                actions.push({
-                    kind: ResponderActionKind.TxMined,
-                    identifier: currentItem.identifier,
-                    nonce: currentItem.nonce
-                },{
-                    kind:ResponderActionKind.CheckResponderBalance,
-                });
-                
-            }   
+                actions.push(
+                    {
+                        kind: ResponderActionKind.TxMined,
+                        identifier: currentItem.identifier,
+                        nonce: currentItem.nonce
+                    },
+                    {
+                        kind: ResponderActionKind.CheckResponderBalance
+                    }
+                );
+            }
 
             // after a certain number of confirmations we can stop tracking a transaction
             if (
@@ -232,7 +241,6 @@ export class MultiResponderComponent extends Component<ResponderAnchorState, Blo
     }
 
     public async applyAction(action: ResponderAction) {
-
         switch (action.kind) {
             case ResponderActionKind.ReEnqueueMissingItems:
                 await this.responder.reEnqueueMissingItems(action.appointmentIds);
