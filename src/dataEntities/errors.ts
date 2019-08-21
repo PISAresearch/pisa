@@ -62,6 +62,17 @@ export class TimeoutError extends ApplicationError {
 }
 
 /**
+ * Thrown when an attempt to fetch a block fails.
+ */
+export class BlockFetchingError extends ApplicationError {
+    constructor(message: string);
+    constructor(message: string, nestedError: Error);
+    constructor(message: string, nestedError?: Error) {
+        super(message, nestedError, "BlockFetchingError");
+    }
+}
+
+/**
  * Thrown when data does not match a specified format
  * Error messages must be safe to expose publicly
  */

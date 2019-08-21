@@ -7,6 +7,7 @@ import { EventEmitter } from "events";
 import { BlockProcessor, BlockCache, blockStubAndTxFactory } from "../../../src/blockMonitor";
 import { IBlockStub } from "../../../src/dataEntities";
 import { wait } from "../../../src/utils";
+import throwingInstance from "../../utils/throwingInstance";
 
 chai.use(chaiAsPromised);
 const expect = chai.expect;
@@ -83,8 +84,8 @@ describe("BlockProcessor", () => {
         let curBlockHash: string = hash;
         while (curBlockHash in blocksByHash) {
             const curBlock = blocksByHash[curBlockHash];
-            when(mockProvider.getBlock(curBlock.number)).thenResolve(curBlock as ethers.providers.Block);
-            when(mockProvider.getBlock(curBlock.hash)).thenResolve(curBlock as ethers.providers.Block);
+            when(mockProvider.getBlock(curBlock.number, anything())).thenResolve(curBlock as ethers.providers.Block);
+            when(mockProvider.getBlock(curBlock.hash, anything())).thenResolve(curBlock as ethers.providers.Block);
 
             curBlockHash = curBlock.parentHash;
         }
@@ -92,11 +93,13 @@ describe("BlockProcessor", () => {
         when(mockProvider.getBlockNumber()).thenResolve(blocksByHash[hash].number);
 
         if (returnNullAtHash != null) {
-            when(mockProvider.getBlock(returnNullAtHash)).thenResolve((null as any) as ethers.providers.Block);
+            when(mockProvider.getBlock(returnNullAtHash, anything())).thenResolve(
+                (null as any) as ethers.providers.Block
+            );
         }
 
         if (throwErrorAtHash != null) {
-            when(mockProvider.getBlock(throwErrorAtHash)).thenThrow(new Error("unknown block"));
+            when(mockProvider.getBlock(throwErrorAtHash, anything())).thenThrow(new Error("unknown block"));
         }
 
         provider.emit("block", blocksByHash[hash].number);
@@ -108,7 +111,7 @@ describe("BlockProcessor", () => {
         // Instruct the mocked provider to return the blocks by hash with getBlock
         mockProvider = mock(ethers.providers.BaseProvider);
         for (const [hash, blockStub] of Object.entries(blocksByHash)) {
-            when(mockProvider.getBlock(hash)).thenResolve(blockStub as ethers.providers.Block);
+            when(mockProvider.getBlock(hash, anything())).thenResolve(blockStub as ethers.providers.Block);
         }
 
         // The mocked Provider should behave like an eventEmitter
@@ -136,7 +139,7 @@ describe("BlockProcessor", () => {
         // We initially return 0 as the current block number
         when(mockProvider.getBlockNumber()).thenResolve(0);
 
-        provider = instance(mockProvider);
+        provider = throwingInstance(mockProvider);
     });
 
     afterEach(async () => {

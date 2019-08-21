@@ -3,18 +3,46 @@ import { StartStopService } from "../dataEntities";
 import { ReadOnlyBlockCache, BlockCache } from "./blockCache";
 import { IBlockStub } from "../dataEntities";
 import { Block, TransactionHashes } from "../dataEntities/block";
+import { BlockFetchingError } from "../dataEntities/errors";
 
 type BlockFactory<TBlock> = (
     provider: ethers.providers.Provider
-) => (blockNumberOrHash: number | string) => Promise<TBlock | null>;
+) => (blockNumberOrHash: number | string) => Promise<TBlock>;
+
+// Convenience function to wrap the provider's getBlock function with some error handling logic.
+// The provider can occasionally fail (by returning null or throwing an error), observed when using Infura.
+// (see https://github.com/PISAresearch/pisa/issues/227)
+// This function throws BlockFetchingError for errors that are known to happen and considered not serious
+// (that is, the correct recovery for the BlockProcessor is to give up and try again on the next block).
+// Any other unexpected error is not handled here.
+async function getBlockFromProvider(
+    provider: ethers.providers.Provider,
+    blockNumberOrHash: string | number,
+    includeTransactions: boolean = false
+) {
+    try {
+        const block = await provider.getBlock(blockNumberOrHash, includeTransactions);
+
+        if (!block) throw new BlockFetchingError(`The provider returned null for block ${blockNumberOrHash}.`);
+
+        return block;
+    } catch (doh) {
+        // On infura the provider occasionally returns an error with message 'unknown block'.
+        // See https://github.com/PISAresearch/pisa/issues/227
+        // We rethrow this as BlockFetchingError, and rethrow any other error as-is.
+        if (doh instanceof Error && doh.message === "unknown block") {
+            throw new BlockFetchingError(`Error while fetching block ${blockNumberOrHash} from the provider.`, doh);
+        } else {
+            throw doh;
+        }
+    }
+}
 
 export const blockStubAndTxHashFactory = (provider: ethers.providers.Provider) => async (
     blockNumberOrHash: string | number
-): Promise<IBlockStub & TransactionHashes | null> => {
-    const block = await provider.getBlock(blockNumberOrHash);
-    if (!block) {
-        return null;
-    }
+): Promise<IBlockStub & TransactionHashes> => {
+    const block = await getBlockFromProvider(provider, blockNumberOrHash);
+
     return {
         hash: block.hash,
         number: block.number,
@@ -25,12 +53,9 @@ export const blockStubAndTxHashFactory = (provider: ethers.providers.Provider) =
 
 export const blockFactory = (provider: ethers.providers.Provider) => async (
     blockNumberOrHash: string | number
-): Promise<Block | null> => {
-    const block = await provider.getBlock(blockNumberOrHash, true);
+): Promise<Block> => {
+    const block = await getBlockFromProvider(provider, blockNumberOrHash, true);
 
-    if (!block) {
-        return null;
-    }
     // We could filter out the logs that we are not interesting in order to save space
     // (e.g.: only keep the logs from the DataRegistry).
     const logs = await provider.getLogs({
@@ -62,8 +87,8 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
 
     private mBlockCache: BlockCache<TBlock>;
 
-    // Returned in the constructor by blockProvider: obtains the block remotely
-    private getBlockRemote: (blockNumberOrHash: string | number) => Promise<TBlock | null>;
+    // Returned in the constructor by blockProvider: obtains the block remotely (or throws an exception on failure)
+    private getBlockRemote: (blockNumberOrHash: string | number) => Promise<TBlock>;
 
     /**
      * Returns the ReadOnlyBlockCache associated to this BlockProcessor.
@@ -158,11 +183,6 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
     private async processBlockNumber(blockNumber: number) {
         try {
             const observedBlock = await this.getBlockRemote(blockNumber);
-            if (observedBlock == null) {
-                // No recovery needed, will pick this block up a next new_head event
-                this.logger.info(`Failed to retrieve block with number ${blockNumber}.`);
-                return;
-            }
 
             if (this.blockCache.hasBlock(observedBlock.hash, true)) {
                 // We received a block that we already processed before. Ignore, but log that it happened
@@ -186,12 +206,16 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
                 }
             }
 
-            // is the observed block still the last block received (or the first block during startup)?
+            // is the observed block still the last block received (or the first block, during startup)?
             if (this.lastBlockHashReceived === observedBlock.hash) {
                 this.processNewHead(observedBlock);
             }
         } catch (doh) {
-            this.logger.error(doh);
+            if (doh instanceof BlockFetchingError) {
+                this.logger.info(doh);
+            } else {
+                this.logger.error(doh);
+            }
         }
     }
 }
