@@ -100,11 +100,11 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
     }
 
     /**
-     * Returns true it `block` can be added to the cache, that is if either:
-     *   - it is the first block ever seen, or
-     *   - its parent is already in the cache, or
-     *   - it is at exactly `this.maxDepth`.
-     * If not, it can only be added as detached.
+     * Returns true if `block` can be attached to the cache, that is any of the following conditions is true:
+     *   - the block cache is still empty, so we consider the first block attached by definition;
+     *   - its parent is already in the cache;
+     *   - it is at depth exactly `this.maxDepth`, as the cache does not record its parents anyway.
+     * If not, `block` can only be added as detached.
      * @param block
      */
     public canAttachBlock(block: Readonly<TBlock>): boolean {
