@@ -90,8 +90,7 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
                 const deleted = this.blocksByHash.delete(hash) || this.detachedBlocksByHash.delete(hash);
 
                 // This would signal a bug
-                if (!deleted)
-                    throw new ApplicationError(`Tried to delete block with hash ${hash}, but it does not exist.`);
+                if (!deleted) throw new ApplicationError(`Tried to delete block with hash ${hash}, but it does not exist.`); // prettier-ignore
             }
             this.blockHashesByHeight.delete(this.pruneHeight);
 
