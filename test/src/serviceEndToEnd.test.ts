@@ -190,10 +190,10 @@ describe("Service end-to-end", () => {
 
         // now register a callback on the setstate event and trigger a response
         const setStateEvent = "EventEvidence(uint256, bytes32)";
-        let successResult = { success: false };
+        let success = false;
         channelContract.on(setStateEvent, () => {
             channelContract.removeAllListeners(setStateEvent);
-            successResult.success = true;
+            success = true;
         });
 
         // trigger a dispute
@@ -202,7 +202,7 @@ describe("Service end-to-end", () => {
 
         try {
             // wait for the success result
-            await waitForPredicate(successResult, s => s.success, 400);
+            await waitForPredicate(() => success, 50, 20);
         } catch (doh) {
             // fail if we dont get it
             chai.assert.fail(true, false, "EventEvidence not successfully registered.");
@@ -229,10 +229,10 @@ describe("Service end-to-end", () => {
 
         // now register a callback on the setstate event and trigger a response
         const setStateEvent = "EventEvidence(uint256, bytes32)";
-        let successResult = { success: false };
+        let success = false;
         channelContract.on(setStateEvent, () => {
             channelContract.removeAllListeners(setStateEvent);
-            successResult.success = true;
+            success = true;
         });
 
         // trigger a dispute
@@ -241,7 +241,7 @@ describe("Service end-to-end", () => {
 
         try {
             // wait for the success result
-            await waitForPredicate(successResult, s => s.success, 400);
+            await waitForPredicate(() => success, 50, 20);
         } catch (doh) {
             // fail if we dont get it
             chai.assert.fail(true, false, "EventEvidence not successfully registered.");
@@ -258,15 +258,15 @@ describe("Service end-to-end", () => {
 
         // now register a callback on the setstate event and trigger a response
         const triggerDisputeEvent = "EventDispute(uint256)";
-        let successResult = { success: false };
+        let success = false;
         oneWayChannelContract.on(triggerDisputeEvent, async () => {
             oneWayChannelContract.removeAllListeners(triggerDisputeEvent);
-            successResult.success = true;
+            success = true;
         });
 
         try {
             // wait for the success result
-            await waitForPredicate(successResult, s => s.success, 200);
+            await waitForPredicate(() => success, 50, 20);
         } catch (doh) {
             // fail if we dont get it
             chai.assert.fail(true, false, "EventEvidence not successfully registered.");
@@ -288,15 +288,15 @@ describe("Service end-to-end", () => {
 
         // now register a callback on the setstate event and trigger a response
         const triggerDisputeEvent = "EventDispute(uint256)";
-        let successResult = { success: false };
+        let success = false;
         oneWayChannelContract.on(triggerDisputeEvent, async () => {
             oneWayChannelContract.removeAllListeners(triggerDisputeEvent);
-            successResult.success = true;
+            success = true;
         });
 
         try {
             // wait for the success result
-            await waitForPredicate(successResult, s => s.success, 200);
+            await waitForPredicate(() => success, 50, 20);
         } catch (doh) {
             // fail if we dont get it
             chai.assert.fail(true, false, "EventEvidence not successfully registered.");
@@ -661,15 +661,16 @@ describe("Service end-to-end", () => {
     };
 });
 
-// assess the value of a predicate after a timeout, throws if predicate does not evaluate to true
-const waitForPredicate = <T1>(successResult: T1, predicate: (a: T1) => boolean, timeout: number) => {
+// assess the value of a predicate every `interval` milliseconds, resolves if predicate evaluates to true; rejects after `repetitions` failed attempts
+const waitForPredicate = <T1>(predicate: () => boolean, interval: number, repetitions: number) => {
     return new Promise((resolve, reject) => {
-        setTimeout(() => {
-            if (predicate(successResult)) {
+        const intervalHandle = setInterval(() => {
+            if (predicate()) {
                 resolve();
-            } else {
+                clearInterval(intervalHandle);
+            } else if (--repetitions <= 0) {
                 reject();
             }
-        }, timeout);
+        }, interval);
     });
 };

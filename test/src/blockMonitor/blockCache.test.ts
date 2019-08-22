@@ -3,6 +3,7 @@ import { expect } from "chai";
 import { BlockCache, getConfirmations } from "../../../src/blockMonitor";
 import { ArgumentError, IBlockStub, TransactionHashes, ApplicationError } from "../../../src/dataEntities";
 import fnIt from "../../utils/fnIt";
+import { BlockAddResult } from "../../../src/blockMonitor/blockCache";
 
 function generateBlocks(
     nBlocks: number,
@@ -38,7 +39,107 @@ describe("BlockCache", () => {
         const blocks = generateBlocks(1, 0, "main");
 
         bc.addBlock(blocks[0]);
-        expect(blocks[0]).to.deep.include(bc.getBlockStub(blocks[0].hash));
+        expect(blocks[0]).to.deep.include(bc.getBlock(blocks[0].hash));
+    });
+
+    fnIt<BlockCache<any>>(b => b.addBlock, "adds blocks that are complete and returns Added", () => {
+        const bc = new BlockCache(maxDepth);
+        const blocks = generateBlocks(10, 5, "main");
+        expect(bc.addBlock(blocks[0])).to.equal(BlockAddResult.Added);
+        expect(bc.addBlock(blocks[1])).to.equal(BlockAddResult.Added);
+        expect(bc.addBlock(blocks[2])).to.equal(BlockAddResult.Added);
+    });
+
+    fnIt<BlockCache<any>>(b => b.addBlock, "adds pending blocks and returns false", () => {
+        const bc = new BlockCache(maxDepth);
+        const blocks = generateBlocks(10, 5, "main");
+        bc.addBlock(blocks[0]);
+        expect(bc.addBlock(blocks[3])).to.equal(BlockAddResult.AddedDetached);
+        expect(bc.addBlock(blocks[2])).to.equal(BlockAddResult.AddedDetached);
+    });
+
+    fnIt<BlockCache<any>>(b => b.hasBlock, "returns true for an existing complete block", () => {
+        const bc = new BlockCache(maxDepth);
+        const blocks = generateBlocks(10, 5, "main");
+        bc.addBlock(blocks[0]);
+        bc.addBlock(blocks[1]);
+        expect(bc.hasBlock(blocks[1].hash)).to.be.true;
+    });
+
+    fnIt<BlockCache<any>>(b => b.hasBlock, "returns false for a non-existing block", () => {
+        const bc = new BlockCache(maxDepth);
+        const blocks = generateBlocks(10, 5, "main");
+        bc.addBlock(blocks[0]);
+        bc.addBlock(blocks[1]);
+        expect(bc.hasBlock("someNonExistingHash")).to.be.false;
+    });
+
+    fnIt<BlockCache<any>>(b => b.hasBlock, "returns false for a pending block if allowPending=false", () => {
+        const bc = new BlockCache(maxDepth);
+        const blocks = generateBlocks(10, 5, "main");
+        bc.addBlock(blocks[0]);
+        bc.addBlock(blocks[1]);
+        bc.addBlock(blocks[3]);
+        expect(bc.hasBlock(blocks[3].hash, false)).to.be.false;
+    });
+
+    fnIt<BlockCache<any>>(b => b.hasBlock, "returns true for a pending block if allowPending=true", () => {
+        const bc = new BlockCache(maxDepth);
+        const blocks = generateBlocks(10, 5, "main");
+        bc.addBlock(blocks[0]);
+        bc.addBlock(blocks[1]);
+        bc.addBlock(blocks[3]);
+        expect(bc.hasBlock(blocks[3].hash, true)).to.be.true;
+    });
+
+    fnIt<BlockCache<any>>(
+        b => b.addBlock,
+        "makes sure that previously pending block become complete if appropriate",
+        () => {
+            const bc = new BlockCache(maxDepth);
+            const blocks = generateBlocks(10, 5, "main");
+            bc.addBlock(blocks[0]);
+            bc.addBlock(blocks[3]);
+            bc.addBlock(blocks[2]);
+            expect(bc.addBlock(blocks[1])).to.equal(BlockAddResult.Added);
+            expect(bc.maxHeight).to.equal(blocks[3].number);
+            expect(bc.hasBlock(blocks[3].hash)).to.be.true;
+        }
+    );
+
+    it("maxHeight does not change for pending blocks", () => {
+        const bc = new BlockCache(maxDepth);
+        const blocks = generateBlocks(10, 5, "main");
+        bc.addBlock(blocks[0]);
+        bc.addBlock(blocks[3]);
+        expect(bc.maxHeight).to.equal(blocks[0].number);
+    });
+
+    fnIt<BlockCache<any>>(b => b.getBlock, "returns a complete block", () => {
+        const bc = new BlockCache(maxDepth);
+        const blocks = generateBlocks(10, 5, "main");
+        bc.addBlock(blocks[0]);
+        bc.addBlock(blocks[1]);
+        bc.addBlock(blocks[3]);
+        expect(bc.getBlock(blocks[1].hash)).to.deep.equal(blocks[1]);
+    });
+
+    fnIt<BlockCache<any>>(b => b.getBlock, "returns a pending block", () => {
+        const bc = new BlockCache(maxDepth);
+        const blocks = generateBlocks(10, 5, "main");
+        bc.addBlock(blocks[0]);
+        bc.addBlock(blocks[1]);
+        bc.addBlock(blocks[3]);
+        expect(bc.getBlock(blocks[3].hash)).to.deep.equal(blocks[3]);
+    });
+
+    fnIt<BlockCache<any>>(b => b.getBlock, "throws ApplicationError for an unknown block", () => {
+        const bc = new BlockCache(maxDepth);
+        const blocks = generateBlocks(10, 5, "main");
+        bc.addBlock(blocks[0]);
+        bc.addBlock(blocks[1]);
+        bc.addBlock(blocks[3]);
+        expect(() => bc.getBlock("someNonExistingHash")).to.throw(ApplicationError);
     });
 
     it("minHeight is equal to the initial block height if less then maxDepth blocks are added", () => {
@@ -80,8 +181,8 @@ describe("BlockCache", () => {
     });
 
     fnIt<BlockCache<any>>(
-        b => b.canAddBlock,
-        "returns true for blocks whose height is lower or equal than the initial height",
+        b => b.canAttachBlock,
+        "returns true for blocks whose height is equal to the initial height",
         () => {
             const bc = new BlockCache(maxDepth);
 
@@ -90,15 +191,30 @@ describe("BlockCache", () => {
 
             bc.addBlock(blocks[3]);
 
-            expect(bc.canAddBlock(blocks[2])).to.be.true;
-            expect(bc.canAddBlock(blocks[3])).to.be.true;
-            expect(bc.canAddBlock(otherBlocks[3])).to.be.true;
+            expect(bc.canAttachBlock(blocks[3])).to.be.true;
+            expect(bc.canAttachBlock(otherBlocks[3])).to.be.true;
         }
     );
 
     fnIt<BlockCache<any>>(
-        b => b.canAddBlock,
-        "returns true for blocks whose height is lower or equal than the maximum depth",
+        b => b.canAttachBlock,
+        "returns false for blocks whose height is lower than the initial height",
+        () => {
+            const bc = new BlockCache(maxDepth);
+
+            const blocks = generateBlocks(10, 5, "main");
+            const otherBlocks = generateBlocks(10, 5, "other");
+
+            bc.addBlock(blocks[3]);
+
+            expect(bc.canAttachBlock(blocks[2])).to.be.false;
+            expect(bc.canAttachBlock(otherBlocks[2])).to.be.false;
+        }
+    );
+
+    fnIt<BlockCache<any>>(
+        b => b.canAttachBlock,
+        "returns true for a block whose height is equal to the maximum depth",
         () => {
             const bc = new BlockCache(maxDepth);
             const initialHeight = 3;
@@ -108,22 +224,37 @@ describe("BlockCache", () => {
 
             const otherBlocks = generateBlocks(2, initialHeight - 1, "main");
 
-            expect(bc.canAddBlock(otherBlocks[0])).to.be.true;
-            expect(bc.canAddBlock(otherBlocks[1])).to.be.true;
+            expect(bc.canAttachBlock(otherBlocks[1])).to.be.true;
         }
     );
 
-    fnIt<BlockCache<any>>(b => b.canAddBlock, "returns true for a block whose parent is in the BlockCache", () => {
+    fnIt<BlockCache<any>>(
+        b => b.canAttachBlock,
+        "returns false for blocks whose height is lower than the maximum depth",
+        () => {
+            const bc = new BlockCache(maxDepth);
+            const initialHeight = 3;
+            const blocksAdded = maxDepth + 1;
+            const blocks = generateBlocks(blocksAdded, initialHeight, "main");
+            blocks.forEach(block => bc.addBlock(block));
+
+            const otherBlocks = generateBlocks(2, initialHeight - 1, "main");
+
+            expect(bc.canAttachBlock(otherBlocks[0])).to.be.false;
+        }
+    );
+
+    fnIt<BlockCache<any>>(b => b.canAttachBlock, "returns true for a block whose parent is in the BlockCache", () => {
         const bc = new BlockCache(maxDepth);
         const blocks = generateBlocks(10, 7, "main");
 
         bc.addBlock(blocks[5]);
 
-        expect(bc.canAddBlock(blocks[6])).to.be.true;
+        expect(bc.canAttachBlock(blocks[6])).to.be.true;
     });
 
     fnIt<BlockCache<any>>(
-        b => b.canAddBlock,
+        b => b.canAttachBlock,
         "returns false for a block above minHeight whose parent is not in the BlockCache",
         () => {
             const bc = new BlockCache(maxDepth);
@@ -133,7 +264,7 @@ describe("BlockCache", () => {
             bc.addBlock(blocks[1]);
             bc.addBlock(blocks[2]);
 
-            expect(bc.canAddBlock(blocks[4])).to.be.false;
+            expect(bc.canAttachBlock(blocks[4])).to.be.false;
         }
     );
 
@@ -142,7 +273,7 @@ describe("BlockCache", () => {
         const blocks = generateBlocks(maxDepth, 0, "main");
         blocks.forEach(block => bc.addBlock(block));
 
-        expect(blocks[0]).to.deep.include(bc.getBlockStub(blocks[0].hash));
+        expect(blocks[0]).to.deep.include(bc.getBlock(blocks[0].hash));
     });
 
     it("forgets blocks past the maximum depth", () => {
@@ -150,7 +281,7 @@ describe("BlockCache", () => {
         const blocks = generateBlocks(maxDepth + 2, 0, "main"); // head is depth 0, so first pruned is maxDepth + 2
         blocks.forEach(block => bc.addBlock(block));
 
-        expect(() => bc.getBlockStub(blocks[0].hash)).to.throw(ApplicationError);
+        expect(() => bc.getBlock(blocks[0].hash)).to.throw(ApplicationError);
     });
 
     fnIt<BlockCache<any>>(b => b.ancestry, "iterates over all the ancestors", () => {

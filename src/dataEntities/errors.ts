@@ -62,6 +62,17 @@ export class TimeoutError extends ApplicationError {
 }
 
 /**
+ * Thrown when an attempt to fetch a block fails.
+ */
+export class BlockFetchingError extends ApplicationError {
+    constructor(message: string);
+    constructor(message: string, nestedError: Error);
+    constructor(message: string, nestedError?: Error) {
+        super(message, nestedError, "BlockFetchingError");
+    }
+}
+
+/**
  * Thrown when data does not match a specified format
  * Error messages must be safe to expose publicly
  */
@@ -92,33 +103,6 @@ export class ArgumentError extends ApplicationError {
     constructor(message: string, ...args: any[]) {
         super(message, undefined, "ArgumentError");
         this.args = args;
-    }
-}
-
-/**
- * Thrown after some number of blocks has been mined while waiting for something to happen.
- */
-export class BlockThresholdReachedError extends ApplicationError {
-    constructor(message: string) {
-        super(message, undefined, "BlockThresholdReachedError");
-    }
-}
-/**
- * Thrown when no block has been received by the provider for too long.
- * This might signal either a failure in the provider, or abnormal blockchain conditions.
- */
-export class BlockTimeoutError extends ApplicationError {
-    constructor(message: string) {
-        super(message, undefined, "BlockTimeoutError");
-    }
-}
-
-/**
- * Thrown when there was a re-org.
- */
-export class ReorgError extends ApplicationError {
-    constructor(message: string) {
-        super(message, undefined, "ReorgError");
     }
 }
 

@@ -1,15 +1,48 @@
 import { ethers } from "ethers";
-import { StartStopService, ApplicationError } from "../dataEntities";
-import { ReadOnlyBlockCache, BlockCache } from "./blockCache";
+import { StartStopService } from "../dataEntities";
+import { ReadOnlyBlockCache, BlockCache, BlockAddResult } from "./blockCache";
 import { IBlockStub } from "../dataEntities";
 import { Block, TransactionHashes } from "../dataEntities/block";
+import { BlockFetchingError } from "../dataEntities/errors";
 
-type BlockFactory<T> = (provider: ethers.providers.Provider) => (blockNumberOrHash: number | string) => Promise<T>;
+type BlockFactory<TBlock> = (
+    provider: ethers.providers.Provider
+) => (blockNumberOrHash: number | string) => Promise<TBlock>;
+
+// Convenience function to wrap the provider's getBlock function with some error handling logic.
+// The provider can occasionally fail (by returning null or throwing an error), observed when using Infura.
+// (see https://github.com/PISAresearch/pisa/issues/227)
+// This function throws BlockFetchingError for errors that are known to happen and considered not serious
+// (that is, the correct recovery for the BlockProcessor is to give up and try again on the next block).
+// Any other unexpected error is not handled here.
+async function getBlockFromProvider(
+    provider: ethers.providers.Provider,
+    blockNumberOrHash: string | number,
+    includeTransactions: boolean = false
+) {
+    try {
+        const block = await provider.getBlock(blockNumberOrHash, includeTransactions);
+
+        if (!block) throw new BlockFetchingError(`The provider returned null for block ${blockNumberOrHash}.`);
+
+        return block;
+    } catch (doh) {
+        // On infura the provider occasionally returns an error with message 'unknown block'.
+        // See https://github.com/PISAresearch/pisa/issues/227
+        // We rethrow this as BlockFetchingError, and rethrow any other error as-is.
+        if (doh instanceof Error && doh.message === "unknown block") {
+            throw new BlockFetchingError(`Error while fetching block ${blockNumberOrHash} from the provider.`, doh);
+        } else {
+            throw doh;
+        }
+    }
+}
 
 export const blockStubAndTxHashFactory = (provider: ethers.providers.Provider) => async (
     blockNumberOrHash: string | number
 ): Promise<IBlockStub & TransactionHashes> => {
-    const block = await provider.getBlock(blockNumberOrHash);
+    const block = await getBlockFromProvider(provider, blockNumberOrHash);
+
     return {
         hash: block.hash,
         number: block.number,
@@ -21,7 +54,7 @@ export const blockStubAndTxHashFactory = (provider: ethers.providers.Provider) =
 export const blockFactory = (provider: ethers.providers.Provider) => async (
     blockNumberOrHash: string | number
 ): Promise<Block> => {
-    const block = await provider.getBlock(blockNumberOrHash, true);
+    const block = await getBlockFromProvider(provider, blockNumberOrHash, true);
 
     // We could filter out the logs that we are not interesting in order to save space
     // (e.g.: only keep the logs from the DataRegistry).
@@ -45,21 +78,22 @@ export const blockFactory = (provider: ethers.providers.Provider) => async (
  * It generates a `NEW_HEAD_EVENT` every time a new block is received by the provider, but only after populating
  * the `blockCache` with the new block and its ancestors.
  */
-export class BlockProcessor<T extends IBlockStub> extends StartStopService {
+export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService {
     // keeps track of the last block hash received, in order to correctly emit NEW_HEAD_EVENT; null on startup
     private lastBlockHashReceived: string | null;
 
-    // for set of blocks currently emitted as head block
-    private emittedBlocks: WeakSet<Readonly<T>> = new WeakSet();
+    // set of blocks currently emitted in a NEW_HEAD_EVENT
+    private emittedBlockHeads: WeakSet<Readonly<TBlock>> = new WeakSet();
 
-    private mBlockCache: BlockCache<T>;
+    private mBlockCache: BlockCache<TBlock>;
 
-    private getBlock: (blockNumberOrHash: string | number) => Promise<T>;
+    // Returned in the constructor by blockProvider: obtains the block remotely (or throws an exception on failure)
+    private getBlockRemote: (blockNumberOrHash: string | number) => Promise<TBlock>;
 
     /**
      * Returns the ReadOnlyBlockCache associated to this BlockProcessor.
      */
-    public get blockCache(): ReadOnlyBlockCache<T> {
+    public get blockCache(): ReadOnlyBlockCache<TBlock> {
         return this.mBlockCache;
     }
 
@@ -71,22 +105,22 @@ export class BlockProcessor<T extends IBlockStub> extends StartStopService {
     public static readonly NEW_HEAD_EVENT = "new_head";
 
     /**
-     * Event that is emitted for all blocks that have not previously been observed. If
-     * a block is the new head it will also be emitted via the NEW_HEAD_EVENT, however
-     * NEW_BLOCK_EVENT is guaranteed to emit first. Since this event emits for all new
-     * blocks it does not guarantee that an emitted block will be in the ancestry of the next
-     * emitted NEW_HEAD_EVENT.
+     * Event that is emitted for each new blocks. It is emitted (in order from the lowest-height block) for each block
+     * in the ancestry of the current blockchain head that is deeper than the last block in the ancestry that was emitted
+     * in a previous NEW_HEAD_EVENT. The NEW_HEAD_EVENT for the latest head block is guaranteed to be emitted after all the
+     * NEW_BLOCK_EVENTs in the ancestry have been emitted.
+     * A NEW_BLOCK_EVENT might happen to be emitted multiple times for the same block in case of blokchain re-orgs.
      */
     public static readonly NEW_BLOCK_EVENT = "new_block";
 
     constructor(
         private provider: ethers.providers.BaseProvider,
-        blockFactory: BlockFactory<T>,
-        blockCache: BlockCache<T>
+        blockFactory: BlockFactory<TBlock>,
+        blockCache: BlockCache<TBlock>
     ) {
         super("block-processor");
 
-        this.getBlock = blockFactory(provider);
+        this.getBlockRemote = blockFactory(provider);
         this.mBlockCache = blockCache;
 
         this.processBlockNumber = this.processBlockNumber.bind(this);
@@ -105,55 +139,87 @@ export class BlockProcessor<T extends IBlockStub> extends StartStopService {
         this.provider.removeListener("block", this.processBlockNumber);
     }
 
-    // Returns true if `blockHash` is the last blockHash that was received
-    private isBlockHashLastReceived(blockHash: string) {
-        return this.lastBlockHashReceived === blockHash;
-    }
-
     // updates the new head block in the cache and emits the appropriate events
-    private processNewHead(headBlock: Readonly<T>) {
+    private processNewHead(headBlock: Readonly<TBlock>) {
         this.mBlockCache.setHead(headBlock.hash);
-        const nearestEmittedBlockInAncestry = this.blockCache.findAncestor(headBlock.hash, block =>
-            this.emittedBlocks.has(block)
-        );
 
-        this.emit(BlockProcessor.NEW_HEAD_EVENT, headBlock, nearestEmittedBlockInAncestry);
-        this.emittedBlocks.add(headBlock);
+        // only emit events after it's started
+        if (this.started) {
+            // Go through the ancestry, add any block that up until (but excluding) the last block
+            // we emitted as head. If we never find a last emitted block, we emit all the ancestors in cache
+            let nearestEmittedHeadInAncestry: Readonly<TBlock> | null = null;
+            const blocksToEmit = [];
+            for (const block of this.blockCache.ancestry(headBlock.hash)) {
+                if (this.emittedBlockHeads.has(block)) {
+                    nearestEmittedHeadInAncestry = block;
+                    break;
+                } else {
+                    blocksToEmit.unshift(block);
+                }
+            }
+
+            // Emit all the blocks past the latest block in the ancestry that was emitted as head
+            // In case of re-orgs, some blocks might be re-emitted multiple times.
+            for (const block of blocksToEmit) {
+                this.emit(BlockProcessor.NEW_BLOCK_EVENT, block);
+            }
+
+            // Emit the new head
+            this.emit(BlockProcessor.NEW_HEAD_EVENT, headBlock, nearestEmittedHeadInAncestry);
+            this.emittedBlockHeads.add(headBlock);
+        }
     }
 
+    // Checks if a block is already in the block cache; if not, requests it remotely.
+    private async getBlock(blockHash: string) {
+        if (this.blockCache.hasBlock(blockHash, true)) {
+            return this.blockCache.getBlock(blockHash);
+        } else {
+            return this.getBlockRemote(blockHash);
+        }
+    }
     // Processes a new block, adding it to the cache and emitting the appropriate events
     // It is called for each new block received, but also at startup (during startInternal).
     private async processBlockNumber(blockNumber: number) {
         try {
-            const observedBlock = await this.getBlock(blockNumber);
+            const observedBlock = await this.getBlockRemote(blockNumber);
+
+            if (this.blockCache.hasBlock(observedBlock.hash, true)) {
+                // We received a block that we already processed before. Ignore, but log that it happened
+                this.logger.info(
+                    `Received block #${blockNumber} with hash ${observedBlock.hash}, that was already known. Skipping.`
+                );
+                return;
+            }
 
             this.lastBlockHashReceived = observedBlock.hash;
 
-            const blocksToAdd = [observedBlock]; // blocks to add, in reverse order
+            // fetch ancestors and keep adding until one is found that is attached
+            let curBlock: Readonly<TBlock> | null = observedBlock;
+            while (
+                [BlockAddResult.AddedDetached, BlockAddResult.NotAddedAlreadyExistedDetached].includes(
+                    this.mBlockCache.addBlock(curBlock)
+                )
+            ) {
+                const lastHash: string = curBlock.parentHash;
+                curBlock = await this.getBlock(lastHash);
 
-            // fetch ancestors until one is found that can be added
-            let curBlock = observedBlock;
-            while (!this.blockCache.canAddBlock(curBlock)) {
-                curBlock = await this.getBlock(curBlock.parentHash);
-                blocksToAdd.push(curBlock);
-            }
-            blocksToAdd.reverse(); // add blocks from the oldest
-
-            // populate fetched blocks into cache, starting from the deepest
-            for (const block of blocksToAdd) {
-                this.mBlockCache.addBlock(block);
-
-                // we've added this block and its ancestors
-                // to the cache, so we we're safe to inform subscribers
-                this.emit(BlockProcessor.NEW_BLOCK_EVENT, block);
+                if (!curBlock) {
+                    this.logger.info(`Failed to retrieve block with hash ${lastHash}.`);
+                    return;
+                }
             }
 
-            // is the observed block still the last block received (or the first block during startup)?
-            if (this.isBlockHashLastReceived(observedBlock.hash)) {
+            // is the observed block still the last block received (or the first block, during startup)?
+            if (this.lastBlockHashReceived === observedBlock.hash) {
                 this.processNewHead(observedBlock);
             }
         } catch (doh) {
-            this.logger.error(doh);
+            if (doh instanceof BlockFetchingError) {
+                this.logger.info(doh);
+            } else {
+                this.logger.error(doh);
+            }
         }
     }
 }
