@@ -85,7 +85,7 @@ describe("BlockchainMachine", () => {
         await bm.stop();
     });
 
-    it(" processNewBlock computes the initial state if the parent is not in cache", async () => {
+    it("processNewBlock computes the initial state if the parent is not in cache", async () => {
         const bm = new BlockchainMachine(blockProcessor);
         bm.addComponent(new ExampleComponent(reducer));
         await bm.start();
@@ -226,22 +226,6 @@ describe("BlockchainMachine", () => {
         expect(prevState).to.deep.equal(initialState);
         expect(nextState).to.deep.equal(nextStateExpected);
         expect(actions).to.deep.equal({ prevState: initialState, newState: nextStateExpected });
-
-        await bm.stop();
-    });
-
-    it("processNewHead throws ApplicationError if the state was not computed for the current head", async () => {
-        const bm = new BlockchainMachine(blockProcessor);
-        const component = new ExampleComponent(reducer);
-
-        bm.addComponent(component);
-        await bm.start();
-
-        blockProcessor.emit(BlockProcessor.NEW_BLOCK_EVENT, blocks[0]);
-        blockProcessor.emit(BlockProcessor.NEW_HEAD_EVENT, blocks[0], null);
-
-        // We simulate a new_head without a new_block event (which is never expected to happen)
-        expect(() => blockProcessor.emit(BlockProcessor.NEW_HEAD_EVENT, blocks[1], blocks[0])).to.throw(ApplicationError); //prettier-ignore
 
         await bm.stop();
     });
