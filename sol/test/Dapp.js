@@ -20,7 +20,9 @@ advanceTime = (time) => {
             params: [time],
             id: new Date().getTime()
         }, (err, result) => {
-            if (err) { return reject(err); }
+            if (err) {
+                return reject(err);
+            }
             return resolve(result);
         });
     });
@@ -37,7 +39,9 @@ revertSnapshot = (_result) => {
             params: [_result],
             id: new Date().getTime()
         }, (err, result) => {
-            if (err) { return reject(err); }
+            if (err) {
+                return reject(err);
+            }
             return resolve(result);
         });
     });
@@ -51,7 +55,9 @@ advanceBlock = () => {
             method: "evm_mine",
             id: new Date().getTime()
         }, (err, result) => {
-            if (err) { return reject(err); }
+            if (err) {
+                return reject(err);
+            }
             const newBlockHash = web3.eth.getBlock('latest').hash;
 
             return resolve(newBlockHash);
@@ -66,7 +72,9 @@ snapshotBlock = () => {
             method: "evm_snapshot",
             id: new Date().getTime()
         }, (err, result) => {
-            if (err) { return reject(err); }
+            if (err) {
+                return reject(err);
+            }
             // const newBlockHash = web3.eth.getBlock('latest').hash;
             return resolve(result);
         });
@@ -80,33 +88,31 @@ let channelid; // Channel ID
 
 function createToCall(_mode, _v) {
 
-  if(_mode == 1) {
+    if (_mode == 1) {
 
-    return web3.eth.abi.encodeFunctionCall(
-        {
-                "constant": false,
-                "inputs": [],
-                "name": "rescue",
-                "outputs": [],
-                "payable": false,
-                "stateMutability": "nonpayable",
-                "type": "function"
-        
+        return web3.eth.abi.encodeFunctionCall({
+            "constant": false,
+            "inputs": [],
+            "name": "rescue",
+            "outputs": [],
+            "payable": false,
+            "stateMutability": "nonpayable",
+            "type": "function"
+
         }, []);
     }
 
-if(_mode == 2) {
+    if (_mode == 2) {
 
-    return web3.eth.abi.encodeFunctionCall(
-        {
-                "constant": false,
-                "inputs": [],
-                "name": "superRescue",
-                "outputs": [],
-                "payable": false,
-                "stateMutability": "nonpayable",
-                "type": "function"
-        
+        return web3.eth.abi.encodeFunctionCall({
+            "constant": false,
+            "inputs": [],
+            "name": "superRescue",
+            "outputs": [],
+            "payable": false,
+            "stateMutability": "nonpayable",
+            "type": "function"
+
         }, []);
     }
 }
@@ -118,85 +124,87 @@ module.exports = {
 }
 
 function getCurrentTime() {
-    return new Promise(function(resolve) {
-      web3.eth.getBlock("latest").then(function(block) {
+    return new Promise(function (resolve) {
+        web3.eth.getBlock("latest").then(function (block) {
             resolve(block.timestamp)
         });
     })
 }
 
 function timeout(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
-    }
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 function createAppointment(_sc, _blockNo, _cus, _v, _jobid, _mode, _precondition, _postcondition, _minChallengePeriod, _eventABI) {
 
-        let endBlock = _blockNo + 500;
-        let minChallengePeriod = _minChallengePeriod;
-        let mode = _mode; // We know what dispute handler to use!
-        let toCall = createToCall(mode, _v);
-        let refund = "100"; // 100 wei
-        let gas = "1000000"; // PISA will allocate up to 1m gas for this jobs
-        let h = web3.utils.keccak256(web3.utils.fromAscii("on-the-house"));
-      
-        appointment = new Array();
-        appointment['startBlock'] = _blockNo+4;
-        appointment['endBlock'] = endBlock;
-        appointment['customerAddress'] = _cus;
-        appointment['id'] = channelid;
-        appointment['jobid'] = _jobid;
-        appointment['data'] = toCall;
-        appointment['refund'] = refund;
-        appointment['gasLimit'] = gas;
-        appointment['mode'] = mode;
-        appointment['eventABI'] = _eventABI;
-        appointment['eventArgs'] = web3.eth.abi.encodeParameters(['uint8[]'], [[]]);
-        appointment['precondition'] = _precondition;
-        appointment['postcondition'] = _postcondition;
-        appointment['paymentHash'] = h;
-        appointment['r'] = web3.utils.fromAscii("on-the-house");
-        appointment['v'] = _v;
-        appointment['challengePeriod'] = minChallengePeriod;
-        appointment['contractAddress'] = _sc;
-      
-        bytesEventABI = web3.utils.fromAscii(appointment['eventABI']);
-        appointment['eventArgs'] = appointment['eventArgs'];
-      
-        let encodeAppointmentInfo = web3.eth.abi.encodeParameters(['uint','uint','uint','uint','uint','uint', 'bytes32'], [appointment['id'], appointment['jobid'], appointment['startBlock'], appointment['endBlock'], appointment['challengePeriod'], appointment['refund'], appointment['paymentHash']]);
-        let encodeContractInfo = web3.eth.abi.encodeParameters(['address','address','uint', 'bytes'], [appointment['contractAddress'], appointment['customerAddress'], appointment['gasLimit'], appointment['data']]);
-        let encodeConditions = web3.eth.abi.encodeParameters(['bytes','bytes','bytes','bytes', 'uint'], [bytesEventABI, appointment['eventArgs'], appointment['precondition'], appointment['postcondition'], appointment['mode']]);
-      
-        encodedAppointment =  web3.eth.abi.encodeParameters(['bytes','bytes','bytes'],[encodeAppointmentInfo, encodeContractInfo, encodeConditions]);
-      }
+    let endBlock = _blockNo + 500;
+    let minChallengePeriod = _minChallengePeriod;
+    let mode = _mode; // We know what dispute handler to use!
+    let toCall = createToCall(mode, _v);
+    let refund = "100"; // 100 wei
+    let gas = "1000000"; // PISA will allocate up to 1m gas for this jobs
+    let h = web3.utils.keccak256(web3.utils.fromAscii("on-the-house"));
+
+    appointment = new Array();
+    appointment['startBlock'] = _blockNo + 4;
+    appointment['endBlock'] = endBlock;
+    appointment['customerAddress'] = _cus;
+    appointment['id'] = channelid;
+    appointment['jobid'] = _jobid;
+    appointment['data'] = toCall;
+    appointment['refund'] = refund;
+    appointment['gasLimit'] = gas;
+    appointment['mode'] = mode;
+    appointment['eventABI'] = _eventABI;
+    appointment['eventArgs'] = web3.eth.abi.encodeParameters(['uint8[]'], [
+        []
+    ]);
+    appointment['precondition'] = _precondition;
+    appointment['postcondition'] = _postcondition;
+    appointment['paymentHash'] = h;
+    appointment['r'] = web3.utils.fromAscii("on-the-house");
+    appointment['v'] = _v;
+    appointment['challengePeriod'] = minChallengePeriod;
+    appointment['contractAddress'] = _sc;
+
+    bytesEventABI = web3.utils.fromAscii(appointment['eventABI']);
+    appointment['eventArgs'] = appointment['eventArgs'];
+
+    let encodeAppointmentInfo = web3.eth.abi.encodeParameters(['uint', 'uint', 'uint', 'uint', 'uint', 'uint', 'bytes32'], [appointment['id'], appointment['jobid'], appointment['startBlock'], appointment['endBlock'], appointment['challengePeriod'], appointment['refund'], appointment['paymentHash']]);
+    let encodeContractInfo = web3.eth.abi.encodeParameters(['address', 'address', 'uint', 'bytes'], [appointment['contractAddress'], appointment['customerAddress'], appointment['gasLimit'], appointment['data']]);
+    let encodeConditions = web3.eth.abi.encodeParameters(['bytes', 'bytes', 'bytes', 'bytes', 'uint'], [bytesEventABI, appointment['eventArgs'], appointment['precondition'], appointment['postcondition'], appointment['mode']]);
+
+    encodedAppointment = web3.eth.abi.encodeParameters(['bytes', 'bytes', 'bytes'], [encodeAppointmentInfo, encodeContractInfo, encodeConditions]);
+}
 
 contract('Dapp', (accounts) => {
 
     //Method that will be used to book appointment with PISA server
     function sendData(data) {
         return new Promise(function (resolve, reject) {
-              var xhr = new XMLHttpRequest();
-              var url = "http://localhost:3000/appointment";
-              xhr.open("POST", url, true);
-              xhr.setRequestHeader("Content-Type", "application/json");
-              xhr.onreadystatechange = function () {
-                 if (this.readyState == 4 && this.status == 200) {
+            var xhr = new XMLHttpRequest();
+            var url = "http://localhost:3000/appointment";
+            xhr.open("POST", url, true);
+            xhr.setRequestHeader("Content-Type", "application/json");
+            xhr.onreadystatechange = function () {
+                if (this.readyState == 4 && this.status == 200) {
                     var json = JSON.parse(xhr.responseText);
-  
+
                     resolve(xhr.responseText);
-  
-                } else if(xhr.status == 400) {
+
+                } else if (xhr.status == 400) {
                     console.log(xhr.responseText);
                     reject("oops");
                 }
-              };
-  
-              xhr.send(data);
+            };
+
+            xhr.send(data);
         });
     }
 
     beforeEach(async () => {
-        
-        var accounts =  await web3.eth.getAccounts();
+
+        var accounts = await web3.eth.getAccounts();
 
         //set accounts
         account0 = accounts[0];
@@ -206,446 +214,454 @@ contract('Dapp', (accounts) => {
 
         //create a  new instace of the Dapp.sol contract before every test
         return Dapp.new()
-        .then(function(instance) {
-        dappInstance = instance;
-        });
-        
+            .then(function (instance) {
+                dappInstance = instance;
+            });
+
 
     });
 
-  it('PISA is hired and must respond to Distress event', async () => {
+    it('PISA is hired and must respond to Distress event', async () => {
 
-    let blockNo = await web3.eth.getBlockNumber();
-    channelid = 200;
+        let blockNo = await web3.eth.getBlockNumber();
+        channelid = 200;
 
-    await advanceBlock();
-    let timestamp = await getCurrentTime();
-
-    createAppointment(dappInstance.address, blockNo, account1, 20, timestamp, 1, "0x0000000000000000000000000000000000000000", web3.eth.abi.encodeParameter('uint', 50), 100, "event Distress(string indexed message)");
-    
-    let hash = web3.utils.keccak256(encodedAppointment);
-    let cussig =  await web3.eth.sign(hash,account1);
-
-    var data = JSON.stringify({"challengePeriod": appointment['challengePeriod'],
-                               "contractAddress": appointment['contractAddress'],
-                               "customerAddress": appointment['customerAddress'],
-                               "customerSig": cussig,
-                               "data": appointment['data'],
-                               "endBlock": appointment['endBlock'],
-                               "eventABI": appointment['eventABI'],
-                               "eventArgs": appointment['eventArgs'],
-                               "gasLimit": appointment['gasLimit'],
-                               "id": appointment['id'],
-                               "jobId": appointment['jobid'],
-                               "mode": appointment['mode'],
-                               "paymentHash": appointment['paymentHash'],
-                               "preCondition": appointment['precondition'],
-                               "postCondition": appointment['postcondition'],
-                               "refund": appointment['refund'],
-                               "startBlock": appointment['startBlock']});
-
-    //Book appointment with PISA                           
-    let response = await sendData(data);
-
-    //Trigger event that PISA was hired to watch
-    await dappInstance.distressCall(); 
-
-    await timeout(1000);
-
-    //Making sure there are enough confirmations so that event is confirmed => PISA has to respond
-    for(var i=0; i<50; i++) {
         await advanceBlock();
+        let timestamp = await getCurrentTime();
+
+        createAppointment(dappInstance.address, blockNo, account1, 20, timestamp, 1, "0x0000000000000000000000000000000000000000", web3.eth.abi.encodeParameter('uint', 50), 100, "event Distress(string indexed message)");
+
+        let hash = web3.utils.keccak256(encodedAppointment);
+        let cussig = await web3.eth.sign(hash, account1);
+
+        var data = JSON.stringify({
+            "challengePeriod": appointment['challengePeriod'],
+            "contractAddress": appointment['contractAddress'],
+            "customerAddress": appointment['customerAddress'],
+            "customerSig": cussig,
+            "data": appointment['data'],
+            "endBlock": appointment['endBlock'],
+            "eventABI": appointment['eventABI'],
+            "eventArgs": appointment['eventArgs'],
+            "gasLimit": appointment['gasLimit'],
+            "id": appointment['id'],
+            "jobId": appointment['jobid'],
+            "mode": appointment['mode'],
+            "paymentHash": appointment['paymentHash'],
+            "preCondition": appointment['precondition'],
+            "postCondition": appointment['postcondition'],
+            "refund": appointment['refund'],
+            "startBlock": appointment['startBlock']
+        });
+
+        //Book appointment with PISA                           
+        let response = await sendData(data);
+
+        //Trigger event that PISA was hired to watch
+        await dappInstance.distressCall();
+
+        await timeout(1000);
+
+        //Making sure there are enough confirmations so that event is confirmed => PISA has to respond
+        for (var i = 0; i < 50; i++) {
+            await advanceBlock();
+            await timeout(500);
+        }
+
+        //Timeout as pisa is a live service that is tested
+        await timeout(1000);
+
+        //Verify that PISA has responded, by checking that the counter in the method that PISA was supossed to call in case of event has been incremented
+        assert.equal(await dappInstance.counter.call(), 1, "Counter should be 1... that way we know PISA did its job");
+        assert.equal(await dappInstance.inTrouble(), false, "should be in TROUBLE");
+
+    });
+
+    it("PISA is hired and must respond to SuperDistress event", async () => {
+
+        for (var i = 0; i < 20; i++) {
+            await advanceBlock();
+            await timeout(100);
+        }
+
+        let blockNo = await web3.eth.getBlockNumber();
+        await advanceBlock();
+        let timestamp = await getCurrentTime();
+
+        createAppointment(dappInstance.address, blockNo, account0, 20, timestamp, 2, "0x0000000000000000000000000000000000000000", web3.eth.abi.encodeParameter('uint', 50), 100, "event SuperDistress(string indexed message)");
+
+        let hash = web3.utils.keccak256(encodedAppointment);
+        let cussig = await web3.eth.sign(hash, account0);
+
+        var data = JSON.stringify({
+            "challengePeriod": appointment['challengePeriod'],
+            "contractAddress": appointment['contractAddress'],
+            "customerAddress": appointment['customerAddress'],
+            "customerSig": cussig,
+            "data": appointment['data'],
+            "endBlock": appointment['endBlock'],
+            "eventABI": appointment['eventABI'],
+            "eventArgs": appointment['eventArgs'],
+            "gasLimit": appointment['gasLimit'],
+            "id": appointment['id'],
+            "jobId": appointment['jobid'],
+            "mode": appointment['mode'],
+            "paymentHash": appointment['paymentHash'],
+            "preCondition": appointment['precondition'],
+            "postCondition": appointment['postcondition'],
+            "refund": appointment['refund'],
+            "startBlock": appointment['startBlock']
+        });
+
+        //Book appointment with PISA                           
+        let response = await sendData(data);
+
+        //Trigger event that PISA was hired to watch
+        await dappInstance.superDistressCall();
+
+        await timeout(1000);
+
+        //Making sure there are enough confirmations so that event is confirmed => PISA has to respond
+        for (var i = 0; i < 50; i++) {
+            await advanceBlock();
+            await timeout(500);
+        }
+
+        await timeout(1000);
+
+        //Verify that PISA has responded, by checking that the counter in the method that PISA was supossed to call in case of event has been incremented
+        assert.equal(await dappInstance.superCounter.call(), 1, "Counter should be 1... that way we know PISA did its job");
+    })
+
+
+    // it("PISA handles two concurrent events from different appointments", async() => {
+    //     for(var i=0; i<20; i++) {
+    //         await advanceBlock();
+    //         await timeout(100);
+    //     }  
+    //     let blockNo = await web3.eth.getBlockNumber();
+    //     await advanceBlock();
+    //     let timestamp = await getCurrentTime();
+    //     var dappInstance = await Dapp.deployed();
+
+    //     createAppointment(dappInstance.address, blockNo, account3, 20, timestamp, 2, "0x0000000000000000000000000000000000000000", web3.eth.abi.encodeParameter('uint', 50), 100, "event distress(string indexed message)");
+
+    //     let hash = web3.utils.keccak256(encodedAppointment);
+    //     let cussig =  await web3.eth.sign(hash,account3);
+
+    //     var data = JSON.stringify({"challengePeriod": appointment['challengePeriod'],
+    //                                "contractAddress": appointment['contractAddress'],
+    //                                "customerAddress": appointment['customerAddress'],
+    //                                "customerSig": cussig,
+    //                                "data": appointment['data'],
+    //                                "endBlock": appointment['endBlock'],
+    //                                "eventABI": appointment['eventABI'],
+    //                                "eventArgs": appointment['eventArgs'],
+    //                                "gasLimit": appointment['gasLimit'],
+    //                                "id": appointment['id'],
+    //                                "jobId": appointment['jobid'],
+    //                                "mode": appointment['mode'],
+    //                                "paymentHash": appointment['paymentHash'],
+    //                                "preCondition": appointment['precondition'],
+    //                                "postCondition": appointment['postcondition'],
+    //                                "refund": appointment['refund'],
+    //                                "startBlock": appointment['startBlock']});
+
+    //     let response = await sendData(data);
+
+    //    createAppointment(dappInstance.address, blockNo, account2, 20, timestamp, 1, "0x0000000000000000000000000000000000000000", web3.eth.abi.encodeParameter('uint', 50), 100, "event SuperDistress(string indexed message)");
+
+    //     let hash1 = web3.utils.keccak256(encodedAppointment);
+    //     let cussig1 =  await web3.eth.sign(hash1,account2);
+
+    //     var data1 = JSON.stringify({"challengePeriod": appointment['challengePeriod'],
+    //                                "contractAddress": appointment['contractAddress'],
+    //                                "customerAddress": appointment['customerAddress'],
+    //                                "customerSig": cussig1,
+    //                                "data": appointment['data'],
+    //                                "endBlock": appointment['endBlock'],
+    //                                "eventABI": appointment['eventABI'],
+    //                                "eventArgs": appointment['eventArgs'],
+    //                                "gasLimit": appointment['gasLimit'],
+    //                                "id": appointment['id'],
+    //                                "jobId": appointment['jobid'],
+    //                                "mode": appointment['mode'],
+    //                                "paymentHash": appointment['paymentHash'],
+    //                                "preCondition": appointment['precondition'],
+    //                                "postCondition": appointment['postcondition'],
+    //                                "refund": appointment['refund'],
+    //                                "startBlock": appointment['startBlock']})
+
+    //      let response1 = await sendData(data1);
+
+    //       await dappInstance.distressCall(); 
+    //       await dappInstance.superDistressCall(); 
+
+    //      await timeout(1000);
+
+    //       //making sure there are enough confirmations
+    //      for(var i=0; i<20; i++) {
+    //          await advanceBlock();
+    //          await timeout(100);
+    //       }
+
+    //      await timeout(1000);
+
+    //      assert.equal(await dappInstance.counter.call(), 1, "Counter should be 1... that way we know PISA did its job");
+    //      assert.equal(await dappInstance.superCounter.call(), 1, "superCounter should be 1... that way we know PISA did its job");
+    // })
+
+
+
+
+    // it("PISA is hired by two customers for the same event and it should respond to both", async() => {
+    //     for(var i=0; i<20; i++) {
+    //         await advanceBlock();
+    //         await timeout(100);
+    //     }  
+    //     let blockNo = await web3.eth.getBlockNumber();
+    //     await advanceBlock();
+    //     let timestamp = await getCurrentTime();
+    //     var dappInstance = await Dapp.deployed();
+    //     createAppointment(dappInstance.address, blockNo, account3, 20, timestamp, 2, "0x0000000000000000000000000000000000000000", web3.eth.abi.encodeParameter('uint', 50), 100, "event SuperDistress(string indexed message)");
+
+    //     let hash = web3.utils.keccak256(encodedAppointment);
+    //     let cussig =  await web3.eth.sign(hash,account3);
+
+    //     var data = JSON.stringify({"challengePeriod": appointment['challengePeriod'],
+    //                                "contractAddress": appointment['contractAddress'],
+    //                                "customerAddress": appointment['customerAddress'],
+    //                                "customerSig": cussig,
+    //                                "data": appointment['data'],
+    //                                "endBlock": appointment['endBlock'],
+    //                                "eventABI": appointment['eventABI'],
+    //                                "eventArgs": appointment['eventArgs'],
+    //                                "gasLimit": appointment['gasLimit'],
+    //                                "id": appointment['id'],
+    //                                "jobId": appointment['jobid'],
+    //                                "mode": appointment['mode'],
+    //                                "paymentHash": appointment['paymentHash'],
+    //                                "preCondition": appointment['precondition'],
+    //                                "postCondition": appointment['postcondition'],
+    //                                "refund": appointment['refund'],
+    //                                "startBlock": appointment['startBlock']});
+
+    //     let response = await sendData(data);
+
+    //    createAppointment(dappInstance.address, blockNo, account2, 20, timestamp, 1, "0x0000000000000000000000000000000000000000", web3.eth.abi.encodeParameter('uint', 50), 100, "event SuperDistress(string indexed message)");
+
+    //     let hash1 = web3.utils.keccak256(encodedAppointment);
+    //     let cussig1 =  await web3.eth.sign(hash1,account2);
+
+    //     var data1 = JSON.stringify({"challengePeriod": appointment['challengePeriod'],
+    //                                "contractAddress": appointment['contractAddress'],
+    //                                "customerAddress": appointment['customerAddress'],
+    //                                "customerSig": cussig1,
+    //                                "data": appointment['data'],
+    //                                "endBlock": appointment['endBlock'],
+    //                                "eventABI": appointment['eventABI'],
+    //                                "eventArgs": appointment['eventArgs'],
+    //                                "gasLimit": appointment['gasLimit'],
+    //                                "id": appointment['id'],
+    //                                "jobId": appointment['jobid'],
+    //                                "mode": appointment['mode'],
+    //                                "paymentHash": appointment['paymentHash'],
+    //                                "preCondition": appointment['precondition'],
+    //                                "postCondition": appointment['postcondition'],
+    //                                "refund": appointment['refund'],
+    //                                "startBlock": appointment['startBlock']})
+
+    //      let response1 = await sendData(data1);
+
+    //       await dappInstance.superDistressCall(); 
+
+    //       await timeout(1000);
+
+    //       //making sure there are enough confirmations
+    //       for(var i=0; i<20; i++) {
+    //          await advanceBlock();
+    //          await timeout(100);
+    //       }
+
+    //      await timeout(1000);
+
+    //      assert.equal(await dappInstance.superCounter.call(), 4, "Counter should be 3... that way we know PISA did its job");
+    // })
+
+    it('Response from PISA should be reverted in case of a reorg where the event is not called', async () => {
+
+        let blockNo = await web3.eth.getBlockNumber();
+        channelid = 200;
+
+        await advanceBlock();
+        let timestamp = await getCurrentTime();
+
+        createAppointment(dappInstance.address, blockNo, account2, 20, timestamp, 1, "0x0000000000000000000000000000000000000000", web3.eth.abi.encodeParameter('uint', 50), 100, "event Distress(string indexed message)");
+
+        let hash = web3.utils.keccak256(encodedAppointment);
+        let cussig = await web3.eth.sign(hash, account2);
+
+        var data = JSON.stringify({
+            "challengePeriod": appointment['challengePeriod'],
+            "contractAddress": appointment['contractAddress'],
+            "customerAddress": appointment['customerAddress'],
+            "customerSig": cussig,
+            "data": appointment['data'],
+            "endBlock": appointment['endBlock'],
+            "eventABI": appointment['eventABI'],
+            "eventArgs": appointment['eventArgs'],
+            "gasLimit": appointment['gasLimit'],
+            "id": appointment['id'],
+            "jobId": appointment['jobid'],
+            "mode": appointment['mode'],
+            "paymentHash": appointment['paymentHash'],
+            "preCondition": appointment['precondition'],
+            "postCondition": appointment['postcondition'],
+            "refund": appointment['refund'],
+            "startBlock": appointment['startBlock']
+        });
+
+        //Book appointment with PISA                           
+        let response = await sendData(data);
+
+        //Take a snapshot of the current block, before the event PISA was hired to watch happens
+        let snapshot = await snapshotBlock();
+        blockNo = await web3.eth.getBlockNumber();
+        prevStateID = snapshot['result'];
+        prevBlockNo = blockNo;
+
+        //Check that  PISA has not responded
+        assert.equal(await dappInstance.counter.call(), 0, "before snapshot: Counter should be 0");
+        assert.equal(await dappInstance.inTrouble(), false, "before snapshot: inTrouble should be false");
+
+        //Trigger event that PISA was hired to watch
+        await dappInstance.distressCall();
+
         await timeout(500);
-    }
 
-    //Timeout as pisa is a live service that is tested
-    await timeout(1000);
+        //Making sure there are enough confirmations
+        for (var i = 0; i < 50; i++) {
+            await advanceBlock();
+            await timeout(500);
+        }
 
-    //Verify that PISA has responded, by checking that the counter in the method that PISA was supossed to call in case of event has been incremented
-    assert.equal(await dappInstance.counter.call(), 1, "Counter should be 1... that way we know PISA did its job");
-    assert.equal(await dappInstance.inTrouble(),false, "should be in TROUBLE");
-
-  });
-
-  it("PISA is hired and must respond to SuperDistress event", async() => {
-
-    for(var i=0; i<20; i++) {
-        await advanceBlock();
-        await timeout(100);
-    }  
-
-    let blockNo = await web3.eth.getBlockNumber();
-    await advanceBlock();
-    let timestamp = await getCurrentTime();
-
-    createAppointment(dappInstance.address, blockNo, account0, 20, timestamp, 2, "0x0000000000000000000000000000000000000000", web3.eth.abi.encodeParameter('uint', 50), 100, "event SuperDistress(string indexed message)");
-
-    let hash = web3.utils.keccak256(encodedAppointment);
-    let cussig =  await web3.eth.sign(hash,account0);
-
-    var data = JSON.stringify({"challengePeriod": appointment['challengePeriod'],
-                               "contractAddress": appointment['contractAddress'],
-                               "customerAddress": appointment['customerAddress'],
-                               "customerSig": cussig,
-                               "data": appointment['data'],
-                               "endBlock": appointment['endBlock'],
-                               "eventABI": appointment['eventABI'],
-                               "eventArgs": appointment['eventArgs'],
-                               "gasLimit": appointment['gasLimit'],
-                               "id": appointment['id'],
-                               "jobId": appointment['jobid'],
-                               "mode": appointment['mode'],
-                               "paymentHash": appointment['paymentHash'],
-                               "preCondition": appointment['precondition'],
-                               "postCondition": appointment['postcondition'],
-                               "refund": appointment['refund'],
-                               "startBlock": appointment['startBlock']});
-
-    //Book appointment with PISA                           
-    let response = await sendData(data);
-
-    //Trigger event that PISA was hired to watch
-    await dappInstance.superDistressCall(); 
-
-    await timeout(1000);
-
-    //Making sure there are enough confirmations so that event is confirmed => PISA has to respond
-    for(var i=0; i<50; i++) {
-        await advanceBlock();
+        //Timeout as pisa is a live service that is tested
         await timeout(500);
-    }
 
-    await timeout(1000);
+        //Check that PISA has responded after event it was hired to watch for was triggered
+        assert.equal(await dappInstance.counter.call(), 1, "After snapshot: Counter should be 1... that way we know PISA did its job");
+        assert.equal(await dappInstance.inTrouble(), false, "After snapshot: Should be in TROUBLE");
 
-    //Verify that PISA has responded, by checking that the counter in the method that PISA was supossed to call in case of event has been incremented
-    assert.equal(await dappInstance.superCounter.call(), 1, "Counter should be 1... that way we know PISA did its job");
-})
+        //Construct a reorg back from the block we took a snapshot at
+        let result = await revertSnapshot(prevStateID);
+        blockNo = await web3.eth.getBlockNumber();
+        assert.equal(prevBlockNo, blockNo, "checking revert worked");
 
+        //Making sure there are enough confirmations and this fork is longer than the initial one
+        for (var i = 0; i < 75; i++) {
+            await advanceBlock();
+            await timeout(500);
+        }
 
-// it("PISA handles two concurrent events from different appointments", async() => {
-//     for(var i=0; i<20; i++) {
-//         await advanceBlock();
-//         await timeout(100);
-//     }  
-//     let blockNo = await web3.eth.getBlockNumber();
-//     await advanceBlock();
-//     let timestamp = await getCurrentTime();
-//     var dappInstance = await Dapp.deployed();
+        //Check that PISA has not responded, as in the reorg the event PISA was hired to watch never happened
+        assert.equal(await dappInstance.counter.call(), 0, "after reorg: Counter should be 0... that way we know PISA did its job");
+        assert.equal(await dappInstance.inTrouble(), false, "after reorg: inTrouble should be false");
 
-//     createAppointment(dappInstance.address, blockNo, account3, 20, timestamp, 2, "0x0000000000000000000000000000000000000000", web3.eth.abi.encodeParameter('uint', 50), 100, "event distress(string indexed message)");
+    });
 
-//     let hash = web3.utils.keccak256(encodedAppointment);
-//     let cussig =  await web3.eth.sign(hash,account3);
+    it('PISA should respond again if there is a reorg', async () => {
 
-//     var data = JSON.stringify({"challengePeriod": appointment['challengePeriod'],
-//                                "contractAddress": appointment['contractAddress'],
-//                                "customerAddress": appointment['customerAddress'],
-//                                "customerSig": cussig,
-//                                "data": appointment['data'],
-//                                "endBlock": appointment['endBlock'],
-//                                "eventABI": appointment['eventABI'],
-//                                "eventArgs": appointment['eventArgs'],
-//                                "gasLimit": appointment['gasLimit'],
-//                                "id": appointment['id'],
-//                                "jobId": appointment['jobid'],
-//                                "mode": appointment['mode'],
-//                                "paymentHash": appointment['paymentHash'],
-//                                "preCondition": appointment['precondition'],
-//                                "postCondition": appointment['postcondition'],
-//                                "refund": appointment['refund'],
-//                                "startBlock": appointment['startBlock']});
+        let blockNo = await web3.eth.getBlockNumber();
+        channelid = 200;
 
-//     let response = await sendData(data);
-
-//    createAppointment(dappInstance.address, blockNo, account2, 20, timestamp, 1, "0x0000000000000000000000000000000000000000", web3.eth.abi.encodeParameter('uint', 50), 100, "event SuperDistress(string indexed message)");
-
-//     let hash1 = web3.utils.keccak256(encodedAppointment);
-//     let cussig1 =  await web3.eth.sign(hash1,account2);
-
-//     var data1 = JSON.stringify({"challengePeriod": appointment['challengePeriod'],
-//                                "contractAddress": appointment['contractAddress'],
-//                                "customerAddress": appointment['customerAddress'],
-//                                "customerSig": cussig1,
-//                                "data": appointment['data'],
-//                                "endBlock": appointment['endBlock'],
-//                                "eventABI": appointment['eventABI'],
-//                                "eventArgs": appointment['eventArgs'],
-//                                "gasLimit": appointment['gasLimit'],
-//                                "id": appointment['id'],
-//                                "jobId": appointment['jobid'],
-//                                "mode": appointment['mode'],
-//                                "paymentHash": appointment['paymentHash'],
-//                                "preCondition": appointment['precondition'],
-//                                "postCondition": appointment['postcondition'],
-//                                "refund": appointment['refund'],
-//                                "startBlock": appointment['startBlock']})
-
-//      let response1 = await sendData(data1);
-
-//       await dappInstance.distressCall(); 
-//       await dappInstance.superDistressCall(); 
-
-//      await timeout(1000);
-
-//       //making sure there are enough confirmations
-//      for(var i=0; i<20; i++) {
-//          await advanceBlock();
-//          await timeout(100);
-//       }
-
-//      await timeout(1000);
-
-//      assert.equal(await dappInstance.counter.call(), 1, "Counter should be 1... that way we know PISA did its job");
-//      assert.equal(await dappInstance.superCounter.call(), 1, "superCounter should be 1... that way we know PISA did its job");
-// })
-
-
-
-
-// it("PISA is hired by two customers for the same event and it should respond to both", async() => {
-//     for(var i=0; i<20; i++) {
-//         await advanceBlock();
-//         await timeout(100);
-//     }  
-//     let blockNo = await web3.eth.getBlockNumber();
-//     await advanceBlock();
-//     let timestamp = await getCurrentTime();
-//     var dappInstance = await Dapp.deployed();
-//     createAppointment(dappInstance.address, blockNo, account3, 20, timestamp, 2, "0x0000000000000000000000000000000000000000", web3.eth.abi.encodeParameter('uint', 50), 100, "event SuperDistress(string indexed message)");
-
-//     let hash = web3.utils.keccak256(encodedAppointment);
-//     let cussig =  await web3.eth.sign(hash,account3);
-
-//     var data = JSON.stringify({"challengePeriod": appointment['challengePeriod'],
-//                                "contractAddress": appointment['contractAddress'],
-//                                "customerAddress": appointment['customerAddress'],
-//                                "customerSig": cussig,
-//                                "data": appointment['data'],
-//                                "endBlock": appointment['endBlock'],
-//                                "eventABI": appointment['eventABI'],
-//                                "eventArgs": appointment['eventArgs'],
-//                                "gasLimit": appointment['gasLimit'],
-//                                "id": appointment['id'],
-//                                "jobId": appointment['jobid'],
-//                                "mode": appointment['mode'],
-//                                "paymentHash": appointment['paymentHash'],
-//                                "preCondition": appointment['precondition'],
-//                                "postCondition": appointment['postcondition'],
-//                                "refund": appointment['refund'],
-//                                "startBlock": appointment['startBlock']});
-
-//     let response = await sendData(data);
-
-//    createAppointment(dappInstance.address, blockNo, account2, 20, timestamp, 1, "0x0000000000000000000000000000000000000000", web3.eth.abi.encodeParameter('uint', 50), 100, "event SuperDistress(string indexed message)");
-
-//     let hash1 = web3.utils.keccak256(encodedAppointment);
-//     let cussig1 =  await web3.eth.sign(hash1,account2);
-
-//     var data1 = JSON.stringify({"challengePeriod": appointment['challengePeriod'],
-//                                "contractAddress": appointment['contractAddress'],
-//                                "customerAddress": appointment['customerAddress'],
-//                                "customerSig": cussig1,
-//                                "data": appointment['data'],
-//                                "endBlock": appointment['endBlock'],
-//                                "eventABI": appointment['eventABI'],
-//                                "eventArgs": appointment['eventArgs'],
-//                                "gasLimit": appointment['gasLimit'],
-//                                "id": appointment['id'],
-//                                "jobId": appointment['jobid'],
-//                                "mode": appointment['mode'],
-//                                "paymentHash": appointment['paymentHash'],
-//                                "preCondition": appointment['precondition'],
-//                                "postCondition": appointment['postcondition'],
-//                                "refund": appointment['refund'],
-//                                "startBlock": appointment['startBlock']})
-
-//      let response1 = await sendData(data1);
-
-//       await dappInstance.superDistressCall(); 
-
-//       await timeout(1000);
-
-//       //making sure there are enough confirmations
-//       for(var i=0; i<20; i++) {
-//          await advanceBlock();
-//          await timeout(100);
-//       }
-
-//      await timeout(1000);
-
-//      assert.equal(await dappInstance.superCounter.call(), 4, "Counter should be 3... that way we know PISA did its job");
-// })
-
-it('Response from PISA should be reverted in case of a reorg where the event is not called', async () => {
-
-    let blockNo = await web3.eth.getBlockNumber();
-    channelid = 200;
-
-    await advanceBlock();
-    let timestamp = await getCurrentTime();
-
-    createAppointment(dappInstance.address, blockNo, account2, 20, timestamp, 1, "0x0000000000000000000000000000000000000000", web3.eth.abi.encodeParameter('uint', 50), 100, "event Distress(string indexed message)");
-    
-    let hash = web3.utils.keccak256(encodedAppointment);
-    let cussig =  await web3.eth.sign(hash,account2);
-
-    var data = JSON.stringify({"challengePeriod": appointment['challengePeriod'],
-                               "contractAddress": appointment['contractAddress'],
-                               "customerAddress": appointment['customerAddress'],
-                               "customerSig": cussig,
-                               "data": appointment['data'],
-                               "endBlock": appointment['endBlock'],
-                               "eventABI": appointment['eventABI'],
-                               "eventArgs": appointment['eventArgs'],
-                               "gasLimit": appointment['gasLimit'],
-                               "id": appointment['id'],
-                               "jobId": appointment['jobid'],
-                               "mode": appointment['mode'],
-                               "paymentHash": appointment['paymentHash'],
-                               "preCondition": appointment['precondition'],
-                               "postCondition": appointment['postcondition'],
-                               "refund": appointment['refund'],
-                               "startBlock": appointment['startBlock']});
-
-    //Book appointment with PISA                           
-    let response = await sendData(data);
-
-    //Take a snapshot of the current block, before the event PISA was hired to watch happens
-    let snapshot = await snapshotBlock();
-    blockNo = await web3.eth.getBlockNumber();
-    prevStateID = snapshot['result'];
-    prevBlockNo = blockNo;
-    
-    //Check that  PISA has not responded
-    assert.equal(await dappInstance.counter.call(), 0, "before snapshot: Counter should be 0");
-    assert.equal(await dappInstance.inTrouble(),false, "before snapshot: inTrouble should be false");
-    
-    //Trigger event that PISA was hired to watch
-    await dappInstance.distressCall(); 
-
-    await timeout(500);
-
-    //Making sure there are enough confirmations
-    for(var i=0; i<50; i++) {
         await advanceBlock();
+        let timestamp = await getCurrentTime();
+
+        createAppointment(dappInstance.address, blockNo, account2, 20, timestamp, 1, "0x0000000000000000000000000000000000000000", web3.eth.abi.encodeParameter('uint', 50), 100, "event Distress(string indexed message)");
+
+        let hash = web3.utils.keccak256(encodedAppointment);
+        let cussig = await web3.eth.sign(hash, account2);
+
+        var data = JSON.stringify({
+            "challengePeriod": appointment['challengePeriod'],
+            "contractAddress": appointment['contractAddress'],
+            "customerAddress": appointment['customerAddress'],
+            "customerSig": cussig,
+            "data": appointment['data'],
+            "endBlock": appointment['endBlock'],
+            "eventABI": appointment['eventABI'],
+            "eventArgs": appointment['eventArgs'],
+            "gasLimit": appointment['gasLimit'],
+            "id": appointment['id'],
+            "jobId": appointment['jobid'],
+            "mode": appointment['mode'],
+            "paymentHash": appointment['paymentHash'],
+            "preCondition": appointment['precondition'],
+            "postCondition": appointment['postcondition'],
+            "refund": appointment['refund'],
+            "startBlock": appointment['startBlock']
+        });
+
+        //Book appointment with PISA                           
+        let response = await sendData(data);
+
+        //Take a snapshot of the current block, before the event PISA was hired to watch happens
+        let snapshot = await snapshotBlock();
+        blockNo = await web3.eth.getBlockNumber();
+        prevStateID = snapshot['result'];
+        prevBlockNo = blockNo;
+
+        //Check that  PISA has not responded
+        assert.equal(await dappInstance.counter.call(), 0, "before snapshot: Counter should be 0");
+        assert.equal(await dappInstance.inTrouble(), false, "before snapshot: inTrouble should be false");
+
+        //Trigger event that PISA was hired to watch
+        await dappInstance.distressCall();
+
         await timeout(500);
-    }
 
-    //Timeout as pisa is a live service that is tested
-    await timeout(500);
+        //Making sure there are enough confirmations
+        for (var i = 0; i < 50; i++) {
+            await advanceBlock();
+            await timeout(500);
+        }
 
-    //Check that PISA has responded after event it was hired to watch for was triggered
-    assert.equal(await dappInstance.counter.call(), 1, "After snapshot: Counter should be 1... that way we know PISA did its job");
-    assert.equal(await dappInstance.inTrouble(),false, "After snapshot: Should be in TROUBLE");
-
-    //Construct a reorg back from the block we took a snapshot at
-    let result = await revertSnapshot(prevStateID);
-    blockNo = await web3.eth.getBlockNumber();
-    assert.equal(prevBlockNo,blockNo,"checking revert worked");
-
-     //Making sure there are enough confirmations and this fork is longer than the initial one
-     for(var i=0; i<75; i++) {
-        await advanceBlock();
+        //Timeout as pisa is a live service that is tested
         await timeout(500);
-    }
 
-    //Check that PISA has not responded, as in the reorg the event PISA was hired to watch never happened
-    assert.equal(await dappInstance.counter.call(), 0, "after reorg: Counter should be 0... that way we know PISA did its job");
-    assert.equal(await dappInstance.inTrouble(),false, "after reorg: inTrouble should be false");
+        //Check that PISA has responded after event it was hired to watch for was triggered
+        assert.equal(await dappInstance.counter.call(), 1, "After snapshot: Counter should be 1... that way we know PISA did its job");
+        assert.equal(await dappInstance.inTrouble(), false, "After snapshot: Should be in TROUBLE");
 
-  });
+        //Construct a reorg back from the block we took a snapshot at
+        let result = await revertSnapshot(prevStateID);
+        blockNo = await web3.eth.getBlockNumber();
+        assert.equal(prevBlockNo, blockNo, "checking revert worked");
 
-  it('PISA should respond again if there is a reorg', async () => {
+        //Making sure there are enough confirmations and this fork is longer than the initial one
+        for (var i = 0; i < 75; i++) {
+            await advanceBlock();
+            await timeout(500);
+        }
 
-    let blockNo = await web3.eth.getBlockNumber();
-    channelid = 200;
+        //Trigger event that PISA was hired to watch
+        await dappInstance.distressCall();
 
-    await advanceBlock();
-    let timestamp = await getCurrentTime();
-
-    createAppointment(dappInstance.address, blockNo, account2, 20, timestamp, 1, "0x0000000000000000000000000000000000000000", web3.eth.abi.encodeParameter('uint', 50), 100, "event Distress(string indexed message)");
-    
-    let hash = web3.utils.keccak256(encodedAppointment);
-    let cussig =  await web3.eth.sign(hash,account2);
-
-    var data = JSON.stringify({"challengePeriod": appointment['challengePeriod'],
-                               "contractAddress": appointment['contractAddress'],
-                               "customerAddress": appointment['customerAddress'],
-                               "customerSig": cussig,
-                               "data": appointment['data'],
-                               "endBlock": appointment['endBlock'],
-                               "eventABI": appointment['eventABI'],
-                               "eventArgs": appointment['eventArgs'],
-                               "gasLimit": appointment['gasLimit'],
-                               "id": appointment['id'],
-                               "jobId": appointment['jobid'],
-                               "mode": appointment['mode'],
-                               "paymentHash": appointment['paymentHash'],
-                               "preCondition": appointment['precondition'],
-                               "postCondition": appointment['postcondition'],
-                               "refund": appointment['refund'],
-                               "startBlock": appointment['startBlock']});
-
-    //Book appointment with PISA                           
-    let response = await sendData(data);
-
-    //Take a snapshot of the current block, before the event PISA was hired to watch happens
-    let snapshot = await snapshotBlock();
-    blockNo = await web3.eth.getBlockNumber();
-    prevStateID = snapshot['result'];
-    prevBlockNo = blockNo;
-    
-    //Check that  PISA has not responded
-    assert.equal(await dappInstance.counter.call(), 0, "before snapshot: Counter should be 0");
-    assert.equal(await dappInstance.inTrouble(),false, "before snapshot: inTrouble should be false");
-    
-    //Trigger event that PISA was hired to watch
-    await dappInstance.distressCall(); 
-
-    await timeout(500);
-
-    //Making sure there are enough confirmations
-    for(var i=0; i<50; i++) {
-        await advanceBlock();
         await timeout(500);
-    }
 
-    //Timeout as pisa is a live service that is tested
-    await timeout(500);
+        //Making sure there are enough confirmations
+        for (var i = 0; i < 50; i++) {
+            await advanceBlock();
+            await timeout(500);
+        }
 
-    //Check that PISA has responded after event it was hired to watch for was triggered
-    assert.equal(await dappInstance.counter.call(), 1, "After snapshot: Counter should be 1... that way we know PISA did its job");
-    assert.equal(await dappInstance.inTrouble(),false, "After snapshot: Should be in TROUBLE");
-
-    //Construct a reorg back from the block we took a snapshot at
-    let result = await revertSnapshot(prevStateID);
-    blockNo = await web3.eth.getBlockNumber();
-    assert.equal(prevBlockNo,blockNo,"checking revert worked");
-
-     //Making sure there are enough confirmations and this fork is longer than the initial one
-     for(var i=0; i<75; i++) {
-        await advanceBlock();
+        //Timeout as pisa is a live service that is tested
         await timeout(500);
-    }
 
-    //Trigger event that PISA was hired to watch
-    await dappInstance.distressCall(); 
+        //Check that PISA hasresponded, as in the reorg the event PISA was hired to watch happened again after reorg
+        assert.equal(await dappInstance.counter.call(), 1, "after reorg: Counter should be 1... that way we know PISA did its job");
+        assert.equal(await dappInstance.inTrouble(), false, "after reorg: inTrouble should be false");
 
-    await timeout(500);
+    });
 
-    //Making sure there are enough confirmations
-    for(var i=0; i<50; i++) {
-        await advanceBlock();
-        await timeout(500);
-    }
-
-    //Timeout as pisa is a live service that is tested
-    await timeout(500);
-
-    //Check that PISA hasresponded, as in the reorg the event PISA was hired to watch happened again after reorg
-    assert.equal(await dappInstance.counter.call(), 1, "after reorg: Counter should be 1... that way we know PISA did its job");
-    assert.equal(await dappInstance.inTrouble(),false, "after reorg: inTrouble should be false");
-
-  });
-  
 });
