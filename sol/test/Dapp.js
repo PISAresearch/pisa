@@ -488,7 +488,9 @@ contract('Dapp', (accounts) => {
     //      assert.equal(await dappInstance.superCounter.call(), 4, "Counter should be 3... that way we know PISA did its job");
     // })
 
-    it('Response from PISA should be reverted in case of a reorg where the event is not called', async () => {
+    it('PISA should not respond if a reorg happens where the event is not called', async () => {
+        // If a reorg happens before Pisa hired the responder and the event did not happen on the new fork,
+        // PISA should not do anything.
 
         let blockNo = await web3.eth.getBlockNumber();
         channelid = 200;
@@ -539,32 +541,33 @@ contract('Dapp', (accounts) => {
 
         await timeout(500);
 
-        //Making sure there are enough confirmations
-        for (var i = 0; i < 50; i++) {
+        // Mine less than 5 blocks
+        for (var i = 0; i < 3; i++) {
             await advanceBlock();
-            await timeout(500);
+            await timeout(100);
         }
 
         //Timeout as pisa is a live service that is tested
         await timeout(500);
 
-        //Check that PISA has responded after event it was hired to watch for was triggered
-        assert.equal(await dappInstance.counter.call(), 1, "After snapshot: Counter should be 1... that way we know PISA did its job");
-        assert.equal(await dappInstance.inTrouble(), false, "After snapshot: Should be in TROUBLE");
+        //Check that PISA did not respond prematurely
+        assert.equal(await dappInstance.counter.call(), 0, "After snapshot: Counter should be 0 if Pisa did not respond prematurely");
+        assert.equal(await dappInstance.inTrouble(), true, "After snapshot: Should be in TROUBLE");
 
         //Construct a reorg back from the block we took a snapshot at
         let result = await revertSnapshot(prevStateID);
         blockNo = await web3.eth.getBlockNumber();
         assert.equal(prevBlockNo, blockNo, "checking revert worked");
 
+
         //Making sure there are enough confirmations and this fork is longer than the initial one
         for (var i = 0; i < 75; i++) {
             await advanceBlock();
-            await timeout(500);
+            await timeout(100);
         }
 
         //Check that PISA has not responded, as in the reorg the event PISA was hired to watch never happened
-        assert.equal(await dappInstance.counter.call(), 0, "after reorg: Counter should be 0... that way we know PISA did its job");
+        assert.equal(await dappInstance.counter.call(), 0, "after reorg: Counter should be 0... that way we know PISA behaved correctly");
         assert.equal(await dappInstance.inTrouble(), false, "after reorg: inTrouble should be false");
 
     });
