@@ -1,7 +1,7 @@
 const Dapp = artifacts.require("Dapp");
 const assert = require("chai").assert;
-var XMLHttpRequest = require("xmlhttprequest").XMLHttpRequest;
-var dappInstance;
+const XMLHttpRequest = require("xmlhttprequest").XMLHttpRequest;
+let dappInstance;
 
 web3.providers.HttpProvider.prototype.sendAsync = web3.providers.HttpProvider.prototype.send;
 
@@ -10,7 +10,7 @@ advanceTimeAndBlock = async (time) => {
     await advanceBlock();
 
     return Promise.resolve(web3.eth.getBlock('latest'));
-}
+};
 
 advanceTime = (time) => {
     return new Promise((resolve, reject) => {
@@ -26,10 +26,9 @@ advanceTime = (time) => {
             return resolve(result);
         });
     });
-}
+};
 
 revertSnapshot = (_result) => {
-
     console.log("ID we are using: " + _result);
 
     return new Promise((resolve, reject) => {
@@ -45,7 +44,7 @@ revertSnapshot = (_result) => {
             return resolve(result);
         });
     });
-}
+};
 
 
 advanceBlock = () => {
@@ -63,7 +62,7 @@ advanceBlock = () => {
             return resolve(newBlockHash);
         });
     });
-}
+};
 
 snapshotBlock = () => {
     return new Promise((resolve, reject) => {
@@ -79,7 +78,7 @@ snapshotBlock = () => {
             return resolve(result);
         });
     });
-}
+};
 
 // Stored for long-term use between tests.
 let appointment; // Appointment array
@@ -121,7 +120,7 @@ module.exports = {
     advanceTime,
     advanceBlock,
     advanceTimeAndBlock
-}
+};
 
 function getCurrentTime() {
     return new Promise(function (resolve) {
@@ -220,18 +219,18 @@ contract('Dapp', (accounts) => {
 
     it('PISA is hired and must respond to Distress event', async () => {
 
-        let blockNo = await web3.eth.getBlockNumber();
+        const blockNo = await web3.eth.getBlockNumber();
         channelId = 200;
 
         await advanceBlock();
-        let timestamp = await getCurrentTime();
+        const timestamp = await getCurrentTime();
 
         createAppointment(dappInstance.address, blockNo, account1, 20, timestamp, 1, "0x0000000000000000000000000000000000000000", web3.eth.abi.encodeParameter('uint', 50), 100, "event Distress(string indexed message)");
 
-        let hash = web3.utils.keccak256(encodedAppointment);
-        let cussig = await web3.eth.sign(hash, account1);
+        const hash = web3.utils.keccak256(encodedAppointment);
+        const cussig = await web3.eth.sign(hash, account1);
 
-        var data = JSON.stringify({
+        const data = JSON.stringify({
             "challengePeriod": appointment['challengePeriod'],
             "contractAddress": appointment['contractAddress'],
             "customerAddress": appointment['customerAddress'],
@@ -252,7 +251,7 @@ contract('Dapp', (accounts) => {
         });
 
         //Book appointment with PISA                           
-        let response = await sendData(data);
+        await sendData(data);
 
         //Trigger event that PISA was hired to watch
         await dappInstance.distressCall();
@@ -262,7 +261,7 @@ contract('Dapp', (accounts) => {
         //Making sure there are enough confirmations so that event is confirmed => PISA has to respond
         for (let i = 0; i < 50; i++) {
             await advanceBlock();
-            await timeout(500);
+            await timeout(100);
         }
 
         //Timeout as pisa is a live service that is tested
@@ -321,7 +320,7 @@ contract('Dapp', (accounts) => {
         //Making sure there are enough confirmations so that event is confirmed => PISA has to respond
         for (let i = 0; i < 50; i++) {
             await advanceBlock();
-            await timeout(500);
+            await timeout(100);
         }
 
         await timeout(1000);
@@ -493,14 +492,14 @@ contract('Dapp', (accounts) => {
         channelId = 200;
 
         await advanceBlock();
-        let timestamp = await getCurrentTime();
+        const timestamp = await getCurrentTime();
 
         createAppointment(dappInstance.address, blockNo, account2, 20, timestamp, 1, "0x0000000000000000000000000000000000000000", web3.eth.abi.encodeParameter('uint', 50), 100, "event Distress(string indexed message)");
 
-        let hash = web3.utils.keccak256(encodedAppointment);
-        let cussig = await web3.eth.sign(hash, account2);
+        const hash = web3.utils.keccak256(encodedAppointment);
+        const cussig = await web3.eth.sign(hash, account2);
 
-        var data = JSON.stringify({
+        const data = JSON.stringify({
             "challengePeriod": appointment['challengePeriod'],
             "contractAddress": appointment['contractAddress'],
             "customerAddress": appointment['customerAddress'],
@@ -521,10 +520,10 @@ contract('Dapp', (accounts) => {
         });
 
         //Book appointment with PISA                           
-        let response = await sendData(data);
+        await sendData(data);
 
         //Take a snapshot of the current block, before the event PISA was hired to watch happens
-        let snapshot = await snapshotBlock();
+        const snapshot = await snapshotBlock();
         blockNo = await web3.eth.getBlockNumber();
         prevStateID = snapshot['result'];
         prevBlockNo = blockNo;
@@ -538,7 +537,7 @@ contract('Dapp', (accounts) => {
 
         await timeout(500);
 
-        // Mine less than 5 blocks
+        //Making sure there are a less than 5 confirmations for the event
         for (let i = 0; i < 3; i++) {
             await advanceBlock();
             await timeout(100);
@@ -552,7 +551,7 @@ contract('Dapp', (accounts) => {
         assert.equal(await dappInstance.inTrouble(), true, "After snapshot: Should be in TROUBLE");
 
         //Construct a reorg back from the block we took a snapshot at
-        let result = await revertSnapshot(prevStateID);
+        await revertSnapshot(prevStateID);
         blockNo = await web3.eth.getBlockNumber();
         assert.equal(prevBlockNo, blockNo, "checking revert worked");
 
@@ -569,24 +568,23 @@ contract('Dapp', (accounts) => {
 
     });
 
-    it('PISA should respond again if there is a reorg', async () => {
-
+    it('PISA should respond again if there is a reorg before the responder confirmation time', async () => {
         let blockNo = await web3.eth.getBlockNumber();
         channelId = 200;
 
         await advanceBlock();
-        let timestamp = await getCurrentTime();
+        const timestamp = await getCurrentTime();
 
         createAppointment(dappInstance.address, blockNo, account2, 20, timestamp, 1, "0x0000000000000000000000000000000000000000", web3.eth.abi.encodeParameter('uint', 50), 100, "event Distress(string indexed message)");
 
-        let hash = web3.utils.keccak256(encodedAppointment);
-        let cussig = await web3.eth.sign(hash, account2);
+        const hash = web3.utils.keccak256(encodedAppointment);
+        const customerSig = await web3.eth.sign(hash, account2);
 
-        var data = JSON.stringify({
+        const data = JSON.stringify({
             "challengePeriod": appointment['challengePeriod'],
             "contractAddress": appointment['contractAddress'],
             "customerAddress": appointment['customerAddress'],
-            "customerSig": cussig,
+            "customerSig": customerSig,
             "data": appointment['data'],
             "endBlock": appointment['endBlock'],
             "eventABI": appointment['eventABI'],
@@ -603,15 +601,15 @@ contract('Dapp', (accounts) => {
         });
 
         //Book appointment with PISA                           
-        let response = await sendData(data);
+        await sendData(data);
 
         //Take a snapshot of the current block, before the event PISA was hired to watch happens
-        let snapshot = await snapshotBlock();
+        const snapshot = await snapshotBlock();
         blockNo = await web3.eth.getBlockNumber();
         prevStateID = snapshot['result'];
         prevBlockNo = blockNo;
 
-        //Check that  PISA has not responded
+        //Check that PISA has not responded
         assert.equal(await dappInstance.counter.call(), 0, "before snapshot: Counter should be 0");
         assert.equal(await dappInstance.inTrouble(), false, "before snapshot: inTrouble should be false");
 
@@ -620,39 +618,44 @@ contract('Dapp', (accounts) => {
 
         await timeout(500);
 
-        //Making sure there are enough confirmations
-        for (let i = 0; i < 50; i++) {
+        //Making sure there are a less than 5 confirmations for the event
+        for (let i = 0; i < 3; i++) {
             await advanceBlock();
-            await timeout(500);
+            await timeout(100);
         }
 
         //Timeout as pisa is a live service that is tested
         await timeout(500);
 
-        //Check that PISA has responded after event it was hired to watch for was triggered
-        assert.equal(await dappInstance.counter.call(), 1, "After snapshot: Counter should be 1... that way we know PISA did its job");
-        assert.equal(await dappInstance.inTrouble(), false, "After snapshot: Should be in TROUBLE");
+        //Check that PISA did not yet respond, as it is too early
+        assert.equal(await dappInstance.counter.call(), 0, "After snapshot: PISA should not have responded prematurely");
+        assert.equal(await dappInstance.inTrouble(), true, "After snapshot: Should be in TROUBLE");
+
+        // Making sure there are enough confirmations
+        for (let i = 0; i < 20; i++) {
+            await advanceBlock();
+            await timeout(100);
+        }
+        await timeout(500);
+
+        //Check that PISA did respond now
+        assert.equal(await dappInstance.counter.call(), 1, "After snapshot: PISA should have responded");
+        assert.equal(await dappInstance.inTrouble(), false, "After snapshot: Should NOT be in trouble");
 
         //Construct a reorg back from the block we took a snapshot at
-        let result = await revertSnapshot(prevStateID);
+        await revertSnapshot(prevStateID);
         blockNo = await web3.eth.getBlockNumber();
         assert.equal(prevBlockNo, blockNo, "checking revert worked");
-
-        //Making sure there are enough confirmations and this fork is longer than the initial one
-        for (let i = 0; i < 75; i++) {
-            await advanceBlock();
-            await timeout(500);
-        }
 
         //Trigger event that PISA was hired to watch
         await dappInstance.distressCall();
 
         await timeout(500);
 
-        //Making sure there are enough confirmations
+        // Making sure there are enough confirmations
         for (let i = 0; i < 50; i++) {
             await advanceBlock();
-            await timeout(500);
+            await timeout(100);
         }
 
         //Timeout as pisa is a live service that is tested
