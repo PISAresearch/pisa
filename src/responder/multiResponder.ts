@@ -93,11 +93,7 @@ export class MultiResponder {
 
             // we rethrow to the public if this item is already enqueued.
             if (doh instanceof GasQueueError && doh.kind === GasQueueErrorKind.AlreadyAdded) {
-<<<<<<< HEAD
-                throw new PublicInspectionError(`Appointment already in queue.`, doh);
-=======
                 throw new PublicInspectionError(`Appointment already being responded to.`);
->>>>>>> PISA now forwards appointments to the pisa contract
             }
         }
     }
