@@ -27,7 +27,8 @@ const nextConfig = {
     jsonRpcUrl: "http://localhost:8545",
     responderKey: "0x6370fd033278c143179d81c5526140625662b8daa446c22ee2d73db3707e620c",
     receiptKey: "0x6370fd033278c143179d81c5526140625662b8daa446c22ee2d73db3707e620c",
-    watcherResponseConfirmations: 0
+    watcherResponseConfirmations: 0,
+    maximumReorgLimit: 10
 };
 const provider = new ethers.providers.Web3Provider(ganache);
 provider.pollingInterval = 100;
@@ -129,15 +130,17 @@ describe("sos end to end", () => {
     ) => {
         let success = false;
         rescueContract.once(SosContract.RESCUE_EVENT_METHOD_SIGNATURE, () => (success = true));
-        const tx = await rescueContract.help(helpMessage);
-        await tx.wait(2);
+        await wait(50);
+        const tx = await rescueContract.help(helpMessage, { gasLimit: 1000000 });
+        await tx.wait();
 
         await waitForPredicate(() => success, 50, 20, helpMessage + ":" + errorMessage);
     };
 
     const callDistressAndWaitForCounter = async (helpMessage: string, count: number) => {
-        const tx = await rescueContract.help(helpMessage);
-        await tx.wait(2);
+        await wait(50)
+        const tx = await rescueContract.help(helpMessage);        
+        await tx.wait();
         await waitForPredicate(
             async () => ((await rescueContract.rescueCount()) as BigNumber).eq(count),
             50,
@@ -165,7 +168,7 @@ describe("sos end to end", () => {
         user2 = new Wallet(userKey2, provider);
         const pisaContract = await deployPisa(responderWallet);
         pisaContractAddress = pisaContract.address;
-        nextConfig.pisaContractAddress =pisaContractAddress;
+        nextConfig.pisaContractAddress = pisaContractAddress;
 
         const nonce = await responderWallet.getTransactionCount();
         exService = new PisaService(

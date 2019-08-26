@@ -63,7 +63,7 @@ export class PisaService extends StartStopService {
         this.applyMiddlewares(app, config);
 
         // block cache and processor
-        const cacheLimit = config.maximumReorgLimit === undefined ? 200 : config.maximumReorgLimit;
+        const cacheLimit = !config.maximumReorgLimit ? 200 : config.maximumReorgLimit;
         const blockCache = new BlockCache<Block>(cacheLimit);
         this.blockProcessor = new BlockProcessor<Block>(provider, blockFactory, blockCache);
 
