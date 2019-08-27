@@ -293,7 +293,7 @@ describe("Integration", function() {
             const sig = await wallets0[i].signMessage(hash);
             const clone = { ...appointment, customerSig: sig };
 
-            request.post(`http://localhost:${pisa.config.hostPort}/appointment`, {
+            await request.post(`http://localhost:${pisa.config.hostPort}/appointment`, {
                 json: clone
             });
 
@@ -306,11 +306,16 @@ describe("Integration", function() {
             };
 
             channelContracts[i].on(setStateEvent, makeListener(i));
-
-            // trigger a dispute
-            const tx = await channelContracts[i].triggerDispute();
-            await tx.wait();
         }
+
+        const waitTxPromises: Promise<any>[] = [];
+        for (let i = 0; i < nRuns; i++) {
+            // trigger a dispute, create a promise to wait for the transaction to be mined
+            waitTxPromises.push(channelContracts[i].triggerDispute().then((tx: any) => tx.wait()));
+        }
+
+        // wait for all transactions to be mined (should all be in the same block)
+        const results = await Promise.all(waitTxPromises);
 
         await mineBlocks(5, wallets0[0]);
 
