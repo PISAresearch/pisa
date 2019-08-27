@@ -308,7 +308,7 @@ describe("Integration", function() {
             channelContracts[i].on(setStateEvent, makeListener(i));
         }
 
-        const waitTxPromises: Promise<any>[] = [];
+        const waitTxPromises: Promise<ethers.providers.TransactionReceipt>[] = [];
         for (let i = 0; i < nRuns; i++) {
             // trigger a dispute, create a promise to wait for the transaction to be mined
             waitTxPromises.push(channelContracts[i].triggerDispute().then((tx: any) => tx.wait()));
@@ -316,6 +316,12 @@ describe("Integration", function() {
 
         // wait for all transactions to be mined (should all be in the same block)
         const results = await Promise.all(waitTxPromises);
+        const blockNumbers = results.map(tx => tx.blockNumber);
+        if (new Set(blockNumbers).size !== 1) {
+            // we expect all the transactions to be in the same block in this test; fail otherwise
+            const blockNumbersStr = `[${blockNumbers.join(", ")}]`;
+            chai.assert.fail(true, false, `Expected all the transactions to be in the same block, instead these are the block numbers: ${blockNumbersStr}. This test might be broken.`); // prettier-ignore
+        }
 
         await mineBlocks(5, wallets0[0]);
 
