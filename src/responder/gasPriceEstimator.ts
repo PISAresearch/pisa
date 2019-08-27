@@ -25,7 +25,6 @@ export class GasPriceEstimator {
         const currentPrice = await this.provider.getGasPrice();
         const currentHead = this.blockCache.head;
 
-        // TODO:253: estimating for an old appointment throws error!
         const timeLeft = appointment.endBlock - currentHead.number;
 
         // we set that the current gas price should be used at the 

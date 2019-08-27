@@ -72,7 +72,7 @@ export class HotEthereumAppointmentSigner extends EthereumAppointmentSigner {
      * @param appointment
      */
     public async signAppointment(appointment: Appointment): Promise<string> {
-        const packedData = appointment.encodeAndHash();
+        const packedData = appointment.encode();
         // now hash the packed data with the address before signing
         const digest = ethers.utils.keccak256(ethers.utils.defaultAbiCoder.encode(
             ...groupTuples([["bytes", packedData], ["address", this.pisaContractAddress]])

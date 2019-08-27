@@ -86,9 +86,7 @@ describe("alpha", () => {
         // deploy the contract
         const channelContractFactory = new ethers.ContractFactory(ABI, ByteCode, customer);
         const rescueContract = channelContractFactory.attach("0x717Bd700367AEBf70a6e37ca731937c8079D0047");
-        // console.log("deploying")
         // const rescueContract = await channelContractFactory.deploy();
-        // console.log("deployed")
 
         // setup
         const startBlock = await provider.getBlockNumber();

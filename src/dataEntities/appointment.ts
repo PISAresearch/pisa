@@ -476,13 +476,6 @@ export class Appointment {
     }
 
     /**
-     * The hashed ABI representation of this appointment
-     */
-    public encodeAndHash() {
-        return ethers.utils.keccak256(this.encode());
-    }
-
-    /**
      * Encode this appointment as a function call to response
      * @param appointment
      */

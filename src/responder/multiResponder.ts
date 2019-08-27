@@ -71,9 +71,8 @@ export class MultiResponder {
                     appointment.encodeForResponse(),
                     this.pisaContractAddress,
                     new BigNumber(0),
-                    // TODO:253: we're gonna have to restrict the data size, as the effects how much gas pisa spends
                     // it appears that sometimes pisa requires a lot of gas to function - resetting data shards?
-                    appointment.gasLimit.add(1000000)
+                    appointment.gasLimit.add(400000)
                 );
                 const idealGas = await this.gasEstimator.estimate(appointment);
                 const request = new GasQueueItemRequest(txIdentifier, idealGas, appointment, blockObserved);
@@ -83,7 +82,6 @@ export class MultiResponder {
                 // that we need to replace some transactions on the network. Find those and
                 // broadcast them
                 const replacedQueue = this.zStore.queue.add(request);
-                logger.info({ queueLength: this.zStore.queue.queueItems.length}, `Queue is now length: ${replacedQueue.queueItems.length}.`) //prettier-ignore
                 return await this.zStore.updateQueue(replacedQueue);
             });
 

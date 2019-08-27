@@ -108,49 +108,6 @@ describe("Integration", function() {
         provider.pollingInterval = 100;
         const wallet = new ethers.Wallet(KeyStore.theKeyStore.account1.wallet.privateKey, provider);
         const pisaContract = await deployPisa(wallet);
-        pisaContract.on("PISARecordedResponse", (...a: any[]) => {
-            console.log();
-            console.log();
-            console.log();
-            console.log();
-            console.log();
-            console.log();
-            console.log();
-            console.log();
-            console.log();
-            console.log();
-            console.log();
-            console.log();
-            console.log();
-            console.log();
-            console.log(a);
-            console.log();
-            console.log();
-            console.log();
-            console.log();
-            console.log();
-            console.log();
-            console.log();
-            console.log();
-            console.log();
-            console.log();
-            console.log();
-            console.log();
-            console.log();
-            console.log();
-            console.log();
-            console.log();
-            console.log();
-            console.log();
-            console.log();
-            console.log();
-            console.log();
-            console.log();
-            console.log();
-        });
-
-        console.log("0", await pisaContract.watchers(wallet.address));
-        console.log("a", await pisaContract.watchers(wallet.address));
 
         pisaContractAddress = pisaContract.address;
 
