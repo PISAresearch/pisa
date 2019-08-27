@@ -68,6 +68,7 @@ const encode = (request: IAppointmentRequest) => {
 describe("Integration", function() {
     this.timeout(60000);
     let pisa: PisaContainer, parity: ParityContainer, network: DockerClient.Network, parityPort: number;
+    let provider: ethers.providers.JsonRpcProvider;
 
     beforeEach(async () => {
         const currentDirectory = __dirname;
@@ -111,6 +112,9 @@ describe("Integration", function() {
             Name: networkName
         });
 
+        provider = new ethers.providers.JsonRpcProvider(`http://localhost:${parityPort}`);
+        provider.pollingInterval = 100;
+
         await parity.start(true);
         await pisa.start(true);
         // adding a wait here appears to stop intermittent errors that occur
@@ -126,8 +130,6 @@ describe("Integration", function() {
     });
 
     it("End to end", async () => {
-        const provider = new ethers.providers.JsonRpcProvider(`http://localhost:${parityPort}`);
-        provider.pollingInterval = 100;
         const key0 = KeyStore.theKeyStore.account0;
         const key1 = KeyStore.theKeyStore.account1;
         const wallet0 = key0.wallet.connect(provider);
@@ -207,16 +209,15 @@ describe("Integration", function() {
 
     it("End to end, multiple appointments", async () => {
         // like the previous test, but with multiple clients sending requests in parallel to Pisa.
-        const provider = new ethers.providers.JsonRpcProvider(`http://localhost:${parityPort}`);
-        provider.pollingInterval = 100;
 
         const nRuns = 5; // number of channels
+
+        const disputePeriod = 11;
 
         const wallets0: ethers.Wallet[] = [];
         const wallets1: ethers.Wallet[] = [];
 
-        const channelContractFactories: ethers.ContractFactory[] = [];
-
+        const channelContractPromises: Promise<ethers.Contract>[] = [];
         for (let i = 0; i < nRuns; i++) {
             // for the i-th request, we create two wallets wallets0[i] and wallet1[i]
 
@@ -240,17 +241,13 @@ describe("Integration", function() {
             wallets1.push(wall1.connect(provider));
 
             // contract
-            channelContractFactories.push(
-                new ethers.ContractFactory(KitsuneTools.ContractAbi, KitsuneTools.ContractBytecode, wallets0[i])
+            const channelContractFactory = new ethers.ContractFactory(
+                KitsuneTools.ContractAbi,
+                KitsuneTools.ContractBytecode,
+                wallets0[i]
             );
-        }
-
-        const disputePeriod = 11;
-        const channelContractPromises: Promise<ethers.Contract>[] = [];
-
-        for (let i = 0; i < nRuns; i++) {
             channelContractPromises.push(
-                channelContractFactories[i].deploy([wallets0[i].address, wallets1[i].address], disputePeriod)
+                channelContractFactory.deploy([wallets0[i].address, wallets1[i].address], disputePeriod)
             );
         }
 
