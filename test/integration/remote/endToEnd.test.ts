@@ -112,15 +112,15 @@ describe("Integration", function() {
             Name: networkName
         });
 
-        provider = new ethers.providers.JsonRpcProvider(`http://localhost:${parityPort}`);
-        provider.pollingInterval = 100;
-
         await parity.start(true);
         await pisa.start(true);
         // adding a wait here appears to stop intermittent errors that occur
         // during the integration tests. This isnt a great solution but it works
         // for now
         await wait(10000);
+
+        provider = new ethers.providers.JsonRpcProvider(`http://localhost:${parityPort}`);
+        provider.pollingInterval = 100;
     });
 
     afterEach(async () => {
