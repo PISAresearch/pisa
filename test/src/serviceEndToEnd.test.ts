@@ -14,6 +14,7 @@ import encodingDown from "encoding-down";
 import { StatusCodeError } from "request-promise/errors";
 import { deployPisa } from "./utils/contract";
 import { keccak256, defaultAbiCoder, arrayify } from "ethers/utils";
+import { wait } from "../../src/utils";
 chai.use(chaiAsPromised);
 
 const ganache = Ganache.provider({
@@ -226,6 +227,7 @@ describe("Service end-to-end", () => {
         });
 
         // trigger a dispute
+        await wait(100);
         const tx = await channelContract.triggerDispute();
         await tx.wait();
 
@@ -274,6 +276,7 @@ describe("Service end-to-end", () => {
         });
 
         // trigger a dispute
+        await wait(100);
         const tx = await channelContract.triggerDispute();
         await tx.wait();
 
