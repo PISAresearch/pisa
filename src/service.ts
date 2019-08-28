@@ -136,7 +136,9 @@ export class PisaService extends StartStopService {
         });
 
         const service = app.listen(config.hostPort, config.hostName);
-        this.logger.info(config, "PISA config settings.");
+        // never log private parts of the config
+        const { receiptKey, responderKey, ...rest } = config;
+        this.logger.info(rest, "PISA config settings.");
         this.server = service;
     }
 
