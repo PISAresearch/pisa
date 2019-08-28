@@ -281,11 +281,11 @@ describe("Integration", function() {
 
             const createAppointmentRequest = (data: string, acc: string): IAppointmentRequest => {
                 return {
-                    challengePeriod: 20,
+                    challengePeriod: 100,
                     contractAddress: channelContracts[i].address,
                     customerAddress: acc,
                     data,
-                    endBlock: 22,
+                    endBlock: 110,
                     eventABI: KitsuneTools.eventABI(),
                     eventArgs: KitsuneTools.eventArgs(),
                     gasLimit: "100000",
