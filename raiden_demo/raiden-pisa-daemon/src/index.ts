@@ -22,6 +22,10 @@ const argv = require("yargs")
     .describe("db", "The location of the raiden db instance that is hiring pisa")
     .describe("startId", "Tells the daemon to start processing raiden db from this row id onward")
     .default("startId", null)
+    .demandOption(["jsonRpcUrl"])
+    .describe("jsonRpcUrl", "The connected ethereum client.")
+    .demandOption(["pisaContractAddress"])
+    .describe("pisaContractAddress", "The address of the on-chain PISA contract.")
     .help().argv;
 
 const run = async (startingRowId: number) => {
@@ -32,6 +36,8 @@ const run = async (startingRowId: number) => {
             .trim();
         const wallet = await getWallet(argv.keyfile, password);
         const pisaClient = new PisaClient(argv.pisa);
+        const pisaContractAddress = argv.pisaContractAddress;
+        const provider = new ethers.providers.JsonRpcProvider(argv.jsonRpcUrl);
 
         const callback = async (bp: IRawBalanceProof) => {
             const sigGroup = BalanceProofSigGroup.fromBalanceProof(bp);
@@ -48,6 +54,8 @@ const run = async (startingRowId: number) => {
                 nonClosingSig
             );
 
+            const blockNumber = await provider.getBlockNumber();
+
             const request = {
                 challengePeriod: 200,
                 contractAddress: sigGroup.token_network_identifier,
@@ -63,12 +71,15 @@ const run = async (startingRowId: number) => {
                 preCondition: "0x",
                 postCondition: "0x",
                 refund: "0",
-                startBlock: 0,
+                startBlock: blockNumber,
                 paymentHash: ethers.utils.keccak256(ethers.utils.toUtf8Bytes("on-the-house")),
                 customerSig: "0x"
             };
             const encoded = encode(request);
-            const sig = await wallet.signMessage(encoded);
+            const hashedWithAddress = keccak256(
+                ethers.utils.defaultAbiCoder.encode(["bytes", "address"], [encoded, pisaContractAddress])
+            );
+            const sig = await wallet.signMessage(ethers.utils.arrayify(hashedWithAddress));
             request.customerSig = sig;
             console.log(request);
             await pisaClient.requestAppointment(request);
@@ -126,10 +137,8 @@ const encode = (request: any) => {
         ])
     );
 
-    return ethers.utils.keccak256(
-        ethers.utils.defaultAbiCoder.encode(
-            ...groupTuples([["bytes", appointmentInfo], ["bytes", contractInfo], ["bytes", conditionInfo]])
-        )
+    return ethers.utils.defaultAbiCoder.encode(
+        ...groupTuples([["bytes", appointmentInfo], ["bytes", contractInfo], ["bytes", conditionInfo]])
     );
 };
 

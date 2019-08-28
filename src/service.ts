@@ -19,6 +19,7 @@ import path from "path";
 import { GasQueue } from "./responder/gasQueue";
 import rateLimit from "express-rate-limit";
 import uuid = require("uuid/v4");
+import { BigNumber } from "ethers/utils";
 
 /**
  * Request object supplemented with a log
@@ -34,6 +35,10 @@ export class PisaService extends StartStopService {
     private readonly responderStore: ResponderStore;
     private readonly appointmentStore: AppointmentStore;
     private readonly blockchainMachine: BlockchainMachine<Block>;
+    private readonly JSON_SCHEMA_ROUTE = "/schemas/appointmentRequest.json";
+    private readonly API_DOCS_JSON_ROUTE = "/api-docs.json";
+    private readonly API_DOCS_HTML_ROUTE = "/docs.html";
+    private readonly APPOINTMENT_ROUTE = "/appointment";
 
     /**
      *
@@ -58,7 +63,7 @@ export class PisaService extends StartStopService {
         this.applyMiddlewares(app, config);
 
         // block cache and processor
-        const cacheLimit = config.maximumReorgLimit === undefined ? 200 : config.maximumReorgLimit;
+        const cacheLimit = config.maximumReorgLimit == undefined ? 200 : config.maximumReorgLimit;
         const blockCache = new BlockCache<Block>(cacheLimit);
         this.blockProcessor = new BlockProcessor<Block>(provider, blockFactory, blockCache);
 
@@ -74,7 +79,8 @@ export class PisaService extends StartStopService {
             chainId,
             this.responderStore,
             wallet.address,
-            500000000000000000
+            new BigNumber("500000000000000000"),
+            config.pisaContractAddress
         );
 
         // components and machine
@@ -95,30 +101,42 @@ export class PisaService extends StartStopService {
         this.blockchainMachine.addComponent(responder);
 
         // if a key to sign receipts was provided, create an EthereumAppointmentSigner
-        const appointmentSigner = new HotEthereumAppointmentSigner(receiptSigner);
+        const appointmentSigner = new HotEthereumAppointmentSigner(receiptSigner, config.pisaContractAddress);
 
         // tower
-        const tower = new PisaTower(provider, this.appointmentStore, appointmentSigner, multiResponder);
+        const tower = new PisaTower(
+            this.appointmentStore,
+            appointmentSigner,
+            multiResponder,
+            blockCache,
+            config.pisaContractAddress
+        );
 
-        app.post("/appointment", this.appointment(tower));
+        app.post(this.APPOINTMENT_ROUTE, this.appointment(tower));
 
         // api docs
         const hostAndPort = `${config.hostName}:${config.hostPort}`;
         const docs = swaggerJsDoc(this.createSwaggerDocs(hostAndPort));
-        app.get("/api-docs.json", (req, res) => {
+        app.get(this.API_DOCS_JSON_ROUTE, (req, res) => {
             res.setHeader("Content-Type", "application/json");
             res.send(docs);
         });
-        app.get("/docs.html", (req, res) => {
+        app.get(this.API_DOCS_HTML_ROUTE, (req, res) => {
             res.setHeader("Content-Type", "text/html");
-            res.send(this.redocHtml(config.hostName, config.hostPort));
+            res.send(this.redocHtml());
         });
-        app.get("/schemas/appointmentRequest.json", (req, res) => {
+        app.get(this.JSON_SCHEMA_ROUTE, (req, res) => {
             res.sendFile(path.join(__dirname, "dataEntities/appointmentRequestSchema.json"));
+        });
+        // set up 404
+        app.get("*", function(req, res) {
+            res.status(404).json({
+                message: "Route not found, only availale routes are POST at /appointment and GET at /docs.html"
+            });
         });
 
         const service = app.listen(config.hostPort, config.hostName);
-        this.logger.info(config);
+        this.logger.info(config, "PISA config settings.");
         this.server = service;
     }
 
@@ -168,21 +186,50 @@ export class PisaService extends StartStopService {
             (req as any).log = this.logger.child({ requestId: uuid() });
             next();
         });
+        // set up base error handler
+        app.use((err: Error, req: requestAndLog, res: express.Response, next: express.NextFunction) => {
+            this.logger.error({ err, req, res, requestBody: req.body }, "Base handler");
+            if ((err as any).statusCode === 400) {
+                res.status(400);
+                res.send({ message: "Bad request" });
+            } else if ((err as any).statusCode) {
+                try {
+                    Number.parseInt((err as any).statusCode);
+                    res.status((err as any).statusCode);
+                    res.send({});
+                } catch (doh) {
+                    res.status(500);
+                    res.send({ message: "Internal server error" });
+                }
+            } else {
+                res.status(500);
+                res.send({ message: "Internal server error" });
+            }
+        });
         app.use((req: requestAndLog, res: express.Response, next: express.NextFunction) => {
             //log the duration of every request, and the body in case of error
             const startNano = process.hrtime.bigint();
             res.on("finish", () => {
                 const endNano = process.hrtime.bigint();
                 const microDuration = Number.parseInt((endNano - startNano).toString()) / 1000;
-                const logEntry = { req: req, res: res, duration: microDuration };
-
-                if (res.statusCode !== 200) {
-                    req.log.error({ ...logEntry, requestBody: req.body }, "Error response.");
-                }
-                // right now we log the request body as well even on a success response
+                // right now we log the request body
                 // this probably isn't sutainable in the long term, but it should help us
                 // get a good idea of usage in the short term
-                else req.log.info({ ...logEntry, requestBody: req.body }, "Success response.");
+                const logEntry = { req: req, res: res, duration: microDuration, requestBody: req.body };
+
+                if (
+                    // is this a docs request
+                    [this.JSON_SCHEMA_ROUTE, this.API_DOCS_JSON_ROUTE, this.API_DOCS_HTML_ROUTE]
+                        .map(a => a.toLowerCase())
+                        .indexOf(req.url.toLowerCase()) !== -1 &&
+                    res.statusCode < 400
+                ) {
+                    req.log.info(logEntry, "Docs request.");
+                } else if (res.statusCode == 200) {
+                    req.log.info(logEntry, "Success response.");
+                } else if (res.statusCode >= 400) {
+                    req.log.error(logEntry, "Error response.");
+                } else req.log.error(logEntry, "Other response.");
             });
             next();
         });
@@ -218,7 +265,7 @@ export class PisaService extends StartStopService {
      *
      * /appointment:
      *   post:
-     *     description: Request an appointmnt
+     *     description: Request an appointment
      *     produces:
      *       - application/json
      *     parameters:
@@ -268,7 +315,7 @@ export class PisaService extends StartStopService {
         res.send({ message: responseMessage });
     }
 
-    private redocHtml(host: string, port: number) {
+    private redocHtml() {
         return `<!DOCTYPE html>
             <html>
             <head>

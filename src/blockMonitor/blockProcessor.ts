@@ -62,11 +62,18 @@ export const blockFactory = (provider: ethers.providers.Provider) => async (
         blockHash: block.hash
     });
 
+    const transactions = (block.transactions as any) as ethers.providers.TransactionResponse[];
+    for (const tx of transactions) {
+        // we should use chain id, but for some reason chain id is not present in transactions from ethersjs
+        // therefore we fallback to network id when chain id is not present
+        if (tx.chainId != undefined) tx.chainId = (tx as any).networkId;
+    }
+
     return {
         hash: block.hash,
         number: block.number,
         parentHash: block.parentHash,
-        transactions: (block.transactions as any) as ethers.providers.TransactionResponse[],
+        transactions: transactions,
         transactionHashes: ((block.transactions as any) as ethers.providers.TransactionResponse[]).map(t => t.hash!),
         logs
     };
@@ -175,7 +182,7 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
         if (this.blockCache.hasBlock(blockHash, true)) {
             return this.blockCache.getBlock(blockHash);
         } else {
-            return this.getBlockRemote(blockHash);
+            return await this.getBlockRemote(blockHash);
         }
     }
     // Processes a new block, adding it to the cache and emitting the appropriate events
@@ -195,31 +202,29 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
             this.lastBlockHashReceived = observedBlock.hash;
 
             // fetch ancestors and keep adding until one is found that is attached
-            let curBlock: Readonly<TBlock> | null = observedBlock;
-            while (
-                [BlockAddResult.AddedDetached, BlockAddResult.NotAddedAlreadyExistedDetached].includes(
-                    this.mBlockCache.addBlock(curBlock)
-                )
-            ) {
-                const lastHash: string = curBlock.parentHash;
-                curBlock = await this.getBlock(lastHash);
+            let curBlock: Readonly<TBlock> = observedBlock;
+            let blockResult: BlockAddResult;
+            const observedBlockResult = (blockResult = this.mBlockCache.addBlock(curBlock));
 
-                if (!curBlock) {
-                    this.logger.info(`Failed to retrieve block with hash ${lastHash}.`);
-                    return;
-                }
+            while (
+                blockResult === BlockAddResult.AddedDetached ||
+                blockResult === BlockAddResult.NotAddedAlreadyExistedDetached
+            ) {
+                curBlock = await this.getBlock(curBlock.parentHash);
+                blockResult = this.mBlockCache.addBlock(curBlock);
             }
 
             // is the observed block still the last block received (or the first block, during startup)?
-            if (this.lastBlockHashReceived === observedBlock.hash) {
+            // and was the block added to the cache?
+            if (
+                this.lastBlockHashReceived === observedBlock.hash &&
+                observedBlockResult !== BlockAddResult.NotAddedBlockNumberTooLow
+            ) {
                 this.processNewHead(observedBlock);
             }
         } catch (doh) {
-            if (doh instanceof BlockFetchingError) {
-                this.logger.info(doh);
-            } else {
-                this.logger.error(doh);
-            }
+            if (doh instanceof BlockFetchingError) this.logger.info(doh);
+            else this.logger.error(doh);
         }
     }
 }

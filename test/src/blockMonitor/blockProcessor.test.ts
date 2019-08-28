@@ -101,7 +101,6 @@ describe("BlockProcessor", () => {
         if (throwErrorAtHash != null) {
             when(mockProvider.getBlock(throwErrorAtHash, anything())).thenThrow(new Error("unknown block"));
         }
-
         provider.emit("block", blocksByHash[hash].number);
     }
 

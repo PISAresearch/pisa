@@ -1,5 +1,6 @@
 import { ApplicationError, ArgumentError } from "../dataEntities";
 import { IBlockStub, TransactionHashes } from "../dataEntities/block";
+import logger from "../logger";
 
 // Possible return values of addBlock
 export enum BlockAddResult {

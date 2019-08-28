@@ -6,7 +6,11 @@ import logger from "../logger";
 import { BigNumber } from "ethers/utils";
 import { groupTuples } from "../utils/ethers";
 import { Logger } from "../logger";
-const ajv = new Ajv();
+import betterAjvErrors from "better-ajv-errors";
+import { ReadOnlyBlockCache } from "../blockMonitor/index.js";
+import { IBlockStub } from "./block.js";
+import { ABI } from "../contractInfo/pisa";
+const ajv = new Ajv({ jsonPointers: true, allErrors: true });
 const appointmentRequestValidation = ajv.compile(appointmentRequestSchemaJson);
 
 export enum AppointmentMode {
@@ -173,8 +177,8 @@ export class Appointment {
             customerChosenId: appointment.customerChosenId,
             jobId: appointment.jobId,
             data: appointment.data,
-            refund: appointment.refund.toString(),
-            gasLimit: appointment.gasLimit.toString(),
+            refund: appointment.refund.toHexString(),
+            gasLimit: appointment.gasLimit.toHexString(),
             mode: appointment.mode,
             eventABI: appointment.eventABI,
             eventArgs: appointment.eventArgs,
@@ -217,8 +221,8 @@ export class Appointment {
             id: appointment.customerChosenId,
             jobId: appointment.jobId,
             data: appointment.data,
-            refund: appointment.refund.toString(),
-            gasLimit: appointment.gasLimit.toString(),
+            refund: appointment.refund.toHexString(),
+            gasLimit: appointment.gasLimit.toHexString(),
             mode: appointment.mode,
             eventABI: appointment.eventABI,
             eventArgs: appointment.eventArgs,
@@ -256,10 +260,18 @@ export class Appointment {
      */
     public static parse(obj: any, log: Logger = logger) {
         const valid = appointmentRequestValidation(obj);
-        
+
         if (!valid) {
-            log.info({ results: appointmentRequestValidation.errors }, "Schema error.");
-            throw new PublicDataValidationError(appointmentRequestValidation.errors!.map(e => e.message).join("\n"));
+            const betterErrors = betterAjvErrors(
+                appointmentRequestSchemaJson,
+                obj,
+                appointmentRequestValidation.errors,
+                { format: "js" }
+            );
+            if (betterErrors) {
+                log.info({ results: betterErrors }, "Schema error.");
+                throw new PublicDataValidationError(betterErrors.map(e => e.error).join("\n"));
+            }
         }
         const request = obj as IAppointmentRequest;
         Appointment.parseBigNumber(request.refund, "Refund", log);
@@ -268,11 +280,36 @@ export class Appointment {
     }
 
     /**
+     * The maximum amount we'll allow clients to cover themselves against forks.
+     */
+    private static readonly FORK_LIMIT = 20;
+
+    /**
+     * The maximum amount we'll allow clients to cover themselves against not being up to
+     * date with the same of head as ours.
+     */
+    private static readonly SYNCHRONISATION_LIMIT = 3;
+
+    /**
      * Validate property values on the appointment
      * @param log Logger to be used in case of failures
      */
-    public async validate(log: Logger = logger) {
+    public async validate(
+        blockCache: ReadOnlyBlockCache<IBlockStub>,
+        pisaContractAddress: string,
+        log: Logger = logger
+    ) {
         if (this.paymentHash.toLowerCase() !== Appointment.FreeHash) throw new PublicDataValidationError("Invalid payment hash."); // prettier-ignore
+
+        const currentHead = blockCache.head.number;
+        // An attacker could fork the network causing a crucial event to occur
+        // before the appointment starts. Therefor a customer would want to hire pisa
+        // a small amount in the past to reduce this risk. There is also a margin of error
+        // between clients - we may be at different block heights
+        if(this.startBlock < (currentHead - Appointment.FORK_LIMIT - Appointment.SYNCHRONISATION_LIMIT)) throw new PublicDataValidationError(`Start block too low. Start block must be within ${Appointment.FORK_LIMIT + Appointment.SYNCHRONISATION_LIMIT} blocks of the current block ${currentHead}.`); // prettier-ignore
+        if(this.startBlock > (currentHead + Appointment.SYNCHRONISATION_LIMIT)) throw new PublicDataValidationError(`Start block too high. Start block must be within ${Appointment.SYNCHRONISATION_LIMIT} blocks of the current block ${currentHead}.`); // prettier-ignore
+        if((this.endBlock - this.startBlock) > 60000) throw new PublicDataValidationError(`Appointment duration too great. Maximum duration between start and end block is 60000.`); // prettier-ignore
+        if((this.endBlock - this.startBlock) < 100) throw new PublicDataValidationError(`Appointment duration too small. Minimum duration between start and end block is 100.`); // prettier-ignore
 
         try {
             this.mEventFilter = this.parseEventArgs();
@@ -287,9 +324,27 @@ export class Appointment {
         if (this.refund.gt(ethers.utils.parseEther("0.1"))) throw new PublicDataValidationError("Refund cannot be greater than 0.1 ether."); // prettier-ignore
 
         // check the sig
-        const recoveredAddress = ethers.utils.verifyMessage(this.encode(), this.customerSig);
+        let encoded;
+        try {
+            encoded = this.encode();
+        } catch (doh) {
+            log.error(doh);
+            throw new PublicDataValidationError("Invalid solidity type. An error has occurred ABI encoding a field. This may be due to incorrect bytes encoding, please ensure that all byte(s) fields are of the correct length and are prefixed with 0x."); //prettier-ignore
+        }
+        let recoveredAddress;
+        try {
+            const hashForSig = ethers.utils.keccak256(
+                ethers.utils.defaultAbiCoder.encode(["bytes", "address"], [encoded, pisaContractAddress])
+            );
+            recoveredAddress = ethers.utils.verifyMessage(ethers.utils.arrayify(hashForSig), this.customerSig);
+        } catch (doh) {
+            log.error(doh);
+            throw new PublicDataValidationError("Invalid signature.");
+        }
         if (this.customerAddress.toLowerCase() !== recoveredAddress.toLowerCase()) {
-            throw new PublicDataValidationError("Invalid signature");
+            throw new PublicDataValidationError(
+                `Invalid signature - did not recover customer address ${this.customerAddress}.`
+            );
         }
     }
 
@@ -349,13 +404,14 @@ export class Appointment {
             indexes = ethers.utils.defaultAbiCoder.decode(["uint8[]"], this.eventArgs)[0];
         } catch (doh) {
             logger.info(doh);
-            throw new PublicDataValidationError("Incorrect first argument. First argument must be a uint8[] encoded array of the indexes of the event arguments to be filtered on.") // prettier-ignore
+            throw new PublicDataValidationError("Invalid EventArgs. Incorrect first argument. First argument must be a uint8[] encoded array of the indexes of the event arguments to be filtered on.") // prettier-ignore
         }
 
         const maxIndex = indexes.reduce((a, b) => (a > b ? a : b), 0);
         if (maxIndex > inputs.length - 1)
             throw new PublicInspectionError(
-                `Index ${maxIndex} greater than number of arguments in event. Arg length: ${inputs.length - 1}.`
+                `Invalid EventArgs. Index ${maxIndex} greater than number of arguments in event. Arg length: ${inputs.length -
+                    1}.`
             );
 
         const namedInputs = indexes.map(i => inputs[i]);
@@ -364,7 +420,7 @@ export class Appointment {
         namedInputs
             .filter(i => !i.indexed)
             .forEach(i => {
-                throw new PublicDataValidationError(`Only indexed event parameters can be specified as event arguments.  ${i.name ? `Parameter: ${i.name}` : ""}. Specified paramed: ${indexes}`); // prettier-ignore
+                throw new PublicDataValidationError(`Invalid EventArgs. Only indexed event parameters can be specified as event arguments.  ${i.name ? `Parameter: ${i.name}` : ""}. Specified paramed: ${indexes}`); // prettier-ignore
             });
 
         // decode the inputs that have been specified
@@ -405,6 +461,7 @@ export class Appointment {
                 ["bytes32", this.paymentHash]
             ])
         );
+
         const contractInfo = ethers.utils.defaultAbiCoder.encode(
             ...groupTuples([
                 ["address", this.contractAddress],
@@ -413,6 +470,7 @@ export class Appointment {
                 ["bytes", this.data]
             ])
         );
+
         const conditionInfo = ethers.utils.defaultAbiCoder.encode(
             ...groupTuples([
                 ["bytes", ethers.utils.toUtf8Bytes(this.eventABI)],
@@ -423,11 +481,24 @@ export class Appointment {
             ])
         );
 
-        return ethers.utils.keccak256(
-            ethers.utils.defaultAbiCoder.encode(
-                ...groupTuples([["bytes", appointmentInfo], ["bytes", contractInfo], ["bytes", conditionInfo]])
-            )
+        const encodedAppointment = ethers.utils.defaultAbiCoder.encode(
+            ...groupTuples([["bytes", appointmentInfo], ["bytes", contractInfo], ["bytes", conditionInfo]])
         );
+
+        return encodedAppointment;
+    }
+
+    /**
+     * Encode this appointment as a function call to response
+     * @param appointment
+     */
+    public encodeForResponse() {
+        const encoded = this.encode();
+        const sig = this.customerSig;
+
+        const iFace = new ethers.utils.Interface(ABI);
+
+        return iFace.functions["respond"].encode([encoded, sig]);
     }
 }
 

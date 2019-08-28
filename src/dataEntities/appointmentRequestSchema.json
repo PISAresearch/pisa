@@ -29,8 +29,8 @@
             "type": "integer",
             "title": "Challenge period",
             "description": "The number of blocks that PISA has to respond if an event is noticed.",
-            "minimum": 0,
-            "maximum": 9007199254740991,
+            "minimum": 100,
+            "maximum": 60000,
             "examples": [100]
         },
         "contractAddress": {
@@ -52,7 +52,7 @@
             "type": "string",
             "title": "Customer signature",
             "description": "The customers signature for this appointment",
-            "examples": ["0x9e64b53b935602cd0657343C69Fe200fb3cD05c8"]
+            "examples": ["0x0870ede99ad9547ca2f45140ac5088291da331379283383278886814419c795d5571f560f302ba9ec45485a5e6cb237224baed39d15597cf530cac162556a6a000"]
         },
         "data": {
             "$id": "#/properties/data",
@@ -124,8 +124,8 @@
             "$id": "#/properties/paymentHash",
             "type": "string",
             "title": "Payment hash",
-            "description": "The hash received during payment.",
-            "examples": ["0x11359291abdee43476905204ea224bd2c1ccc775f283d280ed61f8f0ce94483e"]
+            "description": "The hash received during payment. Use `0xfc1624bdc50da30f2ea37b7debabeac1f6166db013c5880dcf63907b04199138` for free access.",
+            "examples": ["0xfc1624bdc50da30f2ea37b7debabeac1f6166db013c5880dcf63907b04199138"]
         },
         "preCondition": {
             "$id": "#/properties/preCondition",

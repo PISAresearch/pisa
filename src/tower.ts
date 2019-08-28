@@ -1,19 +1,22 @@
 import { AppointmentStore } from "./watcher";
 import { ethers } from "ethers";
-import { SignedAppointment, IAppointment, Appointment, PublicDataValidationError } from "./dataEntities";
+import { SignedAppointment, Appointment, PublicDataValidationError, IBlockStub } from "./dataEntities";
 import { AppointmentMode } from "./dataEntities/appointment";
 import { MultiResponder } from "./responder";
-import logger, { Logger } from "./logger";
+import { Logger } from "./logger";
+import { ReadOnlyBlockCache } from "./blockMonitor";
+import { groupTuples } from "./utils/ethers";
 
 /**
  * A PISA tower, configured to watch for specified appointment types
  */
 export class PisaTower {
     constructor(
-        public readonly provider: ethers.providers.Provider,
         private readonly store: AppointmentStore,
         private readonly appointmentSigner: EthereumAppointmentSigner,
-        private readonly multiResponder: MultiResponder
+        private readonly multiResponder: MultiResponder,
+        private readonly blockCache: ReadOnlyBlockCache<IBlockStub>,
+        private readonly pisaContractAddress: string
     ) {}
 
     /**
@@ -24,7 +27,7 @@ export class PisaTower {
         if (!obj) throw new PublicDataValidationError("Json request body empty.");
         const appointment = Appointment.parse(obj, log);
         // check the appointment is valid
-        await appointment.validate(log);
+        await appointment.validate(this.blockCache, this.pisaContractAddress, log);
 
         // is this a relay transaction, if so, add it to the responder.
         // if not, add it to the watcher
@@ -59,7 +62,7 @@ export abstract class EthereumAppointmentSigner {
  * This EthereumAppointmentSigner signs appointments using a hot wallet.
  */
 export class HotEthereumAppointmentSigner extends EthereumAppointmentSigner {
-    constructor(private readonly signer: ethers.Signer) {
+    constructor(private readonly signer: ethers.Signer, public readonly pisaContractAddress: string) {
         super();
     }
 
@@ -70,7 +73,10 @@ export class HotEthereumAppointmentSigner extends EthereumAppointmentSigner {
      */
     public async signAppointment(appointment: Appointment): Promise<string> {
         const packedData = appointment.encode();
-        const digest = ethers.utils.keccak256(packedData);
-        return await this.signer.signMessage(digest);
+        // now hash the packed data with the address before signing
+        const digest = ethers.utils.keccak256(ethers.utils.defaultAbiCoder.encode(
+            ...groupTuples([["bytes", packedData], ["address", this.pisaContractAddress]])
+        ));        
+        return await this.signer.signMessage(ethers.utils.arrayify(digest));
     }
 }

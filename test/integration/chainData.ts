@@ -42,7 +42,7 @@ export class ChainData {
                     }
                 },
                 difficulty: "0x20000",
-                gasLimit: "0x5B8D80"
+                gasLimit: "0x7A1200"
             },
             accounts: {
                 "0x0000000000000000000000000000000000000001": {

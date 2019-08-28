@@ -12,10 +12,14 @@ import levelup, { LevelUp } from "levelup";
 import MemDown from "memdown";
 import encodingDown from "encoding-down";
 import { StatusCodeError } from "request-promise/errors";
+import { deployPisa } from "./utils/contract";
+import { keccak256, defaultAbiCoder, arrayify } from "ethers/utils";
+import { wait } from "../../src/utils";
 chai.use(chaiAsPromised);
 
 const ganache = Ganache.provider({
-    mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect"
+    mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect",
+    gasLimit: 8000000
 });
 const nextConfig = {
     ...config,
@@ -37,31 +41,36 @@ const appointmentRequest = async (
     contractAddress: string,
     mode: number,
     customer: ethers.Signer,
-    customerAddress: string
+    customerAddress: string,
+    startBlock: number,
+    pisaContractAddress: string
 ): Promise<IAppointmentRequest> => {
     const bareAppointment = {
-        challengePeriod: 20,
+        challengePeriod: 100,
         contractAddress,
         customerAddress: customerAddress,
         data,
-        endBlock: 22,
+        endBlock: 1000,
         eventABI: KitsuneTools.eventABI(),
         eventArgs: KitsuneTools.eventArgs(),
-        gasLimit: "100000",
+        gasLimit: "1000000",
         id: 1,
         jobId: 0,
         mode,
         preCondition: "0x",
         postCondition: "0x",
         refund: "0",
-        startBlock: 0,
+        startBlock,
         paymentHash: Appointment.FreeHash,
-        customerSig: "ox"
+        customerSig: "0x"
     };
 
     const app = Appointment.parse(bareAppointment);
     const encoded = app.encode();
-    const sig = await customer.signMessage(encoded);
+    const hashedWithAddress = keccak256(defaultAbiCoder.encode(["bytes", "address"], [encoded, pisaContractAddress]));
+
+    const sig = await customer.signMessage(arrayify(hashedWithAddress));
+
     return {
         ...Appointment.toIAppointmentRequest(app),
         customerSig: sig,
@@ -80,7 +89,8 @@ describe("Service end-to-end", () => {
         hashState: string,
         disputePeriod: number,
         service: PisaService,
-        db: LevelUp<encodingDown<string, any>>;
+        db: LevelUp<encodingDown<string, any>>,
+        pisaContractAddress: string;
 
     beforeEach(async () => {
         const responderWallet = new ethers.Wallet(nextConfig.responderKey, provider);
@@ -92,7 +102,9 @@ describe("Service end-to-end", () => {
         );
 
         const signerWallet = new ethers.Wallet(nextConfig.receiptKey!, provider);
-        signerWallet.connect(provider);
+        const pisaContract = await deployPisa(responderWallet);
+        nextConfig.pisaContractAddress = pisaContract.address;
+        pisaContractAddress = pisaContract.address;
         const nonce = await responderWallet.getTransactionCount();
 
         service = new PisaService(
@@ -123,7 +135,7 @@ describe("Service end-to-end", () => {
             provider.getSigner()
         );
         // add the responder as a user, so that it's allowed to call trigger dispute
-        oneWayChannelContract = await channelContractFactory.deploy([responderWallet.address], disputePeriod);
+        oneWayChannelContract = await channelContractFactory.deploy([pisaContractAddress], disputePeriod);
         channelContract = await channelContractFactory.deploy([account0, account1], disputePeriod);
         hashState = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("face-off"));
     });
@@ -153,7 +165,16 @@ describe("Service end-to-end", () => {
         const sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash));
         const sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash));
         const data = KitsuneTools.encodeSetStateData(hashState, round, sig0, sig1);
-        const appRequest = await appointmentRequest(data, channelContract.address, 1, wallet0, account0);
+        const currentBlockNumber = await provider.getBlockNumber();
+        const appRequest = await appointmentRequest(
+            data,
+            channelContract.address,
+            1,
+            wallet0,
+            account0,
+            currentBlockNumber,
+            pisaContractAddress
+        );
 
         try {
             await request.post(`http://${nextConfig.hostName}:${nextConfig.hostPort + 1}/appointment`, {
@@ -182,7 +203,16 @@ describe("Service end-to-end", () => {
         const sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash));
         const sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash));
         const data = KitsuneTools.encodeSetStateData(hashState, round, sig0, sig1);
-        const appRequest = await appointmentRequest(data, channelContract.address, 1, wallet0, account0);
+        const currentBlockNumber = await provider.getBlockNumber();
+        const appRequest = await appointmentRequest(
+            data,
+            channelContract.address,
+            1,
+            wallet0,
+            account0,
+            currentBlockNumber,
+            pisaContractAddress
+        );
 
         const res = await request.post(`http://${nextConfig.hostName}:${nextConfig.hostPort}/appointment`, {
             json: appRequest
@@ -197,6 +227,7 @@ describe("Service end-to-end", () => {
         });
 
         // trigger a dispute
+        await wait(100);
         const tx = await channelContract.triggerDispute();
         await tx.wait();
 
@@ -215,7 +246,16 @@ describe("Service end-to-end", () => {
         const sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash));
         const sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash));
         const data = KitsuneTools.encodeSetStateData(hashState, round, sig0, sig1);
-        const appRequest = await appointmentRequest(data, channelContract.address, 1, wallet0, account0);
+        const currentBlockNumber = await provider.getBlockNumber();
+        const appRequest = await appointmentRequest(
+            data,
+            channelContract.address,
+            1,
+            wallet0,
+            account0,
+            currentBlockNumber,
+            pisaContractAddress
+        );
 
         const res = await request.post(`http://${nextConfig.hostName}:${nextConfig.hostPort}/appointment`, {
             json: appRequest
@@ -236,6 +276,7 @@ describe("Service end-to-end", () => {
         });
 
         // trigger a dispute
+        await wait(100);
         const tx = await channelContract.triggerDispute();
         await tx.wait();
 
@@ -250,18 +291,24 @@ describe("Service end-to-end", () => {
 
     it("create channel, relay trigger dispute", async () => {
         const data = KitsuneTools.encodeTriggerDisputeData();
-        const appRequest = await appointmentRequest(data, oneWayChannelContract.address, 0, wallet0, account0);
-
-        const res = await request.post(`http://${nextConfig.hostName}:${nextConfig.hostPort}/appointment`, {
-            json: appRequest
-        });
+        const currentBlockNumber = await provider.getBlockNumber();
+        const appRequest = await appointmentRequest(
+            data,
+            oneWayChannelContract.address,
+            0,
+            wallet0,
+            account0,
+            currentBlockNumber,
+            pisaContractAddress
+        );
 
         // now register a callback on the setstate event and trigger a response
         const triggerDisputeEvent = "EventDispute(uint256)";
         let success = false;
-        oneWayChannelContract.on(triggerDisputeEvent, async () => {
-            oneWayChannelContract.removeAllListeners(triggerDisputeEvent);
-            success = true;
+        oneWayChannelContract.once(triggerDisputeEvent, async () => (success = true));
+
+        const res = await request.post(`http://${nextConfig.hostName}:${nextConfig.hostPort}/appointment`, {
+            json: appRequest
         });
 
         try {
@@ -269,13 +316,27 @@ describe("Service end-to-end", () => {
             await waitForPredicate(() => success, 50, 20);
         } catch (doh) {
             // fail if we dont get it
-            chai.assert.fail(true, false, "EventEvidence not successfully registered.");
+            chai.assert.fail(true, false, "EventDispute not successfully registered.");
         }
     }).timeout(3000);
 
     it("create channel, relay twice throws error trigger dispute", async () => {
         const data = KitsuneTools.encodeTriggerDisputeData();
-        const appRequest = await appointmentRequest(data, oneWayChannelContract.address, 0, wallet0, account0);
+        const currentBlockNumber = await provider.getBlockNumber();
+        const appRequest = await appointmentRequest(
+            data,
+            oneWayChannelContract.address,
+            0,
+            wallet0,
+            account0,
+            currentBlockNumber,
+            pisaContractAddress
+        );
+
+        // now register a callback on the setstate event and trigger a response
+        const triggerDisputeEvent = "EventDispute(uint256)";
+        let success = false;
+        oneWayChannelContract.once(triggerDisputeEvent, async () => (success = true));
 
         const res = await request.post(`http://${nextConfig.hostName}:${nextConfig.hostPort}/appointment`, {
             json: appRequest
@@ -286,20 +347,12 @@ describe("Service end-to-end", () => {
             })
         ).to.eventually.be.rejected;
 
-        // now register a callback on the setstate event and trigger a response
-        const triggerDisputeEvent = "EventDispute(uint256)";
-        let success = false;
-        oneWayChannelContract.on(triggerDisputeEvent, async () => {
-            oneWayChannelContract.removeAllListeners(triggerDisputeEvent);
-            success = true;
-        });
-
         try {
             // wait for the success result
             await waitForPredicate(() => success, 50, 20);
         } catch (doh) {
             // fail if we dont get it
-            chai.assert.fail(true, false, "EventEvidence not successfully registered.");
+            chai.assert.fail(true, false, "EventDispute not successfully registered.");
         }
     }).timeout(3000);
 
