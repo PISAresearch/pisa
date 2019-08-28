@@ -132,6 +132,7 @@ describe("sos end to end", () => {
         rescueContract.once(SosContract.RESCUE_EVENT_METHOD_SIGNATURE, () => (success = true));
         await wait(50);
         const tx = await rescueContract.help(helpMessage, { gasLimit: 1000000 });
+        await wait(50);
         await tx.wait();
 
         await waitForPredicate(() => success, 50, 20, helpMessage + ":" + errorMessage);
@@ -140,6 +141,7 @@ describe("sos end to end", () => {
     const callDistressAndWaitForCounter = async (helpMessage: string, count: number) => {
         await wait(50)
         const tx = await rescueContract.help(helpMessage);        
+        await wait(50)
         await tx.wait();
         await waitForPredicate(
             async () => ((await rescueContract.rescueCount()) as BigNumber).eq(count),
