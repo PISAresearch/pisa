@@ -280,6 +280,17 @@ export class Appointment {
     }
 
     /**
+     * The maximum amount we'll allow clients to cover themselves against forks.
+     */
+    private static readonly FORK_LIMIT = 20;
+
+    /**
+     * The maximum amount we'll allow clients to cover themselves against not being up to
+     * date with the same of head as ours.
+     */
+    private static readonly SYNCHRONISATION_LIMIT = 3;
+
+    /**
      * Validate property values on the appointment
      * @param log Logger to be used in case of failures
      */
@@ -290,13 +301,15 @@ export class Appointment {
     ) {
         if (this.paymentHash.toLowerCase() !== Appointment.FreeHash) throw new PublicDataValidationError("Invalid payment hash."); // prettier-ignore
 
-        // the start block must be close to the current block +/- 5
         const currentHead = blockCache.head.number;
-        if(this.startBlock < (currentHead - 5)) throw new PublicDataValidationError(`Start block too low. Start block must be within 5 blocks of the current block ${currentHead}.`); // prettier-ignore
-        if(this.startBlock > (currentHead + 5)) throw new PublicDataValidationError(`Start block too high. Start block must be within 5 blocks of the current block ${currentHead}.`); // prettier-ignore
+        // An attacker could fork the network causing a crucial event to occur
+        // before the appointment starts. Therefor a customer would want to hire pisa
+        // a small amount in the past to reduce this risk. There is also a margin of error
+        // between clients - we may be at different block heights
+        if(this.startBlock < (currentHead - Appointment.FORK_LIMIT - Appointment.SYNCHRONISATION_LIMIT)) throw new PublicDataValidationError(`Start block too low. Start block must be within ${Appointment.FORK_LIMIT + Appointment.SYNCHRONISATION_LIMIT} blocks of the current block ${currentHead}.`); // prettier-ignore
+        if(this.startBlock > (currentHead + Appointment.SYNCHRONISATION_LIMIT)) throw new PublicDataValidationError(`Start block too high. Start block must be within ${Appointment.SYNCHRONISATION_LIMIT} blocks of the current block ${currentHead}.`); // prettier-ignore
         if((this.endBlock - this.startBlock) > 60000) throw new PublicDataValidationError(`Appointment duration too great. Maximum duration between start and end block is 60000.`); // prettier-ignore
         if((this.endBlock - this.startBlock) < 100) throw new PublicDataValidationError(`Appointment duration too small. Minimum duration between start and end block is 100.`); // prettier-ignore
-        
 
         try {
             this.mEventFilter = this.parseEventArgs();
