@@ -1,11 +1,12 @@
 import { ethers } from "ethers";
+import wordlistEn from "ethers/wordlists/lang-en";
 
 export class Key {
     public wallet: ethers.Wallet;
     public encryptedJson: string;
 
-    constructor(public readonly mnemoic: string, public readonly password: string, json: any) {
-        this.wallet = ethers.Wallet.fromMnemonic(mnemoic);
+    constructor(public readonly mnemonic: string, public readonly password: string, json: any) {
+        this.wallet = ethers.Wallet.fromMnemonic(mnemonic);
         this.encryptedJson = JSON.stringify(json);
     }
 
