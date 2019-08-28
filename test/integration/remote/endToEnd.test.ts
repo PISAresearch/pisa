@@ -303,7 +303,10 @@ describe("Integration", function() {
 
             const appointment = createAppointmentRequest(data, wallets0[i].address);
             const hash = encode(appointment);
-            const sig = await wallets0[i].signMessage(hash);
+            const hashedWithAddress = ethers.utils.keccak256(
+                ethers.utils.defaultAbiCoder.encode(["bytes", "address"], [hash, pisaContractAddress])
+            );
+            const sig = await wallets0[i].signMessage(ethers.utils.arrayify(hashedWithAddress));
             const clone = { ...appointment, customerSig: sig };
 
             await request.post(`http://localhost:${pisa.config.hostPort}/appointment`, {
