@@ -1,6 +1,5 @@
 import { StartStopService, IAppointment, ApplicationError } from "../dataEntities";
 import { LevelUp } from "levelup";
-import encodingDown from "encoding-down";
 import { LockManager } from "../utils/lock";
 import { Appointment } from "../dataEntities/appointment";
 import EncodingDown from "encoding-down";
@@ -12,7 +11,7 @@ const sub = require("subleveldown");
  */
 export class AppointmentStore extends StartStopService {
     private readonly subDb: LevelUp<EncodingDown<string, any>>;
-    constructor(db: LevelUp<encodingDown<string, any>>) {
+    constructor(db: LevelUp<EncodingDown<string, any>>) {
         super("appointment-store");
         this.subDb = sub(db, `watcher`, { valueEncoding: 'json' });
     }
