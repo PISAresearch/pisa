@@ -294,8 +294,8 @@ export class Appointment {
         const currentHead = blockCache.head.number;
         if(this.startBlock < (currentHead - 5)) throw new PublicDataValidationError(`Start block too low. Start block must be within 5 blocks of the current block ${currentHead}.`); // prettier-ignore
         if(this.startBlock > (currentHead + 5)) throw new PublicDataValidationError(`Start block too high. Start block must be within 5 blocks of the current block ${currentHead}.`); // prettier-ignore
-        if((this.endBlock - this.startBlock) > 60000) throw new PublicDataValidationError(`Appointment duration too great. Maximum duration between start and block is 60000.`); // prettier-ignore
-        if((this.endBlock - this.startBlock) < 100) throw new PublicDataValidationError(`Appointment duration too small. Minimum duration between start and block is 100.`); // prettier-ignore
+        if((this.endBlock - this.startBlock) > 60000) throw new PublicDataValidationError(`Appointment duration too great. Maximum duration between start and end block is 60000.`); // prettier-ignore
+        if((this.endBlock - this.startBlock) < 100) throw new PublicDataValidationError(`Appointment duration too small. Minimum duration between start and end block is 100.`); // prettier-ignore
         
 
         try {

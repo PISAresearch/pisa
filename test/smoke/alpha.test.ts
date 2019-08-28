@@ -1,8 +1,10 @@
 import "mocha";
 import request from "request-promise";
-import { ABI, ByteCode, encodeData, DISTRESS_EVENT_ABI, encodeArgs } from "./SOSContract";
+import * as SosContract from "./SOSContract";
 import { Wallet, ethers } from "ethers";
 import { JsonRpcProvider } from "ethers/providers";
+import { wait } from "../../src/utils";
+
 
 const encode = (request: any) => {
     const basicBytes = ethers.utils.defaultAbiCoder.encode(
@@ -84,13 +86,13 @@ describe("alpha", () => {
         const customer = new Wallet("0xD3E0200D9A8E615ED48E8317730EDD239BCDE54FB6EB2EBDC2FD6E6EA57AD6B3", provider);
 
         // deploy the contract
-        const channelContractFactory = new ethers.ContractFactory(ABI, ByteCode, customer);
+        const channelContractFactory = new ethers.ContractFactory(SosContract.ABI,SosContract.ByteCode, customer);
         const rescueContract = channelContractFactory.attach("0x717Bd700367AEBf70a6e37ca731937c8079D0047");
         // const rescueContract = await channelContractFactory.deploy();
 
         // setup
         const startBlock = await provider.getBlockNumber();
-        const message = "sos";
+        const helpMessage = "sos";
         const id = 8;
         const jobId = 1;
 
@@ -98,9 +100,9 @@ describe("alpha", () => {
         const appointmentRequest = createAppointmentRequest(
             rescueContract.address,
             customer.address,
-            encodeData("remote"),
-            DISTRESS_EVENT_ABI,
-            encodeArgs(message),
+            SosContract.encodeData("remote"),
+            SosContract.DISTRESS_EVENT_ABI,
+            SosContract.encodeArgs(helpMessage),
             id,
             jobId,
             startBlock
@@ -114,11 +116,37 @@ describe("alpha", () => {
             json: { ...appointmentRequest, customerSig }
         });
         console.log(response)
+
+        let success = false;
+        rescueContract.once(SosContract.RESCUE_EVENT_METHOD_SIGNATURE, () => (success = true));
+        await wait(50);
         
-        const tx = await rescueContract.help()
+        const tx = await rescueContract.help(helpMessage, { gasLimit: 1000000 });
         console.log("help broadcast")
         await tx.wait();
         console.log("help mined")
-        return;
+
+        await waitForPredicate(() => success, 50, 20, helpMessage + ":Failed");
     }).timeout(100000);
 });
+
+
+const waitForPredicate = (
+    predicate: () => Promise<boolean> | boolean,
+    interval: number,
+    repetitions: number,
+    message: string | (() => Promise<string>)
+) => {
+    return new Promise((resolve, reject) => {
+        const intervalHandle = setInterval(async () => {
+            const predResult = await predicate();
+            if (predResult) {
+                resolve();
+                clearInterval(intervalHandle);
+            } else if (--repetitions <= 0) {
+                if (message.length) reject(new Error(message as string));
+                else reject(new Error(await (message as () => Promise<string>)()));
+            }
+        }, interval);
+    });
+};

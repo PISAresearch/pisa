@@ -62,11 +62,18 @@ export const blockFactory = (provider: ethers.providers.Provider) => async (
         blockHash: block.hash
     });
 
+    const transactions = (block.transactions as any) as ethers.providers.TransactionResponse[];
+    for (const tx of transactions) {
+        // we should use chain id, but for some reason chain id is not present in transactions from ethersjs
+        // therefore we fallback to network id when chain id is not present
+        if (tx.chainId != undefined) tx.chainId = (tx as any).networkId;
+    }
+
     return {
         hash: block.hash,
         number: block.number,
         parentHash: block.parentHash,
-        transactions: (block.transactions as any) as ethers.providers.TransactionResponse[],
+        transactions: transactions,
         transactionHashes: ((block.transactions as any) as ethers.providers.TransactionResponse[]).map(t => t.hash!),
         logs
     };

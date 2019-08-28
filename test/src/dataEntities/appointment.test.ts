@@ -207,7 +207,6 @@ describe("Appointment", () => {
         await signedAppointment.validate(blockCache, pisaContractAddress);
     });
 
-    // TODO:274:should not be able to specufy "uint8[]", [[2]] - with a 2 in here
     fnIt<Appointment>(a => a.validate, "can specify none of the indexed arguments", async () => {
         const clone = { ...testAppointmentRequest };
         clone.eventABI = "event Face(address indexed, uint256, uint256 indexed)";

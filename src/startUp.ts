@@ -20,22 +20,27 @@ function checkLogLevel(logLevel: string): LogLevelInfo {
     return logLevelInfo;
 }
 
-function checkArgs(args: IArgConfig) {	
-    if (	
-        (args.rateLimitUserWindowMs && !args.rateLimitUserMax) ||	
-        (!args.rateLimitUserWindowMs && args.rateLimitUserMax)	
-    ) {	
-        console.error("Options 'rate-limit-user-windowms' and 'rate-limit-user-max' must be provided together.");	
-        process.exit(1);	
-    }	
+function checkArgs(args: IArgConfig) {
+    if (
+        (args.rateLimitUserWindowMs && !args.rateLimitUserMax) ||
+        (!args.rateLimitUserWindowMs && args.rateLimitUserMax)
+    ) {
+        console.error("Options 'rate-limit-user-windowms' and 'rate-limit-user-max' must be provided together.");
+        process.exit(1);
+    }
 
-     if (	
-        (commandLineConfig.rateLimitGlobalWindowMs && !commandLineConfig.rateLimitGlobalMax) ||	
-        (!commandLineConfig.rateLimitGlobalWindowMs && commandLineConfig.rateLimitGlobalMax)	
-    ) {	
-        console.error("Options 'rate-limit-global-windowms' and 'rate-limit-global-max' must be provided together.");	
-        process.exit(1);	
-    }	
+    if (
+        (commandLineConfig.rateLimitGlobalWindowMs && !commandLineConfig.rateLimitGlobalMax) ||
+        (!commandLineConfig.rateLimitGlobalWindowMs && commandLineConfig.rateLimitGlobalMax)
+    ) {
+        console.error("Options 'rate-limit-global-windowms' and 'rate-limit-global-max' must be provided together.");
+        process.exit(1);
+    }
+
+    if (args.maximumReorgLimit === 0) {
+        console.error("Option 'maximum-reorg-limit' cannot be 0.");
+        process.exit(1);
+    }
 }
 
 async function startUp() {
@@ -54,7 +59,15 @@ async function startUp() {
     const nonce = await provider.getTransactionCount(watcherWallet.address, "pending");
 
     // start the pisa service
-    const service = new PisaService(config, provider, watcherWallet, nonce, provider.network.chainId, receiptSigner, db);
+    const service = new PisaService(
+        config,
+        provider,
+        watcherWallet,
+        nonce,
+        provider.network.chainId,
+        receiptSigner,
+        db
+    );
     service.start();
 
     // listen for stop events
