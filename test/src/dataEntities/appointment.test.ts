@@ -307,7 +307,7 @@ describe("Appointment", () => {
 
     fnIt<Appointment>(a => a.validate, "throws for start block too high", async () => {
         const clone = { ...testAppointmentRequest };
-        clone.startBlock = 13;
+        clone.startBlock = 113;
         const testAppointment = Appointment.parse(clone);
         const signedAppointment = await sign(testAppointment, customerSigner);
         return expect(signedAppointment.validate(blockCache, pisaContractAddress)).to.eventually.be.rejectedWith(PublicDataValidationError);
