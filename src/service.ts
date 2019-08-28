@@ -45,17 +45,17 @@ export class PisaService extends StartStopService {
      * @param config PISA service configuration info
      * @param port The port on which to host the pisa service
      * @param provider A connection to ethereum
-     * @param wallet A signing authority for submitting transactions
-     * @param receiptSigner A signing authority for receipts returned from Pisa
+     * @param responderWallet A signing authority for submitting transactions
+     * @param receiptWallet A signing authority for receipts returned from Pisa
      * @param db The instance of the database
      */
     constructor(
         config: IArgConfig,
         provider: ethers.providers.BaseProvider,
-        wallet: ethers.Wallet,
+        responderWallet: ethers.Wallet,
         walletNonce: number,
         chainId: number,
-        receiptSigner: ethers.Signer,
+        receiptWallet: ethers.Wallet,
         db: LevelUp<encodingDown<string, any>>
     ) {
         super("pisa");
@@ -70,15 +70,15 @@ export class PisaService extends StartStopService {
         // stores
         this.appointmentStore = new AppointmentStore(db);
         const seedQueue = new GasQueue([], walletNonce, 12, 13);
-        this.responderStore = new ResponderStore(db, wallet.address, seedQueue);
+        this.responderStore = new ResponderStore(db, responderWallet.address, seedQueue);
 
         // managers
         const multiResponder = new MultiResponder(
-            wallet,
-            new GasPriceEstimator(wallet.provider, this.blockProcessor.blockCache),
+            responderWallet,
+            new GasPriceEstimator(responderWallet.provider, this.blockProcessor.blockCache),
             chainId,
             this.responderStore,
-            wallet.address,
+            responderWallet.address,
             new BigNumber("500000000000000000"),
             config.pisaContractAddress
         );
@@ -101,7 +101,7 @@ export class PisaService extends StartStopService {
         this.blockchainMachine.addComponent(responder);
 
         // if a key to sign receipts was provided, create an EthereumAppointmentSigner
-        const appointmentSigner = new HotEthereumAppointmentSigner(receiptSigner, config.pisaContractAddress);
+        const appointmentSigner = new HotEthereumAppointmentSigner(receiptWallet, config.pisaContractAddress);
 
         // tower
         const tower = new PisaTower(
@@ -138,14 +138,13 @@ export class PisaService extends StartStopService {
         const service = app.listen(config.hostPort, config.hostName);
         // never log private parts of the config
         const { receiptKey, responderKey, ...rest } = config;
-        this.logger.info(rest, "PISA config settings.");
+        this.logger.info({ ...rest, responderAddress: responderWallet.address, receiptSignerAddress: receiptWallet.address }, "PISA config settings."); // prettier-ignore
         this.server = service;
     }
 
     private createSwaggerDocs(hostAndPort: string): swaggerJsDoc.Options {
         const options = {
             definition: {
-                //openapi: "3.0.0", // Specification (optional, defaults to swagger: '2.0')
                 info: {
                     title: "PISA",
                     version: "0.1.0"
