@@ -103,6 +103,11 @@ export interface ComponentAction {
     // that we need in the component
 }
 
+export enum ComponentKind {
+    Watcher = 1,
+    Responder = 2
+}
+
 /**
  * A `Component` contains a state reducer and receives and processes the state changes after being added to a `BlockchainMachine`.
  */
@@ -111,7 +116,7 @@ export abstract class Component<
     TBlock extends IBlockStub,
     TAction extends ComponentAction
 > {
-    constructor(public readonly reducer: StateReducer<TState, TBlock>) {}
+    constructor(public readonly reducer: StateReducer<TState, TBlock>, public readonly kind: ComponentKind) {}
     /**
      * Triggers side effects specified by the actions
      * All side-effect must be thread safe so that they can be applied concurrently

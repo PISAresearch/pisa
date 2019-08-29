@@ -56,7 +56,8 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
     private pruneHeight: number;
 
     // True before the first block ever is added
-    private isEmpty = true;
+    // TODO: this should be a getter
+    public isEmpty = true;
 
     // the current head of the chain
     private headHash: string;

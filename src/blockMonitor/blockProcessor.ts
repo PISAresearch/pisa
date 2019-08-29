@@ -4,6 +4,9 @@ import { ReadOnlyBlockCache, BlockCache, BlockAddResult } from "./blockCache";
 import { IBlockStub } from "../dataEntities";
 import { Block, TransactionHashes } from "../dataEntities/block";
 import { BlockFetchingError } from "../dataEntities/errors";
+import { LevelUp } from "levelup";
+import EncodingDown from "encoding-down";
+const sub = require("subleveldown");
 
 type BlockFactory<TBlock> = (
     provider: ethers.providers.Provider
@@ -79,6 +82,21 @@ export const blockFactory = (provider: ethers.providers.Provider) => async (
     };
 };
 
+class BlockProcessorStore {
+    private readonly subDb: LevelUp<EncodingDown<string, any>>;
+    constructor(db: LevelUp<EncodingDown<string, any>>) {
+        this.subDb = sub(db, `block-processor`, { valueEncoding: "json" });
+    }
+
+    async getLatestHeadNumber() {
+        const headObj = (await this.subDb.get("head")) as { head: number };
+        return headObj.head;
+    }
+    async setLatestHeadNumber(value: number) {
+        await this.subDb.put("head", { head: value });
+    }
+}
+
 /**
  * Listens to the provider for new blocks, and updates `blockCache` with all the blocks, making sure that each block
  * is added only after the parent is added, except for blocks at depth `blockCache.maxDepth`.
@@ -123,7 +141,8 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
     constructor(
         private provider: ethers.providers.BaseProvider,
         blockFactory: BlockFactory<TBlock>,
-        blockCache: BlockCache<TBlock>
+        blockCache: BlockCache<TBlock>,
+        private readonly store: BlockProcessorStore
     ) {
         super("block-processor");
 
@@ -135,10 +154,8 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
 
     protected async startInternal(): Promise<void> {
         // Make sure the current head block is processed
-        const initialBlockNumber = await this.provider.getBlockNumber();
-
-        await this.processBlockNumber(initialBlockNumber);
-
+        const currentHead = (await this.store.getLatestHeadNumber()) || (await this.provider.getBlockNumber());
+        await this.processBlockNumber(currentHead);
         this.provider.on("block", this.processBlockNumber);
     }
 
@@ -147,8 +164,9 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
     }
 
     // updates the new head block in the cache and emits the appropriate events
-    private processNewHead(headBlock: Readonly<TBlock>) {
+    private processNewHead(headBlock: Readonly<TBlock>, synchronised: boolean) {
         this.mBlockCache.setHead(headBlock.hash);
+        this.store.setLatestHeadNumber(headBlock.number);
 
         // only emit events after it's started
         if (this.started) {
@@ -172,7 +190,7 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
             }
 
             // Emit the new head
-            this.emit(BlockProcessor.NEW_HEAD_EVENT, headBlock, nearestEmittedHeadInAncestry);
+            this.emit(BlockProcessor.NEW_HEAD_EVENT, headBlock, nearestEmittedHeadInAncestry, synchronised);
             this.emittedBlockHeads.add(headBlock);
         }
     }
@@ -189,7 +207,23 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
     // It is called for each new block received, but also at startup (during startInternal).
     private async processBlockNumber(blockNumber: number) {
         try {
-            const observedBlock = await this.getBlockRemote(blockNumber);
+            // we cant process blocks greater than max depth of the cache
+            // so if the cache is empty any block is fine, otherwise
+            // the blocknumber cannot be more than maxDepth greater than the head
+            const maxBlock = this.mBlockCache.isEmpty
+                ? blockNumber
+                : this.blockCache.head.number + this.blockCache.maxDepth;
+            let synchronised;
+            let processingBlockNumber;
+            if (maxBlock < blockNumber) {
+                processingBlockNumber = maxBlock;
+                synchronised = false;
+            } else {
+                processingBlockNumber = blockNumber;
+                synchronised = true;
+            }
+
+            const observedBlock = await this.getBlockRemote(processingBlockNumber);
 
             if (this.blockCache.hasBlock(observedBlock.hash, true)) {
                 // We received a block that we already processed before. Ignore, but log that it happened
@@ -222,6 +256,9 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
             ) {
                 this.processNewHead(observedBlock);
             }
+
+            // finally, if we didnt process all the blocks, then we need to go again
+            if(synchronised) await this.processBlockNumber(blockNumber);
         } catch (doh) {
             if (doh instanceof BlockFetchingError) this.logger.info(doh);
             else this.logger.error(doh);
