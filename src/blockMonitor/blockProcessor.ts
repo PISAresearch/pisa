@@ -238,14 +238,14 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
             // fetch ancestors and keep adding until one is found that is attached
             let curBlock: Readonly<TBlock> = observedBlock;
             let blockResult: BlockAddResult;
-            const observedBlockResult = (blockResult = this.mBlockCache.addBlock(curBlock));
+            const observedBlockResult = (blockResult = await this.mBlockCache.addBlock(curBlock));
 
             while (
                 blockResult === BlockAddResult.AddedDetached ||
                 blockResult === BlockAddResult.NotAddedAlreadyExistedDetached
             ) {
                 curBlock = await this.getBlock(curBlock.parentHash);
-                blockResult = this.mBlockCache.addBlock(curBlock);
+                blockResult = await this.mBlockCache.addBlock(curBlock);
             }
 
             // is the observed block still the last block received (or the first block, during startup)?
@@ -254,7 +254,7 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
                 this.lastBlockHashReceived === observedBlock.hash &&
                 observedBlockResult !== BlockAddResult.NotAddedBlockNumberTooLow
             ) {
-                this.processNewHead(observedBlock);
+                this.processNewHead(observedBlock, synchronised);
             }
 
             // finally, if we didnt process all the blocks, then we need to go again
