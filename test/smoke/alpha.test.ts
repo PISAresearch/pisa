@@ -4,6 +4,8 @@ import * as SosContract from "./SOSContract";
 import { Wallet, ethers } from "ethers";
 import { JsonRpcProvider } from "ethers/providers";
 import { wait } from "../../src/utils";
+import { keccak256 } from "ethers/utils/solidity";
+import { arrayify } from "ethers/utils";
 
 
 const encode = (request: any) => {
@@ -41,7 +43,7 @@ const encode = (request: any) => {
         [basicBytes, callBytes, conditionBytes]
     );
 
-    return ethers.utils.keccak256(appointmentBytes);
+    return appointmentBytes;
 };
 
 describe("alpha", () => {
@@ -63,7 +65,7 @@ describe("alpha", () => {
             contractAddress,
             customerAddress: customerAddress,
             data,
-            endBlock: startBlock + 30,
+            endBlock: startBlock + 130,
             eventABI: eventAbi,
             eventArgs: eventArgs,
             gasLimit: "100000",
@@ -81,19 +83,20 @@ describe("alpha", () => {
     it("pisa", async () => {
         // connect to ropsten
         const provider = new JsonRpcProvider(ROPSTEN_URL);
+        const pisaContractAddress = "0x4940d7bbf7B0D2e03691b39c53AbEd1C3fFDCf82";
 
         // 0xC73e1ebaFE312F149272ccA46A4acA3F8e8C62A6
         const customer = new Wallet("0xD3E0200D9A8E615ED48E8317730EDD239BCDE54FB6EB2EBDC2FD6E6EA57AD6B3", provider);
 
         // deploy the contract
         const channelContractFactory = new ethers.ContractFactory(SosContract.ABI,SosContract.ByteCode, customer);
-        const rescueContract = channelContractFactory.attach("0x717Bd700367AEBf70a6e37ca731937c8079D0047");
+        const rescueContract = channelContractFactory.attach("0x75D7a9470a69dd41E5d18F6503CBcF0dD1f788a8");
         // const rescueContract = await channelContractFactory.deploy();
 
         // setup
         const startBlock = await provider.getBlockNumber();
         const helpMessage = "sos";
-        const id = 8;
+        const id = 3;
         const jobId = 1;
 
         // create an appointment
@@ -110,7 +113,10 @@ describe("alpha", () => {
 
         // encode the request and sign it
         const encoded = encode(appointmentRequest);
-        const customerSig = await customer.signMessage(ethers.utils.arrayify(encoded));
+        const hashedWithAddress = ethers.utils.keccak256(
+            ethers.utils.defaultAbiCoder.encode(["bytes", "address"], [encoded, pisaContractAddress])
+        );
+        const customerSig = await customer.signMessage(arrayify(hashedWithAddress));
 
         const response = await request.post(PISA_URL, {
             json: { ...appointmentRequest, customerSig }
@@ -126,8 +132,8 @@ describe("alpha", () => {
         await tx.wait();
         console.log("help mined")
 
-        await waitForPredicate(() => success, 50, 20, helpMessage + ":Failed");
-    }).timeout(100000);
+        await waitForPredicate(() => success, 50, 20000, helpMessage + ":Failed");
+    }).timeout(200000);
 });
 
 

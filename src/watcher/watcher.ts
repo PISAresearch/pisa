@@ -179,7 +179,7 @@ export class Watcher extends Component<WatcherAnchorState, IBlockStub & Logs, Wa
                 logger.info({ state: appointmentState, id: appointmentId, blockNumber: state.blockNumber }, `Responding to appointment.`); // prettier-ignore
                 actions.push({
                     kind: WatcherActionKind.StartResponse,
-                    appointment: appointment,
+                    appointment: appointment,   
                     blockObserved: appointmentState.blockObserved
                 });
             }
