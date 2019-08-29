@@ -3,15 +3,15 @@ import { IBlockStub, StartStopService, ApplicationError } from "../dataEntities"
 import { Component, AnchorState, ComponentAction, ComponentKind } from "./component";
 import { LevelUp } from "levelup";
 import EncodingDown from "encoding-down";
+import { BlockItemStore } from "../dataEntities/block";
 const sub = require("subleveldown");
 
 interface ComponentAndStates {
     component: Component<AnchorState, IBlockStub, ComponentAction>;
-    states: WeakMap<IBlockStub, AnchorState>;
     actions: Set<ComponentAction>;
 }
 
-class BlockchainMachineStore {
+class ActionStore {
     private readonly subDb: LevelUp<EncodingDown<string, any>>;
     constructor(db: LevelUp<EncodingDown<string, any>>) {
         this.subDb = sub(db, `blockchain-machine`, { valueEncoding: "json" });
@@ -30,10 +30,6 @@ class BlockchainMachineStore {
     public async removeAction(componentKind: ComponentKind, action: ComponentAction) {
         await this.subDb.del(componentKind + ":" + (action as any).id);
     }
-
-    public async storeAnchorState(componentKind: ComponentKind, blockHash: string, state: AnchorState) {
-        await this.subDb.put(componentKind + ":" + blockHash, state);
-    }
 }
 
 // Generic class to handle the anchor statee of a blockchain state machine
@@ -43,13 +39,19 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
     protected async startInternal(): Promise<void> {
         this.blockProcessor.on(BlockProcessor.NEW_HEAD_EVENT, this.processNewHead);
         this.blockProcessor.on(BlockProcessor.NEW_BLOCK_EVENT, this.processNewBlock);
+
+        // TODO: load the actions from the db - although we should probably just store actions as a list anyway - not keyed against component
     }
     protected async stopInternal(): Promise<void> {
         this.blockProcessor.off(BlockProcessor.NEW_HEAD_EVENT, this.processNewHead);
         this.blockProcessor.off(BlockProcessor.NEW_BLOCK_EVENT, this.processNewBlock);
     }
 
-    constructor(private blockProcessor: BlockProcessor<TBlock>, private store: BlockchainMachineStore) {
+    constructor(
+        private blockProcessor: BlockProcessor<TBlock>,
+        private actionStore: ActionStore,
+        private blockItemStore: BlockItemStore
+    ) {
         super("blockchain-machine");
         this.processNewHead = this.processNewHead.bind(this);
         this.processNewBlock = this.processNewBlock.bind(this);
@@ -66,7 +68,6 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
 
         this.componentsAndStates.push({
             component,
-            states: new WeakMap(),
             actions: new Set()
         });
     }
@@ -74,7 +75,7 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
     private async processNewBlock(block: TBlock) {
         // Every time a new block is received we calculate the anchor state for that block and store it
 
-        for (const { component, states } of this.componentsAndStates) {
+        for (const { component } of this.componentsAndStates) {
             // If the parent is available and its anchor state is known, the state can be computed with the reducer.
             // If the parent is available but its anchor state is not known, first compute its parent's initial state, then apply the reducer.
             // Finally, if the parent is not available at all in the block cache, compute the initial state based on the current block.
@@ -82,15 +83,17 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
             let newState: AnchorState;
             if (this.blockProcessor.blockCache.hasBlock(block.parentHash)) {
                 const parentBlock = this.blockProcessor.blockCache.getBlock(block.parentHash);
-                const prevAnchorState = states.get(parentBlock) || component.reducer.getInitialState(parentBlock);
+                const prevAnchorState =
+                    this.blockItemStore.getItem(parentBlock.hash, component.kind.toString()) ||
+                    component.reducer.getInitialState(parentBlock);
 
                 newState = component.reducer.reduce(prevAnchorState, block);
             } else {
                 newState = component.reducer.getInitialState(block);
             }
 
-            states.set(block, newState);
-            await this.store.storeAnchorState(component.kind, block.hash, newState);
+            // states.set(block, newState);
+            await this.blockItemStore.putBlockItem(block.number, block.hash, component.kind.toString(), newState);
         }
     }
 
@@ -99,8 +102,8 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
         // between the old head and the head. We compute this now for each of the
         // components
 
-        for (const { component, states, actions } of this.componentsAndStates) {
-            const state = states.get(head);
+        for (const { component, actions } of this.componentsAndStates) {
+            const state = this.blockItemStore.getItem(head.hash, component.kind.toString());
             if (state == undefined) {
                 // Since processNewBlock is always called before processNewHead, this should never happen
                 this.logger.error(
@@ -111,10 +114,10 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
                 return;
             }
             if (prevHead) {
-                const prevState = states.get(prevHead);
+                const prevState = this.blockItemStore.getItem(prevHead.hash, component.kind.toString());
                 if (prevState) {
                     const detectedActions = component.detectChanges(prevState, state);
-                    await this.store.storeActions(component.kind, detectedActions);
+                    await this.actionStore.storeActions(component.kind, detectedActions);
                     detectedActions.forEach(a => actions.add(a));
                 }
             }
@@ -124,7 +127,7 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
                 actions.forEach(async a => {
                     await component.applyAction(a);
                     actions.delete(a);
-                    await this.store.removeAction(component.kind, a);
+                    await this.actionStore.removeAction(component.kind, a);
                 });
             }
         }

@@ -1,5 +1,5 @@
 import { ApplicationError, ArgumentError } from "../dataEntities";
-import { IBlockStub, TransactionHashes } from "../dataEntities/block";
+import { IBlockStub, TransactionHashes, BlockItemStore } from "../dataEntities/block";
 import logger from "../logger";
 
 // Possible return values of addBlock
@@ -43,15 +43,6 @@ export interface ReadOnlyBlockCache<TBlock extends IBlockStub> {
  * 3) All added blocks are never pruned if their depth is less then `maxDepth`.
  **/
 export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache<TBlock> {
-    // Blocks that are already
-    private blocksByHash: Map<string, TBlock> = new Map();
-
-    //blocks that can only be added once their parent is added
-    private detachedBlocksByHash: Map<string, TBlock> = new Map();
-
-    // store block hashes at a specific height (there could be more than one at some height because of forks)
-    private blockHashesByHeight: Map<number, Set<string>> = new Map();
-
     // Next height to be pruned; the cache will not store a block with height strictly smaller than pruneHeight
     private pruneHeight: number;
 
@@ -83,19 +74,12 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
      * Constructs a block cache that stores blocks up to a maximum depth `maxDepth`.
      * @param maxDepth
      */
-    constructor(public readonly maxDepth: number) {}
+    constructor(public readonly maxDepth: number, private readonly blockStore: BlockItemStore) {}
 
     // Remove all the blocks that are deeper than maxDepth, and all connected information.
-    private prune() {
+    private async prune() {
         while (this.pruneHeight < this.minHeight) {
-            for (const hash of this.blockHashesByHeight.get(this.pruneHeight) || []) {
-                const deleted = this.blocksByHash.delete(hash) || this.detachedBlocksByHash.delete(hash);
-
-                // This would signal a bug
-                if (!deleted) throw new ApplicationError(`Tried to delete block with hash ${hash}, but it does not exist.`); // prettier-ignore
-            }
-            this.blockHashesByHeight.delete(this.pruneHeight);
-
+            await this.blockStore.deleteItemsAtHeight(this.pruneHeight);
             this.pruneHeight++;
         }
     }
@@ -114,22 +98,18 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
 
     // Processes all the detached blocks at the given height, moving them to blocksByHeight if they are now attached.
     // If so, add them and repeat with the next height (as some blocks might now have become attached)
-    private processDetached(height: number) {
-        const blockHashesAtHeight = this.blockHashesByHeight.get(height) || new Set();
-        const blockHashesToAdd = [...blockHashesAtHeight].filter(h => this.detachedBlocksByHash.has(h));
+    private async processDetached(height: number) {
+        const blocksAtHeight = this.blockStore.getBlocksAtHeight(height) || [];
+        const blocksToAdd = blocksAtHeight.filter(b => !b.attached);
 
-        for (const blockHash of blockHashesToAdd) {
-            const block = this.detachedBlocksByHash.get(blockHash)!;
-
-            // Remove block from detachedBlocksByHash, add to blocksByHash
-            this.blocksByHash.set(blockHash, block);
-            this.detachedBlocksByHash.delete(blockHash);
+        for (const block of blocksToAdd) {
+            await this.blockStore.putBlockItem(height, block.hash, "attached", true);
 
             // Might need to update the maximum height
-            this.updateMaxHeightAndPrune(block.number);
+            await this.updateMaxHeightAndPrune(block.number);
         }
 
-        if (blockHashesToAdd.length > 0) {
+        if (blocksToAdd.length > 0) {
             this.processDetached(height + 1);
         }
     }
@@ -144,11 +124,11 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
         } while (this.minHeight > prevMinHeight); // if the minHeight increased, run again
     }
 
-    private updateMaxHeightAndPrune(newHeight: number) {
+    private async updateMaxHeightAndPrune(newHeight: number) {
         // If the maximum block height increased, we might have to prune some old info
         if (this.mMaxHeight < newHeight) {
             this.mMaxHeight = newHeight;
-            this.prune();
+            await this.prune();
         }
     }
 
@@ -158,11 +138,11 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
      * @returns `false` if the block was added (or was already present) as detached, `true` otherwise.
      *      Note: it will return `true` even if the block was not actually added because already present, or because deeper than `maxDepth`.
      */
-    public addBlock(block: Readonly<TBlock>): BlockAddResult {
-        if (this.blocksByHash.has(block.hash)) return BlockAddResult.NotAddedAlreadyExisted; // block already added
+    public async addBlock(block: Readonly<TBlock>): Promise<BlockAddResult> {
+        const attached = this.blockStore.getItem(block.hash, "attached")
+        if(attached === true) return BlockAddResult.NotAddedAlreadyExisted; // block already added
         if (block.number < this.minHeight) return BlockAddResult.NotAddedBlockNumberTooLow; // block already too deep, nothing to do
-
-        if (this.detachedBlocksByHash.has(block.hash)) return BlockAddResult.NotAddedAlreadyExistedDetached; // block already detached
+        if (attached === false) return BlockAddResult.NotAddedAlreadyExistedDetached; // block already detached
 
         // From now on, we can assume that the block can be added (detached or not)
 
@@ -172,29 +152,23 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
             this.isEmpty = false;
         }
 
-        // Index block by its height
-        const hashesByHeight = this.blockHashesByHeight.get(block.number);
-        if (hashesByHeight == undefined) {
-            this.blockHashesByHeight.set(block.number, new Set([block.hash])); // create new Set
-        } else {
-            hashesByHeight.add(block.hash); // add to existing Set
-        }
-
         if (this.canAttachBlock(block)) {
-            this.blocksByHash.set(block.hash, block);
+            await this.blockStore.putBlockItem(block.number, block.hash, "block", block);
+            await this.blockStore.putBlockItem(block.number, block.hash, "attached", true);
 
             // If the maximum block height increased, we might have to prune some old info
-            this.updateMaxHeightAndPrune(block.number);
+            await this.updateMaxHeightAndPrune(block.number);
 
             // Since we added a new block, some detached blocks might become attached
-            this.processDetached(block.number + 1);
+            await this.processDetached(block.number + 1);
 
             // If the minHeight increased, this could also make some detached blocks ready to be attached
             // This makes sure that they are attached if necessary
             this.processDetachedBlocksAtMinHeight();
             return BlockAddResult.Added;
         } else {
-            this.detachedBlocksByHash.set(block.hash, block);
+            await this.blockStore.putBlockItem(block.number, block.hash, "block", block);
+            await this.blockStore.putBlockItem(block.number, block.hash, "attached", false);
             return BlockAddResult.AddedDetached;
         }
     }
@@ -204,7 +178,7 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
      * @param blockHash
      */
     public getBlock(blockHash: string): Readonly<TBlock> {
-        const block = this.blocksByHash.get(blockHash) || this.detachedBlocksByHash.get(blockHash);
+        const block = this.blockStore.getItem(blockHash, "block");
         if (!block) throw new ApplicationError(`Block not found for hash: ${blockHash}.`);
         return block;
     }
@@ -213,7 +187,11 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
      * Returns true if the block with hash `blockHash` is currently in cache; if `includeDetached` is `true`, detached blocks are also considered.
      **/
     public hasBlock(blockHash: string, includeDetached: boolean = false): boolean {
-        return this.blocksByHash.has(blockHash) || (includeDetached && this.detachedBlocksByHash.has(blockHash));
+        const block = this.blockStore.getItem(blockHash, "block");
+        const attached = this.blockStore.getItem(blockHash, "attached");
+
+        if(!includeDetached && !attached) return false;
+        else return !!block;        
     }
 
     /**
