@@ -11,23 +11,35 @@ interface ComponentAndStates {
     actions: Set<ComponentAction>;
 }
 
-class ActionStore {
+class ActionStore extends StartStopService {
     private readonly subDb: LevelUp<EncodingDown<string, any>>;
     constructor(db: LevelUp<EncodingDown<string, any>>) {
-        this.subDb = sub(db, `blockchain-machine`, { valueEncoding: "json" });
+        super("action-store")
+        this.subDb = sub(db, `action-store`, { valueEncoding: "json" });
     }
 
+    protected async startInternal() {
+        // TODO: load actions from the db
+
+    }
+    protected async stopInternal() {}
+
+    private actions: Map<ComponentKind, Set<ComponentAction>> = new Map();
+
     public async storeActions(componentKind: ComponentKind, actions: ComponentAction[]) {
+        const componentSet = this.actions.get(componentKind);
+        if(componentSet) actions.forEach(a => componentSet.add(a));
+        else this.actions.set(componentKind, new Set(actions));
+
         let batch = this.subDb.batch();
-
-        actions.forEach(a => {
-            batch = batch.put(componentKind + ":" + (a as any).id, a);
-        });
-
+        actions.forEach(a => (batch = batch.put(componentKind + ":" + (a as any).id, a)));
         await batch.write();
     }
 
     public async removeAction(componentKind: ComponentKind, action: ComponentAction) {
+        const actions = this.actions.get(componentKind);
+        if(!actions) return;
+        else actions.delete(action);
         await this.subDb.del(componentKind + ":" + (action as any).id);
     }
 }
@@ -39,8 +51,6 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
     protected async startInternal(): Promise<void> {
         this.blockProcessor.on(BlockProcessor.NEW_HEAD_EVENT, this.processNewHead);
         this.blockProcessor.on(BlockProcessor.NEW_BLOCK_EVENT, this.processNewBlock);
-
-        // TODO: load the actions from the db - although we should probably just store actions as a list anyway - not keyed against component
     }
     protected async stopInternal(): Promise<void> {
         this.blockProcessor.off(BlockProcessor.NEW_HEAD_EVENT, this.processNewHead);
