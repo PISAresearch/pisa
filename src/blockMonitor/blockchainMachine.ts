@@ -6,29 +6,27 @@ import EncodingDown from "encoding-down";
 import { BlockItemStore } from "../dataEntities/block";
 const sub = require("subleveldown");
 
-interface ComponentAndStates {
-    component: Component<AnchorState, IBlockStub, ComponentAction>;
-    actions: Set<ComponentAction>;
-}
-
 class ActionStore extends StartStopService {
     private readonly subDb: LevelUp<EncodingDown<string, any>>;
     constructor(db: LevelUp<EncodingDown<string, any>>) {
-        super("action-store")
+        super("action-store");
         this.subDb = sub(db, `action-store`, { valueEncoding: "json" });
     }
 
     protected async startInternal() {
         // TODO: load actions from the db
-
     }
     protected async stopInternal() {}
 
     private actions: Map<ComponentKind, Set<ComponentAction>> = new Map();
 
+    public getActions(componentKind: ComponentKind) {
+        return this.actions.get(componentKind);
+    }
+
     public async storeActions(componentKind: ComponentKind, actions: ComponentAction[]) {
         const componentSet = this.actions.get(componentKind);
-        if(componentSet) actions.forEach(a => componentSet.add(a));
+        if (componentSet) actions.forEach(a => componentSet.add(a));
         else this.actions.set(componentKind, new Set(actions));
 
         let batch = this.subDb.batch();
@@ -38,7 +36,7 @@ class ActionStore extends StartStopService {
 
     public async removeAction(componentKind: ComponentKind, action: ComponentAction) {
         const actions = this.actions.get(componentKind);
-        if(!actions) return;
+        if (!actions) return;
         else actions.delete(action);
         await this.subDb.del(componentKind + ":" + (action as any).id);
     }
@@ -46,7 +44,7 @@ class ActionStore extends StartStopService {
 
 // Generic class to handle the anchor statee of a blockchain state machine
 export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopService {
-    private componentsAndStates: ComponentAndStates[] = [];
+    private components: Component<AnchorState, IBlockStub, ComponentAction>[] = [];
 
     protected async startInternal(): Promise<void> {
         this.blockProcessor.on(BlockProcessor.NEW_HEAD_EVENT, this.processNewHead);
@@ -76,16 +74,13 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
             throw new ApplicationError("Components must be added before the BlockchainMachine is started.");
         }
 
-        this.componentsAndStates.push({
-            component,
-            actions: new Set()
-        });
+        this.components.push(component);
     }
 
     private async processNewBlock(block: TBlock) {
         // Every time a new block is received we calculate the anchor state for that block and store it
 
-        for (const { component } of this.componentsAndStates) {
+        for (const component of this.components) {
             // If the parent is available and its anchor state is known, the state can be computed with the reducer.
             // If the parent is available but its anchor state is not known, first compute its parent's initial state, then apply the reducer.
             // Finally, if the parent is not available at all in the block cache, compute the initial state based on the current block.
@@ -112,7 +107,8 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
         // between the old head and the head. We compute this now for each of the
         // components
 
-        for (const { component, actions } of this.componentsAndStates) {
+        for (const component of this.components) {
+            const actions = this.actionStore.getActions(component.kind)!;
             const state = this.blockItemStore.getItem(head.hash, component.kind.toString());
             if (state == undefined) {
                 // Since processNewBlock is always called before processNewHead, this should never happen
