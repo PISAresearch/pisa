@@ -1,10 +1,39 @@
 import { BlockProcessor } from "./blockProcessor";
 import { IBlockStub, StartStopService, ApplicationError } from "../dataEntities";
-import { Component, AnchorState, ComponentAction } from "./component";
+import { Component, AnchorState, ComponentAction, ComponentKind } from "./component";
+import { LevelUp } from "levelup";
+import EncodingDown from "encoding-down";
+const sub = require("subleveldown");
 
 interface ComponentAndStates {
     component: Component<AnchorState, IBlockStub, ComponentAction>;
     states: WeakMap<IBlockStub, AnchorState>;
+    actions: Set<ComponentAction>;
+}
+
+class BlockchainMachineStore {
+    private readonly subDb: LevelUp<EncodingDown<string, any>>;
+    constructor(db: LevelUp<EncodingDown<string, any>>) {
+        this.subDb = sub(db, `blockchain-machine`, { valueEncoding: "json" });
+    }
+
+    public async storeActions(componentKind: ComponentKind, actions: ComponentAction[]) {
+        let batch = this.subDb.batch();
+
+        actions.forEach(a => {
+            batch = batch.put(componentKind + ":" + (a as any).id, a);
+        });
+
+        await batch.write();
+    }
+
+    public async removeAction(componentKind: ComponentKind, action: ComponentAction) {
+        await this.subDb.del(componentKind + ":" + (action as any).id);
+    }
+
+    public async storeAnchorState(componentKind: ComponentKind, blockHash: string, state: AnchorState) {
+        await this.subDb.put(componentKind + ":" + blockHash, state);
+    }
 }
 
 // Generic class to handle the anchor statee of a blockchain state machine
@@ -20,7 +49,7 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
         this.blockProcessor.off(BlockProcessor.NEW_BLOCK_EVENT, this.processNewBlock);
     }
 
-    constructor(private blockProcessor: BlockProcessor<TBlock>) {
+    constructor(private blockProcessor: BlockProcessor<TBlock>, private store: BlockchainMachineStore) {
         super("blockchain-machine");
         this.processNewHead = this.processNewHead.bind(this);
         this.processNewBlock = this.processNewBlock.bind(this);
@@ -37,11 +66,12 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
 
         this.componentsAndStates.push({
             component,
-            states: new WeakMap()
+            states: new WeakMap(),
+            actions: new Set()
         });
     }
 
-    private processNewBlock(block: TBlock) {
+    private async processNewBlock(block: TBlock) {
         // Every time a new block is received we calculate the anchor state for that block and store it
 
         for (const { component, states } of this.componentsAndStates) {
@@ -60,15 +90,16 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
             }
 
             states.set(block, newState);
+            await this.store.storeAnchorState(component.kind, block.hash, newState);
         }
     }
 
-    private processNewHead(head: Readonly<TBlock>, prevHead: Readonly<TBlock> | null) {
+    private async processNewHead(head: Readonly<TBlock>, prevHead: Readonly<TBlock> | null, synchronised: boolean) {
         // The components can specify some behaviour that is computed as a diff
         // between the old head and the head. We compute this now for each of the
         // components
 
-        for (const { component, states } of this.componentsAndStates) {
+        for (const { component, states, actions } of this.componentsAndStates) {
             const state = states.get(head);
             if (state == undefined) {
                 // Since processNewBlock is always called before processNewHead, this should never happen
@@ -82,10 +113,19 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
             if (prevHead) {
                 const prevState = states.get(prevHead);
                 if (prevState) {
-                    const actions = component.detectChanges(prevState, state);
-                    // side effects must be thread safe, so we can execute them concurrently
-                    actions.forEach(a => component.applyAction(a));
+                    const detectedActions = component.detectChanges(prevState, state);
+                    await this.store.storeActions(component.kind, detectedActions);
+                    detectedActions.forEach(a => actions.add(a));
                 }
+            }
+
+            if (synchronised) {
+                // side effects must be thread safe, so we can execute them concurrently
+                actions.forEach(async a => {
+                    await component.applyAction(a);
+                    actions.delete(a);
+                    await this.store.removeAction(component.kind, a);
+                });
             }
         }
     }
