@@ -230,6 +230,8 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
     }
     // Processes a new block, adding it to the cache and emitting the appropriate events
     // It is called for each new block received, but also at startup (during startInternal).
+    // TODO: this was originally designed to be possibly run concurrently (e.g. a new block comes while we are still processing a previous one).
+    //       need to make sure that it still works after the last refactoring.
     private async processBlockNumber(blockNumber: number) {
         try {
             // we cant process blocks greater than max depth of the cache
