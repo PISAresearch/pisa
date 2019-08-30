@@ -1,6 +1,5 @@
 import { ApplicationError, ArgumentError } from "../dataEntities";
 import { IBlockStub, TransactionHashes, BlockItemStore } from "../dataEntities/block";
-import logger from "../logger";
 
 // Possible return values of addBlock
 export enum BlockAddResult {
@@ -46,9 +45,12 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
     // Next height to be pruned; the cache will not store a block with height strictly smaller than pruneHeight
     private pruneHeight: number;
 
+    private mIsEmpty = true;
+
     // True before the first block ever is added
-    // TODO: this should be a getter
-    public isEmpty = true;
+    public get isEmpty() {
+        return this.mIsEmpty;
+    }
 
     // the current head of the chain
     private headHash: string;
@@ -135,12 +137,13 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
     /**
      * Adds `block`to the cache.
      * @param block
-     * @returns `false` if the block was added (or was already present) as detached, `true` otherwise.
-     *      Note: it will return `true` even if the block was not actually added because already present, or because deeper than `maxDepth`.
+     * @returns a `BlockAddResult` detailing the outcome of the operation.
      */
     public async addBlock(block: Readonly<TBlock>): Promise<BlockAddResult> {
-        const attached = this.blockStore.getItem(block.hash, "attached")
-        if(attached === true) return BlockAddResult.NotAddedAlreadyExisted; // block already added
+        // TODO: this is not thread-safe, might require acquiring a lock
+
+        const attached = this.blockStore.getItem(block.hash, "attached");
+        if (attached === true) return BlockAddResult.NotAddedAlreadyExisted; // block already added
         if (block.number < this.minHeight) return BlockAddResult.NotAddedBlockNumberTooLow; // block already too deep, nothing to do
         if (attached === false) return BlockAddResult.NotAddedAlreadyExistedDetached; // block already detached
 
@@ -149,7 +152,7 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
         if (this.isEmpty) {
             // First block added, store its height, so blocks before this point will not be stored.
             this.pruneHeight = block.number;
-            this.isEmpty = false;
+            this.mIsEmpty = false;
         }
 
         if (this.canAttachBlock(block)) {
@@ -190,8 +193,8 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
         const block = this.blockStore.getItem(blockHash, "block");
         const attached = this.blockStore.getItem(blockHash, "attached");
 
-        if(!includeDetached && !attached) return false;
-        else return !!block;        
+        if (!includeDetached && !attached) return false;
+        else return !!block;
     }
 
     /**
