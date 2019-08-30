@@ -262,7 +262,7 @@ describe("Appointment", () => {
 
     fnIt<Appointment>(a => a.validate, "throws gas limit > 6000000", async () => {
         const clone = { ...testAppointmentRequest };
-        clone.gasLimit = "6000001";
+        clone.gasLimit = 6000001;
         const app = Appointment.parse(clone);
         const signedAppointment = await sign(app, customerSigner);
         return expect(signedAppointment.validate(blockCache, pisaContractAddress)).to.eventually.be.rejectedWith(
