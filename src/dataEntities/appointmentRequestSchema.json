@@ -27,135 +27,82 @@
         "challengePeriod": {
             "$id": "#/properties/challengePeriod",
             "type": "integer",
-            "title": "Challenge period",
-            "description": "The number of blocks that PISA has to respond if an event is noticed.",
             "minimum": 100,
-            "maximum": 60000,
-            "examples": [100]
+            "maximum": 60000
         },
         "contractAddress": {
             "$id": "#/properties/contractAddress",
-            "type": "string",
-            "title": "Contract address",
-            "description": "The address of the external contract to which the data will be submitted.",
-            "examples": ["0x81b7e08f65bdf5648606c89998a9cc8164397647"]
+            "type": "string"
         },
         "customerAddress": {
             "$id": "#/properties/customerAddress",
-            "type": "string",
-            "title": "Customer address",
-            "description": "The address of the customer hiring PISA.",
-            "examples": ["0x9e64b53b935602cd0657343C69Fe200fb3cD05c8"]
+            "type": "string"
         },
         "customerSig": {
             "$id": "#/properties/customerSig",
-            "type": "string",
-            "title": "Customer signature",
-            "description": "The customers signature for this appointment",
-            "examples": ["0x0870ede99ad9547ca2f45140ac5088291da331379283383278886814419c795d5571f560f302ba9ec45485a5e6cb237224baed39d15597cf530cac162556a6a000"]
+            "type": "string"
         },
         "data": {
             "$id": "#/properties/data",
-            "type": "string",
-            "title": "Data",
-            "description": "The data to be submitted to the external contract.",
-            "examples": [
-                "0x28fbdf0d000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000"
-            ]
+            "type": "string"
         },
         "endBlock": {
             "$id": "#/properties/endBlock",
             "type": "integer",
-            "title": "End block",
-            "description": "The last block in which the appointment is still valid.",
             "minimum": 0,
-            "maximum": 9007199254740991,
-            "examples": [6052995]
+            "maximum": 9007199254740991
         },
         "eventABI": {
             "$id": "#/properties/eventABI",
-            "type": "string",
-            "title": "Event ABI",
-            "description": "The human readable ABI (https://blog.ricmoo.com/human-readable-contract-abis-in-ethers-js-141902f4d917) of the event that triggers a response.",
-            "examples": ["event EventDispute(uint256 indexed)"]
+            "type": "string"
         },
         "eventArgs": {
             "$id": "#/properties/eventArgs",
-            "type": "string",
-            "title": "Event arguments",
-            "description": "The topic arguments for the address specified in the abi.",
-            "examples": ["0xf778daa96e1bdf7745b02debfd61d9bcc46da294dd059fa3ce13b263d06e389a"]
+            "type": "string"
         },
         "gasLimit": {
             "$id": "#/properties/gasLimit",
-            "type": "string",
-            "title": "Gas limit",
-            "description": "The amount of gas that will be supplied when calling the external contract. Maximum is 6 million.",
-            "examples": ["100000"]
+            "type": "string"
         },
         "id": {
             "$id": "#/properties/id",
             "type": "number",
-            "title": "Id",
-            "description": "A unique id, chosen by the customer.",
             "minimum": 0,
-            "maximum": 9007199254740991,
-            "examples": [200]
+            "maximum": 9007199254740991
         },
         "jobId": {
             "$id": "#/properties/jobId",
             "type": "integer",
-            "title": "Job counter",
-            "description": "A counter used to replace appointments of the same id, but lower counter.",
             "minimum": 0,
-            "maximum": 9007199254740991,
-            "examples": [3]
+            "maximum": 9007199254740991
         },
         "mode": {
             "$id": "#/properties/mode",
             "type": "integer",
-            "title": "Mode",
-            "description": "The PISA execution mode.",
             "minimum": 0,
-            "maximum": 9007199254740991,
-            "examples": [1]
+            "maximum": 9007199254740991
         },
         "paymentHash": {
             "$id": "#/properties/paymentHash",
-            "type": "string",
-            "title": "Payment hash",
-            "description": "The hash received during payment. Use `0xfc1624bdc50da30f2ea37b7debabeac1f6166db013c5880dcf63907b04199138` for free access.",
-            "examples": ["0xfc1624bdc50da30f2ea37b7debabeac1f6166db013c5880dcf63907b04199138"]
+            "type": "string"
         },
         "preCondition": {
             "$id": "#/properties/preCondition",
-            "type": "string",
-            "title": "Pre-condition",
-            "description": "The pre-condition that must be satisfied before PISA can respond.",
-            "examples": ["0x5bf2b49d8b43dbc21ab4b757d5bebcd3ed6d50c092aa2648c49cd76bce28c9cc"]
+            "type": "string"
         },
         "postCondition": {
             "$id": "#/properties/postCondition",
-            "type": "string",
-            "title": "Post-condition",
-            "description": "The post-condition to be executed after Pisa executes the call data.",
-            "examples": ["0x5bf2b49d8b43dbc21ab4b757d5bebcd3ed6d50c092aa2648c49cd76bce28c9cc"]
+            "type": "string"
         },
         "refund": {
             "$id": "#/properties/refund",
-            "type": "string",
-            "title": "Refund",
-            "description": "The amount to be refunded in case of failure (wei). Maximum can be 0.1 ether = 100000000000000000.",
-            "examples": ["2000000000000000000"]
+            "type": "string"
         },
         "startBlock": {
             "$id": "#/properties/startBlock",
             "type": "integer",
-            "title": "Start block",
-            "description": "The block at which this appointment starts.",
             "minimum": 0,
-            "maximum": 9007199254740991,
-            "examples": [6051077]
+            "maximum": 9007199254740991
         }
     }
 }

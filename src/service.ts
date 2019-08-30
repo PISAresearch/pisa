@@ -13,13 +13,14 @@ import encodingDown from "encoding-down";
 import { blockFactory } from "./blockMonitor";
 import { Block } from "./dataEntities/block";
 import { BlockchainMachine } from "./blockMonitor/blockchainMachine";
-import swaggerJsDoc from "swagger-jsdoc";
 import { Logger } from "./logger";
 import path from "path";
 import { GasQueue } from "./responder/gasQueue";
 import rateLimit from "express-rate-limit";
 import uuid = require("uuid/v4");
 import { BigNumber } from "ethers/utils";
+import swaggerDoc from "./../docs/swagger-doc.json";
+import favicon from "serve-favicon";
 
 /**
  * Request object supplemented with a log
@@ -115,11 +116,9 @@ export class PisaService extends StartStopService {
         app.post(this.APPOINTMENT_ROUTE, this.appointment(tower));
 
         // api docs
-        const hostAndPort = `${config.hostName}:${config.hostPort}`;
-        const docs = swaggerJsDoc(this.createSwaggerDocs(hostAndPort));
         app.get(this.API_DOCS_JSON_ROUTE, (req, res) => {
             res.setHeader("Content-Type", "application/json");
-            res.send(docs);
+            res.send(swaggerDoc);
         });
         app.get(this.API_DOCS_HTML_ROUTE, (req, res) => {
             res.setHeader("Content-Type", "text/html");
@@ -140,23 +139,6 @@ export class PisaService extends StartStopService {
         const { receiptKey, responderKey, ...rest } = config;
         this.logger.info({ ...rest, responderAddress: responderWallet.address, receiptSignerAddress: receiptWallet.address }, "PISA config settings."); // prettier-ignore
         this.server = service;
-    }
-
-    private createSwaggerDocs(hostAndPort: string): swaggerJsDoc.Options {
-        const options = {
-            definition: {
-                info: {
-                    title: "PISA",
-                    version: "0.1.0"
-                },
-                host: hostAndPort,
-                basePath: "/"
-            },
-            // Path to the API docs
-            apis: ["./src/service.ts", "./src/service.js", "./build/src/service.js"]
-        };
-
-        return options;
     }
 
     protected async startInternal() {
@@ -183,6 +165,7 @@ export class PisaService extends StartStopService {
         app.use(express.json());
         // use http context middleware to create a request id available on all requests
         app.use(httpContext.middleware);
+        app.use(favicon(path.join(__dirname, "..", "docs", "favicon.ico")));
         app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
             (req as any).log = this.logger.child({ requestId: uuid() });
             next();
@@ -261,25 +244,6 @@ export class PisaService extends StartStopService {
         }
     }
 
-    /**
-     * @swagger
-     *
-     * /appointment:
-     *   post:
-     *     description: Request an appointment
-     *     produces:
-     *       - application/json
-     *     parameters:
-     *       - name: appointment request
-     *         description: Appointment request
-     *         in: body
-     *         required: true
-     *         type: object
-     *         schema:
-     *           $ref: 'schemas/appointmentRequest.json'
-     *     responses:
-     *       200:
-     */
     private appointment(tower: PisaTower) {
         return async (req: requestAndLog, res: express.Response, next: express.NextFunction) => {
             if (!this.started) {
@@ -320,10 +284,9 @@ export class PisaService extends StartStopService {
         return `<!DOCTYPE html>
             <html>
             <head>
-                <title>Quizizz Docs</title>
+                <title>PISA</title>
                 <!-- needed for adaptive design -->
                 <meta charset="utf-8"/>
-                <link rel="shortcut icon" type="image/x-icon" href="https://quizizz.com/favicon.ico" />
                 <meta name="viewport" content="width=device-width, initial-scale=1">
                 <link href="https://fonts.googleapis.com/css?family=Montserrat:300,400,700|Roboto:300,400,700" rel="stylesheet">
 
@@ -339,7 +302,7 @@ export class PisaService extends StartStopService {
             </head>
             <body>
                 <!-- we provide is specification here -->
-                <redoc spec-url='./api-docs.json' expand-responses="all"></redoc>
+                <redoc spec-url='.${this.API_DOCS_JSON_ROUTE}' expand-responses="all"></redoc>
                 <script src="https://cdn.jsdelivr.net/npm/redoc@next/bundles/redoc.standalone.js"> </script>
             </body>
         </html>`;
