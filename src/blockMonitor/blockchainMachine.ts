@@ -48,12 +48,11 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
     private components: Component<AnchorState, IBlockStub, ComponentAction>[] = [];
 
     protected async startInternal(): Promise<void> {
-        this.blockProcessor.on(BlockProcessor.NEW_HEAD_EVENT, this.processNewHead);
-        this.blockProcessor.on(BlockProcessor.NEW_BLOCK_EVENT, this.processNewBlock);
+        this.blockProcessor.addNewHeadListener(this.processNewHead);
+        this.blockProcessor.addNewBlockListener(this.processNewBlock);
     }
     protected async stopInternal(): Promise<void> {
-        this.blockProcessor.off(BlockProcessor.NEW_HEAD_EVENT, this.processNewHead);
-        this.blockProcessor.off(BlockProcessor.NEW_BLOCK_EVENT, this.processNewBlock);
+        // TODO: should detach events from BlockProcessor?
     }
 
     constructor(
@@ -79,8 +78,6 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
     }
 
     private async processNewBlock(block: TBlock) {
-        // TODO: should acquire a lock (shared)
-
         // Every time a new block is received we calculate the anchor state for that block and store it
 
         for (const component of this.components) {
@@ -106,8 +103,6 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
     }
 
     private async processNewHead(head: Readonly<TBlock>, prevHead: Readonly<TBlock> | null, synchronised: boolean) {
-        // TODO: should acquire a lock (shared)
-
         // The components can specify some behaviour that is computed as a diff
         // between the old head and the head. We compute this now for each of the
         // components

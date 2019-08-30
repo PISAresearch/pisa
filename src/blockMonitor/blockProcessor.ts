@@ -12,6 +12,26 @@ type BlockFactory<TBlock> = (
     provider: ethers.providers.Provider
 ) => (blockNumberOrHash: number | string) => Promise<TBlock>;
 
+/**
+ * Listener for the event that is emitted for each new blocks. It is emitted (in order from the lowest-height block) for each block
+ * in the ancestry of the current blockchain head that is deeper than the last block in the ancestry that was emitted
+ * in a previous NEW_HEAD_EVENT. The NEW_HEAD_EVENT for the latest head block is guaranteed to be emitted after all the
+ * NEW_BLOCK_EVENTs in the ancestry have been emitted.
+ * A NEW_BLOCK_EVENT might happen to be emitted multiple times for the same block in case of blokchain re-orgs.
+ */
+export type NewBlockListener<TBlock> = (block: TBlock) => Promise<void>;
+
+/**
+ * Listener for the event emitted when a new block is mined and has been added to the BlockCache.
+ * It is not guaranteed that no block is skipped, especially in case of reorgs.
+ * Emits the block stub of the new head, and the previous emitted block in the ancestry of this block..
+ */
+export type NewHeadListener<TBlock> = (
+    head: Readonly<TBlock>,
+    prevHead: Readonly<TBlock> | null,
+    synchronised: boolean
+) => Promise<void>;
+
 // Convenience function to wrap the provider's getBlock function with some error handling logic.
 // The provider can occasionally fail (by returning null or throwing an error), observed when using Infura.
 // (see https://github.com/PISAresearch/pisa/issues/227)
@@ -112,6 +132,9 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
 
     private mBlockCache: BlockCache<TBlock>;
 
+    private newBlockListeners: NewBlockListener<TBlock>[] = [];
+    private newHeadListeners: NewHeadListener<TBlock>[] = [];
+
     // Returned in the constructor by blockProvider: obtains the block remotely (or throws an exception on failure)
     private getBlockRemote: (blockNumberOrHash: string | number) => Promise<TBlock>;
 
@@ -121,22 +144,6 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
     public get blockCache(): ReadOnlyBlockCache<TBlock> {
         return this.mBlockCache;
     }
-
-    /**
-     * Event emitted when a new block is mined and has been added to the BlockCache.
-     * It is not guaranteed that no block is skipped, especially in case of reorgs.
-     * Emits the block stub of the new head, and the previous emitted block in the ancestry of this block..
-     */
-    public static readonly NEW_HEAD_EVENT = "new_head";
-
-    /**
-     * Event that is emitted for each new blocks. It is emitted (in order from the lowest-height block) for each block
-     * in the ancestry of the current blockchain head that is deeper than the last block in the ancestry that was emitted
-     * in a previous NEW_HEAD_EVENT. The NEW_HEAD_EVENT for the latest head block is guaranteed to be emitted after all the
-     * NEW_BLOCK_EVENTs in the ancestry have been emitted.
-     * A NEW_BLOCK_EVENT might happen to be emitted multiple times for the same block in case of blokchain re-orgs.
-     */
-    public static readonly NEW_BLOCK_EVENT = "new_block";
 
     constructor(
         private provider: ethers.providers.BaseProvider,
@@ -163,39 +170,53 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
         this.provider.removeListener("block", this.processBlockNumber);
     }
 
+    public addNewBlockListener(listener: NewBlockListener<TBlock>) {
+        this.newBlockListeners.push(listener);
+    }
+
+    public addNewHeadListener(listener: NewHeadListener<TBlock>) {
+        this.newHeadListeners.push(listener);
+    }
+
     // updates the new head block in the cache and emits the appropriate events
     private async processNewHead(headBlock: Readonly<TBlock>, synchronised: boolean) {
-        this.mBlockCache.setHead(headBlock.hash);
+        try {
+            this.mBlockCache.setHead(headBlock.hash);
 
-        await this.store.setLatestHeadNumber(headBlock.number);
+            await this.store.setLatestHeadNumber(headBlock.number);
 
-        // only emit events after it's started
-        if (this.started) {
-            // Go through the ancestry, add any block that up until (but excluding) the last block
-            // we emitted as head. If we never find a last emitted block, we emit all the ancestors in cache
-            let nearestEmittedHeadInAncestry: Readonly<TBlock> | null = null;
-            const blocksToEmit = [];
-            for (const block of this.blockCache.ancestry(headBlock.hash)) {
-                if (this.emittedBlockHeads.has(block)) {
-                    nearestEmittedHeadInAncestry = block;
-                    break;
-                } else {
-                    blocksToEmit.unshift(block);
+            // only emit events after it's started
+            if (this.started) {
+                // Go through the ancestry, add any block that up until (but excluding) the last block
+                // we emitted as head. If we never find a last emitted block, we emit all the ancestors in cache
+                let nearestEmittedHeadInAncestry: Readonly<TBlock> | null = null;
+                const blocksToEmit = [];
+                for (const block of this.blockCache.ancestry(headBlock.hash)) {
+                    if (this.emittedBlockHeads.has(block)) {
+                        nearestEmittedHeadInAncestry = block;
+                        break;
+                    } else {
+                        blocksToEmit.unshift(block);
+                    }
                 }
+
+                // Emit all the blocks past the latest block in the ancestry that was emitted as head
+                // In case of re-orgs, some blocks might be re-emitted multiple times.
+                for (const block of blocksToEmit) {
+                    await Promise.all(this.newBlockListeners.map(listener => listener(block)));
+                }
+
+                // Emit the new head
+                await Promise.all(
+                    this.newHeadListeners.map(listener =>
+                        listener(headBlock, nearestEmittedHeadInAncestry, synchronised)
+                    )
+                );
+
+                this.emittedBlockHeads.add(headBlock);
             }
-
-            // TODO blockProcessor should await for the events to be processed
-            // (also means BlockProcessor can't be an EventEmitter)
-
-            // Emit all the blocks past the latest block in the ancestry that was emitted as head
-            // In case of re-orgs, some blocks might be re-emitted multiple times.
-            for (const block of blocksToEmit) {
-                this.emit(BlockProcessor.NEW_BLOCK_EVENT, block);
-            }
-
-            // Emit the new head
-            this.emit(BlockProcessor.NEW_HEAD_EVENT, headBlock, nearestEmittedHeadInAncestry, synchronised);
-            this.emittedBlockHeads.add(headBlock);
+        } catch (doh) {
+            this.logger.error(doh);
         }
     }
 
