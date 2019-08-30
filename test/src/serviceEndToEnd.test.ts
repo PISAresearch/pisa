@@ -53,7 +53,7 @@ const appointmentRequest = async (
         endBlock: 1000,
         eventABI: KitsuneTools.eventABI(),
         eventArgs: KitsuneTools.eventArgs(),
-        gasLimit: "1000000",
+        gasLimit: 1000000,
         id: 1,
         jobId: 0,
         mode,
@@ -75,7 +75,7 @@ const appointmentRequest = async (
         ...Appointment.toIAppointmentRequest(app),
         customerSig: sig,
         refund: app.refund.toString(),
-        gasLimit: app.gasLimit.toString()
+        gasLimit: app.gasLimit
     };
 };
 

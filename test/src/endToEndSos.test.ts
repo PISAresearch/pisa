@@ -52,7 +52,7 @@ describe("sos end to end", () => {
             endBlock: startBlock + 200,
             eventABI: eventAbi,
             eventArgs: eventArgs,
-            gasLimit: "100000",
+            gasLimit: 100000,
             id,
             jobId,
             mode: 1,

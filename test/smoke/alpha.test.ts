@@ -68,7 +68,7 @@ describe("alpha", () => {
             endBlock: startBlock + 130,
             eventABI: eventAbi,
             eventArgs: eventArgs,
-            gasLimit: "100000",
+            gasLimit: 100000,
             id,
             jobId,
             mode: 1,

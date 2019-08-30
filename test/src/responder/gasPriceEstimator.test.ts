@@ -134,7 +134,7 @@ describe("GasPriceEstimator", () => {
             endBlock,
             eventABI: "eventABI",
             eventArgs: "eventArgs",
-            gasLimit: "100",
+            gasLimit: 100,
             customerChosenId: 20,
             jobId: 1,
             mode: 1,

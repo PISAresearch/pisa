@@ -55,14 +55,14 @@ export interface IAppointmentBase {
     readonly data: string;
 
     /**
-     * How much to refund the customer by, in wei. Maximum can be 0.1 ether = 100000000000000000
+     * How much to refund the customer by, in wei. Currently set to 0.
      */
     readonly refund: string;
 
     /**
-     * The amount of gas to use when calling the external contract with the provided data. Maximum is 6 million = 6000000.
+     * The amount of gas to use when calling the external contract with the provided data. Maximum is 6 million = 2000000.
      */
-    readonly gasLimit: string;
+    readonly gasLimit: number;
 
     /**
      * A human readable (https://blog.ricmoo.com/human-readable-contract-abis-in-ethers-js-141902f4d917) event abi
@@ -135,7 +135,7 @@ export class Appointment {
         public readonly jobId: number,
         public readonly data: string,
         public readonly refund: BigNumber,
-        public readonly gasLimit: BigNumber,
+        public readonly gasLimit: number,
         public readonly mode: number,
         public readonly eventABI: string,
         public readonly eventArgs: string,
@@ -156,7 +156,7 @@ export class Appointment {
             appointment.jobId,
             appointment.data,
             new BigNumber(appointment.refund),
-            new BigNumber(appointment.gasLimit),
+            appointment.gasLimit,
             appointment.mode,
             appointment.eventABI,
             appointment.eventArgs,
@@ -178,7 +178,7 @@ export class Appointment {
             jobId: appointment.jobId,
             data: appointment.data,
             refund: appointment.refund.toHexString(),
-            gasLimit: appointment.gasLimit.toHexString(),
+            gasLimit: appointment.gasLimit,
             mode: appointment.mode,
             eventABI: appointment.eventABI,
             eventArgs: appointment.eventArgs,
@@ -200,7 +200,7 @@ export class Appointment {
             appointmentRequest.jobId,
             appointmentRequest.data,
             new BigNumber(appointmentRequest.refund),
-            new BigNumber(appointmentRequest.gasLimit),
+            appointmentRequest.gasLimit,
             appointmentRequest.mode,
             appointmentRequest.eventABI,
             appointmentRequest.eventArgs,
@@ -222,7 +222,7 @@ export class Appointment {
             jobId: appointment.jobId,
             data: appointment.data,
             refund: appointment.refund.toHexString(),
-            gasLimit: appointment.gasLimit.toHexString(),
+            gasLimit: appointment.gasLimit,
             mode: appointment.mode,
             eventABI: appointment.eventABI,
             eventArgs: appointment.eventArgs,
@@ -277,7 +277,6 @@ export class Appointment {
         Appointment.parseBigNumber(request.refund, "Refund", log);
         const refund = new BigNumber(request.refund);
         if (!refund.eq(0)) throw new PublicDataValidationError("Refund must be set to 0");
-        Appointment.parseBigNumber(request.gasLimit, "Gas limit", log);
         return Appointment.fromIAppointmentRequest(request);
     }
 
@@ -322,7 +321,6 @@ export class Appointment {
         }
 
         // check refund and gas limit are reasonable
-        if (this.gasLimit.gt(6000000)) throw new PublicDataValidationError("Gas limit cannot be greater than 6000000.");
         if (this.refund.gt(ethers.utils.parseEther("0.1"))) throw new PublicDataValidationError("Refund cannot be greater than 0.1 ether."); // prettier-ignore
 
         // check the sig

@@ -62,7 +62,9 @@
         },
         "gasLimit": {
             "$id": "#/properties/gasLimit",
-            "type": "string"
+            "type": "number",
+            "minimum": 0,
+            "maximum": 2000000
         },
         "id": {
             "$id": "#/properties/id",
@@ -80,7 +82,7 @@
             "$id": "#/properties/mode",
             "type": "integer",
             "minimum": 0,
-            "maximum": 9007199254740991
+            "maximum": 1
         },
         "paymentHash": {
             "$id": "#/properties/paymentHash",

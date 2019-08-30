@@ -21,7 +21,7 @@ const testAppointmentRequest = {
     eventABI: "event EventDispute(uint256 indexed)",
     eventArgs:
         "0x00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000",
-    gasLimit: "100000",
+    gasLimit: 100000,
     id: 1,
     jobId: 0,
     mode: 1,
