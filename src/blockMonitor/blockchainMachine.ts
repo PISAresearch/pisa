@@ -30,6 +30,7 @@ class ActionStore extends StartStopService {
         else this.actions.set(componentKind, new Set(actions));
 
         let batch = this.subDb.batch();
+        // TODO: correctly add the id to the actions in a type-safe way
         actions.forEach(a => (batch = batch.put(componentKind + ":" + (a as any).id, a)));
         await batch.write();
     }
@@ -78,6 +79,8 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
     }
 
     private async processNewBlock(block: TBlock) {
+        // TODO: should acquire a lock (shared)
+
         // Every time a new block is received we calculate the anchor state for that block and store it
 
         for (const component of this.components) {
@@ -103,6 +106,8 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
     }
 
     private async processNewHead(head: Readonly<TBlock>, prevHead: Readonly<TBlock> | null, synchronised: boolean) {
+        // TODO: should acquire a lock (shared)
+
         // The components can specify some behaviour that is computed as a diff
         // between the old head and the head. We compute this now for each of the
         // components

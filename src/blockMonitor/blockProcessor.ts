@@ -164,9 +164,10 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
     }
 
     // updates the new head block in the cache and emits the appropriate events
-    private processNewHead(headBlock: Readonly<TBlock>, synchronised: boolean) {
+    private async processNewHead(headBlock: Readonly<TBlock>, synchronised: boolean) {
         this.mBlockCache.setHead(headBlock.hash);
-        this.store.setLatestHeadNumber(headBlock.number);
+
+        await this.store.setLatestHeadNumber(headBlock.number);
 
         // only emit events after it's started
         if (this.started) {
@@ -182,6 +183,9 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
                     blocksToEmit.unshift(block);
                 }
             }
+
+            // TODO blockProcessor should await for the events to be processed
+            // (also means BlockProcessor can't be an EventEmitter)
 
             // Emit all the blocks past the latest block in the ancestry that was emitted as head
             // In case of re-orgs, some blocks might be re-emitted multiple times.
@@ -254,11 +258,11 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
                 this.lastBlockHashReceived === observedBlock.hash &&
                 observedBlockResult !== BlockAddResult.NotAddedBlockNumberTooLow
             ) {
-                this.processNewHead(observedBlock, synchronised);
+                await this.processNewHead(observedBlock, synchronised);
             }
 
             // finally, if we didnt process all the blocks, then we need to go again
-            if(synchronised) await this.processBlockNumber(blockNumber);
+            if (synchronised) await this.processBlockNumber(blockNumber);
         } catch (doh) {
             if (doh instanceof BlockFetchingError) this.logger.info(doh);
             else this.logger.error(doh);
