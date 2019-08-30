@@ -19,7 +19,7 @@ import { GasQueue } from "./responder/gasQueue";
 import rateLimit from "express-rate-limit";
 import uuid = require("uuid/v4");
 import { BigNumber } from "ethers/utils";
-import swaggerDoc from "./../docs/swagger-doc.json";
+import swaggerDoc from "./public/swagger-doc.json";
 import favicon from "serve-favicon";
 
 /**
@@ -165,7 +165,7 @@ export class PisaService extends StartStopService {
         app.use(express.json());
         // use http context middleware to create a request id available on all requests
         app.use(httpContext.middleware);
-        app.use(favicon(path.join(__dirname, "..", "docs", "favicon.ico")));
+        app.use(favicon(path.join(__dirname, "public", "favicon.ico")));
         app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
             (req as any).log = this.logger.child({ requestId: uuid() });
             next();

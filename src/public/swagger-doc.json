@@ -112,7 +112,7 @@
         },
         "refund": {
           "type": "string",
-          "description": "The amount to be refunded in case of failure (wei). Not currently supported, must be set to `0`",
+          "description": "The amount to be refunded in case of failure (wei). Must be set to `0` for free API values, non zero values are not currently supported.",
           "example": "0"
         },
         "paymentHash": {

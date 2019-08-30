@@ -1,5 +1,5 @@
 import { ethers } from "ethers";
-import appointmentRequestSchemaJson from "./appointmentRequestSchema.json";
+import appointmentRequestSchemaJson from "../public/appointmentRequestSchema.json";
 import Ajv from "ajv";
 import { PublicDataValidationError, PublicInspectionError } from "./errors";
 import logger from "../logger";
