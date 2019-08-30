@@ -312,6 +312,9 @@ export class Appointment {
         if((this.endBlock - this.startBlock) > 60000) throw new PublicDataValidationError(`Appointment duration too great. Maximum duration between start and end block is 60000.`); // prettier-ignore
         if((this.endBlock - this.startBlock) < 100) throw new PublicDataValidationError(`Appointment duration too small. Minimum duration between start and end block is 100.`); // prettier-ignore
 
+        if(this.preCondition !== "0x") throw new PublicDataValidationError("Pre-condition currently not supported. Please set to '0x'");
+        if(this.postCondition !== "0x") throw new PublicDataValidationError("Post-condition currently not supported. Please set to '0x'");
+
         try {
             this.mEventFilter = this.parseEventArgs();
         } catch (doh) {

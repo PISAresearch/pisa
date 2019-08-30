@@ -25,8 +25,8 @@ const testAppointmentRequest = {
     id: 1,
     jobId: 0,
     mode: 1,
-    preCondition: "0xfc1624bdc50da30f2ea37b7debabeac1f6166db013c5880dcf63907b04199138",
-    postCondition: "0xfc1624bdc50da30f2ea37b7debabeac1f6166db013c5880dcf63907b04199138",
+    preCondition: "0x",
+    postCondition: "0x",
     refund: "0",
     startBlock: 99,
     paymentHash: "0xfc1624bdc50da30f2ea37b7debabeac1f6166db013c5880dcf63907b04199138",
@@ -36,8 +36,8 @@ const testAppointmentRequest = {
 const pisaContractAddress = "0x70397134f9c6941831626763807c3B88f7DD3520";
 
 const stringifyBigNumbers = (appointment: Appointment) => {
-    const { gasLimit, refund, ...r } = appointment;
-    return { gasLimitString: gasLimit.toString(), refundString: refund.toString(), ...r };
+    const { refund, ...r } = appointment;
+    return { refundString: refund.toString(), ...r };
 };
 
 describe("Appointment", () => {
@@ -50,13 +50,12 @@ describe("Appointment", () => {
     });
 
     fnIt<Appointment>(() => Appointment.parse, "correctly parse valid appointment", () => {
-        const { id, gasLimit, refund, ...requestRest } = testAppointmentRequest;
+        const { id, refund, ...requestRest } = testAppointmentRequest;
         const app = Appointment.parse(testAppointmentRequest);
-        const { customerChosenId, gasLimitString, refundString, ...appRequest } = stringifyBigNumbers(app);
+        const { customerChosenId, refundString, ...appRequest } = stringifyBigNumbers(app);
 
         expect(requestRest).to.deep.equal(appRequest);
         expect(id).to.deep.equal(customerChosenId);
-        expect(gasLimit).to.deep.equal(gasLimitString);
         expect(refund).to.deep.equal(refundString);
     });
 
@@ -103,17 +102,36 @@ describe("Appointment", () => {
         expect(() => Appointment.parse(clone)).to.throw(PublicDataValidationError);
     });
 
-    fnIt<Appointment>(() => Appointment.parse, "can parse any mode number", () => {
+    fnIt<Appointment>(() => Appointment.parse, "mode can be 0", () => {
         const clone = { ...testAppointmentRequest };
-        clone.mode = 10000;
-        const { id, gasLimit, refund, ...requestRest } = clone;
+        clone.mode = 0;
+
+        let { id, refund, ...requestRest } = clone;
         const app = Appointment.parse(clone);
-        const { customerChosenId, gasLimitString, refundString, ...appRequest } = stringifyBigNumbers(app);
+        let { customerChosenId, refundString, ...appRequest } = stringifyBigNumbers(app);
 
         expect(requestRest).to.deep.equal(appRequest);
         expect(id).to.deep.equal(customerChosenId);
-        expect(gasLimit).to.deep.equal(gasLimitString);
         expect(refund).to.deep.equal(refundString);
+    });
+
+    fnIt<Appointment>(() => Appointment.parse, "mode can be 1", () => {
+        const clone = { ...testAppointmentRequest };
+        clone.mode = 1;
+
+        let { id, refund, ...requestRest } = clone;
+        const app = Appointment.parse(clone);
+        let { customerChosenId, refundString, ...appRequest } = stringifyBigNumbers(app);
+
+        expect(requestRest).to.deep.equal(appRequest);
+        expect(id).to.deep.equal(customerChosenId);
+        expect(refund).to.deep.equal(refundString);
+    });
+
+    fnIt<Appointment>(() => Appointment.parse, "mode cannot be another number", () => {
+        const clone = { ...testAppointmentRequest };
+        clone.mode = 2;
+        expect(() => Appointment.parse(clone)).to.throw(PublicDataValidationError);
     });
 
     fnIt<Appointment>(() => Appointment.parse, "does not accept non-zero refund", () => {
@@ -259,18 +277,8 @@ describe("Appointment", () => {
             PublicDataValidationError
         );
     });
-
-    fnIt<Appointment>(a => a.validate, "throws gas limit > 6000000", async () => {
-        const clone = { ...testAppointmentRequest };
-        clone.gasLimit = 6000001;
-        const app = Appointment.parse(clone);
-        const signedAppointment = await sign(app, customerSigner);
-        return expect(signedAppointment.validate(blockCache, pisaContractAddress)).to.eventually.be.rejectedWith(
-            PublicDataValidationError
-        );
-    });
-
-    fnIt<Appointment>(a => a.validate, "throws refund > 0.1 ether", async () => {        
+    
+    fnIt<Appointment>(a => a.validate, "throws refund > 0.1 ether", async () => {
         const app = Appointment.parse(testAppointmentRequest);
         const signedAppointment = await sign(app, customerSigner);
         const appClone = Appointment.fromIAppointment({
