@@ -171,7 +171,7 @@ describe("Integration", function() {
                 endBlock: 1000,
                 eventABI: KitsuneTools.eventABI(),
                 eventArgs: KitsuneTools.eventArgs(),
-                gasLimit: 100000,
+                gasLimit: 1000000,
                 id: 1,
                 jobId: 0,
                 mode: 1,
