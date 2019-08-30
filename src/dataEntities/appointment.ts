@@ -275,6 +275,8 @@ export class Appointment {
         }
         const request = obj as IAppointmentRequest;
         Appointment.parseBigNumber(request.refund, "Refund", log);
+        const refund = new BigNumber(request.refund);
+        if (!refund.eq(0)) throw new PublicDataValidationError("Refund must be set to 0");
         Appointment.parseBigNumber(request.gasLimit, "Gas limit", log);
         return Appointment.fromIAppointmentRequest(request);
     }

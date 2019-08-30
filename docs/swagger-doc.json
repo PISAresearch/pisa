@@ -112,8 +112,8 @@
         },
         "refund": {
           "type": "string",
-          "description": "The amount to be refunded in case of failure (wei). Maximum can be 0.1 ether = 100000000000000000.",
-          "example": "20000000000000000"
+          "description": "The amount to be refunded in case of failure (wei). Not currently supported, must be set to `0`",
+          "example": "0"
         },
         "paymentHash": {
           "type": "string",
