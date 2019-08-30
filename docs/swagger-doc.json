@@ -16,7 +16,7 @@
   "tags": [
     {
       "name": "Appointment",
-      "description": "An appointment specifies all the information that PISA requires to watch for an event, and respond with data."
+      "description": "An appointment specifies all the information that PISA requires to watch for an event, and respond with data. The appointment is loosely made up of four sections: \n1. Metadata: \n  * Customer address - address of the customer \n  * Appointment id - unique id chosen by the customer \n  * Job id - counter that can be incremented to replace an appointment \n  * Start block - the block when the appointment starts, only events observed between start and end block will be responded to \n  * End block - the block when the appointment ends \n  * Refund - the amount to be refunded to the customer if the PISA fails to respond \n  * Payment hash - proof that the customer has paid PISA \n2. Event data \n  * Contract address - the address that emits the event, and the address that pisa will respond to \n  * Event ABI - A human readable ABI that specifies the structure of the event \n  * Event args - The ABI encoded arguments used to filter the event \n3. Response data \n  * Data - the data to be submitted by PISA on response \n  * Gas limit - the gas to be supplied to the response \n  * Challenge period - the amount of time after the event that PISA has to respond \n  * Mode - used to specify pre and post conditions \n  * Pre condition - not currently supported, set to `0x` \n  * Post condition - not currently supported, set to `0x` \n4. Signature data \n  * Customer sig - a signature by the private key corresponding to the customer address over the supplied appointment data."
     }
   ],
   "paths": {
@@ -37,7 +37,6 @@
           {
             "in": "body",
             "name": "body",
-            "description": "Appointment object that specifies watch and respond behaviour",
             "required": true,
             "schema": {
               "$ref": "#/definitions/Appointment"
@@ -99,7 +98,7 @@
         },
         "startBlock": {
           "type": "integer",
-          "description": "The block at which this appointment starts.",
+          "description": "The block at which this appointment starts. Only events that occur after (inclusive) start block and before (inclusive end block will be responded to.",
           "minimum": 0,
           "maximum": 9007199254740991,
           "example": 605107
@@ -155,19 +154,19 @@
         },
         "mode": {
           "type": "integer",
-          "description": "The PISA execution mode.",
+          "description": "Mode specifies which pre and post condition handlers will be called. Currently pre and post conditions are not supported, and mode can either be `0` or `1`. Set `0` for instant relay - PISA ignores all event information and immediately submits a response. Set `1` for PISA to watch for the specified event and only respond after it has been observed.",
           "minimum": 0,
           "maximum": 9007199254740991,
           "example": 1
         },
         "preCondition": {
           "type": "string",
-          "description": "The pre-condition that must be satisfied before PISA can respond.",
+          "description": "Not currently supported, set to `0x`",
           "example": "0x5bf2b49d8b43dbc21ab4b757d5bebcd3ed6d50c092aa2648c49cd76bce28c9cc"
         },
         "postCondition": {
           "type": "string",
-          "description": "The post-condition to be executed after Pisa executes the call data.",
+          "description": "Not currently supported, set to `0x`",
           "example": "0x5bf2b49d8b43dbc21ab4b757d5bebcd3ed6d50c092aa2648c49cd76bce28c9cc"
         },
         "customerSig": {
