@@ -185,27 +185,27 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
 
             await this.store.setLatestHeadNumber(headBlock.number);
 
-            // only emit events after it's started
+            // Go through the ancestry, add any block that up until (but excluding) the last block
+            // we emitted as head. If we never find a last emitted block, we emit all the ancestors in cache
+            let nearestEmittedHeadInAncestry: Readonly<TBlock> | null = null;
+            const blocksToEmit = [];
+            for (const block of this.blockCache.ancestry(headBlock.hash)) {
+                if (this.emittedBlockHeads.has(block)) {
+                    nearestEmittedHeadInAncestry = block;
+                    break;
+                } else {
+                    blocksToEmit.unshift(block);
+                }
+            }
+
+            // Emit all the blocks past the latest block in the ancestry that was emitted as head
+            // In case of re-orgs, some blocks might be re-emitted multiple times.
+            for (const block of blocksToEmit) {
+                await Promise.all(this.newBlockListeners.map(listener => listener(block)));
+            }
+
+            // only emit new head events after it is started
             if (this.started) {
-                // Go through the ancestry, add any block that up until (but excluding) the last block
-                // we emitted as head. If we never find a last emitted block, we emit all the ancestors in cache
-                let nearestEmittedHeadInAncestry: Readonly<TBlock> | null = null;
-                const blocksToEmit = [];
-                for (const block of this.blockCache.ancestry(headBlock.hash)) {
-                    if (this.emittedBlockHeads.has(block)) {
-                        nearestEmittedHeadInAncestry = block;
-                        break;
-                    } else {
-                        blocksToEmit.unshift(block);
-                    }
-                }
-
-                // Emit all the blocks past the latest block in the ancestry that was emitted as head
-                // In case of re-orgs, some blocks might be re-emitted multiple times.
-                for (const block of blocksToEmit) {
-                    await Promise.all(this.newBlockListeners.map(listener => listener(block)));
-                }
-
                 // Emit the new head
                 await Promise.all(
                     this.newHeadListeners.map(listener =>
@@ -228,10 +228,9 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
             return await this.getBlockRemote(blockHash);
         }
     }
+
     // Processes a new block, adding it to the cache and emitting the appropriate events
-    // It is called for each new block received, but also at startup (during startInternal).
-    // TODO: this was originally designed to be possibly run concurrently (e.g. a new block comes while we are still processing a previous one).
-    //       need to make sure that it still works after the last refactoring.
+    // It is called for each new block received, but also at startup (during startInternal).s
     private async processBlockNumber(blockNumber: number) {
         try {
             // we cant process blocks greater than max depth of the cache

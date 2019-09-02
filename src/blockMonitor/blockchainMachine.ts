@@ -4,6 +4,7 @@ import { Component, AnchorState, ComponentAction, ComponentKind } from "./compon
 import { LevelUp } from "levelup";
 import EncodingDown from "encoding-down";
 import { BlockItemStore } from "../dataEntities/block";
+import { Lock } from "../utils/lock";
 const sub = require("subleveldown");
 
 class ActionStore extends StartStopService {
@@ -47,6 +48,9 @@ class ActionStore extends StartStopService {
 export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopService {
     private components: Component<AnchorState, IBlockStub, ComponentAction>[] = [];
 
+    // lock used to make sure that all events are processed in order
+    private lock = new Lock();
+
     protected async startInternal(): Promise<void> {
         this.blockProcessor.addNewHeadListener(this.processNewHead);
         this.blockProcessor.addNewBlockListener(this.processNewBlock);
@@ -78,64 +82,76 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
     }
 
     private async processNewBlock(block: TBlock) {
-        // Every time a new block is received we calculate the anchor state for that block and store it
+        try {
+            await this.lock.acquire();
 
-        for (const component of this.components) {
-            // If the parent is available and its anchor state is known, the state can be computed with the reducer.
-            // If the parent is available but its anchor state is not known, first compute its parent's initial state, then apply the reducer.
-            // Finally, if the parent is not available at all in the block cache, compute the initial state based on the current block.
+            // Every time a new block is received we calculate the anchor state for that block and store it
 
-            let newState: AnchorState;
-            if (this.blockProcessor.blockCache.hasBlock(block.parentHash)) {
-                const parentBlock = this.blockProcessor.blockCache.getBlock(block.parentHash);
-                const prevAnchorState =
-                    this.blockItemStore.getItem(parentBlock.hash, component.kind.toString()) ||
-                    component.reducer.getInitialState(parentBlock);
+            for (const component of this.components) {
+                // If the parent is available and its anchor state is known, the state can be computed with the reducer.
+                // If the parent is available but its anchor state is not known, first compute its parent's initial state, then apply the reducer.
+                // Finally, if the parent is not available at all in the block cache, compute the initial state based on the current block.
 
-                newState = component.reducer.reduce(prevAnchorState, block);
-            } else {
-                newState = component.reducer.getInitialState(block);
+                let newState: AnchorState;
+                if (this.blockProcessor.blockCache.hasBlock(block.parentHash)) {
+                    const parentBlock = this.blockProcessor.blockCache.getBlock(block.parentHash);
+                    const prevAnchorState =
+                        this.blockItemStore.getItem(parentBlock.hash, component.kind.toString()) ||
+                        component.reducer.getInitialState(parentBlock);
+
+                    newState = component.reducer.reduce(prevAnchorState, block);
+                } else {
+                    newState = component.reducer.getInitialState(block);
+                }
+
+                // states.set(block, newState);
+                await this.blockItemStore.putBlockItem(block.number, block.hash, component.kind.toString(), newState);
             }
-
-            // states.set(block, newState);
-            await this.blockItemStore.putBlockItem(block.number, block.hash, component.kind.toString(), newState);
+        } finally {
+            this.lock.release();
         }
     }
 
     private async processNewHead(head: Readonly<TBlock>, prevHead: Readonly<TBlock> | null, synchronised: boolean) {
-        // The components can specify some behaviour that is computed as a diff
-        // between the old head and the head. We compute this now for each of the
-        // components
+        try {
+            await this.lock.acquire();
 
-        for (const component of this.components) {
-            const actions = this.actionStore.getActions(component.kind)!;
-            const state = this.blockItemStore.getItem(head.hash, component.kind.toString());
-            if (state == undefined) {
-                // Since processNewBlock is always called before processNewHead, this should never happen
-                this.logger.error(
-                    `State for component ${component.constructor.name} for block ${head.hash} (number ${
-                        head.number
-                    }) was not set, but it should have been.`
-                );
-                return;
-            }
-            if (prevHead) {
-                const prevState = this.blockItemStore.getItem(prevHead.hash, component.kind.toString());
-                if (prevState) {
-                    const detectedActions = component.detectChanges(prevState, state);
-                    await this.actionStore.storeActions(component.kind, detectedActions);
-                    detectedActions.forEach(a => actions.add(a));
+            // The components can specify some behaviour that is computed as a diff
+            // between the old head and the head. We compute this now for each of the
+            // components
+
+            for (const component of this.components) {
+                const actions = this.actionStore.getActions(component.kind)!;
+                const state = this.blockItemStore.getItem(head.hash, component.kind.toString());
+                if (state == undefined) {
+                    // Since processNewBlock is always called before processNewHead, this should never happen
+                    this.logger.error(
+                        `State for component ${component.constructor.name} for block ${head.hash} (number ${
+                            head.number
+                        }) was not set, but it should have been.`
+                    );
+                    return;
+                }
+                if (prevHead) {
+                    const prevState = this.blockItemStore.getItem(prevHead.hash, component.kind.toString());
+                    if (prevState) {
+                        const detectedActions = component.detectChanges(prevState, state);
+                        await this.actionStore.storeActions(component.kind, detectedActions);
+                        detectedActions.forEach(a => actions.add(a));
+                    }
+                }
+
+                if (synchronised) {
+                    // side effects must be thread safe, so we can execute them concurrently
+                    actions.forEach(async a => {
+                        await component.applyAction(a);
+                        actions.delete(a);
+                        await this.actionStore.removeAction(component.kind, a);
+                    });
                 }
             }
-
-            if (synchronised) {
-                // side effects must be thread safe, so we can execute them concurrently
-                actions.forEach(async a => {
-                    await component.applyAction(a);
-                    actions.delete(a);
-                    await this.actionStore.removeAction(component.kind, a);
-                });
-            }
+        } finally {
+            this.lock.release();
         }
     }
 }
