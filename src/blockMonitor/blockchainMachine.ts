@@ -1,48 +1,9 @@
 import { BlockProcessor } from "./blockProcessor";
 import { IBlockStub, StartStopService, ApplicationError } from "../dataEntities";
 import { Component, AnchorState, ComponentAction, ComponentKind } from "./component";
-import { LevelUp } from "levelup";
-import EncodingDown from "encoding-down";
 import { BlockItemStore } from "../dataEntities/block";
 import { Lock } from "../utils/lock";
 const sub = require("subleveldown");
-
-class ActionStore extends StartStopService {
-    private readonly subDb: LevelUp<EncodingDown<string, any>>;
-    constructor(db: LevelUp<EncodingDown<string, any>>) {
-        super("action-store");
-        this.subDb = sub(db, `action-store`, { valueEncoding: "json" });
-    }
-
-    protected async startInternal() {
-        // TODO: load actions from the db
-    }
-    protected async stopInternal() {}
-
-    private actions: Map<ComponentKind, Set<ComponentAction>> = new Map();
-
-    public getActions(componentKind: ComponentKind) {
-        return this.actions.get(componentKind);
-    }
-
-    public async storeActions(componentKind: ComponentKind, actions: ComponentAction[]) {
-        const componentSet = this.actions.get(componentKind);
-        if (componentSet) actions.forEach(a => componentSet.add(a));
-        else this.actions.set(componentKind, new Set(actions));
-
-        let batch = this.subDb.batch();
-        // TODO: correctly add the id to the actions in a type-safe way
-        actions.forEach(a => (batch = batch.put(componentKind + ":" + (a as any).id, a)));
-        await batch.write();
-    }
-
-    public async removeAction(componentKind: ComponentKind, action: ComponentAction) {
-        const actions = this.actions.get(componentKind);
-        if (!actions) return;
-        else actions.delete(action);
-        await this.subDb.del(componentKind + ":" + (action as any).id);
-    }
-}
 
 // Generic class to handle the anchor statee of a blockchain state machine
 export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopService {
@@ -59,7 +20,7 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
         // TODO: should detach events from BlockProcessor?
     }
 
-    constructor(private blockProcessor: BlockProcessor<TBlock>, private actionStore: ActionStore, private blockItemStore: BlockItemStore) {
+    constructor(private blockProcessor: BlockProcessor<TBlock>, private blockItemStore: BlockItemStore) {
         super("blockchain-machine");
         this.processNewHead = this.processNewHead.bind(this);
         this.processNewBlock = this.processNewBlock.bind(this);
@@ -114,7 +75,7 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
         }
     }
 
-    private async processNewHead(head: Readonly<TBlock>, prevHead: Readonly<TBlock> | null, synchronised: boolean) {
+    private async processNewHead(head: Readonly<TBlock>, prevHead: Readonly<TBlock> | null) {
         try {
             await this.lock.acquire();
 
@@ -123,8 +84,7 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
             // components
 
             for (const component of this.components) {
-                const actions = this.actionStore.getActions(component.kind)!;
-                const state = this.blockItemStore.getItem(head.hash, component.kind.toString());
+                const state: AnchorState = this.blockItemStore.getItem(head.hash, `${component.kind.toString()}:state`);
                 if (state == undefined) {
                     // Since processNewBlock is always called before processNewHead, this should never happen
                     this.logger.error(
@@ -136,22 +96,12 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
                 // this is now the latest anchor stated for an emitted head block; update the store accordingly
                 await this.blockItemStore.putBlockItem(head.number, head.hash, `${component.kind.toString()}:prevEmittedState`, state);
 
-                if (prevHead) {
-                    const prevState = this.blockItemStore.getItem(prevHead.hash, component.kind.toString());
-                    if (prevState) {
-                        const detectedActions = component.detectChanges(prevState, state);
-                        await this.actionStore.storeActions(component.kind, detectedActions);
-                        detectedActions.forEach(a => actions.add(a));
-                    }
-                }
+                const prevEmittedState: AnchorState | null = this.blockItemStore.getItem(head.hash, `${component.kind.toString()}:prevEmittedState`);
 
-                if (synchronised) {
+                if (prevEmittedState) {
+                    const actions = component.detectChanges(prevEmittedState, state);
                     // side effects must be thread safe, so we can execute them concurrently
-                    actions.forEach(async a => {
-                        await component.applyAction(a);
-                        actions.delete(a);
-                        await this.actionStore.removeAction(component.kind, a);
-                    });
+                    actions.forEach(a => component.applyAction(a));
                 }
             }
         } finally {
