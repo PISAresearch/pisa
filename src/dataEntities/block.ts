@@ -55,7 +55,7 @@ export interface ResponderBlock extends IBlockStub {
 
 export interface Block extends IBlockStub, Logs, Transactions, TransactionHashes {}
 
-export class BlockItemStore extends StartStopService {
+export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService {
     private readonly subDb: LevelUp<EncodingDown<string, any>>;
     constructor(db: LevelUp<EncodingDown<string, any>>) {
         super("block-item-store");
@@ -99,17 +99,17 @@ export class BlockItemStore extends StartStopService {
         return this.items.get(key);
     }
 
-    public getBlocksAtHeight(height: number): (IBlockStub & { attached: boolean })[] | undefined {
+    public getBlocksAtHeight(height: number): (TBlock & { attached: boolean })[] | undefined {
         const itemsAtHeight = this.itemsByHeight.get(height);
         if (itemsAtHeight) {
             // collect blocks and attachment info
 
-            const blocks: (IBlockStub & { attached: boolean })[] = [];
+            const blocks: (TBlock & { attached: boolean })[] = [];
 
             for (const item of itemsAtHeight) {
                 // doesnt contain : so it must be the actual block
                 if (item.endsWith(":block")) {
-                    const block = this.items.get(item) as IBlockStub;
+                    const block = this.items.get(item) as TBlock;
                     const attached = this.items.get(item + ":attached") as boolean;
                     blocks.push({ ...block, attached: attached });
                 }

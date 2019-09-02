@@ -13,14 +13,16 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
     private lock = new Lock();
 
     protected async startInternal(): Promise<void> {
+        if (!this.blockProcessor.started) this.logger.error("The BlockchainMachine should be started before the BlockProcessor.");
+
         this.blockProcessor.addNewHeadListener(this.processNewHead);
-        this.blockProcessor.addNewBlockListener(this.processNewBlock);
+        this.blockProcessor.blockCache.addNewBlockListener(this.processNewBlock);
     }
     protected async stopInternal(): Promise<void> {
         // TODO: should detach events from BlockProcessor?
     }
 
-    constructor(private blockProcessor: BlockProcessor<TBlock>, private blockItemStore: BlockItemStore) {
+    constructor(private blockProcessor: BlockProcessor<TBlock>, private blockItemStore: BlockItemStore<TBlock>) {
         super("blockchain-machine");
         this.processNewHead = this.processNewHead.bind(this);
         this.processNewBlock = this.processNewBlock.bind(this);
@@ -75,7 +77,7 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
         }
     }
 
-    private async processNewHead(head: Readonly<TBlock>, prevHead: Readonly<TBlock> | null) {
+    private async processNewHead(head: Readonly<TBlock>) {
         try {
             await this.lock.acquire();
 

@@ -12,6 +12,15 @@ export enum BlockAddResult {
 }
 
 /**
+ * Listener for the event that is emitted for each new blocks. It is emitted (in order from the lowest-height block) for each block
+ * in the ancestry of the current blockchain head that is deeper than the last block in the ancestry that was emitted
+ * in a previous NEW_HEAD_EVENT. The NEW_HEAD_EVENT for the latest head block is guaranteed to be emitted after all the
+ * NEW_BLOCK_EVENTs in the ancestry have been emitted.
+ * A NEW_BLOCK_EVENT might happen to be emitted multiple times for the same block in case of blokchain re-orgs.
+ */
+export type NewBlockListener<TBlock> = (block: TBlock) => Promise<void>;
+
+/**
  * This interface represents the read-only view of a BlockCache.
  */
 export interface ReadOnlyBlockCache<TBlock extends IBlockStub> {
@@ -20,12 +29,9 @@ export interface ReadOnlyBlockCache<TBlock extends IBlockStub> {
     readonly minHeight: number;
     getBlock(blockHash: string): Readonly<TBlock>;
     hasBlock(blockHash: string, includeDetached?: boolean): boolean;
+    addNewBlockListener(listener: NewBlockListener<TBlock>): void;
     ancestry(initialBlockHash: string): IterableIterator<Readonly<TBlock>>;
-    findAncestor(
-        initialBlockHash: string,
-        predicate: (block: Readonly<TBlock>) => boolean,
-        minHeight?: number
-    ): Readonly<TBlock> | null;
+    findAncestor(initialBlockHash: string, predicate: (block: Readonly<TBlock>) => boolean, minHeight?: number): Readonly<TBlock> | null;
     getOldestAncestorInCache(blockHash: string): TBlock;
     head: TBlock;
 }
@@ -65,6 +71,8 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
         return this.mMaxHeight;
     }
 
+    private newBlockListeners: NewBlockListener<TBlock>[] = [];
+
     /**
      * Returns the minimum height of blocks that can currently be stored.
      *
@@ -80,7 +88,7 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
      * Constructs a block cache that stores blocks up to a maximum depth `maxDepth`.
      * @param maxDepth
      */
-    constructor(public readonly maxDepth: number, private readonly blockStore: BlockItemStore) {}
+    constructor(public readonly maxDepth: number, private readonly blockStore: BlockItemStore<TBlock>) {}
 
     // Remove all the blocks that are deeper than maxDepth, and all connected information.
     private async prune() {
@@ -102,6 +110,12 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
         return this.isEmpty || this.hasBlock(block.parentHash) || block.number === this.minHeight;
     }
 
+    private async emitNewBlock(block: TBlock) {
+        for (const listener of this.newBlockListeners) {
+            await listener(block);
+        }
+    }
+
     // Processes all the detached blocks at the given height, moving them to blocksByHeight if they are now attached.
     // If so, add them and repeat with the next height (as some blocks might now have become attached)
     private async processDetached(height: number) {
@@ -110,6 +124,8 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
 
         for (const block of blocksToAdd) {
             await this.blockStore.putBlockItem(height, block.hash, "attached", true);
+
+            await this.emitNewBlock(block);
 
             // Might need to update the maximum height
             await this.updateMaxHeightAndPrune(block.number);
@@ -166,6 +182,8 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
                 await this.blockStore.putBlockItem(block.number, block.hash, "block", block);
                 await this.blockStore.putBlockItem(block.number, block.hash, "attached", true);
 
+                await this.emitNewBlock(block);
+
                 // If the maximum block height increased, we might have to prune some old info
                 await this.updateMaxHeightAndPrune(block.number);
 
@@ -209,6 +227,14 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
     }
 
     /**
+     * TODO: addo documentation
+     * @param listener
+     */
+    public addNewBlockListener(listener: NewBlockListener<TBlock>) {
+        this.newBlockListeners.push(listener);
+    }
+
+    /**
      * Iterator over all the blocks in the ancestry of the block with hash `initialBlockHash` (inclusive).
      * The block with hash `initialBlockHash` must be attached.
      * @param initialBlockHash
@@ -228,11 +254,7 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
      * Returns `null` if no such ancestor is found.
      * Only tests blocks with height bigger than or equal to `minHeight`, 0 by default.
      */
-    public findAncestor(
-        initialBlockHash: string,
-        predicate: (block: Readonly<TBlock>) => boolean,
-        minHeight: number = 0
-    ): Readonly<TBlock> | null {
+    public findAncestor(initialBlockHash: string, predicate: (block: Readonly<TBlock>) => boolean, minHeight: number = 0): Readonly<TBlock> | null {
         for (const block of this.ancestry(initialBlockHash)) {
             if (block.number < minHeight) return null; // early abort if below minHeight
 
@@ -300,11 +322,7 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
  * @param txHash
  * @throws `ArgumentError` if the block with hash `headHash` is not in the cache or is not attached.
  */
-export function getConfirmations<T extends IBlockStub & TransactionHashes>(
-    cache: ReadOnlyBlockCache<T>,
-    headHash: string,
-    txHash: string
-): number {
+export function getConfirmations<T extends IBlockStub & TransactionHashes>(cache: ReadOnlyBlockCache<T>, headHash: string, txHash: string): number {
     const headBlock = cache.getBlock(headHash);
     const blockTxIsMinedIn = cache.findAncestor(headHash, block => block.transactionHashes.includes(txHash));
     if (!blockTxIsMinedIn) return 0;
