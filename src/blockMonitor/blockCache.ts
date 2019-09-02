@@ -1,5 +1,6 @@
 import { ApplicationError, ArgumentError } from "../dataEntities";
 import { IBlockStub, TransactionHashes, BlockItemStore } from "../dataEntities/block";
+import { Lock } from "../utils/lock";
 
 // Possible return values of addBlock
 export enum BlockAddResult {
@@ -46,6 +47,9 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
     private pruneHeight: number;
 
     private mIsEmpty = true;
+
+    // As the BlockCache has an on-disk store, a lock is used to serialize parallel write accesses
+    private lock = new Lock();
 
     // True before the first block ever is added
     public get isEmpty() {
@@ -140,39 +144,44 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
      * @returns a `BlockAddResult` detailing the outcome of the operation.
      */
     public async addBlock(block: Readonly<TBlock>): Promise<BlockAddResult> {
-        // TODO: this is not thread-safe, might require acquiring a lock
+        try {
+            // Acquire the lock, as multiple adds cannot safely occur in parallel
+            await this.lock.acquire();
 
-        const attached = this.blockStore.getItem(block.hash, "attached");
-        if (attached === true) return BlockAddResult.NotAddedAlreadyExisted; // block already added
-        if (block.number < this.minHeight) return BlockAddResult.NotAddedBlockNumberTooLow; // block already too deep, nothing to do
-        if (attached === false) return BlockAddResult.NotAddedAlreadyExistedDetached; // block already detached
+            const attached = this.blockStore.getItem(block.hash, "attached");
+            if (attached === true) return BlockAddResult.NotAddedAlreadyExisted; // block already added
+            if (block.number < this.minHeight) return BlockAddResult.NotAddedBlockNumberTooLow; // block already too deep, nothing to do
+            if (attached === false) return BlockAddResult.NotAddedAlreadyExistedDetached; // block already detached
 
-        // From now on, we can assume that the block can be added (detached or not)
+            // From now on, we can assume that the block can be added (detached or not)
 
-        if (this.isEmpty) {
-            // First block added, store its height, so blocks before this point will not be stored.
-            this.pruneHeight = block.number;
-            this.mIsEmpty = false;
-        }
+            if (this.isEmpty) {
+                // First block added, store its height, so blocks before this point will not be stored.
+                this.pruneHeight = block.number;
+                this.mIsEmpty = false;
+            }
 
-        if (this.canAttachBlock(block)) {
-            await this.blockStore.putBlockItem(block.number, block.hash, "block", block);
-            await this.blockStore.putBlockItem(block.number, block.hash, "attached", true);
+            if (this.canAttachBlock(block)) {
+                await this.blockStore.putBlockItem(block.number, block.hash, "block", block);
+                await this.blockStore.putBlockItem(block.number, block.hash, "attached", true);
 
-            // If the maximum block height increased, we might have to prune some old info
-            await this.updateMaxHeightAndPrune(block.number);
+                // If the maximum block height increased, we might have to prune some old info
+                await this.updateMaxHeightAndPrune(block.number);
 
-            // Since we added a new block, some detached blocks might become attached
-            await this.processDetached(block.number + 1);
+                // Since we added a new block, some detached blocks might become attached
+                await this.processDetached(block.number + 1);
 
-            // If the minHeight increased, this could also make some detached blocks ready to be attached
-            // This makes sure that they are attached if necessary
-            this.processDetachedBlocksAtMinHeight();
-            return BlockAddResult.Added;
-        } else {
-            await this.blockStore.putBlockItem(block.number, block.hash, "block", block);
-            await this.blockStore.putBlockItem(block.number, block.hash, "attached", false);
-            return BlockAddResult.AddedDetached;
+                // If the minHeight increased, this could also make some detached blocks ready to be attached
+                // This makes sure that they are attached if necessary
+                this.processDetachedBlocksAtMinHeight();
+                return BlockAddResult.Added;
+            } else {
+                await this.blockStore.putBlockItem(block.number, block.hash, "block", block);
+                await this.blockStore.putBlockItem(block.number, block.hash, "attached", false);
+                return BlockAddResult.AddedDetached;
+            }
+        } finally {
+            this.lock.release();
         }
     }
 
