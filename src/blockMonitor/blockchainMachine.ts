@@ -59,11 +59,7 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
         // TODO: should detach events from BlockProcessor?
     }
 
-    constructor(
-        private blockProcessor: BlockProcessor<TBlock>,
-        private actionStore: ActionStore,
-        private blockItemStore: BlockItemStore
-    ) {
+    constructor(private blockProcessor: BlockProcessor<TBlock>, private actionStore: ActionStore, private blockItemStore: BlockItemStore) {
         super("blockchain-machine");
         this.processNewHead = this.processNewHead.bind(this);
         this.processNewBlock = this.processNewBlock.bind(this);
@@ -93,11 +89,16 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
                 // Finally, if the parent is not available at all in the block cache, compute the initial state based on the current block.
 
                 let newState: AnchorState;
+                let prevHeadAnchorState: AnchorState | null = null;
                 if (this.blockProcessor.blockCache.hasBlock(block.parentHash)) {
                     const parentBlock = this.blockProcessor.blockCache.getBlock(block.parentHash);
+
+                    if (parentBlock) {
+                        prevHeadAnchorState = this.blockItemStore.getItem(parentBlock.hash, `${component.kind.toString()}:prevEmittedState`);
+                    }
+
                     const prevAnchorState =
-                        this.blockItemStore.getItem(parentBlock.hash, component.kind.toString()) ||
-                        component.reducer.getInitialState(parentBlock);
+                        this.blockItemStore.getItem(parentBlock.hash, component.kind.toString()) || component.reducer.getInitialState(parentBlock);
 
                     newState = component.reducer.reduce(prevAnchorState, block);
                 } else {
@@ -105,7 +106,8 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
                 }
 
                 // states.set(block, newState);
-                await this.blockItemStore.putBlockItem(block.number, block.hash, component.kind.toString(), newState);
+                await this.blockItemStore.putBlockItem(block.number, block.hash, `${component.kind.toString()}:state`, newState);
+                await this.blockItemStore.putBlockItem(block.number, block.hash, `${component.kind.toString()}:prevEmittedState`, prevHeadAnchorState);
             }
         } finally {
             this.lock.release();
@@ -126,12 +128,14 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
                 if (state == undefined) {
                     // Since processNewBlock is always called before processNewHead, this should never happen
                     this.logger.error(
-                        `State for component ${component.constructor.name} for block ${head.hash} (number ${
-                            head.number
-                        }) was not set, but it should have been.`
+                        `State for component ${component.constructor.name} for block ${head.hash} (number ${head.number}) was not set, but it should have been.`
                     );
                     return;
                 }
+
+                // this is now the latest anchor stated for an emitted head block; update the store accordingly
+                await this.blockItemStore.putBlockItem(head.number, head.hash, `${component.kind.toString()}:prevEmittedState`, state);
+
                 if (prevHead) {
                     const prevState = this.blockItemStore.getItem(prevHead.hash, component.kind.toString());
                     if (prevState) {

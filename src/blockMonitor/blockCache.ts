@@ -162,6 +162,7 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
             }
 
             if (this.canAttachBlock(block)) {
+                // TODO: this should happen atomically
                 await this.blockStore.putBlockItem(block.number, block.hash, "block", block);
                 await this.blockStore.putBlockItem(block.number, block.hash, "attached", true);
 
@@ -176,6 +177,7 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
                 this.processDetachedBlocksAtMinHeight();
                 return BlockAddResult.Added;
             } else {
+                // TODO: this should happen atomically
                 await this.blockStore.putBlockItem(block.number, block.hash, "block", block);
                 await this.blockStore.putBlockItem(block.number, block.hash, "attached", false);
                 return BlockAddResult.AddedDetached;
