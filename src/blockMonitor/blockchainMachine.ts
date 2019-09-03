@@ -3,7 +3,6 @@ import { IBlockStub, StartStopService, ApplicationError } from "../dataEntities"
 import { Component, AnchorState, ComponentAction, ComponentKind } from "./component";
 import { BlockItemStore } from "../dataEntities/block";
 import { Lock } from "../utils/lock";
-const sub = require("subleveldown");
 
 // Generic class to handle the anchor statee of a blockchain state machine
 export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopService {

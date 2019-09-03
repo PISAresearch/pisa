@@ -1,4 +1,12 @@
 import "mocha";
+import { mock, anything, when } from "ts-mockito";
+import { expect } from "chai";
+import { BigNumber } from "ethers/utils";
+
+import LevelUp from "levelup";
+import EncodingDown from "encoding-down";
+import MemDown from "memdown";
+
 import {
     ResponderAppointmentReducer,
     ResponderStateKind,
@@ -11,11 +19,8 @@ import {
 } from "../../../src/responder/component";
 import { BlockCache } from "../../../src/blockMonitor";
 import { PisaTransactionIdentifier } from "../../../src/responder/gasQueue";
-import { BigNumber, bigNumberify } from "ethers/utils";
-import { ResponderBlock, TransactionStub, Block } from "../../../src/dataEntities/block";
-import { expect } from "chai";
+import { ResponderBlock, TransactionStub, Block, BlockItemStore } from "../../../src/dataEntities/block";
 import { MultiResponder } from "../../../src/responder";
-import { mock, anything, when } from "ts-mockito";
 import fnIt from "../../utils/fnIt";
 import throwingInstance from "../../utils/throwingInstance";
 
@@ -70,10 +75,16 @@ const blocks: ResponderBlock[] = [
 ];
 
 describe("ResponderAppointmentReducer", () => {
+    let db: any;
+    let blockStore: BlockItemStore<ResponderBlock>;
+
     let blockCache: BlockCache<ResponderBlock>;
 
     beforeEach(() => {
-        blockCache = new BlockCache<ResponderBlock>(100);
+        db = LevelUp(EncodingDown<string, any>(MemDown(), { valueEncoding: "json" }));
+        blockStore = new BlockItemStore<ResponderBlock>(db);
+
+        blockCache = new BlockCache<ResponderBlock>(100, blockStore);
         blocks.forEach(b => blockCache.addBlock(b));
     });
 
@@ -100,18 +111,14 @@ describe("ResponderAppointmentReducer", () => {
         }
     });
 
-    fnIt<ResponderAppointmentReducer>(
-        r => r.getInitialState,
-        "stays pending if there is a matching mined tx that is deeper than blockObserved",
-        () => {
-            const reducer = new ResponderAppointmentReducer(blockCache, txID1.identifier, appointmentId1, 2, from1);
+    fnIt<ResponderAppointmentReducer>(r => r.getInitialState, "stays pending if there is a matching mined tx that is deeper than blockObserved", () => {
+        const reducer = new ResponderAppointmentReducer(blockCache, txID1.identifier, appointmentId1, 2, from1);
 
-            const anchorState = reducer.getInitialState(blocks[2]);
-            expect(anchorState.identifier).to.equal(txID1.identifier);
-            expect(anchorState.appointmentId).to.equal(appointmentId1);
-            expect(anchorState.kind).to.equal(ResponderStateKind.Pending);
-        }
-    );
+        const anchorState = reducer.getInitialState(blocks[2]);
+        expect(anchorState.identifier).to.equal(txID1.identifier);
+        expect(anchorState.appointmentId).to.equal(appointmentId1);
+        expect(anchorState.kind).to.equal(ResponderStateKind.Pending);
+    });
 
     fnIt<ResponderAppointmentReducer>(r => r.reduce, "keeps pending as pending", () => {
         const reducer = new ResponderAppointmentReducer(blockCache, txID1.identifier, appointmentId1, 0, from1);
@@ -173,12 +180,7 @@ const makePendingAppointmentState = (appointmentId: string, data: string): Pendi
     };
 };
 
-const makeMinedAppointmentState = (
-    appointmentId: string,
-    data: string,
-    blockMined: number,
-    nonce: number
-): MinedResponseState => {
+const makeMinedAppointmentState = (appointmentId: string, data: string, blockMined: number, nonce: number): MinedResponseState => {
     const identifier = new PisaTransactionIdentifier(1, data, "to", new BigNumber(0), new BigNumber(200));
     return {
         appointmentId,
@@ -199,10 +201,7 @@ const setupState = (states: ResponderAppointmentAnchorState[], blockNumber: numb
 };
 
 describe("MultiResponderComponent", () => {
-    let multiResponderMock: MultiResponder,
-        multiResponder: MultiResponder,
-        blockCacheMock: BlockCache<Block>,
-        blockCache: BlockCache<Block>;
+    let multiResponderMock: MultiResponder, multiResponder: MultiResponder, blockCacheMock: BlockCache<Block>, blockCache: BlockCache<Block>;
     const confirmationsRequired = 5;
     beforeEach(() => {
         multiResponderMock = mock(MultiResponder);
@@ -272,47 +271,37 @@ describe("MultiResponderComponent", () => {
         const state2 = setupState([app2State], confirmationsRequired + 1);
         const component = new MultiResponderComponent(multiResponder, blockCache, confirmationsRequired);
 
+        expect(component.detectChanges(state1, state2)).to.deep.equal([{ kind: ResponderActionKind.EndResponse, appointmentId: app2State.appointmentId }]);
+    });
+
+    fnIt<MultiResponderComponent>(m => m.detectChanges, "removes item and mines after confirmations from pending", async () => {
+        const app1State = makePendingAppointmentState("app1", "data1");
+        const app2State = makeMinedAppointmentState("app1", "data1", 0, 0);
+        const state1 = setupState([app1State], 0);
+        // two block difference
+        const state2 = setupState([app2State], confirmationsRequired + 1);
+        const component = new MultiResponderComponent(multiResponder, blockCache, confirmationsRequired);
+
         expect(component.detectChanges(state1, state2)).to.deep.equal([
+            { kind: ResponderActionKind.TxMined, identifier: app2State.identifier, nonce: app2State.nonce },
+            { kind: ResponderActionKind.CheckResponderBalance },
             { kind: ResponderActionKind.EndResponse, appointmentId: app2State.appointmentId }
         ]);
     });
 
-    fnIt<MultiResponderComponent>(
-        m => m.detectChanges,
-        "removes item and mines after confirmations from pending",
-        async () => {
-            const app1State = makePendingAppointmentState("app1", "data1");
-            const app2State = makeMinedAppointmentState("app1", "data1", 0, 0);
-            const state1 = setupState([app1State], 0);
-            // two block difference
-            const state2 = setupState([app2State], confirmationsRequired + 1);
-            const component = new MultiResponderComponent(multiResponder, blockCache, confirmationsRequired);
+    fnIt<MultiResponderComponent>(m => m.detectChanges, "removes item and mines after confirmations from empty", async () => {
+        const app2State = makeMinedAppointmentState("app1", "data1", 0, 0);
+        const state1 = setupState([], 0);
+        // two block difference
+        const state2 = setupState([app2State], confirmationsRequired + 1);
+        const component = new MultiResponderComponent(multiResponder, blockCache, confirmationsRequired);
 
-            expect(component.detectChanges(state1, state2)).to.deep.equal([
-                { kind: ResponderActionKind.TxMined, identifier: app2State.identifier, nonce: app2State.nonce },
-                { kind: ResponderActionKind.CheckResponderBalance },
-                { kind: ResponderActionKind.EndResponse, appointmentId: app2State.appointmentId }
-            ]);
-        }
-    );
-
-    fnIt<MultiResponderComponent>(
-        m => m.detectChanges,
-        "removes item and mines after confirmations from empty",
-        async () => {
-            const app2State = makeMinedAppointmentState("app1", "data1", 0, 0);
-            const state1 = setupState([], 0);
-            // two block difference
-            const state2 = setupState([app2State], confirmationsRequired + 1);
-            const component = new MultiResponderComponent(multiResponder, blockCache, confirmationsRequired);
-
-            expect(component.detectChanges(state1, state2)).to.deep.equal([
-                { kind: ResponderActionKind.TxMined, identifier: app2State.identifier, nonce: app2State.nonce },
-                { kind: ResponderActionKind.CheckResponderBalance },
-                { kind: ResponderActionKind.EndResponse, appointmentId: app2State.appointmentId }
-            ]);
-        }
-    );
+        expect(component.detectChanges(state1, state2)).to.deep.equal([
+            { kind: ResponderActionKind.TxMined, identifier: app2State.identifier, nonce: app2State.nonce },
+            { kind: ResponderActionKind.CheckResponderBalance },
+            { kind: ResponderActionKind.EndResponse, appointmentId: app2State.appointmentId }
+        ]);
+    });
 
     fnIt<MultiResponderComponent>(m => m.detectChanges, "does not try to remove already removed item", async () => {
         const app2State = makeMinedAppointmentState("app1", "data1", 0, 0);

@@ -231,6 +231,16 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
     }
 
     /**
+     * Removes `listener` from the list of listeners for new block events.
+     */
+    public removeNewBlockListener(listener: NewBlockListener<TBlock>) {
+        const idx = this.newBlockListeners.findIndex(l => l === listener);
+        if (idx === -1) throw new ApplicationError("No such listener exists.");
+
+        this.newBlockListeners.splice(idx, 1);
+    }
+
+    /**
      * Iterator over all the blocks in the ancestry of the block with hash `initialBlockHash` (inclusive).
      * The block with hash `initialBlockHash` must be attached.
      * @param initialBlockHash

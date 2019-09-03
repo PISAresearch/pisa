@@ -3,7 +3,7 @@ import { StartStopService } from "../dataEntities";
 import { ReadOnlyBlockCache, BlockCache, BlockAddResult } from "./blockCache";
 import { IBlockStub } from "../dataEntities";
 import { Block, TransactionHashes } from "../dataEntities/block";
-import { BlockFetchingError } from "../dataEntities/errors";
+import { BlockFetchingError, ApplicationError } from "../dataEntities/errors";
 import { LevelUp } from "levelup";
 import EncodingDown from "encoding-down";
 const sub = require("subleveldown");
@@ -81,7 +81,7 @@ export const blockFactory = (provider: ethers.providers.Provider) => async (bloc
     };
 };
 
-class BlockProcessorStore {
+export class BlockProcessorStore {
     private readonly subDb: LevelUp<EncodingDown<string, any>>;
     constructor(db: LevelUp<EncodingDown<string, any>>) {
         this.subDb = sub(db, `block-processor`, { valueEncoding: "json" });
@@ -149,8 +149,22 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
         this.provider.removeListener("block", this.processBlockNumber);
     }
 
+    /**
+     * Adds a new listener for new head events.
+     * @param listener the listener for new head event; it will be passed the emitted `TBlock`.
+     */
     public addNewHeadListener(listener: NewHeadListener<TBlock>) {
         this.newHeadListeners.push(listener);
+    }
+
+    /**
+     * Removes `listener` from the list of listeners for new head events.
+     */
+    public removeNewHeadListener(listener: NewHeadListener<TBlock>) {
+        const idx = this.newHeadListeners.findIndex(l => l === listener);
+        if (idx === -1) throw new ApplicationError("No such listener exists.");
+
+        this.newHeadListeners.splice(idx, 1);
     }
 
     // updates the new head block in the cache and emits the appropriate events

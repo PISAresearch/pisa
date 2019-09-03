@@ -11,7 +11,7 @@ import { BlockProcessor, BlockCache } from "./blockMonitor";
 import { LevelUp } from "levelup";
 import encodingDown from "encoding-down";
 import { blockFactory } from "./blockMonitor";
-import { Block } from "./dataEntities/block";
+import { Block, BlockItemStore } from "./dataEntities/block";
 import { BlockchainMachine } from "./blockMonitor/blockchainMachine";
 import { Logger } from "./logger";
 import path from "path";
@@ -21,6 +21,7 @@ import uuid = require("uuid/v4");
 import { BigNumber } from "ethers/utils";
 import swaggerDoc from "./public/swagger-doc.json";
 import favicon from "serve-favicon";
+import { BlockProcessorStore } from "./blockMonitor/blockProcessor";
 
 /**
  * Request object supplemented with a log
@@ -32,6 +33,7 @@ type requestAndLog = express.Request & { log: Logger };
  */
 export class PisaService extends StartStopService {
     private readonly server: Server;
+    private readonly blockItemStore: BlockItemStore<Block>;
     private readonly blockProcessor: BlockProcessor<Block>;
     private readonly responderStore: ResponderStore;
     private readonly appointmentStore: AppointmentStore;
@@ -65,8 +67,10 @@ export class PisaService extends StartStopService {
 
         // block cache and processor
         const cacheLimit = config.maximumReorgLimit == undefined ? 200 : config.maximumReorgLimit;
-        const blockCache = new BlockCache<Block>(cacheLimit);
-        this.blockProcessor = new BlockProcessor<Block>(provider, blockFactory, blockCache);
+        this.blockItemStore = new BlockItemStore<Block>(db);
+        const blockCache = new BlockCache<Block>(cacheLimit, this.blockItemStore);
+        const blockProcessorStore = new BlockProcessorStore(db);
+        this.blockProcessor = new BlockProcessor<Block>(provider, blockFactory, blockCache, blockProcessorStore);
 
         // stores
         this.appointmentStore = new AppointmentStore(db);
@@ -97,7 +101,7 @@ export class PisaService extends StartStopService {
             this.blockProcessor.blockCache,
             config.maximumReorgLimit == undefined ? 100 : config.maximumReorgLimit
         );
-        this.blockchainMachine = new BlockchainMachine<Block>(this.blockProcessor);
+        this.blockchainMachine = new BlockchainMachine<Block>(this.blockProcessor, this.blockItemStore);
         this.blockchainMachine.addComponent(watcher);
         this.blockchainMachine.addComponent(responder);
 
@@ -105,13 +109,7 @@ export class PisaService extends StartStopService {
         const appointmentSigner = new HotEthereumAppointmentSigner(receiptWallet, config.pisaContractAddress);
 
         // tower
-        const tower = new PisaTower(
-            this.appointmentStore,
-            appointmentSigner,
-            multiResponder,
-            blockCache,
-            config.pisaContractAddress
-        );
+        const tower = new PisaTower(this.appointmentStore, appointmentSigner, multiResponder, blockCache, config.pisaContractAddress);
 
         app.post(this.APPOINTMENT_ROUTE, this.appointment(tower));
 
@@ -142,6 +140,7 @@ export class PisaService extends StartStopService {
     }
 
     protected async startInternal() {
+        await this.blockItemStore.start();
         await this.blockchainMachine.start();
         await this.blockProcessor.start();
         await this.appointmentStore.start();
@@ -153,6 +152,7 @@ export class PisaService extends StartStopService {
         await this.appointmentStore.stop();
         await this.blockProcessor.stop();
         await this.blockchainMachine.stop();
+        await this.blockItemStore.stop();
 
         this.server.close(error => {
             if (error) this.logger.error(error);
@@ -203,9 +203,8 @@ export class PisaService extends StartStopService {
 
                 if (
                     // is this a docs request
-                    [this.JSON_SCHEMA_ROUTE, this.API_DOCS_JSON_ROUTE, this.API_DOCS_HTML_ROUTE]
-                        .map(a => a.toLowerCase())
-                        .indexOf(req.url.toLowerCase()) !== -1 &&
+                    [this.JSON_SCHEMA_ROUTE, this.API_DOCS_JSON_ROUTE, this.API_DOCS_HTML_ROUTE].map(a => a.toLowerCase()).indexOf(req.url.toLowerCase()) !==
+                        -1 &&
                     res.statusCode < 400
                 ) {
                     req.log.info(logEntry, "Docs request.");
