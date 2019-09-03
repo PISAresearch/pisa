@@ -3,14 +3,7 @@ import { ApplicationError, ArgumentError, UnreachableCaseError } from "../dataEn
 import { AppointmentStore } from "./store";
 import { ReadOnlyBlockCache } from "../blockMonitor";
 import { Logs, IBlockStub, hasLogMatchingEventFilter } from "../dataEntities/block";
-import {
-    StateReducer,
-    MappedStateReducer,
-    MappedState,
-    Component,
-    BlockNumberState,
-    BlockNumberReducer
-} from "../blockMonitor/component";
+import { StateReducer, MappedStateReducer, MappedState, Component, BlockNumberState, BlockNumberReducer } from "../blockMonitor/component";
 import logger from "../logger";
 import { MultiResponder } from "../responder";
 
@@ -30,9 +23,7 @@ type WatcherAppointmentAnchorStateObserved = {
     blockObserved: number; // block number in which the event was observed
 };
 
-export type WatcherAppointmentAnchorState =
-    | WatcherAppointmentAnchorStateWatching
-    | WatcherAppointmentAnchorStateObserved;
+export type WatcherAppointmentAnchorState = WatcherAppointmentAnchorStateWatching | WatcherAppointmentAnchorStateObserved;
 
 /** The complete anchor state for the watcher, that also includes the block number */
 type WatcherAnchorState = MappedState<WatcherAppointmentAnchorState> & BlockNumberState;
@@ -45,11 +36,7 @@ export class WatcherAppointmentStateReducer implements StateReducer<WatcherAppoi
     public getInitialState(block: IBlockStub & Logs): WatcherAppointmentAnchorState {
         const filter = this.appointment.eventFilter;
 
-        const eventAncestor = this.cache.findAncestor(
-            block.hash,
-            ancestor => hasLogMatchingEventFilter(ancestor, filter),
-            this.appointment.startBlock
-        );
+        const eventAncestor = this.cache.findAncestor(block.hash, ancestor => hasLogMatchingEventFilter(ancestor, filter), this.appointment.startBlock);
 
         if (!eventAncestor) {
             return {
@@ -63,10 +50,7 @@ export class WatcherAppointmentStateReducer implements StateReducer<WatcherAppoi
         }
     }
     public reduce(prevState: WatcherAppointmentAnchorState, block: IBlockStub & Logs): WatcherAppointmentAnchorState {
-        if (
-            prevState.state === WatcherAppointmentState.WATCHING &&
-            hasLogMatchingEventFilter(block, this.appointment.eventFilter)
-        ) {
+        if (prevState.state === WatcherAppointmentState.WATCHING && hasLogMatchingEventFilter(block, this.appointment.eventFilter)) {
             return {
                 state: WatcherAppointmentState.OBSERVED,
                 blockObserved: block.number
@@ -101,6 +85,8 @@ export type WatcherAction = StartResponseAction | RemoveAppointmentAction;
  * acted upon, that is the responsibility of the responder.
  */
 export class Watcher extends Component<WatcherAnchorState, IBlockStub & Logs, WatcherAction> {
+    public readonly name = "watcher";
+
     /**
      * Watches the chain for events related to the supplied appointments. When an event is noticed data is forwarded to the
      * observe method to complete the task. The watcher is not responsible for ensuring that observed events are properly
@@ -164,22 +150,16 @@ export class Watcher extends Component<WatcherAnchorState, IBlockStub & Logs, Wa
 
             // Log if started watching a new appointment
             if (!prevWatcherAppointmentState && appointmentState.state === WatcherAppointmentState.WATCHING) {
-                logger.info(
-                    { state: appointmentState, id: appointmentId, blockNumber: state.blockNumber },
-                    `Started watching for appointment.`
-                );
+                logger.info({ state: appointmentState, id: appointmentId, blockNumber: state.blockNumber }, `Started watching for appointment.`);
             }
 
             // Start response if necessary
-            if (
-                !this.shouldHaveStartedResponder(prevState, prevWatcherAppointmentState) &&
-                this.shouldHaveStartedResponder(state, appointmentState)
-            ) {
+            if (!this.shouldHaveStartedResponder(prevState, prevWatcherAppointmentState) && this.shouldHaveStartedResponder(state, appointmentState)) {
                 const appointment = this.store.appointmentsById.get(appointmentId)!;
                 logger.info({ state: appointmentState, id: appointmentId, blockNumber: state.blockNumber }, `Responding to appointment.`); // prettier-ignore
                 actions.push({
                     kind: WatcherActionKind.StartResponse,
-                    appointment: appointment,   
+                    appointment: appointment,
                     blockObserved: appointmentState.blockObserved
                 });
             }

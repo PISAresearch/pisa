@@ -33,12 +33,8 @@ export type MappedState<TState extends AnchorState> = {
  * Each object is used to generate an individual reducer (here referred as "base reducer"), and this class combines them
  * to obtain a bigger anchor state as a map indexed by the same `id`.
  */
-export class MappedStateReducer<
-    TState extends AnchorState,
-    TMappedState extends AnchorState,
-    TBlock extends IBlockStub,
-    TMappedType extends AnchorState
-> implements StateReducer<MappedState<TMappedState>, TBlock> {
+export class MappedStateReducer<TState extends AnchorState, TMappedState extends AnchorState, TBlock extends IBlockStub, TMappedType extends AnchorState>
+    implements StateReducer<MappedState<TMappedState>, TBlock> {
     /**
      * Creates a new reducer for the given collection of objects.
      * @param getItems a function returning the current state of the collection; it is expected that
@@ -111,12 +107,8 @@ export enum ComponentKind {
 /**
  * A `Component` contains a state reducer and receives and processes the state changes after being added to a `BlockchainMachine`.
  */
-export abstract class Component<
-    TState extends AnchorState,
-    TBlock extends IBlockStub,
-    TAction extends ComponentAction
-> {
-    constructor(public readonly reducer: StateReducer<TState, TBlock>, public readonly kind: ComponentKind) {}
+export abstract class Component<TState extends AnchorState, TBlock extends IBlockStub, TAction extends ComponentAction> {
+    constructor(public readonly reducer: StateReducer<TState, TBlock>) {}
     /**
      * Triggers side effects specified by the actions
      * All side-effect must be thread safe so that they can be applied concurrently
@@ -132,6 +124,9 @@ export abstract class Component<
      * @param state
      */
     public abstract detectChanges(prevState: TState, state: TState): TAction[];
+
+    /** The name of this component. It will be used as database key, so all components added to the BlockchainMachine must have a unique name. */
+    public abstract readonly name: string;
 }
 
 export interface BlockNumberState {
