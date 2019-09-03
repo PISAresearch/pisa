@@ -8,6 +8,7 @@ const sub = require("subleveldown");
 // Generic class to handle the anchor statee of a blockchain state machine
 export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopService {
     private components: Component<AnchorState, IBlockStub, ComponentAction>[] = [];
+    private componentNames: Set<string> = new Set();
 
     // lock used to make sure that all events are processed in order
     private lock = new Lock();
@@ -33,11 +34,11 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
      * @param component
      */
     public addComponent(component: Component<AnchorState, TBlock, ComponentAction>): void {
-        if (this.started) {
-            throw new ApplicationError("Components must be added before the BlockchainMachine is started.");
-        }
+        if (this.started) throw new ApplicationError("Components must be added before the BlockchainMachine is started.");
+        if (this.componentNames.has(component.name)) throw new ApplicationError(`A Component with the name "${component.name}" was already added.`);
 
         this.components.push(component);
+        this.componentNames.add(component.name);
     }
 
     private async processNewBlock(block: TBlock) {
