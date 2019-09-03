@@ -99,8 +99,9 @@ class BlockProcessorStore {
 /**
  * Listens to the provider for new blocks, and updates `blockCache` with all the blocks, making sure that each block
  * is added only after the parent is added, except for blocks at depth `blockCache.maxDepth`.
- * It generates a `NEW_HEAD_EVENT` every time a new block is received by the provider, but only after populating
- * the `blockCache` with the new block and its ancestors.
+ * It generates a "new head" event every time a new block is received by the provider, but only after populating
+ * the `blockCache` with the new block and its ancestors (thus, the BlockCache's "new block" event is always emitted for a block
+ * and its ancestors before the corresponding "new head" event).
  */
 export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService {
     // keeps track of the last block hash received, in order to correctly emit NEW_HEAD_EVENT; null on startup
@@ -181,7 +182,7 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
     }
 
     // Processes a new block, adding it to the cache and emitting the appropriate events
-    // It is called for each new block received, but also at startup (during startInternal).s
+    // It is called for each new block received, but also at startup (during startInternal).
     private async processBlockNumber(blockNumber: number) {
         try {
             // we cant process blocks greater than max depth of the cache

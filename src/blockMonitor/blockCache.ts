@@ -12,11 +12,7 @@ export enum BlockAddResult {
 }
 
 /**
- * Listener for the event that is emitted for each new blocks. It is emitted (in order from the lowest-height block) for each block
- * in the ancestry of the current blockchain head that is deeper than the last block in the ancestry that was emitted
- * in a previous NEW_HEAD_EVENT. The NEW_HEAD_EVENT for the latest head block is guaranteed to be emitted after all the
- * NEW_BLOCK_EVENTs in the ancestry have been emitted.
- * A NEW_BLOCK_EVENT might happen to be emitted multiple times for the same block in case of blokchain re-orgs.
+ * Listener for the event that is emitted for each new blocks that is attached to the cache.
  */
 export type NewBlockListener<TBlock> = (block: TBlock) => Promise<void>;
 
@@ -110,7 +106,7 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
         return this.isEmpty || this.hasBlock(block.parentHash) || block.number === this.minHeight;
     }
 
-    private async emitNewBlock(block: TBlock) {
+    private async emitNewBlockEvent(block: TBlock) {
         for (const listener of this.newBlockListeners) {
             await listener(block);
         }
@@ -125,7 +121,7 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
         for (const block of blocksToAdd) {
             await this.blockStore.putBlockItem(height, block.hash, "attached", true);
 
-            await this.emitNewBlock(block);
+            await this.emitNewBlockEvent(block);
 
             // Might need to update the maximum height
             await this.updateMaxHeightAndPrune(block.number);
@@ -182,7 +178,7 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
                 await this.blockStore.putBlockItem(block.number, block.hash, "block", block);
                 await this.blockStore.putBlockItem(block.number, block.hash, "attached", true);
 
-                await this.emitNewBlock(block);
+                await this.emitNewBlockEvent(block);
 
                 // If the maximum block height increased, we might have to prune some old info
                 await this.updateMaxHeightAndPrune(block.number);
@@ -227,7 +223,7 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
     }
 
     /**
-     * TODO: addo documentation
+     * Adds a `listener` to receive "new block" events.
      * @param listener
      */
     public addNewBlockListener(listener: NewBlockListener<TBlock>) {
