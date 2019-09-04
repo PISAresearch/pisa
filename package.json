@@ -18,7 +18,8 @@
         "test-smoke": "ts-node test/smoke/smokeTests.ts",
         "test-alpha": "mocha -r ts-node/register test/smoke/alpha.test.ts --exit",
         "test-integration": "mocha -r ts-node/register 'test/integration/remote/**/*.test.ts' --exit",
-        "test-raiden": "mocha -r ts-node/register 'test/integration/raiden.test.ts' --exit"
+        "test-raiden": "mocha -r ts-node/register 'test/integration/raiden.test.ts' --exit",
+        "test-contract": "cd sol && truffle test"
     },
     "nyc": {
         "include": [
@@ -112,6 +113,8 @@
         "sinon-chai": "^3.3.0",
         "tar": "^4.4.8",
         "tree-kill": "^1.2.1",
+        "truffle": "^5.0.34",
+        "truffle-assertions": "^0.9.1",
         "ts-mockito": "^2.3.1",
         "ts-node": "^7.0.1",
         "typescript": "^3.1.3",
