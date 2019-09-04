@@ -53,6 +53,7 @@ let execute = async () => {
             customerAddress: acc,
             data,
             endBlock: 22,
+            eventAddress: channelContract.address,
             eventABI: KitsuneTools.eventABI(),
             eventArgs: KitsuneTools.eventArgs(),
             gasLimit: 100000,

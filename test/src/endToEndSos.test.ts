@@ -50,6 +50,7 @@ describe("sos end to end", () => {
             customerAddress: customerAddress,
             data,
             endBlock: startBlock + 200,
+            eventAddress: contractAddress,
             eventABI: eventAbi,
             eventArgs: eventArgs,
             gasLimit: 100000,

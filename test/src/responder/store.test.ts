@@ -19,7 +19,7 @@ describe("ResponderStore", () => {
         return new PisaTransactionIdentifier(chainId, data, "toAddress", new BigNumber(0), new BigNumber(20));
     };
     const createAppointment = (id: string, data: string) => {
-        return new Appointment("contractAddress", "customerAddress", 0, 1000, 50, id, 1, data, new BigNumber(0), 20, 1, "abi", "args", "preCondition", "post", "payment", "sig") //prettier-ignore
+        return new Appointment("contractAddress", "customerAddress", 0, 1000, 50, id, 1, data, new BigNumber(0), 20, 1, "contractAddress", "abi", "args", "preCondition", "post", "payment", "sig") //prettier-ignore
     };
     const createGasQueueRequest = (id: string, data: string, idealGas: BigNumber) => {
         return new GasQueueItemRequest(createIdentifier(data), idealGas, createAppointment(id, data), 0);

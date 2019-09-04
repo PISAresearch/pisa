@@ -16,6 +16,7 @@ const getAppointment = (id: string, endBlock: number, nonce: number) => {
         customerAddress: "customerAddress",
         data: "data",
         endBlock,
+        eventAddress: "contractAddress",
         eventABI: "eventABI",
         eventArgs: "eventArgs",
         gasLimit: 100,

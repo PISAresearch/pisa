@@ -132,6 +132,7 @@ describe("GasPriceEstimator", () => {
             customerAddress: "customerAddress",
             data: "data",
             endBlock,
+            eventAddress: "contractAddress",
             eventABI: "eventABI",
             eventArgs: "eventArgs",
             gasLimit: 100,

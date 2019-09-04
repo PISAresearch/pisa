@@ -354,7 +354,7 @@ contract PISAHash {
         // [eventDesc, eventArgs, precondition, postcondition, mode]
         // We ignore the "event" information in the contract for now.
         // TODO: It should be doable to combine both evnets + conditions. Keeping separate for now.
-        (,,appointment.precondition, appointment.postcondition, appointment.mode) = abi.decode(conditions, (bytes, bytes, bytes, bytes, uint));
+        (,,,appointment.precondition, appointment.postcondition, appointment.mode) = abi.decode(conditions, (address, bytes, bytes, bytes, bytes, uint));
 
         return appointment;
     }

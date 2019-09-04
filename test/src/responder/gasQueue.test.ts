@@ -21,6 +21,7 @@ const createAppointment = (id: string): Appointment => {
         customerAddress: "customerAddress",
         data: "data",
         endBlock: 10,
+        eventAddress: "contractAddress",
         eventABI: "eventABI",
         eventArgs: "eventArgs",
         gasLimit: 100,

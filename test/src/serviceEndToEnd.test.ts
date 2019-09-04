@@ -51,6 +51,7 @@ const appointmentRequest = async (
         customerAddress: customerAddress,
         data,
         endBlock: 1000,
+        eventAddress: contractAddress,
         eventABI: KitsuneTools.eventABI(),
         eventArgs: KitsuneTools.eventArgs(),
         gasLimit: 1000000,

@@ -51,6 +51,7 @@ const encode = (request: IAppointmentRequest) => {
     );
     const conditionInfo = ethers.utils.defaultAbiCoder.encode(
         ...groupTuples([
+            ["address", request.eventAddress],
             ["string", request.eventABI],
             ["bytes", request.eventArgs],
             ["bytes", request.preCondition],
@@ -169,6 +170,7 @@ describe("Integration", function() {
                 customerAddress: acc,
                 data,
                 endBlock: 1000,
+                eventAddress: channelContract.address,
                 eventABI: KitsuneTools.eventABI(),
                 eventArgs: KitsuneTools.eventArgs(),
                 gasLimit: 1000000,
@@ -286,6 +288,7 @@ describe("Integration", function() {
                     customerAddress: acc,
                     data,
                     endBlock: 110,
+                    eventAddress: channelContracts[i].address,
                     eventABI: KitsuneTools.eventABI(),
                     eventArgs: KitsuneTools.eventArgs(),
                     gasLimit: 1000000,
