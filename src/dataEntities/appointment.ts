@@ -60,7 +60,7 @@ export interface IAppointmentBase {
     readonly refund: string;
 
     /**
-     * The amount of gas to use when calling the external contract with the provided data. Maximum is 6 million = 2000000.
+     * The amount of gas to use when calling the external contract with the provided data. Maximum is 2 million = 2000000.
      */
     readonly gasLimit: number;
 

@@ -1,7 +1,7 @@
 {
   "swagger": "2.0",
   "info": {
-    "description": "PISA is an accountable watching service. PISA can be hired to watch for on-chain events by requesting an appointment. At it's core PISA is a watch and respond service, you can configure PISA to watch for EVM events and provide it with data to respond with if the event occurs.\n",
+    "description": "PISA is an accountable watching service. PISA can be hired to watch for on-chain events by requesting an appointment. At its core PISA is a watch and respond service, you can configure PISA to watch for EVM events and provide it with data to respond with if the event occurs.\n",
     "version": "0.1.0 Alpha",
     "title": "PISA Watchtower",
     "contact": {
@@ -91,14 +91,14 @@
         },
         "jobId": {
           "type": "integer",
-          "description": "A counter used to replace appointments of the same id, but lower counter. A knew appoinitment can be requested for an existing id as long as the job id is incremented. If this is the case PISA will forget the old appointment and only watch for the new one.",
+          "description": "A counter used to replace appointments of the same id, but lower counter. A new appoinitment can be requested for an existing id as long as the job id is incremented. If this is the case PISA will forget the old appointment and only watch for the new one.",
           "minimum": 0,
           "maximum": 9007199254740991,
           "example": 3
         },
         "startBlock": {
           "type": "integer",
-          "description": "The block at which this appointment starts. Only events that occur after (inclusive) start block and before (inclusive end block will be responded to.",
+          "description": "The block at which this appointment starts. Only events that occur after (inclusive) start block and before (inclusive) end block will be responded to.",
           "minimum": 0,
           "maximum": 9007199254740991,
           "example": 605107
