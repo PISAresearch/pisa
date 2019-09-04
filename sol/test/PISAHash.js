@@ -147,7 +147,7 @@ function createToCall(_mode, _v) {
   }
 }
 
-function createAppointment(_sc, _blockNo, _cus, _v, _jobid, _mode, _precondition, _postcondition, _minChallengePeriod) {
+function createAppointment(_sc, _blockNo, _cus, _v, _nonce, _mode, _precondition, _postcondition, _minChallengePeriod) {
 
   let endBlock = _blockNo + 100;
   let minChallengePeriod = _minChallengePeriod;
@@ -162,7 +162,7 @@ function createAppointment(_sc, _blockNo, _cus, _v, _jobid, _mode, _precondition
   appointment['endBlock'] = endBlock;
   appointment['customerAddress'] = _cus;
   appointment['id'] = channelid;
-  appointment['jobid'] = _jobid;
+  appointment['nonce'] = _nonce;
   appointment['data'] = toCall;
   appointment['refund'] = refund;
   appointment['gasLimit'] = gas;
@@ -180,7 +180,7 @@ function createAppointment(_sc, _blockNo, _cus, _v, _jobid, _mode, _precondition
   bytesEventABI = web3.utils.fromAscii(appointment['eventABI']);
   appointment['eventArgs'] = appointment['eventArgs'];
 
-  let encodeAppointmentInfo = web3.eth.abi.encodeParameters(['uint','uint','uint','uint','uint','uint', 'bytes32'], [appointment['id'], appointment['jobid'], appointment['startBlock'], appointment['endBlock'], appointment['challengePeriod'], appointment['refund'], appointment['paymentHash']]);
+  let encodeAppointmentInfo = web3.eth.abi.encodeParameters(['uint','uint','uint','uint','uint','uint', 'bytes32'], [appointment['id'], appointment['nonce'], appointment['startBlock'], appointment['endBlock'], appointment['challengePeriod'], appointment['refund'], appointment['paymentHash']]);
   let encodeContractInfo = web3.eth.abi.encodeParameters(['address','address','uint', 'bytes'], [appointment['contractAddress'], appointment['customerAddress'], appointment['gasLimit'], appointment['data']]);
   let encodeConditions = web3.eth.abi.encodeParameters(['bytes','bytes','bytes','bytes', 'uint'], [bytesEventABI, appointment['eventArgs'], appointment['precondition'], appointment['postcondition'], appointment['mode']]);
 
@@ -268,7 +268,7 @@ contract('PISAHash', (accounts) => {
   //                              "eventArgs": appointment['eventArgs'],
   //                              "gasLimit": appointment['gasLimit'],
   //                              "id": appointment['id'],
-  //                              "jobId": appointment['jobid'],
+  //                              "nonce": appointment['nonce'],
   //                              "mode": appointment['mode'],
   //                              "paymentHash": appointment['paymentHash'],
   //                              "preCondition": appointment['precondition'],
@@ -353,7 +353,7 @@ contract('PISAHash', (accounts) => {
       assert.equal(getMode[0][1], postconditionHandler.address);
     });
 
-    it('Basic test (PISA will respond OK) - Create a PISA appointment for MultiChannelContract (v=20, jobid=9)', async () => {
+    it('Basic test (PISA will respond OK) - Create a PISA appointment for MultiChannelContract (v=20, nonce=9)', async () => {
       var challengeInstance = await MultiChannelContract.deployed();
       var registryInstance  = await DataRegistry.deployed();
       var accounts =  await web3.eth.getAccounts();
@@ -403,7 +403,7 @@ contract('PISAHash', (accounts) => {
 
     });
 
-    it('Basic test (PISA will respond OK) - PISA responds on behalf of customer (v=20, jobid=9)', async () => {
+    it('Basic test (PISA will respond OK) - PISA responds on behalf of customer (v=20, nonce=9)', async () => {
       let challengeInstance = await MultiChannelContract.deployed();
       let registryInstance  = await DataRegistry.deployed();
       let accounts =  await web3.eth.getAccounts();
@@ -454,7 +454,7 @@ contract('PISAHash', (accounts) => {
 
     });
 
-    it('PISA will NOT respond - Trigger dispute in MultiChannelContract (v=20, jobid=9)', async () => {
+    it('PISA will NOT respond - Trigger dispute in MultiChannelContract (v=20, nonce=9)', async () => {
       var challengeInstance = await MultiChannelContract.deployed();
       var registryInstance  = await DataRegistry.deployed();
       var accounts =  await web3.eth.getAccounts();
@@ -503,7 +503,7 @@ contract('PISAHash', (accounts) => {
 
     });
 
-    it('PISA will NOT respond - Seek recourse against PISA and FAIL due to bad minimum challenge time (v=100, jobid=20)', async () => {
+    it('PISA will NOT respond - Seek recourse against PISA and FAIL due to bad minimum challenge time (v=100, nonce=20)', async () => {
       let challengeInstance = await MultiChannelContract.deployed();
       let registryInstance  = await DataRegistry.deployed();
       let accounts =  await web3.eth.getAccounts();
@@ -543,7 +543,7 @@ contract('PISAHash', (accounts) => {
       assert.equal(pendingRefunds, 0, "Should be no outstanding refunds");
     });
 
-    it('PISA will NOT respond - Seek recourse against PISA and FAIL due to dispute happening before start time (v=100, jobid=20)', async () => {
+    it('PISA will NOT respond - Seek recourse against PISA and FAIL due to dispute happening before start time (v=100, nonce=20)', async () => {
       let challengeInstance = await MultiChannelContract.deployed();
       let registryInstance  = await DataRegistry.deployed();
       let accounts =  await web3.eth.getAccounts();
@@ -585,7 +585,7 @@ contract('PISAHash', (accounts) => {
       assert.equal(pendingRefunds, 0, "Should be no outstanding refunds");
     });
 
-    it('PISA will NOT respond - Seek recourse against PISA and FAIL due to dispute happening after finish time (v=100, jobid=20)', async () => {
+    it('PISA will NOT respond - Seek recourse against PISA and FAIL due to dispute happening after finish time (v=100, nonce=20)', async () => {
       let challengeInstance = await MultiChannelContract.deployed();
       let registryInstance  = await DataRegistry.deployed();
       let accounts =  await web3.eth.getAccounts();
@@ -629,7 +629,7 @@ contract('PISAHash', (accounts) => {
     });
 
 
-    it('PISA will NOT respond - Creates a valid PISA appointment for MultiChannelContract (v=100, jobid=20)', async () => {
+    it('PISA will NOT respond - Creates a valid PISA appointment for MultiChannelContract (v=100, nonce=20)', async () => {
       let challengeInstance = await MultiChannelContract.deployed();
       let registryInstance  = await DataRegistry.deployed();
       let accounts =  await web3.eth.getAccounts();
@@ -659,7 +659,7 @@ contract('PISAHash', (accounts) => {
     it('PISA will NOT respond - Customer seeks recourse using valid receipt against PISA and they win', async () => {
       // Really we should NEVER be in this situation....
       // accepting a much larger "v" in an earlier receipt... but
-      // bugs can happen and we should be protected from it becuase the _jobid
+      // bugs can happen and we should be protected from it becuase the _nonce
       // remains acceptable
       let challengeInstance = await MultiChannelContract.deployed();
       let registryInstance  = await DataRegistry.deployed();
@@ -699,7 +699,7 @@ contract('PISAHash', (accounts) => {
     it('PISA will NOT respond - PISA refunds the customer 100 wei', async () => {
       // Really we should NEVER be in this situation....
       // accepting a much larger "v" in an earlier receipt... but
-      // bugs can happen and we should be protected from it becuase the _jobid
+      // bugs can happen and we should be protected from it becuase the _nonce
       // remains acceptable
       let accounts =  await web3.eth.getAccounts();
       let challengeInstance = await MultiChannelContract.deployed();
@@ -719,7 +719,7 @@ contract('PISAHash', (accounts) => {
       // Confirm the logs are updated appropriately
       let cheatedlog = await pisaHashInstance.cheated.call(pisaid);
       assert.isTrue(!cheatedlog['triggered'], "Cheating log should no longer be triggered");
-      assert.equal(cheatedlog['jobid'].toString(), appointment['jobid'], "Job ID should match up");
+      assert.equal(cheatedlog['nonce'].toString(), appointment['nonce'], "Nonce should match up");
       assert.equal(cheatedlog['refund'].toString(), "0", "Refund should be set to 0... coins already in PISA Contract");
       assert.equal(cheatedlog['refundby'].toString(), "0", "No longer set as RefundBy");
 
@@ -745,7 +745,7 @@ contract('PISAHash', (accounts) => {
     it('PISA will NOT respond - Try recourse again with same evidence, fails as it was already issued', async () => {
       // Really we should NEVER be in this situation....
       // accepting a much larger "v" in an earlier receipt... but
-      // bugs can happen and we should be protected from it becuase the _jobid
+      // bugs can happen and we should be protected from it becuase the _nonce
       // remains acceptable
       let accounts =  await web3.eth.getAccounts();
       let challengeInstance = await MultiChannelContract.deployed();
@@ -771,7 +771,7 @@ contract('PISAHash', (accounts) => {
     it('PISA will NOT respond - Bad withdrawal followed by the customer withdrawing their coins', async () => {
       // Really we should NEVER be in this situation....
       // accepting a much larger "v" in an earlier receipt... but
-      // bugs can happen and we should be protected from it becuase the _jobid
+      // bugs can happen and we should be protected from it becuase the _nonce
       // remains acceptable
       let challengeInstance = await MultiChannelContract.deployed();
       let accounts =  await web3.eth.getAccounts();
@@ -808,7 +808,7 @@ contract('PISAHash', (accounts) => {
       let pisaid = web3.utils.keccak256(pisaidEncoded);
       let cheatedlog = await pisaHashInstance.cheated.call(pisaid);
       assert.isTrue(!cheatedlog['triggered'], "Cheating log should no longer be triggered");
-      assert.equal(cheatedlog['jobid'].toString(), appointment['jobid'], "Job ID should match up");
+      assert.equal(cheatedlog['nonce'].toString(), appointment['nonce'], "Nonce should match up");
       assert.equal(cheatedlog['refund'].toString(), "0", "Refund should be set to 0... coins already in PISA Contract");
       assert.equal(cheatedlog['refundby'].toString(), "0", "No longer set as RefundBy");
 
@@ -877,7 +877,7 @@ contract('PISAHash', (accounts) => {
         // TODO: We should decode to "bytes" not "bytes32", getting a 53 bits error.
         let pisa_decoded_record = web3.eth.abi.decodeParameters(["uint", "uint", "bytes32"], pisaRecords[lastElement]);
         assert.equal(pisa_decoded_record[0], blockNo+1, "Response block number");
-        assert.equal(pisa_decoded_record[1], appointment['jobid'], "Jobid should be the same");
+        assert.equal(pisa_decoded_record[1], appointment['nonce'], "nonce should be the same");
         assert.equal(pisa_decoded_record[2], web3.utils.keccak256(encodedAppointment), "Hash of appointment should be logged");
 
       });
@@ -903,7 +903,7 @@ contract('PISAHash', (accounts) => {
           assert.equal(signerAddr, accounts[1], "PISA signer address should be the same");
       });
 
-      it('Accountable Relay Transaction - Customer issue recourse for jobid 28 (successful)', async () => {
+      it('Accountable Relay Transaction - Customer issue recourse for nonce 28 (successful)', async () => {
           var accounts =  await web3.eth.getAccounts();
           let challengeInstance = await MultiChannelContract.deployed();
 
@@ -943,20 +943,20 @@ contract('PISAHash', (accounts) => {
 
       });
 
-      it('Accountable Relay Transaction - PISA provides appointment (with same jobid 28) signed by customer. PISA fails to cancel recourse', async () => {
+      it('Accountable Relay Transaction - PISA provides appointment (with same nonce 28) signed by customer. PISA fails to cancel recourse', async () => {
           var accounts =  await web3.eth.getAccounts();
           let challengeInstance = await MultiChannelContract.deployed();
           let blockNo = await web3.eth.getBlockNumber();
 
-          // Change Job ID to something in the future.
+          // Change Nonce to something in the future.
           createAppointment(challengeInstance.address, blockNo, accounts[3], 200, 28, 2, "0x0000000000000000000000000000000000000000", web3.eth.abi.encodeParameter('uint', 200), 50);
 
           // OK lets try to compute pisaid locally after creating a new appointment
           let pisaidEncoded= web3.eth.abi.encodeParameters(['address', 'address', 'uint'], [challengeInstance.address, appointment['customerAddress'], channelid]);
           let pisaid = web3.utils.keccak256(pisaidEncoded);
           let cheatedlog = await pisaHashInstance.cheated.call(pisaid);
-          assert.isTrue(cheatedlog['triggered'], "Recourse for job id 28 should be triggered");
-          assert.isTrue(!cheatedlog['resolved'], "Recourse for job id 28 should not already be resolved");
+          assert.isTrue(cheatedlog['triggered'], "Recourse for nonce 28 should be triggered");
+          assert.isTrue(!cheatedlog['resolved'], "Recourse for nonce 28 should not already be resolved");
 
           appointmentToSign = web3.eth.abi.encodeParameters(['bytes','address'],[encodedAppointment, pisaHashInstance.address]);
           let hash = web3.utils.keccak256(appointmentToSign);
@@ -972,23 +972,23 @@ contract('PISAHash', (accounts) => {
           let pendingRefunds = await pisaHashInstance.pendingrefunds.call();
           cheatedlog = await pisaHashInstance.cheated.call(pisaid);
           assert.equal(pendingRefunds, 1, "1 refund should be outstanding");
-          assert.isTrue(cheatedlog['triggered'], "Recourse for job id 28 should be triggered");
+          assert.isTrue(cheatedlog['triggered'], "Recourse for nonce 28 should be triggered");
       });
 
-      it('Accountable Relay Transaction - PISA provides signed (by customer) appointment with new jobid (30), cancels recourse ', async () => {
+      it('Accountable Relay Transaction - PISA provides signed (by customer) appointment with new nonce (30), cancels recourse ', async () => {
           var accounts =  await web3.eth.getAccounts();
           let challengeInstance = await MultiChannelContract.deployed();
           let blockNo = await web3.eth.getBlockNumber();
 
-          // Change Job ID to something in the future.
+          // Change Nonce to something in the future.
           createAppointment(challengeInstance.address, blockNo, accounts[3], 200, 30, 2, "0x0000000000000000000000000000000000000000", web3.eth.abi.encodeParameter('uint', 200), 50);
 
           // OK lets try to compute pisaid locally after creating a new appointment
           let pisaidEncoded= web3.eth.abi.encodeParameters(['address', 'address', 'uint'], [challengeInstance.address, appointment['customerAddress'], channelid]);
           let pisaid = web3.utils.keccak256(pisaidEncoded);
           let cheatedlog = await pisaHashInstance.cheated.call(pisaid);
-          assert.isTrue(cheatedlog['triggered'], "Recourse for job id 28 should be triggered");
-          assert.isTrue(!cheatedlog['resolved'], "Recourse for job id 28 should not already be resolved");
+          assert.isTrue(cheatedlog['triggered'], "Recourse for nonce 28 should be triggered");
+          assert.isTrue(!cheatedlog['resolved'], "Recourse for nonce 28 should not already be resolved");
 
           appointmentToSign = web3.eth.abi.encodeParameters(['bytes','address'],[encodedAppointment, pisaHashInstance.address]);
           let hash = web3.utils.keccak256(appointmentToSign);
@@ -1007,12 +1007,12 @@ contract('PISAHash', (accounts) => {
           assert.isTrue(!cheatedlog['triggered'], "Cheat log for PISAID should no longer be in a triggered mode, its been resolved peacefullyblock");
       });
 
-      it('Accountable Relay Transaction - Customer gets new signed receipt & broadcasts immediately. Should fail. (jobid 35)', async () => {
+      it('Accountable Relay Transaction - Customer gets new signed receipt & broadcasts immediately. Should fail. (nonce 35)', async () => {
           var accounts =  await web3.eth.getAccounts();
           let challengeInstance = await MultiChannelContract.deployed();
           let blockNo = await web3.eth.getBlockNumber();
 
-          // Change Job ID to something in the future.
+          // Change Nonce to something in the future.
           createAppointment(challengeInstance.address, blockNo, accounts[3], 200, 35, 2, "0x0000000000000000000000000000000000000000", web3.eth.abi.encodeParameter('uint', 200), 50);
           let pisaidEncoded= web3.eth.abi.encodeParameters(['address', 'address', 'uint'], [challengeInstance.address, appointment['customerAddress'], channelid]);
           let pisaid = web3.utils.keccak256(pisaidEncoded);
@@ -1058,13 +1058,13 @@ contract('PISAHash', (accounts) => {
       // Really, PISA shouldn't respond until the auction is in "REVEALBID" mode.
       // So this test should try before the mode and the call fails
       // In the next call.... we change the mode and the call will work! yay!
-      it('Precondition Test - PISA signs new appointment for AUCTION and PISA responds too early (test precondition - jobid 37)', async () => {
+      it('Precondition Test - PISA signs new appointment for AUCTION and PISA responds too early (test precondition - nonce 37)', async () => {
           var accounts =  await web3.eth.getAccounts();
           let mockAuction = await MockAuction.deployed();
           let mockAuctionHandler = await MockAuctionHandler.deployed();
           let blockNo = await web3.eth.getBlockNumber();
 
-          // Change Job ID to something in the future.
+          // Change Nonce to something in the future.
           createAppointment(mockAuction.address, blockNo-10, accounts[3], 500, 37, 10, mockAuctionHandler.address, "0x0000000000000000000000000000000000000000", 50);
 
           appointmentToSign = web3.eth.abi.encodeParameters(['bytes','address'],[encodedAppointment, pisaHashInstance.address]);
@@ -1113,7 +1113,7 @@ contract('PISAHash', (accounts) => {
           let registryInstance  = await DataRegistry.deployed();
           let blockNo = await web3.eth.getBlockNumber();
 
-          // Change Job ID to something in the future.
+          // Change Nonce to something in the future.
           createAppointment(challengeInstance.address, blockNo-10, accounts[3], 500, 40, 2, "0x0000000000000000000000000000000000000000", web3.eth.abi.encodeParameter('uint', 500), 50);
 
           appointmentToSign = web3.eth.abi.encodeParameters(['bytes','address'],[encodedAppointment, pisaHashInstance.address]);
@@ -1146,12 +1146,12 @@ contract('PISAHash', (accounts) => {
           let decodedRecord;
           decodedRecord = web3.eth.abi.decodeParameters(['uint','uint','bytes32'], pisaRecords[index]);
           assert.equal(decodedRecord[0], blockNo, "Record on blockchain should correspond to most recent block");
-          assert.equal(decodedRecord[1], appointment['jobid'], "Recorded jobid should match up with appointment ID");
+          assert.equal(decodedRecord[1], appointment['nonce'], "Recorded nonce should match up with appointment ID");
           assert.equal(decodedRecord[2], web3.utils.keccak256(encodedAppointment), "Appointment hash should match");
 
       });
 
-      it('Precondition Test - Customer issue recourse for jobid 40 (PISA responded, recourse fails)', async () => {
+      it('Precondition Test - Customer issue recourse for nonce 40 (PISA responded, recourse fails)', async () => {
           var accounts =  await web3.eth.getAccounts();
           let challengeInstance = await MultiChannelContract.deployed();
           let registryInstance  = await DataRegistry.deployed();
@@ -1176,7 +1176,7 @@ contract('PISAHash', (accounts) => {
           decodedRecord = web3.eth.abi.decodeParameters(['uint','uint','bytes32'], pisaRecords[index]);
 
           assert.equal(decodedRecord[2], web3.utils.keccak256(encodedAppointment), "Appointment hash should match");
-          assert.equal(decodedRecord[1], appointment['jobid'], "Recorded jobid should match up with appointment ID");
+          assert.equal(decodedRecord[1], appointment['nonce'], "Recorded nonce should match up with appointment ID");
           assert.equal(decodedRecord[0], blockNo-150, "Record on blockchain should correspond to most recent block");
 
           // OK so the log is still there.... lets try to perform recourse using the same appointment
@@ -1261,7 +1261,7 @@ contract('PISAHash', (accounts) => {
           let registryInstance  = await DataRegistry.deployed();
           let blockNo = await web3.eth.getBlockNumber();
 
-          // Change Job ID to something in the future.
+          // Change Nonce to something in the future.
           createAppointment(challengeInstance.address, blockNo-10, accounts[3], 1230, 50, 2, "0x0000000000000000000000000000000000000000", web3.eth.abi.encodeParameter('uint', 1230), 50);
 
           appointmentToSign = web3.eth.abi.encodeParameters(['bytes','address'],[encodedAppointment, pisaHashInstance.address]);
