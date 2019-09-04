@@ -9,7 +9,7 @@ import { arrayify } from "ethers/utils";
 
 const encode = (request: any) => {
     const basicBytes = ethers.utils.defaultAbiCoder.encode(
-        ["uint", "uint", "uint", "uint", "uint", "uint", "bytes32"],
+        ["bytes32", "uint", "uint", "uint", "uint", "uint", "bytes32"],
         [
             request.id,
             request.nonce,

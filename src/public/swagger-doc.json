@@ -83,11 +83,9 @@
           "example": "0x9e64b53b935602cd0657343C69Fe200fb3cD05c8"
         },
         "id": {
-          "type": "number",
-          "description": "A unique id, chosen by the customer.",
-          "minimum": 0,
-          "maximum": 9007199254740991,
-          "example": 200
+          "type": "string",
+          "description": "A unique id, chosen by the customer. Bytes32.",
+          "example": "0x61f307f9dc16833ff12d511e22a20ac2a4d0adaa2f48292ebad9e0c80a2bb75d"
         },
         "nonce": {
           "type": "integer",

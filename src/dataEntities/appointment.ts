@@ -101,7 +101,7 @@ export interface IAppointmentRequest extends IAppointmentBase {
     /**
      * an appointment id, supplied by the customer
      */
-    readonly id: number;
+    readonly id: string;
 
     /**
      * An identifier for the dispute handler to be used in checking state during recourse
@@ -113,7 +113,7 @@ export interface IAppointment extends IAppointmentBase {
     /**
      * an appointment id, supplied by the customer
      */
-    readonly customerChosenId: number;
+    readonly customerChosenId: string;
 
     /**
      * An identifier for the dispute handler to be used in checking state during recourse
@@ -455,7 +455,7 @@ export class Appointment {
     public encode() {
         const appointmentInfo = ethers.utils.defaultAbiCoder.encode(
             ...groupTuples([
-                ["uint", this.customerChosenId],
+                ["bytes32", this.customerChosenId],
                 ["uint", this.nonce],
                 ["uint", this.startBlock],
                 ["uint", this.endBlock],

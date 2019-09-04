@@ -110,7 +110,7 @@ function groupTuples(tupleArray: [string, any][]): [string[], any[]] {
 const encode = (request: any) => {
     const appointmentInfo = ethers.utils.defaultAbiCoder.encode(
         ...groupTuples([
-            ["uint", request.id],
+            ["bytes32", request.id],
             ["uint", request.nonce],
             ["uint", request.startBlock],
             ["uint", request.endBlock],
