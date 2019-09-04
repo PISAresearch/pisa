@@ -362,8 +362,8 @@ export class Appointment {
     /**
      * A unique id for this appointment. Many appointments can have the same locator
      * but they must all have unique ids. Generated from concatenating the locator with
-     * the job id. Appointments with the same locator can be replaced by incrementing the
-     * job id.
+     * the nonce. Appointments with the same locator can be replaced by incrementing the
+     * nonce.
      */
     public get id() {
         return `${this.locator}|${this.nonce}`;

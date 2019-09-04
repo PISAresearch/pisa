@@ -274,7 +274,7 @@ contract PISAHash {
                 uint recordedTime;
                 bytes32 recordedHash;
 
-                // Block number + job id recorded
+                // Block number + nonce recorded
                 (recordedTime, nonce, recordedHash) = abi.decode(response[j], (uint, uint, bytes32));
 
                 // A future nonce was used? Will be all good... appointment may be completely different

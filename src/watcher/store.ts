@@ -50,10 +50,10 @@ export class AppointmentStore extends StartStopService {
 
     /**
      * Checks to see if an appointment with the current locator exists. If it does
-     * exist the current appointment is updated iff it has a lower job id than the supplied
+     * exist the current appointment is updated iff it has a lower nonce than the supplied
      * appointment. If it does not exist a new appointment is added in the store.
      * Throws exception if the suppled appointment had the same locator as an existing appointment
-     * but lower job id.
+     * but lower nonce.
      * @param appointment
      */
     public addOrUpdateByLocator(appointment: Appointment): Promise<void> {

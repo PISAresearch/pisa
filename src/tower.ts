@@ -38,7 +38,7 @@ export class PisaTower {
             const currentAppointment = this.store.appointmentsByLocator.get(appointment.locator);
             if (!currentAppointment || appointment.nonce > currentAppointment.nonce) {   
                 await this.store.addOrUpdateByLocator(appointment);
-            } else throw new PublicDataValidationError(`Appointment already exists and job id too low. Should be greater than ${appointment.nonce}.`); // prettier-ignore
+            } else throw new PublicDataValidationError(`Appointment already exists and nonce too low. Should be greater than ${appointment.nonce}.`); // prettier-ignore
         }
 
         const signature = await this.appointmentSigner.signAppointment(appointment);
