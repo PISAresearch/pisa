@@ -94,12 +94,14 @@ describe("BlockchainMachine", () => {
     let blockStore: BlockItemStore<IBlockStub>;
     let blockCache: BlockCache<IBlockStub>;
 
-    beforeEach(() => {
+    beforeEach(async () => {
         reducer = new ExampleReducer();
         spiedReducer = spy(reducer);
 
         db = LevelUp(EncodingDown<string, any>(MemDown(), { valueEncoding: "json" }));
         blockStore = new BlockItemStore<IBlockStub>(db);
+        await blockStore.start();
+
         blockCache = new BlockCache<IBlockStub>(100, blockStore);
         blocks.forEach(b => blockCache.addBlock(b));
 
