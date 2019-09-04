@@ -112,23 +112,22 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
         }
     }
 
-    // Processes all the detached blocks at the given height, moving them to blocksByHeight if they are now attached.
-    // If so, add them and repeat with the next height (as some blocks might now have become attached)
+    // Processes all the detached blocks at the given height, marking them as attached if necessary.
+    // If there are any, add them and repeat with the next height (as some blocks might now have become attached)
     private async processDetached(height: number) {
         const blocksAtHeight = this.blockStore.getBlocksAtHeight(height) || [];
         const blocksToAdd = blocksAtHeight.filter(b => !b.attached);
 
         for (const block of blocksToAdd) {
             await this.blockStore.putBlockItem(height, block.hash, "attached", true);
-
             await this.emitNewBlockEvent(block);
-
-            // Might need to update the maximum height
-            await this.updateMaxHeightAndPrune(block.number);
         }
 
         if (blocksToAdd.length > 0) {
-            this.processDetached(height + 1);
+            // Might need to update the maximum height
+            await this.updateMaxHeightAndPrune(height);
+
+            await this.processDetached(height + 1);
         }
     }
 

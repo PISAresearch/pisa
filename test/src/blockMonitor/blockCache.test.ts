@@ -56,7 +56,7 @@ describe("BlockCache", () => {
         expect(blocks[0]).to.deep.include(bc.getBlock(blocks[0].hash));
     });
 
-    fnIt<BlockCache<any>>(b => b.addBlock, "adds blocks that are complete and returns Added", async () => {
+    fnIt<BlockCache<any>>(b => b.addBlock, "adds blocks that are attached and returns Added", async () => {
         const bc = new BlockCache(maxDepth, blockStore);
         const blocks = generateBlocks(10, 5, "main");
         expect(await bc.addBlock(blocks[0])).to.equal(BlockAddResult.Added);
@@ -64,7 +64,7 @@ describe("BlockCache", () => {
         expect(await bc.addBlock(blocks[2])).to.equal(BlockAddResult.Added);
     });
 
-    fnIt<BlockCache<any>>(b => b.addBlock, "adds pending blocks and returns false", async () => {
+    fnIt<BlockCache<any>>(b => b.addBlock, "adds unattached blocks and returns false", async () => {
         const bc = new BlockCache(maxDepth, blockStore);
         const blocks = generateBlocks(10, 5, "main");
         await bc.addBlock(blocks[0]);
@@ -72,7 +72,7 @@ describe("BlockCache", () => {
         expect(await bc.addBlock(blocks[2])).to.equal(BlockAddResult.AddedDetached);
     });
 
-    fnIt<BlockCache<any>>(b => b.hasBlock, "returns true for an existing complete block", async () => {
+    fnIt<BlockCache<any>>(b => b.hasBlock, "returns true for an existing attached block", async () => {
         const bc = new BlockCache(maxDepth, blockStore);
         const blocks = generateBlocks(10, 5, "main");
         await bc.addBlock(blocks[0]);
@@ -88,7 +88,7 @@ describe("BlockCache", () => {
         expect(bc.hasBlock("someNonExistingHash")).to.be.false;
     });
 
-    fnIt<BlockCache<any>>(b => b.hasBlock, "returns false for a pending block if allowPending=false", async () => {
+    fnIt<BlockCache<any>>(b => b.hasBlock, "returns false for an unattached block if allowPending=false", async () => {
         const bc = new BlockCache(maxDepth, blockStore);
         const blocks = generateBlocks(10, 5, "main");
         await bc.addBlock(blocks[0]);
@@ -97,7 +97,7 @@ describe("BlockCache", () => {
         expect(bc.hasBlock(blocks[3].hash, false)).to.be.false;
     });
 
-    fnIt<BlockCache<any>>(b => b.hasBlock, "returns true for a pending block if allowPending=true", async () => {
+    fnIt<BlockCache<any>>(b => b.hasBlock, "returns true for an unattached block if allowPending=true", async () => {
         const bc = new BlockCache(maxDepth, blockStore);
         const blocks = generateBlocks(10, 5, "main");
         await bc.addBlock(blocks[0]);
@@ -106,18 +106,20 @@ describe("BlockCache", () => {
         expect(bc.hasBlock(blocks[3].hash, true)).to.be.true;
     });
 
-    fnIt<BlockCache<any>>(b => b.addBlock, "makes sure that previously pending block become complete if appropriate", async () => {
+    fnIt<BlockCache<any>>(b => b.addBlock, "makes sure that a previously unattached block becomes attached if appropriate", async () => {
         const bc = new BlockCache(maxDepth, blockStore);
         const blocks = generateBlocks(10, 5, "main");
         await bc.addBlock(blocks[0]);
         await bc.addBlock(blocks[3]);
         await bc.addBlock(blocks[2]);
+
         expect(await bc.addBlock(blocks[1])).to.equal(BlockAddResult.Added);
+
         expect(bc.maxHeight).to.equal(blocks[3].number);
         expect(bc.hasBlock(blocks[3].hash)).to.be.true;
     });
 
-    it("maxHeight does not change for pending blocks", async () => {
+    it("maxHeight does not change for unattached blocks", async () => {
         const bc = new BlockCache(maxDepth, blockStore);
         const blocks = generateBlocks(10, 5, "main");
         await bc.addBlock(blocks[0]);
@@ -125,7 +127,7 @@ describe("BlockCache", () => {
         expect(bc.maxHeight).to.equal(blocks[0].number);
     });
 
-    fnIt<BlockCache<any>>(b => b.getBlock, "returns a complete block", async () => {
+    fnIt<BlockCache<any>>(b => b.getBlock, "returns an attached block", async () => {
         const bc = new BlockCache(maxDepth, blockStore);
         const blocks = generateBlocks(10, 5, "main");
         await bc.addBlock(blocks[0]);
@@ -134,7 +136,7 @@ describe("BlockCache", () => {
         expect(bc.getBlock(blocks[1].hash)).to.deep.equal(blocks[1]);
     });
 
-    fnIt<BlockCache<any>>(b => b.getBlock, "returns a pending block", async () => {
+    fnIt<BlockCache<any>>(b => b.getBlock, "returns an unattached block", async () => {
         const bc = new BlockCache(maxDepth, blockStore);
         const blocks = generateBlocks(10, 5, "main");
         await bc.addBlock(blocks[0]);
