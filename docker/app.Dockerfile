@@ -45,6 +45,7 @@ COPY ./configs/pisa.json ./build/src/config.json
 # copy only the source code from the builder
 COPY --from=builder /usr/pisa/build/src ./build/src
 COPY --from=builder /usr/pisa/build/raiden_demo ./build/raiden_demo
+COPY --from=builder /usr/pisa/build/sol ./build/sol
 # copy node modules from production
 COPY --from=productionPackges ./usr/pisa/node_modules ./node_modules
 

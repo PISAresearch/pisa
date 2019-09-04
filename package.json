@@ -4,10 +4,9 @@
     "description": "Arbitration Outsourcing for State Channels",
     "main": "index.js",
     "scripts": {
-        "build": "rm -rf ./build && npm run compile-sol && npx tsc && cp -r ./raiden_demo build/raiden_demo && cp ./src/public/favicon.ico ./build/src/public/favicon.ico && npm run copy-contracts",
+        "build": "rm -rf ./build && npm run compile-sol && npx tsc && cp -r ./raiden_demo build/raiden_demo && cp ./src/public/favicon.ico ./build/src/public/favicon.ico",
         "build-raiden-pisa-daemon": "cd build/raiden_demo/raiden-pisa-daemon && npm install && npm run build",
         "build-autominer": "cd build/raiden_demo/autominer && npm install && npm run build",
-        "copy-contracts": "npm run compile-sol && cp -rf sol/build/contracts ./build/sol/build/contracts",
         "start": "node ./build/src/startUp.js",
         "start-dev": "ts-node src/startUp.ts",
         "start-evm": "ganache-cli -d -l 15000000 --allowUnlimitedContractSize --defaultBalanceEther 1000000 --mnemonic 'myth like bonus scare over problem client lizard pioneer submit female collect'",
