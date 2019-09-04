@@ -46,9 +46,6 @@ jobs:
     steps:
       - checkout
       - run:
-          name: install ganache and truffle
-          command: sudo npm i -g truffle ganache-cli
-      - run:
           name: install packages
           command: npm install
       - run:
