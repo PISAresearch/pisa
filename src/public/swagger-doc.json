@@ -91,7 +91,7 @@
         },
         "jobId": {
           "type": "integer",
-          "description": "A counter used to replace appointments of the same id, but lower counter. A new appoinitment can be requested for an existing id as long as the job id is incremented. If this is the case PISA will forget the old appointment and only watch for the new one.",
+          "description": "A counter used to replace appointments of the same id, but lower counter. A new appointment can be requested for an existing id as long as the job id is incremented. If this is the case PISA will forget the old appointment and only watch for the new one.",
           "minimum": 0,
           "maximum": 9007199254740991,
           "example": 3
