@@ -89,7 +89,7 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
         const itemsAtHeight = this.itemsByHeight.get(blockHeight);
         if (itemsAtHeight) itemsAtHeight.add(memKey);
         else this.itemsByHeight.set(blockHeight, new Set([memKey]));
-        this.items.set(dbKey, memKey);
+        this.items.set(memKey, item);
 
         await this.subDb.put(dbKey, item);
     }
@@ -107,7 +107,7 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
             const blocks: (TBlock & { attached: boolean })[] = [];
 
             for (const item of itemsAtHeight) {
-                // doesnt contain : so it must be the actual block
+                // check if it is the actual block
                 if (item.endsWith(":block")) {
                     const block = this.items.get(item) as TBlock;
                     const attached = this.items.get(item + ":attached") as boolean;
