@@ -26,6 +26,7 @@ export interface ReadOnlyBlockCache<TBlock extends IBlockStub> {
     getBlock(blockHash: string): Readonly<TBlock>;
     hasBlock(blockHash: string, includeDetached?: boolean): boolean;
     addNewBlockListener(listener: NewBlockListener<TBlock>): void;
+    removeNewBlockListener(listener: NewBlockListener<TBlock>): void;
     ancestry(initialBlockHash: string): IterableIterator<Readonly<TBlock>>;
     findAncestor(initialBlockHash: string, predicate: (block: Readonly<TBlock>) => boolean, minHeight?: number): Readonly<TBlock> | null;
     getOldestAncestorInCache(blockHash: string): TBlock;

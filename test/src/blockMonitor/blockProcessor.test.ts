@@ -72,11 +72,11 @@ describe("BlockProcessor", () => {
                     } else {
                         resolve({ number: block.number, hash: block.hash });
                     }
-                    bp.removeNewHeadListener(newBlockHandler);
+                    bp.blockCache.removeNewBlockListener(newBlockHandler);
                 }
             };
 
-            bp.addNewHeadListener(newBlockHandler);
+            bp.blockCache.addNewBlockListener(newBlockHandler);
         });
     };
 
