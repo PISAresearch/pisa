@@ -41,14 +41,13 @@ jobs:
     working_directory: ~/test
     docker:
       - image: circleci/node:11.9.0
+      - image: trufflesuite/ganache-cli
+        command: ganache-cli --port 7545 --gasLimit 8000000
     steps:
       - checkout
       - run:
           name: install ganache and truffle
           command: sudo npm i -g truffle ganache-cli
-      - run:
-          name: start ganache-cli
-          command: ganache-cli --port 7545 --gasLimit 8000000 --host 0.0.0.0 &
       - run:
           name: install packages
           command: npm install
