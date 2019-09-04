@@ -9,6 +9,7 @@ export const deployPisa = async (watcherWallet: ethers.Wallet): Promise<ethers.C
         watcherWallet
     );
     const drContract = await drContractFactory.deploy({ gasLimit: 6000000 });
+    
     await drContract.deployed();
 
     const pisaContractFactory = new ethers.ContractFactory(PisaContract.abi, PisaContract.bytecode, watcherWallet);
