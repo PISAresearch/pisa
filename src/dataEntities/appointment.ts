@@ -132,7 +132,7 @@ export class Appointment {
         public readonly startBlock: number,
         public readonly endBlock: number,
         public readonly challengePeriod: number,
-        public readonly customerChosenId: number,
+        public readonly customerChosenId: string,
         public readonly nonce: number,
         public readonly data: string,
         public readonly refund: BigNumber,

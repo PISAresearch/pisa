@@ -4,9 +4,8 @@ import fnIt from "../../utils/fnIt";
 import { Appointment, PublicDataValidationError, IBlockStub } from "../../../src/dataEntities";
 import { ethers } from "ethers";
 import chaiAsPromised from "chai-as-promised";
-import { ReadOnlyBlockCache, BlockCache } from "../../../src/blockMonitor";
+import { BlockCache } from "../../../src/blockMonitor";
 import { mock, when, instance } from "ts-mockito";
-import { BigNumber } from "ethers/utils";
 chai.use(chaiAsPromised);
 
 const customerPrivKey = "0xd40be03d93b1ab00d334df3fe683da2d360e95fbfd132178facc3a8f5d9eb620";
@@ -22,7 +21,7 @@ const testAppointmentRequest = {
     eventArgs:
         "0x00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000",
     gasLimit: 100000,
-    id: 1,
+    id: "0x0000000000000000000000000000000000000000000000000000000000000001",
     nonce: 0,
     mode: 1,
     preCondition: "0x",

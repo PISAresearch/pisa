@@ -65,7 +65,7 @@ const run = async (startingRowId: number) => {
                 eventABI: RaidenTools.eventABI(),
                 eventArgs: RaidenTools.eventArgs(sigGroup.channel_identifier, bp.sender),
                 gasLimit: 200000,
-                id: 1,
+                id: "0x0000000000000000000000000000000000000000000000000000000000000001",
                 nonce: 0,
                 mode: 1,
                 preCondition: "0x",

@@ -54,7 +54,7 @@ const appointmentRequest = async (
         eventABI: KitsuneTools.eventABI(),
         eventArgs: KitsuneTools.eventArgs(),
         gasLimit: 1000000,
-        id: 1,
+        id: "0x0000000000000000000000000000000000000000000000000000000000000001",
         nonce: 0,
         mode,
         preCondition: "0x",
