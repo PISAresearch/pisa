@@ -64,7 +64,7 @@ export class MultiResponder {
                         `Cannot add to queue. Max queue depth ${this.zStore.queue.maxQueueDepth} reached.`
                     );
                 }
-                
+
                 // form a queue item request
                 const txIdentifier = new PisaTransactionIdentifier(
                     this.chainId,
@@ -130,6 +130,7 @@ export class MultiResponder {
                         )}`
                     );
                 }
+                logger.info({ txIdentifier, nonce }, `Transaction mined.`);
 
                 if (txIdentifier.equals(frontItem.request.identifier)) {
                     // the mined transaction was the one at the front of the current queue
