@@ -101,6 +101,8 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
 
                 if (prevEmittedState) {
                     const actions = component.detectChanges(prevEmittedState, state);
+                    // TODO: add back the ActionStore, store actions in db here
+
                     // side effects must be thread safe, so we can execute them concurrently
                     actions.forEach(a => component.applyAction(a));
                 }

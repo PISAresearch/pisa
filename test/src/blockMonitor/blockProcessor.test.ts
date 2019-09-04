@@ -108,6 +108,7 @@ describe("BlockProcessor", () => {
     beforeEach(async () => {
         db = LevelUp(EncodingDown<string, any>(MemDown(), { valueEncoding: "json" }));
         blockStore = new BlockItemStore<IBlockStub>(db);
+        await blockStore.start();
 
         blockCache = new BlockCache(maxDepth, blockStore);
 
@@ -147,6 +148,7 @@ describe("BlockProcessor", () => {
 
     afterEach(async () => {
         await blockProcessor.stop();
+        await blockStore.stop();
     });
 
     it("correctly processes the blockchain head after startup", async () => {

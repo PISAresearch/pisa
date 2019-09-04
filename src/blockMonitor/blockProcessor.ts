@@ -88,8 +88,13 @@ export class BlockProcessorStore {
     }
 
     async getLatestHeadNumber() {
-        const headObj = (await this.subDb.get("head")) as { head: number };
-        return headObj.head;
+        try {
+            const headObj = await this.subDb.get("head");
+            return (headObj as { head: number }).head;
+        } catch (doh) {
+            // TODO: errors other than "key not found" should be logged
+            return undefined; // likely key not found
+        }
     }
     async setLatestHeadNumber(value: number) {
         await this.subDb.put("head", { head: value });
