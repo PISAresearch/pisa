@@ -130,23 +130,17 @@ describe("sos end to end", () => {
     ) => {
         let success = false;
         rescueContract.once(SosContract.RESCUE_EVENT_METHOD_SIGNATURE, () => (success = true));
-        await wait(50);
         const tx = await rescueContract.help(helpMessage, { gasLimit: 1000000 });
-        await wait(50);
         await tx.wait();
-        await wait(50);
-
-        await waitForPredicate(() => success, 50, 20, helpMessage + ":" + errorMessage);
+        await waitForPredicate(() => success, 500, 20, helpMessage + ":" + errorMessage);
     };
 
     const callDistressAndWaitForCounter = async (helpMessage: string, count: number) => {
-        await wait(50);
         const tx = await rescueContract.help(helpMessage);
-        await wait(50);
         await tx.wait();
         await waitForPredicate(
             async () => ((await rescueContract.rescueCount()) as BigNumber).eq(count),
-            50,
+            500,
             20,
             async () => `Count ${(await rescueContract.rescueCount()).toNumber()} is not expected value ${count}.`
         );
@@ -188,6 +182,8 @@ describe("sos end to end", () => {
         // deploy the contract
         const sosContractFactory = new ethers.ContractFactory(SosContract.ABI, SosContract.ByteCode, user1);
         rescueContract = await sosContractFactory.deploy();
+        // for some reason a wait is required here - perhaps to allow some time for the contract to deploy?
+        await wait(150);
     });
 
     afterEach(async () => {
