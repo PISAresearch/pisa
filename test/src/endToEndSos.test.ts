@@ -41,7 +41,7 @@ describe("sos end to end", () => {
         eventAbi: string,
         eventArgs: string,
         id: number,
-        jobId: number,
+        nonce: number,
         startBlock: number
     ): IAppointmentRequest => {
         return {
@@ -54,7 +54,7 @@ describe("sos end to end", () => {
             eventArgs: eventArgs,
             gasLimit: 100000,
             id,
-            jobId,
+            nonce: nonce,
             mode: 1,
             preCondition: "0x",
             postCondition: "0x",
@@ -76,7 +76,7 @@ describe("sos end to end", () => {
     ) => {
         // setup
         const startBlock = await provider.getBlockNumber();
-        const jobId = 1;
+        const nonce = 1;
         const appointmentRequest = createAppointmentRequest(
             rescueContract.address,
             user.address,
@@ -84,7 +84,7 @@ describe("sos end to end", () => {
             SosContract.DISTRESS_EVENT_ABI,
             SosContract.encodeArgs(helpMessage),
             appointmentId,
-            jobId,
+            nonce,
             startBlock
         );
         // encode the request and sign it

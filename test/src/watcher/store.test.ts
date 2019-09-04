@@ -9,7 +9,7 @@ import { Appointment, ApplicationError } from "../../../src/dataEntities";
 import fnIt from "../../utils/fnIt";
 chai.use(chaiAsPromised);
 
-const getAppointment = (id: number, endBlock: number, jobId: number) => {
+const getAppointment = (id: number, endBlock: number, nonce: number) => {
     return Appointment.fromIAppointment({
         challengePeriod: 10,
         contractAddress: "contractAddress",
@@ -20,7 +20,7 @@ const getAppointment = (id: number, endBlock: number, jobId: number) => {
         eventArgs: "eventArgs",
         gasLimit: 100,
         customerChosenId: id,
-        jobId,
+        nonce: nonce,
         mode: 1,
         paymentHash: "paymentHash",
         preCondition: "precondition",

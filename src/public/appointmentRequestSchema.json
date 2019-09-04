@@ -14,7 +14,7 @@
         "eventArgs",
         "gasLimit",
         "id",
-        "jobId",
+        "nonce",
         "mode",
         "paymentHash",
         "preCondition",
@@ -72,8 +72,8 @@
             "minimum": 0,
             "maximum": 9007199254740991
         },
-        "jobId": {
-            "$id": "#/properties/jobId",
+        "nonce": {
+            "$id": "#/properties/nonce",
             "type": "integer",
             "minimum": 0,
             "maximum": 9007199254740991

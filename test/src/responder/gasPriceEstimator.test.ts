@@ -136,7 +136,7 @@ describe("GasPriceEstimator", () => {
             eventArgs: "eventArgs",
             gasLimit: 100,
             customerChosenId: 20,
-            jobId: 1,
+            nonce: 1,
             mode: 1,
             paymentHash: "paymentHash",
             preCondition: "preCondition",

@@ -25,7 +25,7 @@ const createAppointment = (id: number): Appointment => {
         eventArgs: "eventArgs",
         gasLimit: 100,
         customerChosenId: id,
-        jobId: 1,
+        nonce: 1,
         mode: 1,
         paymentHash: "paymentHash",
         preCondition: "preCondition",

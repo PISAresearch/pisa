@@ -69,7 +69,7 @@ contract PISAHash {
 
     // Cheated record
     struct Cheated {
-        uint jobid;
+        uint nonce;
         uint refund;
         uint refundby;
         bool triggered;
@@ -87,7 +87,7 @@ contract PISAHash {
 
         // Identifiers for the appointment + job counter (i.e. for every appointment, can be updated several times)
         uint appointmentid; // counter to keep track of appointments
-        uint jobid; // Monotonic counter to keep track of job updates to PISA
+        uint nonce; // Monotonic counter to keep track of job updates to PISA
 
         // Function call that we will need to invoke on behalf of the user
         bytes call; // Job-specific data (depends whether it is Plasma, Channels, etc)
@@ -148,9 +148,9 @@ contract PISAHash {
             require(PreconditionHandlerInterface(preconditionHandlers[appointment.mode]).canPISARespond(appointment.sc, appointment.cus, appointment.precondition));
         }
 
-        // Keep a timestamp of when we tried to call + the jobid.
-        // JobID lets us do a quick sanity check later if PISA sent latest job
-        bytes memory callLog = abi.encode(block.number, appointment.jobid, keccak256(_appointment));
+        // Keep a timestamp of when we tried to call + the nonce.
+        // Nonce lets us do a quick sanity check later if PISA sent latest job
+        bytes memory callLog = abi.encode(block.number, appointment.nonce, keccak256(_appointment));
 
         // We need the PISAID in order to quickly look it up during recourse.
         uint pisaid = uint(keccak256(abi.encode(appointment.sc, appointment.cus, appointment.appointmentid)));
@@ -169,7 +169,7 @@ contract PISAHash {
     }
 
     // Customer will provide sign receipt + locator to find dispute record in DataRegistry
-    // PISA will look up registry to check if PISA has responded to the dispute. If so, it'll verify customer's signature and compare the jobid.
+    // PISA will look up registry to check if PISA has responded to the dispute. If so, it'll verify customer's signature and compare the nonce.
     function recourse(bytes memory _appointment, bytes[] memory _sig,  uint _r, bytes[] memory _logdata, uint[] memory _datashard, uint[] memory _dataindex) public payable isNotFrozen() {
 
         // Customer must put down a bond to issue recourse
@@ -199,7 +199,7 @@ contract PISAHash {
         // Every PISAID is unique to a customer's appointment.
         // Care must be taken, if two customers hire us for the same job, then we need to respond twice (if postcondition fails)
         uint pisaid = uint(keccak256(abi.encode(appointment.sc, appointment.cus, appointment.appointmentid)));
-        require(appointment.jobid > cheated[pisaid].jobid, "Recourse was already successful");
+        require(appointment.nonce > cheated[pisaid].nonce, "Recourse was already successful");
 
         // Both PISA and the customer must have authorised it!
         // This is to avoid PISA faking a receipt and sending it as "recourse"
@@ -246,39 +246,39 @@ contract PISAHash {
 
         // Here we check if PISA has responded...
         // Lots of things may have happened (i.e. new appointment is completely different to old one)
-        require(!didPISARespond(pisaid, appointment.jobid, keccak256(abi.encode(appointment)), timewindow), "PISA sent the right job during the appointment time");
+        require(!didPISARespond(pisaid, appointment.nonce, keccak256(abi.encode(appointment)), timewindow), "PISA sent the right job during the appointment time");
 
         // PISA has cheated. Provide opportunity for PISA to respond.
         // Of course... customer may send multiple appointments where PISA failed...
-        // We only take into account the log with the largest jobid... and increment
+        // We only take into account the log with the largest nonce... and increment
         // pending refund once!
         if(!cheated[pisaid].triggered) {
           pendingrefunds = pendingrefunds + 1;
         }
 
-        cheated[pisaid] = Cheated(appointment.jobid, appointment.refund + challengeBond, block.number + cheatedtimer, true);
+        cheated[pisaid] = Cheated(appointment.nonce, appointment.refund + challengeBond, block.number + cheatedtimer, true);
     }
 
     // Check if PISA recorded a function call for the given appointment/job
-    function didPISARespond(uint _pisaid, uint _jobid, bytes32 _expectedHash, uint[3] memory _timewindow) internal returns (bool) {
+    function didPISARespond(uint _pisaid, uint _nonce, bytes32 _expectedHash, uint[3] memory _timewindow) internal returns (bool) {
 
         // Look through every shard (should be two in practice)
         for(uint i=0; i<DataRegistryInterface(dataregistry).getTotalShards(); i++) {
 
-            // [timestamp, jobid, Hash(appointment)]
+            // [timestamp, nonce, Hash(appointment)]
             bytes[] memory response = DataRegistryInterface(dataregistry).fetchRecords(i, address(this), _pisaid);
 
             // It'll return a list of jobs for this given appointment (i.e. if PISA had to respond more than once)
             for(uint j=0; j<response.length; j++) {
-                uint jobID;
+                uint nonce;
                 uint recordedTime;
                 bytes32 recordedHash;
 
                 // Block number + job id recorded
-                (recordedTime, jobID, recordedHash) = abi.decode(response[j], (uint, uint, bytes32));
+                (recordedTime, nonce, recordedHash) = abi.decode(response[j], (uint, uint, bytes32));
 
-                // A future JobID was used? Will be all good... appointment may be completely different
-                if(jobID >= _jobid) { return true; }
+                // A future nonce was used? Will be all good... appointment may be completely different
+                if(nonce >= _nonce) { return true; }
 
                 // It must meaningful
                 require(recordedTime != 0);
@@ -286,7 +286,7 @@ contract PISAHash {
                 // PISA should respond between the start time and finish time
                 // _timewindow[0] -> recordedTime <- _timewindow[1]
                 //
-                // We should also find the exact same AppointmentHash :) if so jobid is good too
+                // We should also find the exact same AppointmentHash :) if so nonce is good too
                 if(recordedTime >= _timewindow[0] && // Did PISA respond after the start time?
                    recordedTime <= _timewindow[1] &&
                    recordedHash == _expectedHash) {
@@ -299,11 +299,11 @@ contract PISAHash {
         return false;
     }
 
-    // To cancel an appointment, just need to sign a larger jobid with mode=496 (perfect number)
+    // To cancel an appointment, just need to sign a larger nonce with mode=496 (perfect number)
     // Customer may send older (and cancelled) appointment via recourse... PISA can just respond
     // with the cancelled receipt and claim the bond :)
     function cancelledAppointment(bytes memory _appointment, bytes memory _cussig) public {
-      // TODO: It doesn't look like we need this check (anything bad can happen if customer sets jobid too large?
+      // TODO: It doesn't look like we need this check (anything bad can happen if customer sets nonce too large?
       // I don't think so.... will just cancel their own refund lol
       // require(watchers[msg.sender] || admin == msg.sender, "Only PISA can call it");
 
@@ -317,14 +317,14 @@ contract PISAHash {
       // Compute PISAID
       uint pisaid = uint(keccak256(abi.encode(appointment.sc, appointment.cus, appointment.appointmentid)));
 
-      // Is the jobid here larger than the cheat log?
-      require(appointment.jobid > cheated[pisaid].jobid, "PISA submitted an older appointment");
+      // Is the nonce here larger than the cheat log?
+      require(appointment.nonce > cheated[pisaid].nonce, "PISA submitted an older appointment");
 
       // OK we can remove cheat log and give PISA the bond
       refunds[admin] = refunds[admin] + challengeBond;
 
       // Update cheat log + pending refunds accordingly
-      cheated[pisaid].jobid = appointment.jobid;
+      cheated[pisaid].nonce = appointment.nonce;
       cheated[pisaid].triggered = false; // No longer triggered!
       cheated[pisaid].refund = 0;
       cheated[pisaid].refundby = 0;
@@ -343,8 +343,8 @@ contract PISAHash {
         Appointment memory appointment;
 
         // Get appointment information
-        // [appointmentid, jobid, startTime, endTime, challengeTime, refund, h]
-        (appointment.appointmentid, appointment.jobid, appointment.startTime, appointment.finishTime, appointment.challengeTime, appointment.refund, appointment.h) = abi.decode(appointmentinfo, (uint, uint, uint, uint, uint, uint, bytes32));
+        // [appointmentid, nonce, startTime, endTime, challengeTime, refund, h]
+        (appointment.appointmentid, appointment.nonce, appointment.startTime, appointment.finishTime, appointment.challengeTime, appointment.refund, appointment.h) = abi.decode(appointmentinfo, (uint, uint, uint, uint, uint, uint, bytes32));
 
         // Get contract information
         // [sc, cus, gas, calldata]

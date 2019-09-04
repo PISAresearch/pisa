@@ -55,7 +55,7 @@ const appointmentRequest = async (
         eventArgs: KitsuneTools.eventArgs(),
         gasLimit: 1000000,
         id: 1,
-        jobId: 0,
+        nonce: 0,
         mode,
         preCondition: "0x",
         postCondition: "0x",

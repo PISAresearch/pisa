@@ -57,7 +57,7 @@ let execute = async () => {
             eventArgs: KitsuneTools.eventArgs(),
             gasLimit: 100000,
             id: 1,
-            jobId: 0,
+            nonce: 0,
             mode: 1,
             preCondition: "0x",
             postCondition: "0x",

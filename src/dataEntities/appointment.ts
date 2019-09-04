@@ -47,7 +47,7 @@ export interface IAppointmentBase {
     /**
      * A counter that allows users to replace existing jobs
      */
-    readonly jobId: number;
+    readonly nonce: number;
 
     /**
      * The data to supply when calling the external address from inside the contract
@@ -132,7 +132,7 @@ export class Appointment {
         public readonly endBlock: number,
         public readonly challengePeriod: number,
         public readonly customerChosenId: number,
-        public readonly jobId: number,
+        public readonly nonce: number,
         public readonly data: string,
         public readonly refund: BigNumber,
         public readonly gasLimit: number,
@@ -153,7 +153,7 @@ export class Appointment {
             appointment.endBlock,
             appointment.challengePeriod,
             appointment.customerChosenId,
-            appointment.jobId,
+            appointment.nonce,
             appointment.data,
             new BigNumber(appointment.refund),
             appointment.gasLimit,
@@ -175,7 +175,7 @@ export class Appointment {
             endBlock: appointment.endBlock,
             challengePeriod: appointment.challengePeriod,
             customerChosenId: appointment.customerChosenId,
-            jobId: appointment.jobId,
+            nonce: appointment.nonce,
             data: appointment.data,
             refund: appointment.refund.toHexString(),
             gasLimit: appointment.gasLimit,
@@ -197,7 +197,7 @@ export class Appointment {
             appointmentRequest.endBlock,
             appointmentRequest.challengePeriod,
             appointmentRequest.id,
-            appointmentRequest.jobId,
+            appointmentRequest.nonce,
             appointmentRequest.data,
             new BigNumber(appointmentRequest.refund),
             appointmentRequest.gasLimit,
@@ -219,7 +219,7 @@ export class Appointment {
             endBlock: appointment.endBlock,
             challengePeriod: appointment.challengePeriod,
             id: appointment.customerChosenId,
-            jobId: appointment.jobId,
+            nonce: appointment.nonce,
             data: appointment.data,
             refund: appointment.refund.toHexString(),
             gasLimit: appointment.gasLimit,
@@ -366,7 +366,7 @@ export class Appointment {
      * job id.
      */
     public get id() {
-        return `${this.locator}|${this.jobId}`;
+        return `${this.locator}|${this.nonce}`;
     }
 
     public formatLog(message: string): string {
@@ -456,7 +456,7 @@ export class Appointment {
         const appointmentInfo = ethers.utils.defaultAbiCoder.encode(
             ...groupTuples([
                 ["uint", this.customerChosenId],
-                ["uint", this.jobId],
+                ["uint", this.nonce],
                 ["uint", this.startBlock],
                 ["uint", this.endBlock],
                 ["uint", this.challengePeriod],

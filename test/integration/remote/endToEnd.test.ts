@@ -33,7 +33,7 @@ const encode = (request: IAppointmentRequest) => {
     const appointmentInfo = ethers.utils.defaultAbiCoder.encode(
         ...groupTuples([
             ["uint", request.id],
-            ["uint", request.jobId],
+            ["uint", request.nonce],
             ["uint", request.startBlock],
             ["uint", request.endBlock],
             ["uint", request.challengePeriod],
@@ -173,7 +173,7 @@ describe("Integration", function() {
                 eventArgs: KitsuneTools.eventArgs(),
                 gasLimit: 1000000,
                 id: 1,
-                jobId: 0,
+                nonce: 0,
                 mode: 1,
                 preCondition: "0x",
                 postCondition: "0x",
@@ -290,7 +290,7 @@ describe("Integration", function() {
                     eventArgs: KitsuneTools.eventArgs(),
                     gasLimit: 1000000,
                     id: 1,
-                    jobId: 0,
+                    nonce: 0,
                     mode: 1,
                     preCondition: "0x",
                     postCondition: "0x",

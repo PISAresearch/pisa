@@ -66,7 +66,7 @@ const run = async (startingRowId: number) => {
                 eventArgs: RaidenTools.eventArgs(sigGroup.channel_identifier, bp.sender),
                 gasLimit: 200000,
                 id: 1,
-                jobId: 0,
+                nonce: 0,
                 mode: 1,
                 preCondition: "0x",
                 postCondition: "0x",
@@ -111,7 +111,7 @@ const encode = (request: any) => {
     const appointmentInfo = ethers.utils.defaultAbiCoder.encode(
         ...groupTuples([
             ["uint", request.id],
-            ["uint", request.jobId],
+            ["uint", request.nonce],
             ["uint", request.startBlock],
             ["uint", request.endBlock],
             ["uint", request.challengePeriod],

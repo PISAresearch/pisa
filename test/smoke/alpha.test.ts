@@ -13,7 +13,7 @@ const encode = (request: any) => {
         ["uint", "uint", "uint", "uint", "uint", "uint", "bytes32"],
         [
             request.id,
-            request.jobId,
+            request.nonce,
             request.startBlock,
             request.endBlock,
             request.challengePeriod,
@@ -57,7 +57,7 @@ describe("alpha", () => {
         eventAbi: string,
         eventArgs: string,
         id: number,
-        jobId: number,
+        nonce: number,
         startBlock: number
     ) => {
         return {
@@ -70,7 +70,7 @@ describe("alpha", () => {
             eventArgs: eventArgs,
             gasLimit: 100000,
             id,
-            jobId,
+            nonce: nonce,
             mode: 1,
             preCondition: "0x",
             postCondition: "0x",
@@ -97,7 +97,7 @@ describe("alpha", () => {
         const startBlock = await provider.getBlockNumber();
         const helpMessage = "sos";
         const id = 3;
-        const jobId = 1;
+        const nonce = 1;
 
         // create an appointment
         const appointmentRequest = createAppointmentRequest(
@@ -107,7 +107,7 @@ describe("alpha", () => {
             SosContract.DISTRESS_EVENT_ABI,
             SosContract.encodeArgs(helpMessage),
             id,
-            jobId,
+            nonce,
             startBlock
         );
 

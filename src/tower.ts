@@ -36,9 +36,9 @@ export class PisaTower {
         } else {
             // add this to the store so that other components can pick up on it
             const currentAppointment = this.store.appointmentsByLocator.get(appointment.locator);
-            if (!currentAppointment || appointment.jobId > currentAppointment.jobId) {   
+            if (!currentAppointment || appointment.nonce > currentAppointment.nonce) {   
                 await this.store.addOrUpdateByLocator(appointment);
-            } else throw new PublicDataValidationError(`Appointment already exists and job id too low. Should be greater than ${appointment.jobId}.`); // prettier-ignore
+            } else throw new PublicDataValidationError(`Appointment already exists and job id too low. Should be greater than ${appointment.nonce}.`); // prettier-ignore
         }
 
         const signature = await this.appointmentSigner.signAppointment(appointment);

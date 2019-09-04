@@ -62,9 +62,9 @@ export class AppointmentStore extends StartStopService {
             const currentAppointment = this.mAppointmentsByLocator.get(appointment.locator);
             // is there a current appointment
             if (currentAppointment) {
-                if (appointment.jobId > currentAppointment.jobId) this.mAppointmentsById.delete(currentAppointment.id);
+                if (appointment.nonce > currentAppointment.nonce) this.mAppointmentsById.delete(currentAppointment.id);
                 else {
-                    throw new ApplicationError(appointment.formatLog(`Nonce ${appointment.jobId} is lower than current appointment ${currentAppointment.locator} nonce ${currentAppointment.jobId}`)) //prettier-ignore
+                    throw new ApplicationError(appointment.formatLog(`Nonce ${appointment.nonce} is lower than current appointment ${currentAppointment.locator} nonce ${currentAppointment.nonce}`)) //prettier-ignore
                 }
             }
 

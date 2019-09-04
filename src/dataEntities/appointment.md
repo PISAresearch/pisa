@@ -21,7 +21,7 @@ http://pisa.watch/schemas/appointment-request.json
 | [eventArgs](#eventargs)             | `string`  | **Required** | No       | Appointment request schema (this schema) |
 | [gasLimit](#gaslimit)               | `string`  | **Required** | No       | Appointment request schema (this schema) |
 | [id](#id)                           | `number`  | **Required** | No       | Appointment request schema (this schema) |
-| [jobId](#jobid)                     | `integer` | **Required** | No       | Appointment request schema (this schema) |
+| [nonce](#nonce)                     | `integer` | **Required** | No       | Appointment request schema (this schema) |
 | [mode](#mode)                       | `integer` | **Required** | No       | Appointment request schema (this schema) |
 | [paymentHash](#paymenthash)         | `string`  | **Required** | No       | Appointment request schema (this schema) |
 | [postCondition](#postcondition)     | `string`  | **Required** | No       | Appointment request schema (this schema) |
@@ -236,26 +236,26 @@ A unique id, chosen by the customer
 200
 ```
 
-## jobId
+## Nonce
 
-### Job counter
+### Nonce
 
 A counter used to replace appointments of the same id, but lower counter
 
-`jobId`
+`nonce`
 
 - is **required**
 - type: `integer`
 - defined in this schema
 
-### jobId Type
+### Nonce Type
 
 `integer`
 
 - minimum value: `0`
 - maximum value: `9007199254740991`
 
-### jobId Example
+### Nonce Example
 
 ```json
 3
