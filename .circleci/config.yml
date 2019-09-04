@@ -54,7 +54,7 @@ jobs:
           command: ganache-cli --port 7545 --gasLimit 8000000 &
       - run:
           name: tests
-          command: npm run test
+          command: npm run test-contract
   integration-test:
     working_directory: ~/test
     machine:

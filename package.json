@@ -19,7 +19,7 @@
         "test-alpha": "mocha -r ts-node/register test/smoke/alpha.test.ts --exit",
         "test-integration": "mocha -r ts-node/register 'test/integration/remote/**/*.test.ts' --exit",
         "test-raiden": "mocha -r ts-node/register 'test/integration/raiden.test.ts' --exit",
-        "test-contracts": "cd sol && truffle test"
+        "test-contract": "cd sol && truffle test"
     },
     "nyc": {
         "include": [
