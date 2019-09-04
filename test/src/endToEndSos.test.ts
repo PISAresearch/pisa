@@ -183,7 +183,7 @@ describe("sos end to end", () => {
         const sosContractFactory = new ethers.ContractFactory(SosContract.ABI, SosContract.ByteCode, user1);
         rescueContract = await sosContractFactory.deploy();
         // for some reason a wait is required here - perhaps to allow some time for the contract to deploy?
-        await wait(50);
+        await wait(150);
     });
 
     afterEach(async () => {
