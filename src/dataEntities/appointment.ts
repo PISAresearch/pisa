@@ -476,7 +476,7 @@ export class Appointment {
 
         const conditionInfo = ethers.utils.defaultAbiCoder.encode(
             ...groupTuples([
-                ["bytes", ethers.utils.toUtf8Bytes(this.eventABI)],
+                ["string", this.eventABI],
                 ["bytes", this.eventArgs],
                 ["bytes", this.preCondition],
                 ["bytes", this.postCondition],

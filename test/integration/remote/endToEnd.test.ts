@@ -51,7 +51,7 @@ const encode = (request: IAppointmentRequest) => {
     );
     const conditionInfo = ethers.utils.defaultAbiCoder.encode(
         ...groupTuples([
-            ["bytes", ethers.utils.toUtf8Bytes(request.eventABI)],
+            ["string", request.eventABI],
             ["bytes", request.eventArgs],
             ["bytes", request.preCondition],
             ["bytes", request.postCondition],
