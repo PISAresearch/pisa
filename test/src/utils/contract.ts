@@ -1,20 +1,17 @@
 import { ethers } from "ethers";
-import * as PisaContract from "./../../../src/contractInfo/pisa";
-import * as SosContract from "./../../smoke/SOSContract";
-import * as DataRegistryContract from "./../../../src/contractInfo/dataRegistry";
-import { wait } from "../../../src/utils";
+import * as PisaContract from "./../../../sol/build/contracts/PISAHash.json";
+import * as DataRegistryContract from "./../../../sol/build/contracts/DataRegistry.json";
 
 export const deployPisa = async (watcherWallet: ethers.Wallet): Promise<ethers.Contract> => {
-    
     const drContractFactory = new ethers.ContractFactory(
-        DataRegistryContract.ABI,
-        DataRegistryContract.ByteCode,
+        DataRegistryContract.abi,
+        DataRegistryContract.bytecode,
         watcherWallet
     );
     const drContract = await drContractFactory.deploy({ gasLimit: 6000000 });
     await drContract.deployed();
 
-    const pisaContractFactory = new ethers.ContractFactory(PisaContract.ABI, PisaContract.ByteCode, watcherWallet);
+    const pisaContractFactory = new ethers.ContractFactory(PisaContract.abi, PisaContract.bytecode, watcherWallet);
     const pisaContract = await pisaContractFactory.deploy(drContract.address, 100, 0, watcherWallet.address, [], 0, {gasLimit: 7000000}); // prettier-ignore
     await pisaContract.deployed();
 
@@ -28,7 +25,9 @@ export const deployPisa = async (watcherWallet: ethers.Wallet): Promise<ethers.C
     );
     const sig = await watcherWallet.signMessage(ethers.utils.arrayify(watcherInstallHash));
 
-    const tx = await pisaContract.installWatcher(watcherWallet.address, watcherInstallBlock, sig, { gasLimit: 5000000});
+    const tx = await pisaContract.installWatcher(watcherWallet.address, watcherInstallBlock, sig, {
+        gasLimit: 5000000
+    });
     await tx.wait(1);
 
     return pisaContract;

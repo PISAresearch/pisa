@@ -9,7 +9,8 @@ import { Logger } from "../logger";
 import betterAjvErrors from "better-ajv-errors";
 import { ReadOnlyBlockCache } from "../blockMonitor/index.js";
 import { IBlockStub } from "./block.js";
-import { ABI } from "../contractInfo/pisa";
+import * as PisaContract from "../../sol/build/contracts/PISAHash.json";
+const ABI = PisaContract.abi;
 const ajv = new Ajv({ jsonPointers: true, allErrors: true });
 const appointmentRequestValidation = ajv.compile(appointmentRequestSchemaJson);
 

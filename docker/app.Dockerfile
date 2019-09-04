@@ -12,6 +12,7 @@ RUN ["npm", "ci"];
 
 # copy the src and the configs
 COPY ./src ./src
+COPY ./sol ./sol
 COPY ./raiden_demo ./raiden_demo
 COPY ./test ./test
 COPY ./tsconfig.json ./tsconfig.json

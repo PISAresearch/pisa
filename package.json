@@ -4,7 +4,8 @@
     "description": "Arbitration Outsourcing for State Channels",
     "main": "index.js",
     "scripts": {
-        "build": "rm -rf ./build && npx tsc && cp -r ./raiden_demo build/raiden_demo && cp ./src/public/favicon.ico ./build/src/public/favicon.ico",
+        "build": "rm -rf ./build && npx tsc && cp -r ./raiden_demo build/raiden_demo && cp ./src/public/favicon.ico ./build/src/public/favicon.ico && npm run build-contracts",
+        "build-contracts": "npm run compile-sol && cp -rf sol/build/contracts ./build/sol/build/contracts",
         "build-raiden-pisa-daemon": "cd build/raiden_demo/raiden-pisa-daemon && npm install && npm run build",
         "build-autominer": "cd build/raiden_demo/autominer && npm install && npm run build",
         "start": "node ./build/src/startUp.js",
@@ -12,14 +13,15 @@
         "start-evm": "ganache-cli -d -l 15000000 --allowUnlimitedContractSize --defaultBalanceEther 1000000 --mnemonic 'myth like bonus scare over problem client lizard pioneer submit female collect'",
         "submodule": "git submodule init && git submodule update",
         "lint": "eslint --ext ts .",
-        "test": "NODE_ENV=test mocha -r ts-node/register 'test/src/**/*.test.ts' --exit",
-        "test-load": "ts-node test/load/loadTest.ts 10 20000",
-        "test-coverage": "NODE_ENV=test nyc mocha -r ts-node/register --reporter mocha-junit-reporter --reporter-options mochaFile=coverage/mocha/test-results.xml 'test/src/**/*.test.ts' --exit",
+        "compile-sol": "cd sol && truffle compile",
+        "test": "npm run compile-sol && NODE_ENV=test mocha -r ts-node/register 'test/src/**/*.test.ts' --exit",
+        "test-load": "npm run compile-sol && ts-node test/load/loadTest.ts 10 20000",
+        "test-coverage": "npm run compile-sol && NODE_ENV=test nyc mocha -r ts-node/register --reporter mocha-junit-reporter --reporter-options mochaFile=coverage/mocha/test-results.xml 'test/src/**/*.test.ts' --exit",
         "test-smoke": "ts-node test/smoke/smokeTests.ts",
-        "test-alpha": "mocha -r ts-node/register test/smoke/alpha.test.ts --exit",
-        "test-integration": "mocha -r ts-node/register 'test/integration/remote/**/*.test.ts' --exit",
-        "test-raiden": "mocha -r ts-node/register 'test/integration/raiden.test.ts' --exit",
-        "test-contract": "cd sol && truffle test"
+        "test-alpha": "npm run compile-sol && mocha -r ts-node/register test/smoke/alpha.test.ts --exit",
+        "test-integration": "npm run compile-sol && mocha -r ts-node/register 'test/integration/remote/**/*.test.ts' --exit",
+        "test-raiden": "npm run compile-sol && mocha -r ts-node/register 'test/integration/raiden.test.ts' --exit",
+        "test-contract": "npm run compile-sol && cd sol && truffle test"
     },
     "nyc": {
         "include": [
