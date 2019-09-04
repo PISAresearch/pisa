@@ -62,6 +62,7 @@ const run = async (startingRowId: number) => {
                 customerAddress: wallet.address,
                 data: encodedForUpdate,
                 endBlock: 10000,
+                eventAddress: sigGroup.token_network_identifier,
                 eventABI: RaidenTools.eventABI(),
                 eventArgs: RaidenTools.eventArgs(sigGroup.channel_identifier, bp.sender),
                 gasLimit: 200000,
@@ -129,6 +130,7 @@ const encode = (request: any) => {
     );
     const conditionInfo = ethers.utils.defaultAbiCoder.encode(
         ...groupTuples([
+            ["address", request.eventAddress],
             ["string", request.eventABI],
             ["bytes", request.eventArgs],
             ["bytes", request.preCondition],
