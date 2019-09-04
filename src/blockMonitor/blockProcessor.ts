@@ -66,7 +66,7 @@ export const blockFactory = (provider: ethers.providers.Provider) => async (
     for (const tx of transactions) {
         // we should use chain id, but for some reason chain id is not present in transactions from ethersjs
         // therefore we fallback to network id when chain id is not present
-        if (tx.chainId != undefined) tx.chainId = (tx as any).networkId;
+        if (tx.chainId == undefined) tx.chainId = (tx as any).networkId;
     }
 
     return {
