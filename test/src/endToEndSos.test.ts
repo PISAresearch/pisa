@@ -134,6 +134,7 @@ describe("sos end to end", () => {
         const tx = await rescueContract.help(helpMessage, { gasLimit: 1000000 });
         await wait(50);
         await tx.wait();
+        await wait(50);
 
         await waitForPredicate(() => success, 50, 20, helpMessage + ":" + errorMessage);
     };
