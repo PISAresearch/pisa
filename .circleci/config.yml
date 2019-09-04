@@ -51,7 +51,7 @@ jobs:
           command: npm install
       - run:
           name: start ganache-cli
-          command: ganache-cli --port 7545 --gasLimit 8000000
+          command: ganache-cli --port 7545 --gasLimit 8000000 &
       - run:
           name: tests
           command: truffle test
