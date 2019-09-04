@@ -13,6 +13,7 @@ import { wait } from "../../src/utils";
 import { BigNumber, keccak256, arrayify, defaultAbiCoder } from "ethers/utils";
 import { expect } from "chai";
 import { deployPisa } from "./utils/contract";
+import { SSL_OP_ALL } from "constants";
 const ganache = Ganache.provider({
     mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect",
     gasLimit: 8000000
@@ -253,7 +254,59 @@ describe("sos end to end", () => {
 
         await callDistressAndWaitForCounter("sos", 2);
     }).timeout(30000);
+
+    it("PISA should not respond if a reorg happens where the event is not calleds", async () => {
+       await getAppointmentForMessage(pisaContractAddress, user1, "sos", "yay1", 1);
+       const snapshotId:number = (await promiseSendAsyncSnap(ganache, "evm_snapshot") as any)["result"];
+       await callDistressAndWaitForCounter("sos", 1);
+       await promiseSendAsyncRevert(ganache,"evm_revert",snapshotId);
+
+       const rescueCount: BigNumber = await rescueContract.rescueCount();
+       expect(rescueCount.toNumber()).to.equal(0);
+
+    }).timeout(3000);
+
+    // it("PISA should respond again if there is a reorg after the responder confirmation time", async () => {
+    //     await getAppointmentForMessage(pisaContractAddress, user1, "sos", "yay1", 1);
+    //     const snapshotId:number = (await promiseSendAsyncSnap(ganache, "evm_snapshot") as any)["result"];
+    //     await callDistressAndWaitForCounter("sos", 1);
+    //     await promiseSendAsyncRevert(ganache,"evm_revert",snapshotId);
+  
+    //     await callDistressAndWaitForCounter("sos", 2);
+ 
+    //  }).timeout(5000);
 });
+
+const promiseSendAsyncSnap = (ganache: ethers.providers.AsyncSendable, method: string ) => {
+    return new Promise((resolve, reject) => {
+        ganache.sendAsync!(
+            {
+                jsonrpc: "2.0",
+                method: method,
+            },
+            (err: any, result: any) => {
+                if (err) reject(err);
+                else resolve(result);
+            }
+        );
+    });
+};
+
+const promiseSendAsyncRevert = (ganache: ethers.providers.AsyncSendable, method: string, _result:  number) => {
+    return new Promise((resolve, reject) => {
+        ganache.sendAsync!(
+            {
+                jsonrpc: "2.0",
+                method: method,
+                params: _result
+            },
+            (err: any, result: any) => {
+                if (err) reject(err);
+                else resolve(result);
+            }
+        );
+    });
+};
 
 const waitForPredicate = (
     predicate: () => Promise<boolean> | boolean,
@@ -280,6 +333,7 @@ const mineBlocks = async (count: number, signer: ethers.Signer) => {
         await mineBlock(signer);
     }
 };
+
 const mineBlock = async (signer: ethers.Signer) => {
     const tx = await signer.sendTransaction({ to: "0x0000000000000000000000000000000000000000", value: 0 });
     await tx.wait();
