@@ -17,8 +17,8 @@ contract DataShard {
    }
 
    // Smart Contract Address => ID-based data storage
-   mapping (address => mapping (bytes32 => bytes[])) records;
-   mapping (address => mapping (bytes32 => bytes32[])) hashes;
+   mapping (address => mapping (uint => bytes[])) records;
+   mapping (address => mapping (uint => bytes32[])) hashes;
 
    // Creation time for this daily record.
    constructor(uint blockNo) public {
@@ -40,20 +40,20 @@ contract DataShard {
 
    // Given a smart contract address and the ID, fetch the recorded bytes.
    // Return "bool" to avoid an out of bound exception
-   function fetchRecord(address _sc, bytes32 _id, uint _index) public view returns (bytes memory) {
+   function fetchRecord(address _sc, uint _id, uint _index) public view returns (bytes memory) {
        if(_index < records[_sc][_id].length) {
            return (records[_sc][_id][_index]);
        }
    }
 
    // Given a smart contract address and the ID, fetch the recorded bytes.
-   function fetchRecords(address _sc, bytes32 _id) public view returns (bytes[] memory) {
+   function fetchRecords(address _sc, uint _id) public view returns (bytes[] memory) {
        return records[_sc][_id];
 
    }
 
    // Given a smart contract address, the ID and the bytes, store the data.
-   function setRecord(address _sc, bytes32 _id, bytes memory _data) onlyOwner public returns(uint) {
+   function setRecord(address _sc, uint _id, bytes memory _data) onlyOwner public returns(uint) {
        // Cannot re-write over an existing data field
        records[_sc][_id].push(_data);
 
@@ -63,19 +63,19 @@ contract DataShard {
    // The following will store HASHES in the DataShard (i.e. timestamp commitments)
 
    // Given a smart contract address and the ID, fetch the recorded bytes.
-   function fetchHash(address _sc, bytes32 _id, uint _index) public view returns (bytes32) {
+   function fetchHash(address _sc, uint _id, uint _index) public view returns (bytes32) {
        if(_index < hashes[_sc][_id].length) {
           return hashes[_sc][_id][_index];
        }
    }
 
    // Given a smart contract address and the ID, fetch the recorded bytes.
-   function fetchHashes(address _sc, bytes32 _id) public view returns (bytes32[] memory) {
+   function fetchHashes(address _sc, uint _id) public view returns (bytes32[] memory) {
        return hashes[_sc][_id];
    }
 
    // Given a smart contract address, the ID and the bytes, store the data.
-   function setHash(address _sc, bytes32 _id, bytes32 _hash) onlyOwner public returns(uint) {
+   function setHash(address _sc, uint _id, bytes32 _hash) onlyOwner public returns(uint) {
        // Cannot re-write over an existing data field
        hashes[_sc][_id].push(_hash);
 
@@ -91,8 +91,8 @@ contract DataShard {
 contract DataRegistry {
 
    // Used to signal to the world about a new dispute record
-   event NewRecord(uint datashard, address sc, bytes32 id, uint index, bytes data);
-   event NewHash(uint datashard, address sc, bytes32 id, uint index, bytes data, bytes32 h);
+   event NewRecord(uint datashard, address sc, uint id, uint index, bytes data);
+   event NewHash(uint datashard, address sc, uint id, uint index, bytes data, bytes32 h);
    event KillDataShard(address addr, uint time, uint datashard);
    event CreateDataShard(address addr, uint time, uint datashard);
 
@@ -136,7 +136,7 @@ contract DataRegistry {
    // We may need to re-set it by deleting/recreating data shard.
    function resetDataShard(uint _datashard) internal returns (DataShard) {
 
-      // We need to do full loop before deleting an old shard!
+      // We need to do full loop before deleting an old shard! 
       if(block.number - DataShard(datashards[_datashard]).getCreationBlock() >= INTERVAL*2) {
           emit KillDataShard(datashards[_datashard], block.number, _datashard);
           DataShard(datashards[_datashard]).kill();
@@ -163,7 +163,7 @@ contract DataRegistry {
    }
 
    // Fetch a list of data records for a smart contract at a given datashard.
-   function fetchRecord(uint _datashard, address _sc, bytes32 _id, uint _index) public returns (bytes memory) {
+   function fetchRecord(uint _datashard, address _sc, uint _id, uint _index) public returns (bytes memory) {
 
        // Confirm the data shard exists so we can fetch data
       if(datashards[_datashard] != address(0)) {
@@ -173,7 +173,7 @@ contract DataRegistry {
    }
 
    // Fetch a list of data records for a smart contract at a given datashard.
-   function fetchRecords(uint _datashard, address _sc, bytes32 _id) public returns (bytes[] memory) {
+   function fetchRecords(uint _datashard, address _sc, uint _id) public returns (bytes[] memory) {
 
        // Confirm the data shard exists so we can fetch data
       if(datashards[_datashard] != address(0)) {
@@ -183,7 +183,7 @@ contract DataRegistry {
    }
 
    // Record data from the sender and store it in the DataShard
-   function setRecord(bytes32 _id, bytes memory _data) public returns (uint, uint) {
+   function setRecord(uint _id, bytes memory _data) public returns (uint, uint) {
 
       // Fetch Index
       uint datashard = (getDataShardIndex(block.number));
@@ -203,7 +203,7 @@ contract DataRegistry {
 
 
   // Fetch a list of data records for a smart contract at a given datashard.
-  function fetchHash(uint _datashard, address _sc, bytes32 _id, uint _index) public returns (bytes32) {
+  function fetchHash(uint _datashard, address _sc, uint _id, uint _index) public returns (bytes32) {
 
        // Confirm the data shard exists so we can fetch data
       if(datashards[_datashard] != address(0)) {
@@ -213,7 +213,7 @@ contract DataRegistry {
    }
 
    // Fetch a list of data records for a smart contract at a given datashard.
-   function fetchHashes(uint _datashard, address _sc, bytes32 _id) public returns (bytes32[] memory) {
+   function fetchHashes(uint _datashard, address _sc, uint _id) public returns (bytes32[] memory) {
 
         // Confirm the data shard exists so we can fetch data
        if(datashards[_datashard] != address(0)) {
@@ -223,7 +223,7 @@ contract DataRegistry {
     }
 
    // Record data from the sender and store it in the DataShard
-   function setHash(bytes32 _id, bytes memory _data) public returns (uint, uint) {
+   function setHash(uint _id, bytes memory _data) public returns (uint, uint) {
 
       // Fetch Index
       uint datashard = (getDataShardIndex(block.number));

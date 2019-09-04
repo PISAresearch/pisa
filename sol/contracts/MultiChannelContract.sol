@@ -4,7 +4,7 @@ pragma experimental ABIEncoderV2;
 contract DataRegistryInterface {
 
     // Log all challenges (and resolving it) via the data registry
-    function setHash(bytes32 _channelid, bytes memory _data) public returns(uint _datashard, uint _index);
+    function setHash(uint _channelid, bytes memory _data) public returns(uint _datashard, uint _index);
 }
 
 contract MultiChannelContract {
@@ -13,7 +13,7 @@ contract MultiChannelContract {
     enum Flag {RESOLVED, CHALLENGE}
 
     // ID to a channnel
-    mapping (bytes32 => Channel) channels;
+    mapping (uint => Channel) channels;
 
     struct Channel {
       address user1; address user2;
@@ -28,9 +28,9 @@ contract MultiChannelContract {
     // Data Registry logging information
     address dataregistry;
 
-    event ChallengeEvent(uint shard, address addr, bytes32 id, uint index, bytes data);
-    event RefuteEvent(address addr, bytes32 channelid, uint v);
-    event ResolveEvent(uint shard, address addr, bytes32 id, uint index, bytes data);
+    event ChallengeEvent(uint shard, address addr, uint id, uint index, bytes data);
+    event RefuteEvent(address addr, uint channelid, uint v);
+    event ResolveEvent(uint shard, address addr, uint id, uint index, bytes data);
     event Test(bytes32 h, uint no, uint blockno, uint v);
 
     // Install data registry upon startup.
@@ -50,7 +50,8 @@ contract MultiChannelContract {
     function fundChannel(address _user1, address _user2) public payable {
         require(msg.sender == _user1 || msg.sender == _user2);
 
-        bytes32 id = keccak256(abi.encode(_user1, _user2, address(this)));
+        bytes32 h = keccak256(abi.encode(_user1, _user2, address(this)));
+        uint id = uint(h);
 
         // Is the channel already open?
         if(channels[id].open) {
@@ -82,7 +83,7 @@ contract MultiChannelContract {
     }
 
     // Initiate an on-chain challenge
-    function trigger(bytes32 _id) public {
+    function trigger(uint _id) public {
         require(channels[_id].flag == Flag.RESOLVED);
         channels[_id].flag = Flag.CHALLENGE;
         channels[_id].challengeExpiry = block.number + challengePeriod;
@@ -98,7 +99,7 @@ contract MultiChannelContract {
     }
 
     // Evidence for the challenge period
-    function evidence(bytes32 _id) public {
+    function evidence(uint _id) public {
         require(channels[_id].flag == Flag.CHALLENGE);
 
         // Ideally some "action" or "evidence" is sent here
@@ -110,7 +111,7 @@ contract MultiChannelContract {
 
     // PISA will send the agreed "latest state"
     // This should cancel the dispute process...
-    function refute(bytes32 _id, uint _v) public {
+    function refute(uint _id, uint _v) public {
       require(_v > channels[_id].v);
 
       channels[_id].v = _v;
@@ -120,7 +121,7 @@ contract MultiChannelContract {
     }
 
     // Resolve an on-chain challenge
-    function resolve(bytes32 _id) public {
+    function resolve(uint _id) public {
         require(channels[_id].flag == Flag.CHALLENGE);
         require(block.number > channels[_id].challengeExpiry);
 
@@ -139,19 +140,20 @@ contract MultiChannelContract {
     }
 
     // Helper function for unit-testing
-    function getV(bytes32 _id) public view returns (uint) {
+    function getV(uint _id) public view returns (uint) {
       return channels[_id].v;
     }
 
-    function getFlag(bytes32 _id) public view returns (uint) {
+    function getFlag(uint _id) public view returns (uint) {
       return uint(channels[_id].flag);
     }
 
-    function isOpen(bytes32 _id) public view returns (bool) {
+    function isOpen(uint _id) public view returns (bool) {
       return channels[_id].open;
     }
 
-    function getChannelID(address _user1, address _user2) public view returns(bytes32) {
-      return keccak256(abi.encode(_user1, _user2, address(this)));
+    function getChannelID(address _user1, address _user2) public view returns(uint) {
+      bytes32 h = keccak256(abi.encode(_user1, _user2, address(this)));
+      return uint(h);
     }
 }
