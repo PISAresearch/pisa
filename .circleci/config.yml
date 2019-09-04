@@ -47,11 +47,11 @@ jobs:
           name: install ganache and truffle
           command: sudo npm i -g truffle ganache-cli
       - run:
-          name: install packages
-          command: npm install
-      - run:
           name: start ganache-cli
           command: ganache-cli --port 7545 --gasLimit 8000000 &
+      - run:
+          name: install packages
+          command: npm install
       - run:
           name: tests
           command: npm run test-contract
