@@ -253,7 +253,30 @@ describe("sos end to end", () => {
 
         await callDistressAndWaitForCounter("sos", 2);
     }).timeout(30000);
+
+    it("PISA should respond again if there is a reorg after the responder confirmation time", async () => {
+        await getAppointmentForMessage(pisaContractAddress, user1, "sos", "yay1", 1);
+        const snapshotId: number = await promiseSendAsync(ganache, { method: "evm_snapshot" });
+        await callDistressAndWaitForCounter("sos", 1);
+        await promiseSendAsync(ganache, { method: "evm_revert", params: snapshotId });
+        // ensure that the revert occurred well
+        expect((await rescueContract.rescueCount()).toNumber()).to.equal(0);
+
+        // mine some blocks to give pisa a chance to respond
+        await mineBlocks(10, user1);
+
+        expect((await rescueContract.rescueCount()).toNumber()).to.equal(1);
+    }).timeout(5000);
 });
+
+const promiseSendAsync = (ganache: ethers.providers.AsyncSendable, options: any): any => {
+    return new Promise((resolve, reject) => {
+        ganache.sendAsync!({ jsonppc: "2.0", ...options }, (err: any, result: any) => {
+            if (err) reject(err);
+            else resolve(result.result);
+        });
+    });
+};
 
 const waitForPredicate = (
     predicate: () => Promise<boolean> | boolean,
@@ -280,6 +303,7 @@ const mineBlocks = async (count: number, signer: ethers.Signer) => {
         await mineBlock(signer);
     }
 };
+
 const mineBlock = async (signer: ethers.Signer) => {
     const tx = await signer.sendTransaction({ to: "0x0000000000000000000000000000000000000000", value: 0 });
     await tx.wait();
