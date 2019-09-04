@@ -62,7 +62,7 @@ let execute = async (timeToWait: number) => {
                 endBlock: 22,
                 eventABI: KitsuneTools.eventABI(),
                 eventArgs: KitsuneTools.eventArgs(),
-                gasLimit: "100000",
+                gasLimit: 100000,
                 id: 1,
                 jobId: 0,
                 mode: 1,

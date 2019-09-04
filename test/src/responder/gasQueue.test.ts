@@ -23,7 +23,7 @@ const createAppointment = (id: number): Appointment => {
         endBlock: 10,
         eventABI: "eventABI",
         eventArgs: "eventArgs",
-        gasLimit: "100",
+        gasLimit: 100,
         customerChosenId: id,
         jobId: 1,
         mode: 1,

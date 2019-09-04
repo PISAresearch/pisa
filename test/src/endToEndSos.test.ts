@@ -52,7 +52,7 @@ describe("sos end to end", () => {
             endBlock: startBlock + 200,
             eventABI: eventAbi,
             eventArgs: eventArgs,
-            gasLimit: "100000",
+            gasLimit: 100000,
             id,
             jobId,
             mode: 1,
@@ -139,9 +139,9 @@ describe("sos end to end", () => {
     };
 
     const callDistressAndWaitForCounter = async (helpMessage: string, count: number) => {
-        await wait(50)
-        const tx = await rescueContract.help(helpMessage);        
-        await wait(50)
+        await wait(50);
+        const tx = await rescueContract.help(helpMessage);
+        await wait(50);
         await tx.wait();
         await waitForPredicate(
             async () => ((await rescueContract.rescueCount()) as BigNumber).eq(count),
@@ -205,7 +205,7 @@ describe("sos end to end", () => {
             "yay"
         );
         await pisaContract.respond(appointment.encode(), appointment.customerSig, {
-            gasLimit: appointment.gasLimit.add(200000)
+            gasLimit: appointment.gasLimit + 200000
         });
 
         const rescueCount: BigNumber = await rescueContract.rescueCount();

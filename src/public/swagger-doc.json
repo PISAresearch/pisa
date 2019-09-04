@@ -1,0 +1,182 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "description": "PISA is an accountable watching service. PISA can be hired to watch for on-chain events by requesting an appointment. At its core PISA is a watch and respond service, you can configure PISA to watch for EVM events and provide it with data to respond with if the event occurs.\n",
+    "version": "0.1.0 Alpha",
+    "title": "PISA Watchtower",
+    "contact": {
+      "email": "cpbuckland88@gmail.com"
+    },
+    "license": {
+      "name": "Apache 2.0",
+      "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
+    }
+  },
+  "basePath": "/",
+  "tags": [
+    {
+      "name": "Appointment",
+      "description": "An appointment specifies all the information that PISA requires to watch for an event, and respond with data. The appointment is loosely made up of four sections: \n1. Metadata: \n  * Customer address - address of the customer \n  * Appointment id - unique id chosen by the customer \n  * Job id - counter that can be incremented to replace an appointment \n  * Start block - the block when the appointment starts, only events observed between start and end block will be responded to \n  * End block - the block when the appointment ends \n  * Refund - the amount to be refunded to the customer if the PISA fails to respond \n  * Payment hash - proof that the customer has paid PISA \n2. Event data \n  * Contract address - the address that emits the event, and the address that pisa will respond to \n  * Event ABI - A human readable ABI that specifies the structure of the event \n  * Event args - The ABI encoded arguments used to filter the event \n3. Response data \n  * Data - the data to be submitted by PISA on response \n  * Gas limit - the gas to be supplied to the response \n  * Challenge period - the amount of time after the event that PISA has to respond \n  * Mode - used to specify pre and post conditions \n  * Pre condition - not currently supported, set to `0x` \n  * Post condition - not currently supported, set to `0x` \n4. Signature data \n  * Customer sig - a signature by the private key corresponding to the customer address over the supplied appointment data."
+    }
+  ],
+  "paths": {
+    "/appointment": {
+      "post": {
+        "tags": [
+          "Appointment"
+        ],
+        "summary": "Request a new appointment from PISA",
+        "operationId": "addAppointment",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/Appointment"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Appointment request accepted"
+          },
+          "400": {
+            "description": "Invalid input"
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "Appointment": {
+      "type": "object",
+      "required": [
+        "challengePeriod",
+        "contractAddress",
+        "customerAddress",
+        "customerSig",
+        "data",
+        "endBlock",
+        "eventABI",
+        "eventArgs",
+        "gasLimit",
+        "id",
+        "jobId",
+        "mode",
+        "paymentHash",
+        "preCondition",
+        "postCondition",
+        "refund",
+        "startBlock"
+      ],
+      "properties": {
+        "customerAddress": {
+          "type": "string",
+          "description": "The address of the customer hiring PISA.",
+          "example": "0x9e64b53b935602cd0657343C69Fe200fb3cD05c8"
+        },
+        "id": {
+          "type": "number",
+          "description": "A unique id, chosen by the customer.",
+          "minimum": 0,
+          "maximum": 9007199254740991,
+          "example": 200
+        },
+        "jobId": {
+          "type": "integer",
+          "description": "A counter used to replace appointments of the same id, but lower counter. A new appointment can be requested for an existing id as long as the job id is incremented. If this is the case PISA will forget the old appointment and only watch for the new one.",
+          "minimum": 0,
+          "maximum": 9007199254740991,
+          "example": 3
+        },
+        "startBlock": {
+          "type": "integer",
+          "description": "The block at which this appointment starts. Only events that occur after (inclusive) start block and before (inclusive) end block will be responded to.",
+          "minimum": 0,
+          "maximum": 9007199254740991,
+          "example": 605107
+        },
+        "endBlock": {
+          "type": "integer",
+          "description": "The last block in which the appointment is still valid.",
+          "minimum": 0,
+          "maximum": 9007199254740991,
+          "example": 6052995
+        },
+        "refund": {
+          "type": "string",
+          "description": "The amount to be refunded in case of failure (wei). Must be set to `0` for free API values, non zero values are not currently supported.",
+          "example": "0"
+        },
+        "paymentHash": {
+          "type": "string",
+          "description": "Proof that payment has been made to the PISA service. Whilst in its testing phase PISA operates for free :) Use the hash 0xfc1624bdc50da30f2ea37b7debabeac1f6166db013c5880dcf63907b04199138 to gain access to the service.",
+          "example": "0xfc1624bdc50da30f2ea37b7debabeac1f6166db013c5880dcf63907b04199138"
+        },
+        "contractAddress": {
+          "type": "string",
+          "description": "The address of the external contract from which the event will be emitted and to which the data will be submitted.",
+          "example": "0x81b7e08f65bdf5648606c89998a9cc8164397647"
+        },
+        "eventABI": {
+          "type": "string",
+          "description": "The event ABI specifies the structure of the event that PISA will watch for. The format is 'human readable ABI', described here: https://blog.ricmoo.com/human-readable-contract-abis-in-ethers-js-141902f4d917\n\nThe event ABI must contain only one event, and any arguments that you wish to include in the filter must be indexed.\n\n#### Example event ABI\n```\n\"event TestEvent(address indexed, uint256, uint256 indexed)\"\n```\nThis event ABI specifies an event called TestEvent with three arguments. Only two of these arguments are indexed, these arguments can be included in the event args field.\n",
+          "example": "event EventDispute(uint256 indexed)"
+        },
+        "eventArgs": {
+          "type": "string",
+          "description": "PISA can be triggered by an event with specific arguments. Event args is used to specify the specific arguments that must match in order for pisa to respond. These arguments will be encoded into topics and used to filter events, for this reason currently only indexed event arguments are supported.\n\nThe event args field is the abi encoded representation of the supplied indexed arguments. Additional to this the arguments must be prefixed with a 0-indexed integer array which specifies the indexes of the event arguments to be filtered on.\n\n#### Example with two arguments\n```\neventABI: \"event TestEvent(address indexed, uint256, uint256 indexed)\";\neventArgs: ethers.utils.defaultAbiCoder.encode(\n  [\"uint8[]\", \"address\", \"uint256\"],\n  [[0, 2], \"0xbbF5029Fd710d227630c8b7d338051B8E76d50B3\", 20]\n);\n```\nIn this example an event ABI is specified with three arguments: `address indexed, uint256, uint256 indexed`. The eventArgs specify values for the indexed parameters and an array which specifies that both indexed parameters should be used in the filter.\n\n\n#### Example with one argument\n```\neventABI: \"event TestEvent(address indexed, uint256, uint256 indexed)\";\neventArgs: ethers.utils.defaultAbiCoder.encode(\n  [\"uint8[]\", \"uint256\"],\n  [[2], 20]\n);\n```\nIn this example, although the event allows for filtering on two indexed parameters the eventArgs only specify that the second indexed parameter, a uint256, be used in the filter\n\n#### Example with no arguments\n```\neventABI: \"event TestEvent(address indexed, uint256, uint256 indexed)\";\neventArgs: ethers.utils.defaultAbiCoder.encode(\n  [\"uint8[]\"],\n  [[]]\n);\n```\nIt is possible to specify that none of the arguments be used in the filter. In this case an empty array can be provided to state that none of the indexed parameters of the event ABI should be used.\n",
+          "example": "0xf778daa96e1bdf7745b02debfd61d9bcc46da294dd059fa3ce13b263d06e389a"
+        },
+        "data": {
+          "type": "string",
+          "description": "The data is an ABI encoded function and arguments that will be executed at the contract address by PISA. This execution occurs when PISA is triggered by observing the event specified by EventABI and EventArgs.\n\n#### Example of forming data\n```\nconst amount = 10;\nconst functionAbi = [\"function testFunction(uint amount)\"];\nconst abi = new ethers.utils.Interface(functionAbi);\nconst data = abi.functions.testFunction.encode([amount]);\n```\n",
+          "example": "0x28fbdf0d000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000"
+        },
+        "gasLimit": {
+          "type": "number",
+          "description": "The amount of gas that will be supplied when calling the external contract. Maximum is 2 million.",
+          "minimum": 0,
+          "maximum": 2000000,
+          "example": 400000
+        },
+        "challengePeriod": {
+          "type": "integer",
+          "description": "The number of blocks that PISA has to respond if an event is noticed.",
+          "minimum": 100,
+          "maximum": 60000,
+          "example": 100
+        },
+        "mode": {
+          "type": "integer",
+          "description": "Mode specifies which pre and post condition handlers will be called. Currently pre and post conditions are not supported, and mode can either be `0` or `1`. Set `0` for instant relay - PISA ignores all event information and immediately submits a response. Set `1` for PISA to watch for the specified event and only respond after it has been observed.",
+          "minimum": 0,
+          "maximum": 1,
+          "example": 1
+        },
+        "preCondition": {
+          "type": "string",
+          "description": "Not currently supported, set to `0x`",
+          "example": "0x5bf2b49d8b43dbc21ab4b757d5bebcd3ed6d50c092aa2648c49cd76bce28c9cc"
+        },
+        "postCondition": {
+          "type": "string",
+          "description": "Not currently supported, set to `0x`",
+          "example": "0x5bf2b49d8b43dbc21ab4b757d5bebcd3ed6d50c092aa2648c49cd76bce28c9cc"
+        },
+        "customerSig": {
+          "type": "string",
+          "description": "The customer must sign the appointment to prove its authenticity. The appointment is broken down into three subsections to allow for easier decoding in solidity. These must be encoded separately before being hashed and signed.\n\n#### Example signature\n\n```\nconst basicBytes = ethers.utils.defaultAbiCoder.encode(\n  [\n    \"uint\", \n    \"uint\", \n    \"uint\", \n    \"uint\", \n    \"uint\", \n    \"uint\", \n    \"bytes32\"\n  ],\n  [\n    request.id,\n    request.jobId,\n    request.startBlock,\n    request.endBlock,\n    request.challengePeriod,\n    request.refund,\n    request.paymentHash\n  ]\n);\n\nconst callBytes = ethers.utils.defaultAbiCoder.encode(\n  [\n    \"address\", \n    \"address\", \n    \"uint\", \n    \"bytes\"\n  ],\n  [\n    request.contractAddress, \n    request.customerAddress, \n    request.gasLimit, \n    request.data\n  ]\n);\n\nconst conditionBytes = ethers.utils.defaultAbiCoder.encode(\n  [\n    \"bytes\", \n    \"bytes\", \n    \"bytes\", \n    \"bytes\", \n    \"uint\"\n  ],\n  [\n    ethers.utils.toUtf8Bytes(request.eventABI),\n    request.eventArgs,\n    request.preCondition,\n    request.postCondition,\n    request.mode\n  ]\n);\n\nconst appointmentBytes = ethers.utils.defaultAbiCoder.encode(\n  [\n    \"bytes\", \n    \"bytes\", \n    \"bytes\"\n  ], \n  [\n    basicBytes, \n    callBytes,\n    conditionBytes\n  ]\n);\n\nconst hashForSig = ethers.utils.keccak256(appointmentBytes);\nconst customerSig = await wallet.signMessage(ethers.utils.arrayify(hashForSig));\n```\n",
+          "example": "0x0870ede99ad9547ca2f45140ac5088291da331379283383278886814419c795d5571f560f302ba9ec45485a5e6cb237224baed39d15597cf530cac162556a6a000"
+        }
+      }
+    }
+  }
+}

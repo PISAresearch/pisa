@@ -1,0 +1,110 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "http://pisa.watch/schemas/appointment-request.json",
+    "type": "object",
+    "title": "Appointment request schema",
+    "required": [
+        "challengePeriod",
+        "contractAddress",
+        "customerAddress",
+        "customerSig",
+        "data",
+        "endBlock",
+        "eventABI",
+        "eventArgs",
+        "gasLimit",
+        "id",
+        "jobId",
+        "mode",
+        "paymentHash",
+        "preCondition",
+        "postCondition",
+        "refund",
+        "startBlock"
+    ],
+    "additionalProperties": false,
+    "properties": {
+        "challengePeriod": {
+            "$id": "#/properties/challengePeriod",
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 60000
+        },
+        "contractAddress": {
+            "$id": "#/properties/contractAddress",
+            "type": "string"
+        },
+        "customerAddress": {
+            "$id": "#/properties/customerAddress",
+            "type": "string"
+        },
+        "customerSig": {
+            "$id": "#/properties/customerSig",
+            "type": "string"
+        },
+        "data": {
+            "$id": "#/properties/data",
+            "type": "string"
+        },
+        "endBlock": {
+            "$id": "#/properties/endBlock",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+        },
+        "eventABI": {
+            "$id": "#/properties/eventABI",
+            "type": "string"
+        },
+        "eventArgs": {
+            "$id": "#/properties/eventArgs",
+            "type": "string"
+        },
+        "gasLimit": {
+            "$id": "#/properties/gasLimit",
+            "type": "number",
+            "minimum": 0,
+            "maximum": 2000000
+        },
+        "id": {
+            "$id": "#/properties/id",
+            "type": "number",
+            "minimum": 0,
+            "maximum": 9007199254740991
+        },
+        "jobId": {
+            "$id": "#/properties/jobId",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+        },
+        "mode": {
+            "$id": "#/properties/mode",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1
+        },
+        "paymentHash": {
+            "$id": "#/properties/paymentHash",
+            "type": "string"
+        },
+        "preCondition": {
+            "$id": "#/properties/preCondition",
+            "type": "string"
+        },
+        "postCondition": {
+            "$id": "#/properties/postCondition",
+            "type": "string"
+        },
+        "refund": {
+            "$id": "#/properties/refund",
+            "type": "string"
+        },
+        "startBlock": {
+            "$id": "#/properties/startBlock",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+        }
+    }
+}
