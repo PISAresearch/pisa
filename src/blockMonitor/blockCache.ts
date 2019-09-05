@@ -134,11 +134,11 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
 
     // If minHeight is increased after adding some blocks, some previously detached blocks should now be moved into blocksByHash.
     // Since the process itself could (in rare circumstances) also increase minHeight, we check if this is the case and repeat the cycle.
-    private processDetachedBlocksAtMinHeight() {
+    private async processDetachedBlocksAtMinHeight() {
         let prevMinHeight: number;
         do {
             prevMinHeight = this.minHeight;
-            this.processDetached(this.minHeight);
+            await this.processDetached(this.minHeight);
         } while (this.minHeight > prevMinHeight); // if the minHeight increased, run again
     }
 
@@ -188,7 +188,7 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
 
                 // If the minHeight increased, this could also make some detached blocks ready to be attached
                 // This makes sure that they are attached if necessary
-                this.processDetachedBlocksAtMinHeight();
+                await this.processDetachedBlocksAtMinHeight();
                 return BlockAddResult.Added;
             } else {
                 // TODO: this should happen atomically
