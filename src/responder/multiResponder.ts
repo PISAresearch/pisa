@@ -130,7 +130,6 @@ export class MultiResponder {
                         )}`
                     );
                 }
-                logger.info({ txIdentifier, nonce }, `Transaction mined.`);
 
                 if (txIdentifier.equals(frontItem.request.identifier)) {
                     // the mined transaction was the one at the front of the current queue
