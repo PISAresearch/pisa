@@ -20,7 +20,8 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
         this.blockProcessor.blockCache.addNewBlockListener(this.processNewBlock);
     }
     protected async stopInternal(): Promise<void> {
-        // TODO: should detach events from BlockProcessor?
+        this.blockProcessor.removeNewHeadListener(this.processNewHead);
+        this.blockProcessor.blockCache.removeNewBlockListener(this.processNewBlock);
     }
 
     constructor(private blockProcessor: BlockProcessor<TBlock>, private blockItemStore: BlockItemStore<TBlock>) {
@@ -70,7 +71,9 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
 
                 // states.set(block, newState);
                 await this.blockItemStore.putBlockItem(block.number, block.hash, `${component.name}:state`, newState);
-                await this.blockItemStore.putBlockItem(block.number, block.hash, `${component.name}:prevEmittedState`, prevHeadAnchorState);
+                if (prevHeadAnchorState) {
+                    await this.blockItemStore.putBlockItem(block.number, block.hash, `${component.name}:prevEmittedState`, prevHeadAnchorState);
+                }
             }
         } finally {
             this.lock.release();
