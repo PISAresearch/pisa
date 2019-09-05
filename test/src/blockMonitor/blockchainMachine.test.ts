@@ -11,6 +11,7 @@ import { Component } from "../../../src/blockMonitor/component";
 import { IBlockStub, ApplicationError, BlockItemStore } from "../../../src/dataEntities";
 import { StateReducer } from "../../../src/blockMonitor/component";
 import fnIt from "../../utils/fnIt";
+import { ActionStore } from "../../../src/blockMonitor/blockchainMachine";
 
 const blocks: IBlockStub[] = [
     {
@@ -94,6 +95,7 @@ describe("BlockchainMachine", () => {
     let db: any;
     let blockStore: BlockItemStore<IBlockStub>;
     let blockCache: BlockCache<IBlockStub>;
+    let actionStore: ActionStore;
 
     // Utility function to add a block to the block cache and also emit it as new head in the blockProcessor.
     const addAndEmitBlock = async (block: IBlockStub) => {
@@ -110,18 +112,17 @@ describe("BlockchainMachine", () => {
         await blockStore.start();
 
         blockCache = new BlockCache<IBlockStub>(100, blockStore);
-        // for (const block of blocks) {
-        //     await blockCache.addBlock(block);
-        // }
 
         // Since we only need to process events, we mock the BlockProcessor with an EventEmitter
         const bp: any = new MockBlockProcessor();
         bp.blockCache = blockCache;
         blockProcessor = bp as (BlockProcessor<IBlockStub> & CanEmitAsNewHead);
+
+        actionStore = new ActionStore(db);
     });
 
     fnIt<BlockchainMachine<any>>(b => b.addComponent, "throws ApplicationError if already started", async () => {
-        const bm = new BlockchainMachine(blockProcessor, blockStore);
+        const bm = new BlockchainMachine(blockProcessor, actionStore, blockStore);
         await bm.start();
 
         expect(() => bm.addComponent(new ExampleComponent(reducer))).to.throw(ApplicationError);
@@ -130,7 +131,7 @@ describe("BlockchainMachine", () => {
     });
 
     it("processNewBlock computes the initial state if the parent is not in cache", async () => {
-        const bm = new BlockchainMachine(blockProcessor, blockStore);
+        const bm = new BlockchainMachine(blockProcessor, actionStore, blockStore);
         bm.addComponent(new ExampleComponent(reducer));
         await bm.start();
 
@@ -143,7 +144,7 @@ describe("BlockchainMachine", () => {
     });
 
     it("processNewBlock computes state with reducer and its parent's initial state if the parent's state is not known", async () => {
-        const bm = new BlockchainMachine(blockProcessor, blockStore);
+        const bm = new BlockchainMachine(blockProcessor, actionStore, blockStore);
         bm.addComponent(new ExampleComponent(reducer));
         // start only after adding the first block
 
@@ -168,7 +169,7 @@ describe("BlockchainMachine", () => {
     });
 
     it("processNewBlock computes the state with the reducer if the parent's state is known", async () => {
-        const bm = new BlockchainMachine(blockProcessor, blockStore);
+        const bm = new BlockchainMachine(blockProcessor, actionStore, blockStore);
         bm.addComponent(new ExampleComponent(reducer));
 
         // this time we start the BlockchainMachine immediately
@@ -195,7 +196,7 @@ describe("BlockchainMachine", () => {
     });
 
     it("processNewBlock computes the state for each component", async () => {
-        const bm = new BlockchainMachine(blockProcessor, blockStore);
+        const bm = new BlockchainMachine(blockProcessor, actionStore, blockStore);
 
         const reducers: ExampleReducer[] = [];
         const spiedReducers: ExampleReducer[] = [];
@@ -229,7 +230,7 @@ describe("BlockchainMachine", () => {
     });
 
     it("processNewHead does not call applyAction before NEW_HEAD_EVENT happens twice", async () => {
-        const bm = new BlockchainMachine(blockProcessor, blockStore);
+        const bm = new BlockchainMachine(blockProcessor, actionStore, blockStore);
         const component = new ExampleComponent(reducer);
         const spiedComponent = spy(component);
 
@@ -250,7 +251,7 @@ describe("BlockchainMachine", () => {
     });
 
     it("processNewHead does call applyAction", async () => {
-        const bm = new BlockchainMachine(blockProcessor, blockStore);
+        const bm = new BlockchainMachine(blockProcessor, actionStore, blockStore);
         const component = new ExampleComponent(reducer);
         const spiedComponent = spy(component);
 
@@ -271,13 +272,13 @@ describe("BlockchainMachine", () => {
         const nextStateExpected = { someNumber: initialState.someNumber + blocks[1].number + blocks[2].number };
         expect(prevState).to.deep.equal(initialState);
         expect(nextState).to.deep.equal(nextStateExpected);
-        expect(actions).to.deep.equal({ prevState: initialState, newState: nextStateExpected });
+        expect(actions).to.deep.include({ prevState: initialState, newState: nextStateExpected });
 
         await bm.stop();
     });
 
     it("processNewHead does call applyAction on multiple components", async () => {
-        const bm = new BlockchainMachine(blockProcessor, blockStore);
+        const bm = new BlockchainMachine(blockProcessor, actionStore, blockStore);
         const components: ExampleComponent[] = [];
         const spiedComponents: ExampleComponent[] = [];
         const nComponents = 3;

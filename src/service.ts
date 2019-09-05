@@ -12,7 +12,7 @@ import { LevelUp } from "levelup";
 import encodingDown from "encoding-down";
 import { blockFactory } from "./blockMonitor";
 import { Block, BlockItemStore } from "./dataEntities/block";
-import { BlockchainMachine } from "./blockMonitor/blockchainMachine";
+import { BlockchainMachine, ActionStore } from "./blockMonitor/blockchainMachine";
 import { Logger } from "./logger";
 import path from "path";
 import { GasQueue } from "./responder/gasQueue";
@@ -37,6 +37,7 @@ export class PisaService extends StartStopService {
     private readonly blockProcessor: BlockProcessor<Block>;
     private readonly responderStore: ResponderStore;
     private readonly appointmentStore: AppointmentStore;
+    private readonly actionStore: ActionStore;
     private readonly blockchainMachine: BlockchainMachine<Block>;
     private readonly JSON_SCHEMA_ROUTE = "/schemas/appointmentRequest.json";
     private readonly API_DOCS_JSON_ROUTE = "/api-docs.json";
@@ -101,7 +102,10 @@ export class PisaService extends StartStopService {
             this.blockProcessor.blockCache,
             config.maximumReorgLimit == undefined ? 100 : config.maximumReorgLimit
         );
-        this.blockchainMachine = new BlockchainMachine<Block>(this.blockProcessor, this.blockItemStore);
+
+        this.actionStore = new ActionStore(db);
+
+        this.blockchainMachine = new BlockchainMachine<Block>(this.blockProcessor, this.actionStore, this.blockItemStore);
         this.blockchainMachine.addComponent(watcher);
         this.blockchainMachine.addComponent(responder);
 
@@ -141,6 +145,7 @@ export class PisaService extends StartStopService {
 
     protected async startInternal() {
         await this.blockItemStore.start();
+        await this.actionStore.start();
         await this.blockchainMachine.start();
         await this.blockProcessor.start();
         await this.appointmentStore.start();
@@ -152,6 +157,7 @@ export class PisaService extends StartStopService {
         await this.appointmentStore.stop();
         await this.blockProcessor.stop();
         await this.blockchainMachine.stop();
+        await this.actionStore.stop();
         await this.blockItemStore.stop();
 
         this.server.close(error => {

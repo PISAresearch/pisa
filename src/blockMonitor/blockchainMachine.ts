@@ -1,8 +1,78 @@
 import { BlockProcessor } from "./blockProcessor";
 import { IBlockStub, StartStopService, ApplicationError } from "../dataEntities";
-import { Component, AnchorState, ComponentAction, ComponentKind } from "./component";
+import { Component, AnchorState, ComponentAction } from "./component";
 import { BlockItemStore } from "../dataEntities/block";
 import { Lock } from "../utils/lock";
+
+import { LevelUp } from "levelup";
+import EncodingDown from "encoding-down";
+const sub = require("subleveldown");
+import uuid = require("uuid/v4");
+
+interface Id {
+    id: string;
+}
+
+export class ActionStore extends StartStopService {
+    private readonly subDb: LevelUp<EncodingDown<string, any>>;
+    private actions: Map<string, Set<ComponentAction & Id>> = new Map();
+
+    constructor(db: LevelUp<EncodingDown<string, any>>) {
+        super("action-store");
+        this.subDb = sub(db, `action-store`, { valueEncoding: "json" });
+    }
+
+    protected async startInternal() {
+        // load existing actions from the db
+        for await (const record of this.subDb.createValueStream()) {
+            const { key, value } = (record as any) as { key: string; value: ComponentAction };
+
+            const i = key.indexOf(":");
+            const componentName = key.substring(0, i);
+            const actionId = key.substring(i + 1);
+
+            const actionWithId = {
+                id: actionId,
+                ...value
+            };
+            const componentActions = this.actions.get(componentName);
+            if (componentActions) componentActions.add(actionWithId);
+            else this.actions.set(componentName, new Set([actionWithId]));
+        }
+    }
+    protected async stopInternal() {}
+
+    private addId(action: ComponentAction): ComponentAction & Id {
+        return {
+            id: uuid(),
+            ...action
+        };
+    }
+
+    public getActions(componentName: string) {
+        return this.actions.get(componentName) || new Set();
+    }
+
+    public async storeActions(componentName: string, actions: ComponentAction[]) {
+        const componentSet = this.actions.get(componentName);
+        if (componentSet) actions.forEach(a => componentSet.add(this.addId(a)));
+        else this.actions.set(componentName, new Set(actions.map(this.addId)));
+
+        let batch = this.subDb.batch();
+        actions.forEach(action => {
+            const actionWithId = this.addId(action);
+            batch = batch.put(componentName + ":" + actionWithId.id, actionWithId);
+        });
+        await batch.write();
+    }
+
+    public async removeAction(componentName: string, action: ComponentAction & Id) {
+        const actions = this.actions.get(componentName);
+        if (!actions) return;
+        else actions.delete(action);
+        await this.subDb.del(componentName + ":" + (action as any).id);
+    }
+}
 
 // Generic class to handle the anchor statee of a blockchain state machine
 export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopService {
@@ -14,6 +84,7 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
 
     protected async startInternal(): Promise<void> {
         if (!this.blockProcessor.started) this.logger.error("The BlockchainMachine should be started before the BlockchainMachine.");
+        if (!this.actionStore.started) this.logger.error("The ActionStore should be started before the BlockchainMachine.");
         if (!this.blockItemStore.started) this.logger.error("The BlockItemStore should be started before the BlockchainMachine.");
 
         this.blockProcessor.addNewHeadListener(this.processNewHead);
@@ -24,7 +95,7 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
         this.blockProcessor.blockCache.removeNewBlockListener(this.processNewBlock);
     }
 
-    constructor(private blockProcessor: BlockProcessor<TBlock>, private blockItemStore: BlockItemStore<TBlock>) {
+    constructor(private blockProcessor: BlockProcessor<TBlock>, private actionStore: ActionStore, private blockItemStore: BlockItemStore<TBlock>) {
         super("blockchain-machine");
         this.processNewHead = this.processNewHead.bind(this);
         this.processNewBlock = this.processNewBlock.bind(this);
@@ -105,11 +176,18 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
                 await this.blockItemStore.putBlockItem(head.number, head.hash, `${component.name}:prevEmittedState`, state);
 
                 if (prevEmittedState) {
-                    const actions = component.detectChanges(prevEmittedState, state);
-                    // TODO: add back the ActionStore, store actions in db here
+                    // save actions in the store
+                    const newActions = component.detectChanges(prevEmittedState, state);
+                    if (newActions.length > 0) await this.actionStore.storeActions(component.name, newActions);
+
+                    // load all the actions (might include oldler actions; also, they now have id)
+                    const actions = this.actionStore.getActions(component.name);
 
                     // side effects must be thread safe, so we can execute them concurrently
-                    actions.forEach(a => component.applyAction(a));
+                    actions.forEach(async a => {
+                        await component.applyAction(a);
+                        this.actionStore.removeAction(component.name, a);
+                    });
                 }
             }
         } finally {

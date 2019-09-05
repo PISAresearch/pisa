@@ -70,9 +70,6 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
         for await (const record of this.subDb.createValueStream()) {
             const { key, value } = (record as any) as { key: string; value: any };
 
-            // console.log("RECORD", record);
-            // console.log("KEY", key);
-            // if (!key) continue;
             const i = key.indexOf(":");
             const height = Number.parseInt(key.substring(0, i));
             const memKey = key.substring(i + 1);

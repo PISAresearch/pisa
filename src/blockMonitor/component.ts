@@ -99,11 +99,6 @@ export interface ComponentAction {
     // that we need in the component
 }
 
-export enum ComponentKind {
-    Watcher = 1,
-    Responder = 2
-}
-
 /**
  * A `Component` contains a state reducer and receives and processes the state changes after being added to a `BlockchainMachine`.
  */
