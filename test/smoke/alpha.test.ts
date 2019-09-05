@@ -9,7 +9,7 @@ import { arrayify } from "ethers/utils";
 
 const encode = (request: any) => {
     const basicBytes = ethers.utils.defaultAbiCoder.encode(
-        ["uint", "uint", "uint", "uint", "uint", "uint", "bytes32"],
+        ["bytes32", "uint", "uint", "uint", "uint", "uint", "bytes32"],
         [
             request.id,
             request.nonce,
@@ -27,8 +27,8 @@ const encode = (request: any) => {
     );
 
     const conditionBytes = ethers.utils.defaultAbiCoder.encode(
-        ["string", "bytes", "bytes", "bytes", "uint"],
-        [request.eventABI, request.eventArgs, request.preCondition, request.postCondition, request.mode]
+        ["address", "string", "bytes", "bytes", "bytes", "uint"],
+        [request.eventAddress, request.eventABI, request.eventArgs, request.preCondition, request.postCondition, request.mode]
     );
 
     const appointmentBytes = ethers.utils.defaultAbiCoder.encode(
@@ -59,6 +59,7 @@ describe("alpha", () => {
             customerAddress: customerAddress,
             data,
             endBlock: startBlock + 130,
+            eventAddress: contractAddress,
             eventABI: eventAbi,
             eventArgs: eventArgs,
             gasLimit: 100000,

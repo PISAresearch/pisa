@@ -62,10 +62,11 @@ const run = async (startingRowId: number) => {
                 customerAddress: wallet.address,
                 data: encodedForUpdate,
                 endBlock: 10000,
+                eventAddress: sigGroup.token_network_identifier,
                 eventABI: RaidenTools.eventABI(),
                 eventArgs: RaidenTools.eventArgs(sigGroup.channel_identifier, bp.sender),
                 gasLimit: 200000,
-                id: 1,
+                id: "0x0000000000000000000000000000000000000000000000000000000000000001",
                 nonce: 0,
                 mode: 1,
                 preCondition: "0x",
@@ -110,7 +111,7 @@ function groupTuples(tupleArray: [string, any][]): [string[], any[]] {
 const encode = (request: any) => {
     const appointmentInfo = ethers.utils.defaultAbiCoder.encode(
         ...groupTuples([
-            ["uint", request.id],
+            ["bytes32", request.id],
             ["uint", request.nonce],
             ["uint", request.startBlock],
             ["uint", request.endBlock],
@@ -129,6 +130,7 @@ const encode = (request: any) => {
     );
     const conditionInfo = ethers.utils.defaultAbiCoder.encode(
         ...groupTuples([
+            ["address", request.eventAddress],
             ["string", request.eventABI],
             ["bytes", request.eventArgs],
             ["bytes", request.preCondition],
