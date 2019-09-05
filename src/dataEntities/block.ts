@@ -109,8 +109,9 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
             for (const item of itemsAtHeight) {
                 // check if it is the actual block
                 if (item.endsWith(":block")) {
+                    const itemKey = item.slice(0, -":block".length);
                     const block = this.items.get(item) as TBlock;
-                    const attached = this.items.get(item + ":attached") as boolean;
+                    const attached = this.items.get(itemKey + ":attached") as boolean;
                     blocks.push({ ...block, attached: attached });
                 }
             }
