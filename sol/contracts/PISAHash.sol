@@ -131,7 +131,6 @@ contract PISAHash {
     // Given an apoointment, PISA will respond on behalf of the customer.
     // The function call is recorded in the DataRegistry (and timestamped).
     function respond(bytes memory _appointment, bytes memory _cussig) public {
-        revert();
         // Only a PISA wallet can respond
         // Customer and SC addresses should have nothing to do with PISA.
         require(watchers[msg.sender], "Only watcher can send this job");
