@@ -19,17 +19,16 @@ export class GasPriceEstimator {
     /**
      * Uses the current state of the network, and any information to be found in the
      * appointment data, to try estimate an appropriate gas price.
-     * @param appointment
+     * @param appointmentData
      */
-    public async estimate(appointment: Appointment): Promise<BigNumber> {
+    public async estimate(endBlock: number): Promise<BigNumber> {
         const currentPrice = await this.provider.getGasPrice();
         const currentHead = this.blockCache.head;
 
-        const timeLeft = appointment.endBlock - currentHead.number;
+        const timeLeft = endBlock - currentHead.number;
 
-        // we set that the current gas price should be used at the 
-        // very start of the appointment
-        const curve = new ExponentialGasCurve(currentPrice, appointment.endBlock - appointment.startBlock);
+        // we set that the current gas price should be at the end block - 500
+        const curve = new ExponentialGasCurve(currentPrice, endBlock - 500);
         return curve.getGasPrice(Math.max(timeLeft, 0));
     }
 }
@@ -166,7 +165,8 @@ export class ExponentialGasCurve {
 
         const x1 = ExponentialGasCurve.MAX_BLOCKS;
         const y1 = ExponentialGasCurve.MAX_GAS_PRICE;
-        const x2 = currentGasPriceBlocksRemaining || ExponentialGasCurve.MEDIAN_BLOCKS + ExponentialGasCurve.AVERAGE_TO_MINE;
+        const x2 =
+            currentGasPriceBlocksRemaining || ExponentialGasCurve.MEDIAN_BLOCKS + ExponentialGasCurve.AVERAGE_TO_MINE;
 
         // we know that maxed gas price is less than number.max_safe
         // therefore we can safely call toNumber

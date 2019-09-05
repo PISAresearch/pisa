@@ -1,4 +1,3 @@
-import { Appointment } from "../dataEntities";
 import {
     PisaTransactionIdentifier,
     GasQueueItem,
@@ -36,6 +35,9 @@ export class MultiResponder {
      * @param balanceThreshold
      *   This value respresents the minimum threshold the responder balance (in wei) can reach before a
      *   "low balance warning" will be issued
+     * @param chainId The id of the ethereum chain that this responder is using
+     * @param balanceThreshold When the balance of the signer gets below this threshold the responder starts issuing warnings
+     * @param pisaContractAddress The address of the pisa contract that this responder is using
      */
     public constructor(
         public readonly signer: ethers.Signer,
@@ -51,13 +53,32 @@ export class MultiResponder {
     }
 
     /**
-     * Issue a transaction to the network, and add a record to the responded transactions list
-     * @param appointment the Appointment
-     * @param blockObserved the height of the block where the response was triggered, or 0 if not relevant
-     *
+     * Issues a transaction to the network, and stores it so that it can monitored for confirmations
+     * @param to The address the submitted transaction should be addressed to
+     * @param responseData The data to be submitted in the transactions
+     * @param gasLimit The gas to be supplied with the transaction
+     * @param responseId A unique id for this response
+     * @param startBlock The responder will not match responses prior to this block
+     * @param endBlock The deadline by which this response must be mined
      */
-    public async startResponse(appointment: Appointment, blockObserved: number) {
+    public async startResponse(
+        to: string,
+        responseData: string,
+        gasLimit: number,
+        responseId: string,
+        startBlock: number,
+        endBlock: number
+    ) {
         try {
+            // form a queue item request
+            const txIdentifier = new PisaTransactionIdentifier(
+                this.chainId,
+                responseData,
+                to,
+                new BigNumber(0),
+                new BigNumber(gasLimit)
+            );
+
             const replacedTransactions = await this.lockManager.withLock(this.zStore.lock, async () => {
                 if (this.zStore.queue.depthReached()) {
                     throw new QueueConsistencyError(
@@ -65,18 +86,9 @@ export class MultiResponder {
                     );
                 }
 
-                // form a queue item request
-                const txIdentifier = new PisaTransactionIdentifier(
-                    this.chainId,
-                    appointment.encodeForResponse(),
-                    this.pisaContractAddress,
-                    new BigNumber(0),
-                    // it appears that sometimes pisa requires a lot of gas to function - resetting data shards?
-                    new BigNumber(appointment.gasLimit + 400000)
-                );
-                const idealGas = await this.gasEstimator.estimate(appointment);
-                const request = new GasQueueItemRequest(txIdentifier, idealGas, appointment, blockObserved);
-                logger.info(request, `Enqueueing request for ${appointment.id}.`);
+                const idealGas = await this.gasEstimator.estimate(endBlock);
+                const request = new GasQueueItemRequest(txIdentifier, idealGas, responseId, startBlock);
+                logger.info(request, `Enqueueing request for ${responseId}.`);
 
                 // add the queue item to the queue, since the queue is ordered this may mean
                 // that we need to replace some transactions on the network. Find those and
@@ -130,7 +142,6 @@ export class MultiResponder {
                         )}`
                     );
                 }
-                logger.info({ txIdentifier, nonce }, `Transaction mined.`);
 
                 if (txIdentifier.equals(frontItem.request.identifier)) {
                     // the mined transaction was the one at the front of the current queue
@@ -206,7 +217,7 @@ export class MultiResponder {
     private async broadcast(queueItem: GasQueueItem) {
         try {
             const tx = queueItem.toTransactionRequest();
-            logger.info({ tx: tx, queueItem: queueItem }, `Broadcasting tx for ${queueItem.request.appointment.id}`); // prettier-ignore
+            logger.info({ tx: tx, queueItem: queueItem }, `Broadcasting tx for ${queueItem.request.id}`); // prettier-ignore
             await this.signer.sendTransaction(tx);
         } catch (doh) {
             // we've failed to broadcast a transaction however this isn't a fatal

@@ -125,28 +125,6 @@ describe("ExponentialGasCurve", () => {
 });
 
 describe("GasPriceEstimator", () => {
-    const createAppointment = (endBlock: number): Appointment => {
-        return Appointment.fromIAppointment({
-            challengePeriod: 10,
-            contractAddress: "contractAddress",
-            customerAddress: "customerAddress",
-            data: "data",
-            endBlock,
-            eventABI: "eventABI",
-            eventArgs: "eventArgs",
-            gasLimit: 100,
-            customerChosenId: 20,
-            nonce: 1,
-            mode: 1,
-            paymentHash: "paymentHash",
-            preCondition: "preCondition",
-            postCondition: "postCondition",
-            refund: "3",
-            startBlock: 7,
-            customerSig: "sig"
-        });
-    };
-
     fnIt<GasPriceEstimator>(e => e.estimate, "", async () => {
         const currentGasPrice = new BigNumber(21000000000);
         const currentBlock = 1;
@@ -160,12 +138,11 @@ describe("GasPriceEstimator", () => {
         const blockCache = throwingInstance(mockedBlockCache);
 
         const gasPriceEstimator = new GasPriceEstimator(provider, blockCache);
-        const appointment = createAppointment(2000);
-        const estimate = await gasPriceEstimator.estimate(appointment);
-        const expectedValue = new ExponentialGasCurve(
-            currentGasPrice,
-            appointment.endBlock - appointment.startBlock
-        ).getGasPrice(appointment.endBlock - currentBlock);
+        const endBlock = 2000;
+        const estimate = await gasPriceEstimator.estimate(endBlock);
+        const expectedValue = new ExponentialGasCurve(currentGasPrice, endBlock - 500).getGasPrice(
+            endBlock - currentBlock
+        );
 
         expect(estimate.toNumber()).to.equal(expectedValue.toNumber());
     });

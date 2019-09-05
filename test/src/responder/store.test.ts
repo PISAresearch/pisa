@@ -7,7 +7,6 @@ import levelup, { LevelUp } from "levelup";
 import MemDown from "memdown";
 import { GasQueue, GasQueueItemRequest, PisaTransactionIdentifier } from "../../../src/responder/gasQueue";
 import { BigNumber } from "ethers/utils";
-import { Appointment } from "../../../src/dataEntities";
 
 describe("ResponderStore", () => {
     const responderAddress = "address";
@@ -18,11 +17,8 @@ describe("ResponderStore", () => {
     const createIdentifier = (data: string) => {
         return new PisaTransactionIdentifier(chainId, data, "toAddress", new BigNumber(0), new BigNumber(20));
     };
-    const createAppointment = (id: number, data: string) => {
-        return new Appointment("contractAddress", "customerAddress", 0, 1000, 50, id, 1, data, new BigNumber(0), 20, 1, "abi", "args", "preCondition", "post", "payment", "sig") //prettier-ignore
-    };
-    const createGasQueueRequest = (id: number, data: string, idealGas: BigNumber) => {
-        return new GasQueueItemRequest(createIdentifier(data), idealGas, createAppointment(id, data), 0);
+    const createGasQueueRequest = (id: string, data: string, idealGas: BigNumber) => {
+        return new GasQueueItemRequest(createIdentifier(data), idealGas, id, 0);
     };
 
     let db: LevelUp<EncodingDown<string, any>>;
@@ -35,9 +31,9 @@ describe("ResponderStore", () => {
         const store = new ResponderStore(db, responderAddress, seedQueue);
         await store.start();
 
-        const req1 = createGasQueueRequest(1, "data1", new BigNumber(20));
-        const req2 = createGasQueueRequest(2, "data2", new BigNumber(19));
-        const req3 = createGasQueueRequest(3, "data3", new BigNumber(18));
+        const req1 = createGasQueueRequest("1", "data1", new BigNumber(20));
+        const req2 = createGasQueueRequest("2", "data2", new BigNumber(19));
+        const req3 = createGasQueueRequest("3", "data3", new BigNumber(18));
         const q = seedQueue
             .add(req1)
             .add(req2)
@@ -70,9 +66,9 @@ describe("ResponderStore", () => {
         const store = new ResponderStore(db, responderAddress, seedQueue);
         await store.start();
 
-        const req1 = createGasQueueRequest(1, "data1", new BigNumber(20));
-        const req2 = createGasQueueRequest(2, "data2", new BigNumber(19));
-        const req3 = createGasQueueRequest(3, "data3", new BigNumber(18));
+        const req1 = createGasQueueRequest("1", "data1", new BigNumber(20));
+        const req2 = createGasQueueRequest("2", "data2", new BigNumber(19));
+        const req3 = createGasQueueRequest("3", "data3", new BigNumber(18));
         const q = seedQueue
             .add(req1)
             .add(req2)
@@ -89,8 +85,8 @@ describe("ResponderStore", () => {
         const store = new ResponderStore(db, responderAddress, seedQueue);
         await store.start();
 
-        const req1 = createGasQueueRequest(1, "data1", new BigNumber(20));
-        const req2 = createGasQueueRequest(2, "data2", new BigNumber(19));
+        const req1 = createGasQueueRequest("1", "data1", new BigNumber(20));
+        const req2 = createGasQueueRequest("2", "data2", new BigNumber(19));
 
         const q2 = seedQueue.add(req1).add(req2);
 
@@ -99,7 +95,7 @@ describe("ResponderStore", () => {
         expect(store.queue).to.deep.equal(q2);
         expect([...store.transactions.values()]).to.deep.equal(q2.queueItems);
 
-        const req3 = createGasQueueRequest(3, "data3", new BigNumber(18));
+        const req3 = createGasQueueRequest("3", "data3", new BigNumber(18));
         const q3 = q2.add(req3);
 
         await store.updateQueue(q3);
@@ -114,16 +110,16 @@ describe("ResponderStore", () => {
         const store = new ResponderStore(db, responderAddress, seedQueue);
         await store.start();
 
-        const req1 = createGasQueueRequest(1, "data1", new BigNumber(20));
-        const req2 = createGasQueueRequest(2, "data2", new BigNumber(19));
+        const req1 = createGasQueueRequest("1", "data1", new BigNumber(20));
+        const req2 = createGasQueueRequest("2", "data2", new BigNumber(19));
 
         const q2 = seedQueue.add(req1).add(req2);
         await store.updateQueue(q2);
-        await store.removeResponse(req1.appointment.id);
+        await store.removeResponse(req1.id);
 
         expect(store.queue).to.equal(q2);
         expect(store.transactions.size).to.equal(1);
-        expect(store.transactions.has(req1.appointment.id)).to.be.false;
+        expect(store.transactions.has(req1.id)).to.be.false;
 
         await store.stop();
     });
