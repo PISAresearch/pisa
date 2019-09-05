@@ -32,14 +32,13 @@ export class PisaTower {
         // is this a relay transaction, if so, add it to the responder.
         // if not, add it to the watcher
         if (appointment.mode === AppointmentMode.Relay) {
-            const currentHead = this.blockCache.head.number;
             await this.multiResponder.startResponse(
                 this.multiResponder.pisaContractAddress,
                 appointment.encodeForResponse(),
                 appointment.gasLimit + MultiResponder.PisaGasAllowance,
                 appointment.id,
-                currentHead,
-                currentHead + appointment.challengePeriod
+                appointment.startBlock,
+                appointment.startBlock + appointment.challengePeriod
             );
         } else {
             // add this to the store so that other components can pick up on it
