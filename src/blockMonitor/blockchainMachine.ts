@@ -43,7 +43,6 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
     }
 
     private async processNewBlock(block: TBlock) {
-        console.log("BlockchainMachine processing new block:", block);
         try {
             await this.lock.acquire();
 
@@ -83,8 +82,6 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
     }
 
     private async processNewHead(head: Readonly<TBlock>) {
-        console.log("BlockchainMachine processing new HEAD:", head);
-
         try {
             await this.lock.acquire();
 

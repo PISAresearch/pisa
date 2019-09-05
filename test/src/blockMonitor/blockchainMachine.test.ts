@@ -10,7 +10,6 @@ import { BlockProcessor, BlockCache, BlockchainMachine } from "../../../src/bloc
 import { Component } from "../../../src/blockMonitor/component";
 import { IBlockStub, ApplicationError, BlockItemStore } from "../../../src/dataEntities";
 import { StateReducer } from "../../../src/blockMonitor/component";
-import { EventEmitter } from "events";
 import fnIt from "../../utils/fnIt";
 
 const blocks: IBlockStub[] = [
@@ -55,8 +54,10 @@ type TestAction = {
     newState: ExampleState;
 };
 
+let componentsCounter = 0;
 class ExampleComponent extends Component<ExampleState, IBlockStub, TestAction> {
-    public readonly name = "example";
+    // make sure each component has a different name
+    public readonly name = "example" + (++componentsCounter); //prettier-ignore
     public async applyAction(actions: TestAction) {}
     public detectChanges(prevState: ExampleState, state: ExampleState): TestAction[] {
         return [{ prevState: prevState, newState: state }];
@@ -94,6 +95,12 @@ describe("BlockchainMachine", () => {
     let blockStore: BlockItemStore<IBlockStub>;
     let blockCache: BlockCache<IBlockStub>;
 
+    // Utility function to add a block to the block cache and also emit it as new head in the blockProcessor.
+    const addAndEmitBlock = async (block: IBlockStub) => {
+        await blockCache.addBlock(block);
+        await blockProcessor.emitAsNewHead(block);
+    };
+
     beforeEach(async () => {
         reducer = new ExampleReducer();
         spiedReducer = spy(reducer);
@@ -103,10 +110,12 @@ describe("BlockchainMachine", () => {
         await blockStore.start();
 
         blockCache = new BlockCache<IBlockStub>(100, blockStore);
-        blocks.forEach(b => blockCache.addBlock(b));
+        // for (const block of blocks) {
+        //     await blockCache.addBlock(block);
+        // }
 
         // Since we only need to process events, we mock the BlockProcessor with an EventEmitter
-        const bp: any = new EventEmitter();
+        const bp: any = new MockBlockProcessor();
         bp.blockCache = blockCache;
         blockProcessor = bp as (BlockProcessor<IBlockStub> & CanEmitAsNewHead);
     });
@@ -125,7 +134,7 @@ describe("BlockchainMachine", () => {
         bm.addComponent(new ExampleComponent(reducer));
         await bm.start();
 
-        await blockProcessor.emitAsNewHead(blocks[0]);
+        await blockCache.addBlock(blocks[0]);
 
         verify(spiedReducer.getInitialState(blocks[0])).once();
         verify(spiedReducer.reduce(anything(), anything())).never();
@@ -136,9 +145,15 @@ describe("BlockchainMachine", () => {
     it("processNewBlock computes state with reducer and its parent's initial state if the parent's state is not known", async () => {
         const bm = new BlockchainMachine(blockProcessor, blockStore);
         bm.addComponent(new ExampleComponent(reducer));
+        // start only after adding the first block
+
+        await blockCache.addBlock(blocks[0]);
+
         await bm.start();
 
-        await blockProcessor.emitAsNewHead(blocks[1]);
+        resetCalls(spiedReducer);
+
+        await blockCache.addBlock(blocks[1]);
 
         // initializer and reducer should both be called once
         verify(spiedReducer.getInitialState(blocks[0])).once(); // initial state from the parent block
@@ -155,16 +170,16 @@ describe("BlockchainMachine", () => {
     it("processNewBlock computes the state with the reducer if the parent's state is known", async () => {
         const bm = new BlockchainMachine(blockProcessor, blockStore);
         bm.addComponent(new ExampleComponent(reducer));
+
+        // this time we start the BlockchainMachine immediately
         await bm.start();
 
-        await blockProcessor.emitAsNewHead(blocks[0]);
-        await blockProcessor.emitAsNewHead(blocks[1]);
+        await blockCache.addBlock(blocks[0]);
+        await blockCache.addBlock(blocks[1]);
 
         resetCalls(spiedReducer);
 
-        // State of the parent is { someNumber: 42 + blocks[1].number }
-
-        await blockProcessor.emitAsNewHead(blocks[2]);
+        await blockCache.addBlock(blocks[2]);
 
         verify(spiedReducer.getInitialState(anything())).never();
         verify(spiedReducer.reduce(anything(), anything())).once();
@@ -195,14 +210,14 @@ describe("BlockchainMachine", () => {
 
         await bm.start();
 
-        await blockProcessor.emitAsNewHead(blocks[0]);
-        await blockProcessor.emitAsNewHead(blocks[1]);
+        await addAndEmitBlock(blocks[0]);
+        await addAndEmitBlock(blocks[1]);
 
         spiedReducers.forEach(r => resetCalls(r));
 
         // State of the parent is { someNumber: 42 + blocks[1].number }
 
-        await blockProcessor.emitAsNewHead(blocks[2]);
+        await addAndEmitBlock(blocks[2]);
 
         for (let i = 0; i < nComponents; i++) {
             // Check that each reducer was used, but not getInitialState
@@ -221,13 +236,11 @@ describe("BlockchainMachine", () => {
         bm.addComponent(component);
         await bm.start();
 
-        // TODO: this might need to be fixed after the refactoring
-        await blockProcessor.emitAsNewHead(blocks[0]);
-        await blockProcessor.emitAsNewHead(blocks[0]);
+        await addAndEmitBlock(blocks[0]);
 
-        // some new blocks without a new_head event
-        await blockProcessor.emitAsNewHead(blocks[1]);
-        await blockProcessor.emitAsNewHead(blocks[2]);
+        // some new blocks added to the cache without a new_head event
+        await blockCache.addBlock(blocks[1]);
+        await blockCache.addBlock(blocks[2]);
 
         // applyAction should not have been called on the component
         verify(spiedComponent.detectChanges(anything(), anything())).never();
@@ -244,18 +257,14 @@ describe("BlockchainMachine", () => {
         bm.addComponent(component);
         await bm.start();
 
-        // TODO: this might need to be fixed after the refactoring
-        await blockProcessor.emitAsNewHead(blocks[0]);
-        await blockProcessor.emitAsNewHead(blocks[0]);
-
-        await blockProcessor.emitAsNewHead(blocks[1]);
-        await blockProcessor.emitAsNewHead(blocks[2]);
-        await blockProcessor.emitAsNewHead(blocks[2]);
+        await addAndEmitBlock(blocks[0]);
+        await blockCache.addBlock(blocks[1]);
+        await addAndEmitBlock(blocks[2]);
 
         verify(spiedComponent.detectChanges(anything(), anything())).once();
         verify(spiedComponent.applyAction(anything())).once();
 
-        // Check that applyAAtion was called on the right data
+        // Check that applyAction was called on the right data
         const [prevState, nextState] = capture(spiedComponent.detectChanges).last();
         const [actions] = capture(spiedComponent.applyAction).last();
 
@@ -281,13 +290,9 @@ describe("BlockchainMachine", () => {
 
         await bm.start();
 
-        // TODO: this might need to be fixed after the refactoring
-        await blockProcessor.emitAsNewHead(blocks[0]);
-        await blockProcessor.emitAsNewHead(blocks[0]);
-
-        await blockProcessor.emitAsNewHead(blocks[1]);
-        await blockProcessor.emitAsNewHead(blocks[2]);
-        await blockProcessor.emitAsNewHead(blocks[2]);
+        await addAndEmitBlock(blocks[0]);
+        await blockCache.addBlock(blocks[1]);
+        await addAndEmitBlock(blocks[2]);
 
         for (let i = 0; i < nComponents; i++) {
             verify(spiedComponents[i].detectChanges(anything(), anything())).once();
