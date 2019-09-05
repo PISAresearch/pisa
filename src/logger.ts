@@ -97,12 +97,12 @@ export function createNamedLogger(name: string | null) {
     }
 
     // console log if we're not in production
-    if (process.env.NODE_ENV !== "production" && process.env.NODE_ENV !== "test") {
+    //if (process.env.NODE_ENV !== "production" && process.env.NODE_ENV !== "test") {
         streams.push({
             stream: process.stdout,
             level: LogLevel.Info
         });
-    }
+    //}
 
     const newLogger = createLogger({
         name,
