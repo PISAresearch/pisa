@@ -8,8 +8,8 @@ contract DataRegistryInterface {
      * It will record disputes from channels (used as evidence) and PISA will store its job there.
      */
     function getTotalShards() public returns (uint);
-    function fetchRecord(uint _datashard, address _sc,  uint _appointmentid, uint _index) public returns (bytes memory);
-    function fetchHash(uint _datashard, address _sc,  uint _appointmentid, uint _index) public returns (bytes32);
+    function fetchRecord(uint _datashard, address _sc,  bytes32 _appointmentid, uint _index) public returns (bytes memory);
+    function fetchHash(uint _datashard, address _sc,  bytes32 _appointmentid, uint _index) public returns (bytes32);
 }
 
 
@@ -38,7 +38,7 @@ contract CommandChannelHandler {
   // CHECKS HASH COMMITMENT
   // Return TRUE if PISA failed
   // Return FALSE if PISA did its job (or if there was a problem with the information)
-  function hasPISAFailed(address _dataregistry, uint[] memory _datashard, address _sc, uint _logid, uint[] memory _dataindex, bytes[] memory _logdata, bytes memory _postcondition) public returns (bool) {
+  function hasPISAFailed(address _dataregistry, uint[] memory _datashard, address _sc, bytes32 _logid, uint[] memory _dataindex, bytes[] memory _logdata, bytes memory _postcondition) public returns (bool) {
 
       // Check shard information
       basicShardSanityChecks(_datashard, _dataindex, _dataregistry);
@@ -59,7 +59,7 @@ contract CommandChannelHandler {
   // CHECKS HASH COMMITMENT
   // Return TRUE if PISA failed
   // Return FALSE if PISA did its job (or if there was a problem with the information)
-  function getTime(address _dataregistry, uint[] memory _datashard, address _sc, uint _logid, uint[] memory _dataindex, bytes[] memory _logdata) public returns (uint[3] memory) {
+  function getTime(address _dataregistry, uint[] memory _datashard, address _sc, bytes32 _logid, uint[] memory _dataindex, bytes[] memory _logdata) public returns (uint[3] memory) {
 
       // Check shard information
       basicShardSanityChecks(_datashard, _dataindex, _dataregistry);
