@@ -9,13 +9,14 @@ import EncodingDown from "encoding-down";
 const sub = require("subleveldown");
 import uuid = require("uuid/v4");
 
-interface Id {
+export interface ActionAndId {
     id: string;
+    action: ComponentAction;
 }
 
 export class ActionStore extends StartStopService {
     private readonly subDb: LevelUp<EncodingDown<string, any>>;
-    private actions: Map<string, Set<ComponentAction & Id>> = new Map();
+    private actions: Map<string, Set<ActionAndId>> = new Map();
 
     constructor(db: LevelUp<EncodingDown<string, any>>) {
         super("action-store");
@@ -33,7 +34,7 @@ export class ActionStore extends StartStopService {
 
             const actionWithId = {
                 id: actionId,
-                ...value
+                action: value
             };
             const componentActions = this.actions.get(componentName);
             if (componentActions) componentActions.add(actionWithId);
@@ -42,10 +43,10 @@ export class ActionStore extends StartStopService {
     }
     protected async stopInternal() {}
 
-    private addId(action: ComponentAction): ComponentAction & Id {
+    private addId(action: ComponentAction): ActionAndId {
         return {
             id: uuid(),
-            ...action
+            action
         };
     }
 
@@ -66,7 +67,7 @@ export class ActionStore extends StartStopService {
         await batch.write();
     }
 
-    public async removeAction(componentName: string, action: ComponentAction & Id) {
+    public async removeAction(componentName: string, action: ActionAndId) {
         const actions = this.actions.get(componentName);
         if (!actions) return;
         else actions.delete(action);
@@ -181,11 +182,11 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
                     if (newActions.length > 0) await this.actionStore.storeActions(component.name, newActions);
 
                     // load all the actions (might include oldler actions; also, they now have id)
-                    const actions = this.actionStore.getActions(component.name);
+                    const actionAndIds = this.actionStore.getActions(component.name);
 
                     // side effects must be thread safe, so we can execute them concurrently
-                    actions.forEach(async a => {
-                        await component.applyAction(a);
+                    actionAndIds.forEach(async a => {
+                        await component.applyAction(a.action);
                         this.actionStore.removeAction(component.name, a);
                     });
                 }
