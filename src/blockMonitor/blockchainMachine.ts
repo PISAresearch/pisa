@@ -43,6 +43,7 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
     }
 
     private async processNewBlock(block: TBlock) {
+        console.log("BlockchainMachine processing new block:", block);
         try {
             await this.lock.acquire();
 
@@ -62,7 +63,8 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
                         prevHeadAnchorState = this.blockItemStore.getItem(parentBlock.hash, `${component.name}:prevEmittedState`);
                     }
 
-                    const prevAnchorState = this.blockItemStore.getItem(parentBlock.hash, component.name) || component.reducer.getInitialState(parentBlock);
+                    const prevAnchorState =
+                        this.blockItemStore.getItem(parentBlock.hash, `${component.name}:state`) || component.reducer.getInitialState(parentBlock);
 
                     newState = component.reducer.reduce(prevAnchorState, block);
                 } else {
@@ -81,6 +83,8 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
     }
 
     private async processNewHead(head: Readonly<TBlock>) {
+        console.log("BlockchainMachine processing new HEAD:", head);
+
         try {
             await this.lock.acquire();
 
