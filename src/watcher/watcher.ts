@@ -209,7 +209,7 @@ export class Watcher extends Component<WatcherAnchorState, IBlockStub & Logs, Wa
                 await this.responder.startResponse(
                     this.responder.pisaContractAddress,
                     action.appointment.encodeForResponse(),
-                    action.appointment.gasLimit + 400000,
+                    action.appointment.gasLimit + MultiResponder.PisaGasAllowance,
                     action.appointment.id,
                     action.blockObserved,
                     action.blockObserved + action.appointment.challengePeriod

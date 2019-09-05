@@ -17,6 +17,8 @@ import { ResponderStore } from "./store";
 export class MultiResponder {
     private readonly zStore: ResponderStore;
     private readonly lockManager = new LockManager();
+    public static readonly PisaGasAllowance = 400000;
+
     /**
      * The current queue of pending transaction being handled by this responder
      */
