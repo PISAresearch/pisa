@@ -80,12 +80,15 @@ describe("ResponderAppointmentReducer", () => {
 
     let blockCache: BlockCache<ResponderBlock>;
 
-    beforeEach(() => {
+    beforeEach(async () => {
         db = LevelUp(EncodingDown<string, any>(MemDown(), { valueEncoding: "json" }));
         blockStore = new BlockItemStore<ResponderBlock>(db);
+        await blockStore.start();
 
         blockCache = new BlockCache<ResponderBlock>(100, blockStore);
-        blocks.forEach(b => blockCache.addBlock(b));
+        for (const block of blocks) {
+            await blockCache.addBlock(block);
+        }
     });
 
     fnIt<ResponderAppointmentReducer>(r => r.getInitialState, "sets pending tx", () => {
