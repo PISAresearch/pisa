@@ -1,6 +1,7 @@
 import { Appointment, ArgumentError, ApplicationError, IAppointment } from "../dataEntities";
 import { BigNumber } from "ethers/utils";
 import { ethers } from "ethers";
+import logger from "../logger";
 
 export class GasQueueError extends ArgumentError {
     constructor(public readonly kind: GasQueueErrorKind, message: string, ...args: any[]) {
