@@ -15,6 +15,7 @@ import { wait } from "../../../src/utils";
 import throwingInstance from "../../utils/throwingInstance";
 
 import { BlockProcessorStore } from "../../../src/blockMonitor/blockProcessor";
+import fnIt from "../../utils/fnIt";
 
 chai.use(chaiAsPromised);
 const expect = chai.expect;
@@ -51,6 +52,28 @@ const blocksByHash: { [key: string]: IBlockStub } = {
     c9: { number: 9, hash: "c9", parentHash: "c8" },
     c10: { number: 10, hash: "c10", parentHash: "c9" }
 };
+
+describe("BlockProcessorStore", () => {
+    let db: any;
+    let store: BlockProcessorStore;
+
+    beforeEach(async () => {
+        db = LevelUp(EncodingDown<string, any>(MemDown(), { valueEncoding: "json" }));
+        store = new BlockProcessorStore(db);
+    });
+
+    it("can set and get the latest head number", async () => {
+        await store.setLatestHeadNumber(42);
+        expect(await store.getLatestHeadNumber()).to.equal(42);
+    });
+
+    fnIt<BlockProcessorStore>(b => b.setLatestHeadNumber, "stores the latest head number in the db", async () => {
+        await store.setLatestHeadNumber(42);
+
+        const newStore = new BlockProcessorStore(db); // new store with the same db
+        expect(await newStore.getLatestHeadNumber()).to.equal(42);
+    });
+});
 
 describe("BlockProcessor", () => {
     const maxDepth = 5;
@@ -160,7 +183,7 @@ describe("BlockProcessor", () => {
         expect(blockProcessor.blockCache.head.hash).to.equal("a1");
     });
 
-    it("adds the first block received to the cache and emits a NEW_HEAD_EVENT after the NEW_BLOCK_EVENTs", async () => {
+    it("adds the first block received to the cache and emits a new head event after the corresponding new block events from the BlockCache", async () => {
         emitBlockHash("a4");
 
         blockProcessor = new BlockProcessor(provider, blockStubAndTxFactory, blockCache, blockProcessorStore);
@@ -171,7 +194,7 @@ describe("BlockProcessor", () => {
         const newHeadPromise = new Promise(resolve => {
             blockProcessor.addNewHeadListener(async (head: IBlockStub) => {
                 newHeadCalled = true;
-                if (!blockCache.hasBlock("a5")) resolve(new Error(`The BlockCache did not have block a5 when its NEW_HEAD_EVENT was emitted`));
+                if (!blockCache.hasBlock("a5")) resolve(new Error(`The BlockCache did not have block a5 when its new head event was emitted`));
 
                 resolve({ number: head.number, hash: head.hash });
             });
@@ -192,7 +215,7 @@ describe("BlockProcessor", () => {
 
         const resNewHead = await newHeadPromise;
 
-        expect(newHeadCalledBeforeNewBlock, "did not call NEW_HEAD before NEW_BLOCK").to.be.false;
+        expect(newHeadCalledBeforeNewBlock, "did not emit new head before the BlockCaches's new block event").to.be.false;
 
         return expect(resNewHead).to.deep.equal({ number: 5, hash: "a5" });
     });
