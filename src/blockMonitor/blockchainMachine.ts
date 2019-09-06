@@ -25,17 +25,15 @@ export class ActionStore extends StartStopService {
 
     protected async startInternal() {
         // load existing actions from the db
-        for await (const record of this.subDb.createValueStream()) {
+        for await (const record of this.subDb.createReadStream()) {
             const { key, value } = (record as any) as { key: string; value: ComponentAction };
 
             const i = key.indexOf(":");
             const componentName = key.substring(0, i);
             const actionId = key.substring(i + 1);
 
-            const actionWithId = {
-                id: actionId,
-                action: value
-            };
+            const actionWithId = this.addId(value, actionId);
+
             const componentActions = this.actions.get(componentName);
             if (componentActions) componentActions.add(actionWithId);
             else this.actions.set(componentName, new Set([actionWithId]));
@@ -43,9 +41,10 @@ export class ActionStore extends StartStopService {
     }
     protected async stopInternal() {}
 
-    private addId(action: ComponentAction): ActionAndId {
+    // commodity function to wrap an action with an existing id, or generate a new unique id if not given
+    private addId(action: ComponentAction, id?: string): ActionAndId {
         return {
-            id: uuid(),
+            id: id || uuid(),
             action
         };
     }
@@ -55,23 +54,23 @@ export class ActionStore extends StartStopService {
     }
 
     public async storeActions(componentName: string, actions: ComponentAction[]) {
+        const actionsWithId = actions.map(a => this.addId(a));
         const componentSet = this.actions.get(componentName);
-        if (componentSet) actions.forEach(a => componentSet.add(this.addId(a)));
-        else this.actions.set(componentName, new Set(actions.map(this.addId)));
+        if (componentSet) actionsWithId.forEach(a => componentSet.add(a));
+        else this.actions.set(componentName, new Set(actionsWithId));
 
         let batch = this.subDb.batch();
-        actions.forEach(action => {
-            const actionWithId = this.addId(action);
-            batch = batch.put(componentName + ":" + actionWithId.id, actionWithId);
+        actionsWithId.forEach(actionWithId => {
+            batch = batch.put(componentName + ":" + actionWithId.id, actionWithId.action);
         });
         await batch.write();
     }
 
-    public async removeAction(componentName: string, action: ActionAndId) {
+    public async removeAction(componentName: string, actionAndId: ActionAndId) {
         const actions = this.actions.get(componentName);
         if (!actions) return;
-        else actions.delete(action);
-        await this.subDb.del(componentName + ":" + (action as any).id);
+        else actions.delete(actionAndId);
+        await this.subDb.del(componentName + ":" + actionAndId.id);
     }
 }
 
