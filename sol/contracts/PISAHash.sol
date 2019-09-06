@@ -9,8 +9,8 @@ contract DataRegistryInterface {
      */
     function getInterval() public pure returns (uint);
     function getTotalShards() public returns (uint);
-    function setRecord(uint _appointmentid, bytes memory _data) public returns(uint _datashard, uint _index);
-    function fetchRecords(uint _datashard, address _sc, uint _appointmentid) public returns (bytes[] memory);
+    function setRecord(bytes32 _appointmentid, bytes memory _data) public returns(uint _datashard, uint _index);
+    function fetchRecords(uint _datashard, address _sc, bytes32 _appointmentid) public returns (bytes[] memory);
 
 }
 
@@ -25,12 +25,12 @@ contract PreconditionHandlerInterface {
 contract PostconditionHandlerInterface {
 
     // Given two disputes (and the receipt) - did we satisfy the postcondition?
-    function hasPISAFailed(address _dataregistry, uint[] memory _datashard, address _sc, uint _logid, uint[] memory _dataindex, bytes[] memory _logdata, bytes memory _postcondition) public returns (bool);
+    function hasPISAFailed(address _dataregistry, uint[] memory _datashard, address _sc, bytes32 _logid, uint[] memory _dataindex, bytes[] memory _logdata, bytes memory _postcondition) public returns (bool);
 }
 
 contract ChallengeTimeDecoderInterface {
     // Decode the data and return the challenge time
-    function getTime(address _dataregistry, uint[] memory _datashard, address _sc, uint _logid, uint[] memory _dataindex, bytes[] memory _logdata) public returns (uint[3] memory);
+    function getTime(address _dataregistry, uint[] memory _datashard, address _sc, bytes32 _logid, uint[] memory _dataindex, bytes[] memory _logdata) public returns (uint[3] memory);
 }
 
 contract PISAHash {
@@ -86,7 +86,7 @@ contract PISAHash {
         uint challengeTime; // Minimum challenge length (0 == default if not relevant)
 
         // Identifiers for the appointment + job counter (i.e. for every appointment, can be updated several times)
-        uint appointmentid; // counter to keep track of appointments
+        bytes32 appointmentid; // counter to keep track of appointments
         uint nonce; // Monotonic counter to keep track of job updates to PISA
 
         // Function call that we will need to invoke on behalf of the user
@@ -103,7 +103,7 @@ contract PISAHash {
 
     // Keep a record of who was cheated.
     // Ideally, this should be small (or zero!)
-    mapping(uint => Cheated) public cheated;
+    mapping(bytes32 => Cheated) public cheated;
     mapping(address => uint) public refunds;
     uint public pendingrefunds;
 
@@ -114,7 +114,7 @@ contract PISAHash {
     address public dataregistry;
 
     event PISARefunded(address watcher, address cus, uint refund, uint timestamp);
-    event PISARecordedResponse(uint pisad, address watcher, uint timestamp, uint gas, bytes data);
+    event PISARecordedResponse(bytes32 pisad, address watcher, uint timestamp, uint gas, bytes data);
 
     // Set up PISA with data registry, timers and the admin address.
     constructor(address _dataregistry, uint _cheatedtimer, uint _challengeBond, address payable _admin, address[] memory _defenders, uint _k) public {
@@ -149,11 +149,11 @@ contract PISAHash {
         }
 
         // Keep a timestamp of when we tried to call + the nonce.
-        // Nonce lets us do a quick sanity check later if PISA sent latest job
+        // nonce lets us do a quick sanity check later if PISA sent latest job
         bytes memory callLog = abi.encode(block.number, appointment.nonce, keccak256(_appointment));
 
         // We need the PISAID in order to quickly look it up during recourse.
-        uint pisaid = uint(keccak256(abi.encode(appointment.sc, appointment.cus, appointment.appointmentid)));
+        bytes32 pisaid = keccak256(abi.encode(appointment.sc, appointment.cus, appointment.appointmentid));
         DataRegistryInterface(dataregistry).setRecord(pisaid, callLog);
 
         // Emit event about our response
@@ -170,7 +170,7 @@ contract PISAHash {
 
     // Customer will provide sign receipt + locator to find dispute record in DataRegistry
     // PISA will look up registry to check if PISA has responded to the dispute. If so, it'll verify customer's signature and compare the nonce.
-    function recourse(bytes memory _appointment, bytes[] memory _sig,  uint _r, bytes[] memory _logdata, uint[] memory _datashard, uint[] memory _dataindex) public payable isNotFrozen() {
+    function recourse(bytes memory _appointment, bytes[] memory _sig, bytes memory _r, bytes[] memory _logdata, uint[] memory _datashard, uint[] memory _dataindex) public payable isNotFrozen() {
 
         // Customer must put down a bond to issue recourse
         // In case PISA didn't cheat... prevent griefing
@@ -184,7 +184,7 @@ contract PISAHash {
         require(modeInstalled[appointment.mode], "Mode is not installed");
 
         // Verify it is a ratified receipt!
-        bytes32 h = keccak256(abi.encode(_r));
+        bytes32 h = keccak256(_r);
         require(appointment.h == h, "Wrong R" );
 
         // PISA's log will eventually disappear. So the customer needs to seek recourse
@@ -198,7 +198,7 @@ contract PISAHash {
         // Prevent replay attacks
         // Every PISAID is unique to a customer's appointment.
         // Care must be taken, if two customers hire us for the same job, then we need to respond twice (if postcondition fails)
-        uint pisaid = uint(keccak256(abi.encode(appointment.sc, appointment.cus, appointment.appointmentid)));
+        bytes32 pisaid = keccak256(abi.encode(appointment.sc, appointment.cus, appointment.appointmentid));
         require(appointment.nonce > cheated[pisaid].nonce, "Recourse was already successful");
 
         // Both PISA and the customer must have authorised it!
@@ -260,7 +260,7 @@ contract PISAHash {
     }
 
     // Check if PISA recorded a function call for the given appointment/job
-    function didPISARespond(uint _pisaid, uint _nonce, bytes32 _expectedHash, uint[3] memory _timewindow) internal returns (bool) {
+    function didPISARespond(bytes32 _pisaid, uint _nonce, bytes32 _expectedHash, uint[3] memory _timewindow) internal returns (bool) {
 
         // Look through every shard (should be two in practice)
         for(uint i=0; i<DataRegistryInterface(dataregistry).getTotalShards(); i++) {
@@ -315,7 +315,7 @@ contract PISAHash {
       require(appointment.cus == recoverEthereumSignedMessage(sighash, _cussig), "Customer did not sign job");
 
       // Compute PISAID
-      uint pisaid = uint(keccak256(abi.encode(appointment.sc, appointment.cus, appointment.appointmentid)));
+      bytes32 pisaid = keccak256(abi.encode(appointment.sc, appointment.cus, appointment.appointmentid));
 
       // Is the nonce here larger than the cheat log?
       require(appointment.nonce > cheated[pisaid].nonce, "PISA submitted an older appointment");
@@ -344,7 +344,7 @@ contract PISAHash {
 
         // Get appointment information
         // [appointmentid, nonce, startTime, endTime, challengeTime, refund, h]
-        (appointment.appointmentid, appointment.nonce, appointment.startTime, appointment.finishTime, appointment.challengeTime, appointment.refund, appointment.h) = abi.decode(appointmentinfo, (uint, uint, uint, uint, uint, uint, bytes32));
+        (appointment.appointmentid, appointment.nonce, appointment.startTime, appointment.finishTime, appointment.challengeTime, appointment.refund, appointment.h) = abi.decode(appointmentinfo, (bytes32, uint, uint, uint, uint, uint, bytes32));
 
         // Get contract information
         // [sc, cus, gas, calldata]
@@ -354,7 +354,7 @@ contract PISAHash {
         // [eventDesc, eventArgs, precondition, postcondition, mode]
         // We ignore the "event" information in the contract for now.
         // TODO: It should be doable to combine both evnets + conditions. Keeping separate for now.
-        (,,appointment.precondition, appointment.postcondition, appointment.mode) = abi.decode(conditions, (bytes, bytes, bytes, bytes, uint));
+        (,,,appointment.precondition, appointment.postcondition, appointment.mode) = abi.decode(conditions, (address, bytes, bytes, bytes, bytes, uint));
 
         return appointment;
     }
@@ -364,7 +364,7 @@ contract PISAHash {
 
         // Should be some refunds ready...
         require(pendingrefunds > 0, "No refunds pending");
-        uint pisaid = uint(keccak256(abi.encode(_sc, _cus, _appointmentid)));
+        bytes32 pisaid = keccak256(abi.encode(_sc, _cus, _appointmentid));
 
         // Fetch cheated record.
         Cheated memory record = cheated[pisaid];
@@ -405,7 +405,7 @@ contract PISAHash {
 
     // PISA hasn't refunded the customer by the desired time?
     // .... time to issue the ultimate punishment
-    function forfeit(uint _pisaid) public isNotFrozen {
+    function forfeit(bytes32 _pisaid) public isNotFrozen {
 
         // Sanity checking
         require(pendingrefunds > 0, "Sanity check that there are outstanding refunds");

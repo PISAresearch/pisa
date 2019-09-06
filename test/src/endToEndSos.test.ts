@@ -40,7 +40,7 @@ describe("sos end to end", () => {
         data: string,
         eventAbi: string,
         eventArgs: string,
-        id: number,
+        id: string,
         nonce: number,
         startBlock: number
     ): IAppointmentRequest => {
@@ -50,6 +50,7 @@ describe("sos end to end", () => {
             customerAddress: customerAddress,
             data,
             endBlock: startBlock + 200,
+            eventAddress: contractAddress,
             eventABI: eventAbi,
             eventArgs: eventArgs,
             gasLimit: 100000,
@@ -70,7 +71,7 @@ describe("sos end to end", () => {
         pisaContractAddress: string,
         provider: ethers.providers.BaseProvider,
         user: ethers.Wallet,
-        appointmentId: number,
+        appointmentId: string,
         helpMessage: string,
         rescueMessage: string
     ) => {
@@ -106,7 +107,7 @@ describe("sos end to end", () => {
         user: ethers.Wallet,
         helpMessage: string,
         rescueMessage: string,
-        appointmentId: number
+        appointmentId: string
     ) => {
         const rescueRequest1 = await createRescueRequestAppointment(
             rescueContract,
@@ -197,7 +198,7 @@ describe("sos end to end", () => {
             pisaContract.address,
             provider,
             user1,
-            1,
+            "0x0000000000000000000000000000000000000000000000000000000000000001",
             "sos",
             "yay"
         );
@@ -210,52 +211,130 @@ describe("sos end to end", () => {
     });
 
     it("two of the same appointment back to back", async () => {
-        await getAppointmentForMessage(pisaContractAddress, user1, "sos", "yay", 1);
+        await getAppointmentForMessage(
+            pisaContractAddress,
+            user1,
+            "sos",
+            "yay",
+            "0x0000000000000000000000000000000000000000000000000000000000000001"
+        );
         await callDistressAndWaitForRescue(rescueContract, "sos", "Failed 1");
 
-        await getAppointmentForMessage(pisaContractAddress, user1, "sos", "yay", 2);
+        await getAppointmentForMessage(
+            pisaContractAddress,
+            user1,
+            "sos",
+            "yay",
+            "0x0000000000000000000000000000000000000000000000000000000000000002"
+        );
         await callDistressAndWaitForRescue(rescueContract, "sos", "Failed 2");
     }).timeout(30000);
 
     it("two of the same appointment from different customers back to back", async () => {
-        await getAppointmentForMessage(pisaContractAddress, user1, "sos", "yay", 1);
+        await getAppointmentForMessage(
+            pisaContractAddress,
+            user1,
+            "sos",
+            "yay",
+            "0x0000000000000000000000000000000000000000000000000000000000000001"
+        );
         await callDistressAndWaitForRescue(rescueContract, "sos", "Failed 1");
 
-        await getAppointmentForMessage(pisaContractAddress, user2, "sos", "yay", 1);
+        await getAppointmentForMessage(
+            pisaContractAddress,
+            user2,
+            "sos",
+            "yay",
+            "0x0000000000000000000000000000000000000000000000000000000000000001"
+        );
         await callDistressAndWaitForRescue(rescueContract, "sos", "Failed 2");
     }).timeout(30000);
 
     it("two different appointments back to back", async () => {
-        await getAppointmentForMessage(pisaContractAddress, user1, "sos", "yay1", 1);
+        await getAppointmentForMessage(
+            pisaContractAddress,
+            user1,
+            "sos",
+            "yay1",
+            "0x0000000000000000000000000000000000000000000000000000000000000001"
+        );
         await callDistressAndWaitForRescue(rescueContract, "sos", "Failed 1");
 
-        await getAppointmentForMessage(pisaContractAddress, user2, "sos", "yay2", 1);
+        await getAppointmentForMessage(
+            pisaContractAddress,
+            user2,
+            "sos",
+            "yay2",
+            "0x0000000000000000000000000000000000000000000000000000000000000001"
+        );
         await callDistressAndWaitForRescue(rescueContract, "sos", "Failed 2");
     }).timeout(30000);
 
     it("two different appointments at the same time same users", async () => {
-        await getAppointmentForMessage(pisaContractAddress, user1, "sos", "yay1", 1);
-        await getAppointmentForMessage(pisaContractAddress, user1, "sos", "yay2", 2);
+        await getAppointmentForMessage(
+            pisaContractAddress,
+            user1,
+            "sos",
+            "yay1",
+            "0x0000000000000000000000000000000000000000000000000000000000000001"
+        );
+        await getAppointmentForMessage(
+            pisaContractAddress,
+            user1,
+            "sos",
+            "yay2",
+            "0x0000000000000000000000000000000000000000000000000000000000000002"
+        );
 
         await callDistressAndWaitForCounter("sos", 2);
     }).timeout(30000);
 
     it("two same appointments at the same time same users", async () => {
-        await getAppointmentForMessage(pisaContractAddress, user1, "sos", "yay1", 1);
-        await getAppointmentForMessage(pisaContractAddress, user1, "sos", "yay1", 2);
+        await getAppointmentForMessage(
+            pisaContractAddress,
+            user1,
+            "sos",
+            "yay1",
+            "0x0000000000000000000000000000000000000000000000000000000000000001"
+        );
+        await getAppointmentForMessage(
+            pisaContractAddress,
+            user1,
+            "sos",
+            "yay1",
+            "0x0000000000000000000000000000000000000000000000000000000000000002"
+        );
 
         await callDistressAndWaitForCounter("sos", 2);
     }).timeout(30000);
 
     it("two same appointments at the same time different users", async () => {
-        await getAppointmentForMessage(pisaContractAddress, user1, "sos", "yay1", 1);
-        await getAppointmentForMessage(pisaContractAddress, user2, "sos", "yay1", 1);
+        await getAppointmentForMessage(
+            pisaContractAddress,
+            user1,
+            "sos",
+            "yay1",
+            "0x0000000000000000000000000000000000000000000000000000000000000001"
+        );
+        await getAppointmentForMessage(
+            pisaContractAddress,
+            user2,
+            "sos",
+            "yay1",
+            "0x0000000000000000000000000000000000000000000000000000000000000001"
+        );
 
         await callDistressAndWaitForCounter("sos", 2);
     }).timeout(30000);
 
     it("PISA should respond again if there is a reorg after the responder confirmation time", async () => {
-        await getAppointmentForMessage(pisaContractAddress, user1, "sos", "yay1", 1);
+        await getAppointmentForMessage(
+            pisaContractAddress,
+            user1,
+            "sos",
+            "yay1",
+            "0x0000000000000000000000000000000000000000000000000000000000000001"
+        );
         const snapshotId: number = await promiseSendAsync(ganache, { method: "evm_snapshot" });
         await callDistressAndWaitForCounter("sos", 1);
         await promiseSendAsync(ganache, { method: "evm_revert", params: snapshotId });

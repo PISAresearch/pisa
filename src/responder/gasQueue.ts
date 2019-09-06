@@ -1,4 +1,4 @@
-import { Appointment, ArgumentError, ApplicationError, IAppointment } from "../dataEntities";
+import { Appointment, ArgumentError, IAppointment } from "../dataEntities";
 import { BigNumber } from "ethers/utils";
 import { ethers } from "ethers";
 
@@ -60,7 +60,7 @@ export class PisaTransactionIdentifier {
         return (
             other.chainId === this.chainId &&
             other.data === this.data &&
-            other.to === this.to &&
+            other.to.toLowerCase() === this.to.toLowerCase() &&
             other.value.eq(this.value) &&
             other.gasLimit.eq(this.gasLimit)
         );

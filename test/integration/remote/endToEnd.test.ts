@@ -32,7 +32,7 @@ const prepareLogsDir = (dirPath: string) => {
 const encode = (request: IAppointmentRequest) => {
     const appointmentInfo = ethers.utils.defaultAbiCoder.encode(
         ...groupTuples([
-            ["uint", request.id],
+            ["bytes32", request.id],
             ["uint", request.nonce],
             ["uint", request.startBlock],
             ["uint", request.endBlock],
@@ -51,6 +51,7 @@ const encode = (request: IAppointmentRequest) => {
     );
     const conditionInfo = ethers.utils.defaultAbiCoder.encode(
         ...groupTuples([
+            ["address", request.eventAddress],
             ["string", request.eventABI],
             ["bytes", request.eventArgs],
             ["bytes", request.preCondition],
@@ -169,10 +170,11 @@ describe("Integration", function() {
                 customerAddress: acc,
                 data,
                 endBlock: 1000,
+                eventAddress: channelContract.address,
                 eventABI: KitsuneTools.eventABI(),
                 eventArgs: KitsuneTools.eventArgs(),
                 gasLimit: 1000000,
-                id: 1,
+                id: "0x0000000000000000000000000000000000000000000000000000000000000001",
                 nonce: 0,
                 mode: 1,
                 preCondition: "0x",
@@ -286,10 +288,11 @@ describe("Integration", function() {
                     customerAddress: acc,
                     data,
                     endBlock: 110,
+                    eventAddress: channelContracts[i].address,
                     eventABI: KitsuneTools.eventABI(),
                     eventArgs: KitsuneTools.eventArgs(),
                     gasLimit: 1000000,
-                    id: 1,
+                    id: "0x0000000000000000000000000000000000000000000000000000000000000001",
                     nonce: 0,
                     mode: 1,
                     preCondition: "0x",
