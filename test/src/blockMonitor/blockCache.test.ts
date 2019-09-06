@@ -1,4 +1,5 @@
 import "mocha";
+import { spy } from "ts-mockito";
 import { expect } from "chai";
 import { BlockCache, getConfirmations } from "../../../src/blockMonitor";
 import { ArgumentError, IBlockStub, TransactionHashes, ApplicationError, BlockItemStore } from "../../../src/dataEntities";
@@ -8,7 +9,6 @@ import { BlockAddResult } from "../../../src/blockMonitor/blockCache";
 import LevelUp from "levelup";
 import EncodingDown from "encoding-down";
 import MemDown from "memdown";
-import { wait } from "../../../src/utils";
 
 function generateBlocks(
     nBlocks: number,
@@ -33,6 +33,23 @@ function generateBlocks(
         result.push(block as (IBlockStub & TransactionHashes));
     }
     return result;
+}
+
+// simple class to monitor and record BlockCaches's new block events
+class NewBlockSpy {
+    private mCallCounter = 0;
+    public get callCounter() {
+        return this.mCallCounter;
+    }
+    private mLastCallBlock: IBlockStub | null = null;
+    public get lastCallBlock() {
+        return this.mLastCallBlock;
+    }
+
+    public newBlockListener = async (block: IBlockStub) => {
+        this.mCallCounter++;
+        this.mLastCallBlock = block;
+    };
 }
 
 describe("BlockCache", () => {
@@ -70,6 +87,47 @@ describe("BlockCache", () => {
         await bc.addBlock(blocks[0]);
         expect(await bc.addBlock(blocks[3])).to.equal(BlockAddResult.AddedDetached);
         expect(await bc.addBlock(blocks[2])).to.equal(BlockAddResult.AddedDetached);
+    });
+
+    it("emits a new block event when a new block is added and attached", async () => {
+        const bc = new BlockCache(maxDepth, blockStore);
+        const blocks = generateBlocks(10, 5, "main");
+
+        const newBlockSpy = new NewBlockSpy();
+        bc.addNewBlockListener(newBlockSpy.newBlockListener);
+
+        await bc.addBlock(blocks[0]);
+
+        expect(newBlockSpy.callCounter).to.equal(1);
+        expect(newBlockSpy.lastCallBlock).to.equal(blocks[0]);
+    });
+
+    it("does not emit a new block event when a new block is added unattached", async () => {
+        const bc = new BlockCache(maxDepth, blockStore);
+        const blocks = generateBlocks(10, 5, "main");
+        await bc.addBlock(blocks[0]);
+
+        const newBlockSpy = new NewBlockSpy();
+        bc.addNewBlockListener(newBlockSpy.newBlockListener);
+
+        await bc.addBlock(blocks[2]); //unattached block
+
+        expect(newBlockSpy.callCounter).to.equal(0);
+    });
+
+    it("emits a new block event when an unattached block becomes attached", async () => {
+        const bc = new BlockCache(maxDepth, blockStore);
+        const blocks = generateBlocks(10, 5, "main");
+        await bc.addBlock(blocks[0]);
+
+        const newBlockSpy = new NewBlockSpy();
+        bc.addNewBlockListener(newBlockSpy.newBlockListener);
+
+        await bc.addBlock(blocks[2]); //unattached block
+        await bc.addBlock(blocks[1]); //now both blocks become attached
+
+        expect(newBlockSpy.callCounter).to.equal(2);
+        expect(newBlockSpy.lastCallBlock).to.deep.equal(blocks[2]);
     });
 
     fnIt<BlockCache<any>>(b => b.hasBlock, "returns true for an existing attached block", async () => {

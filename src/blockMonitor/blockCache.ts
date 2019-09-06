@@ -116,12 +116,19 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
     // Processes all the detached blocks at the given height, marking them as attached if necessary.
     // If there are any, add them and repeat with the next height (as some blocks might now have become attached)
     private async processDetached(height: number) {
-        const blocksAtHeight = this.blockStore.getBlocksAtHeight(height) || [];
+        const blocksAtHeight = this.blockStore.getBlocksAtHeight(height);
         const blocksToAdd = blocksAtHeight.filter(b => !b.attached);
 
         for (const block of blocksToAdd) {
             await this.blockStore.putBlockItem(height, block.hash, "attached", true);
-            await this.emitNewBlockEvent(block);
+            block.attached = true;
+
+            // A bit ugly, and it would break if TBlock already contained an "attached" property.
+            // Perhaps a refactoring of the BlockItemStore could make this cleaner.
+            const { attached, ...others } = block;
+            const cleanedBlock: TBlock = ({ ...others } as unknown) as TBlock;
+
+            await this.emitNewBlockEvent(cleanedBlock);
         }
 
         if (blocksToAdd.length > 0) {

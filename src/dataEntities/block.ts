@@ -99,24 +99,22 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
         return this.items.get(key);
     }
 
-    public getBlocksAtHeight(height: number): (TBlock & { attached: boolean })[] | undefined {
-        const itemsAtHeight = this.itemsByHeight.get(height);
-        if (itemsAtHeight) {
-            // collect blocks and attachment info
+    public getBlocksAtHeight(height: number): (TBlock & { attached: boolean })[] {
+        const itemsAtHeight = this.itemsByHeight.get(height) || [];
+        // collect blocks and attachment info
 
-            const blocks: (TBlock & { attached: boolean })[] = [];
+        const blocks: (TBlock & { attached: boolean })[] = [];
 
-            for (const item of itemsAtHeight) {
-                // check if it is the actual block
-                if (item.endsWith(":block")) {
-                    const itemKey = item.slice(0, -":block".length);
-                    const block = this.items.get(item) as TBlock;
-                    const attached = this.items.get(itemKey + ":attached") as boolean;
-                    blocks.push({ ...block, attached: attached });
-                }
+        for (const item of itemsAtHeight) {
+            // check if it is the actual block
+            if (item.endsWith(":block")) {
+                const itemKey = item.slice(0, -":block".length);
+                const block = this.items.get(item) as TBlock;
+                const attached = this.items.get(itemKey + ":attached") as boolean;
+                blocks.push({ ...block, attached: attached });
             }
-            return blocks;
         }
+        return blocks;
     }
 
     // delete all blocks and supplements
