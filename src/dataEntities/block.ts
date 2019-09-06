@@ -67,7 +67,7 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
 
     protected async startInternal() {
         // load all items from the db
-        for await (const record of this.subDb.createValueStream()) {
+        for await (const record of this.subDb.createReadStream()) {
             const { key, value } = (record as any) as { key: string; value: any };
 
             const i = key.indexOf(":");
@@ -94,13 +94,19 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
         await this.subDb.put(dbKey, item);
     }
 
+    /**
+     * Gets the item with key `itemKey` for block `blockHash`.
+     * Returns `undefined` if a key is not present.
+     **/
     public getItem(blockHash: string, itemKey: string) {
         const key = `${blockHash}:${itemKey}`;
         return this.items.get(key);
     }
 
+    // This behavior is too specific for the needs of the BlockCache; should be refactored
+    // returns the items stored under the key "block" for the specific height, and wether they are
     public getBlocksAtHeight(height: number): (TBlock & { attached: boolean })[] {
-        const itemsAtHeight = this.itemsByHeight.get(height) || [];
+        const itemsAtHeight = this.itemsByHeight.get(height) || new Set();
         // collect blocks and attachment info
 
         const blocks: (TBlock & { attached: boolean })[] = [];

@@ -133,7 +133,9 @@ describe("ActionStore", () => {
         const newActionStore = new ActionStore(db); // a new ActionStore on the same db
         await newActionStore.start();
 
-        const retrievedActions = [...newActionStore.getActions(componentName)].map(a => a.action);
+        const retrievedActions = [...newActionStore.getActions(componentName)]
+            .map(a => a.action) // prettier-ignore
+            .sort((a, b) => ((a as any).name < (b as any).name ? -1 : 1)); // make sure they are checked in the same order
 
         await newActionStore.stop();
 
