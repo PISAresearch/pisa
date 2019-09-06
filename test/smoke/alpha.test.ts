@@ -42,6 +42,7 @@ const encode = (request: any) => {
 describe("alpha", () => {
     const PISA_URL = "http://18.219.31.158:5487/appointment";
     const ROPSTEN_URL = "https://ropsten.infura.io/v3/e587e78efcdd4c1eb5b068ee99a6ec0b";
+    const PISA_CONTRACT_ADDRESS = "0xA02C7260c0020343040A504Ef24252c120be60b9";
 
     const createAppointmentRequest = (
         contractAddress: string,
@@ -49,7 +50,7 @@ describe("alpha", () => {
         data: string,
         eventAbi: string,
         eventArgs: string,
-        id: number,
+        id: string,
         nonce: number,
         startBlock: number
     ) => {
@@ -77,7 +78,6 @@ describe("alpha", () => {
     it("pisa", async () => {
         // connect to ropsten
         const provider = new JsonRpcProvider(ROPSTEN_URL);
-        const pisaContractAddress = "0x4940d7bbf7B0D2e03691b39c53AbEd1C3fFDCf82";
 
         // 0xC73e1ebaFE312F149272ccA46A4acA3F8e8C62A6
         const customer = new Wallet("0xD3E0200D9A8E615ED48E8317730EDD239BCDE54FB6EB2EBDC2FD6E6EA57AD6B3", provider);
@@ -90,7 +90,7 @@ describe("alpha", () => {
         // setup
         const startBlock = await provider.getBlockNumber();
         const helpMessage = "sos";
-        const id = 3;
+        const id = "0x0000000000000000000000000000000000000000000000000000000000000002";
         const nonce = 1;
 
         // create an appointment
@@ -108,7 +108,7 @@ describe("alpha", () => {
         // encode the request and sign it
         const encoded = encode(appointmentRequest);
         const hashedWithAddress = ethers.utils.keccak256(
-            ethers.utils.defaultAbiCoder.encode(["bytes", "address"], [encoded, pisaContractAddress])
+            ethers.utils.defaultAbiCoder.encode(["bytes", "address"], [encoded, PISA_CONTRACT_ADDRESS])
         );
         const customerSig = await customer.signMessage(arrayify(hashedWithAddress));
 
@@ -126,7 +126,7 @@ describe("alpha", () => {
         await tx.wait();
         console.log("help mined");
 
-        await waitForPredicate(() => success, 50, 20000, helpMessage + ":Failed");
+        await waitForPredicate(() => success, 500, 1000, helpMessage + ":Failed");
     }).timeout(200000);
 });
 
