@@ -1,12 +1,12 @@
 import "mocha";
 import { expect } from "chai";
-import { mock, when, resetCalls, verify, anything, capture } from "ts-mockito";
+import { mock, when, resetCalls, verify, anything, capture, anyNumber } from "ts-mockito";
 import { AppointmentStore } from "../../../src/watcher";
 import { MultiResponder } from "../../../src/responder";
 import { BlockCache } from "../../../src/blockMonitor";
 import { ApplicationError, IBlockStub, Logs, Appointment } from "../../../src/dataEntities";
 import {
-    WatcherAppointmentStateReducer,
+    EventFilterStateReducer,
     WatcherAppointmentState,
     Watcher,
     WatcherAppointmentAnchorState,
@@ -17,6 +17,11 @@ import throwingInstance from "../../utils/throwingInstance";
 
 const observedEventAddress = "0x1234abcd";
 const observedEventTopics = ["0x1234"];
+const observedEventFilter = {
+    address: observedEventAddress,
+    topics: observedEventTopics
+};
+const startBlock = 0;
 
 const blocks: (IBlockStub & Logs)[] = [
     {
@@ -52,43 +57,28 @@ const blocks: (IBlockStub & Logs)[] = [
 ];
 
 describe("WatcherAppointmentStateReducer", () => {
-    const appMock = mock(Appointment);
-    when(appMock.eventFilter).thenReturn({
-        address: observedEventAddress,
-        topics: observedEventTopics
-    });
-    when(appMock.id).thenReturn("app1");
-    when(appMock.startBlock).thenReturn(0);
-    when(appMock.endBlock).thenReturn(1000);
-    const appointment = throwingInstance(appMock);
-
     const blockCache = new BlockCache<IBlockStub & Logs>(100);
     blocks.forEach(b => blockCache.addBlock(b));
 
     it("constructor throws ApplicationError if the topics are not set in the filter", () => {
-        const emptyAppMock = mock(Appointment);
-        when(emptyAppMock.eventFilter).thenReturn({});
-        when(appMock.id).thenReturn("app1");
-        const emptyAppointment = throwingInstance(emptyAppMock);
-
-        expect(() => new WatcherAppointmentStateReducer(blockCache, emptyAppointment)).to.throw(ApplicationError);
+        expect(() => new EventFilterStateReducer(blockCache, { address: "address" }, 0)).to.throw(ApplicationError);
     });
 
-    fnIt<WatcherAppointmentStateReducer>(
+    fnIt<EventFilterStateReducer>(
         w => w.getInitialState,
         "initializes to WATCHING if event not present in ancestry",
         () => {
-            const asr = new WatcherAppointmentStateReducer(blockCache, appointment);
+            const asr = new EventFilterStateReducer(blockCache, observedEventFilter, startBlock);
 
             expect(asr.getInitialState(blocks[1])).to.deep.equal({ state: WatcherAppointmentState.WATCHING });
         }
     );
 
-    fnIt<WatcherAppointmentStateReducer>(
+    fnIt<EventFilterStateReducer>(
         w => w.getInitialState,
         "initializes to OBSERVED if event is present in the last block",
         () => {
-            const asr = new WatcherAppointmentStateReducer(blockCache, appointment);
+            const asr = new EventFilterStateReducer(blockCache, observedEventFilter, startBlock);
             expect(asr.getInitialState(blocks[2])).to.deep.equal({
                 state: WatcherAppointmentState.OBSERVED,
                 blockObserved: blocks[2].number
@@ -96,11 +86,11 @@ describe("WatcherAppointmentStateReducer", () => {
         }
     );
 
-    fnIt<WatcherAppointmentStateReducer>(
+    fnIt<EventFilterStateReducer>(
         w => w.getInitialState,
         "initializes to OBSERVED if event is present in ancestry, updates blockObserved",
         () => {
-            const asr = new WatcherAppointmentStateReducer(blockCache, appointment);
+            const asr = new EventFilterStateReducer(blockCache, observedEventFilter, startBlock);
             expect(asr.getInitialState(blocks[3])).to.deep.equal({
                 state: WatcherAppointmentState.OBSERVED,
                 blockObserved: blocks[2].number
@@ -108,61 +98,37 @@ describe("WatcherAppointmentStateReducer", () => {
         }
     );
 
-    fnIt<WatcherAppointmentStateReducer>(
-        w => w.reduce,
-        "does not change state if event is not observed in new block",
-        () => {
-            const asr = new WatcherAppointmentStateReducer(blockCache, appointment);
+    fnIt<EventFilterStateReducer>(w => w.reduce, "does not change state if event is not observed in new block", () => {
+        const asr = new EventFilterStateReducer(blockCache, observedEventFilter, startBlock);
 
-            const result = asr.reduce(
-                {
-                    state: WatcherAppointmentState.WATCHING
-                },
-                blocks[1]
-            );
+        const result = asr.reduce(
+            {
+                state: WatcherAppointmentState.WATCHING
+            },
+            blocks[1]
+        );
 
-            expect(result).to.deep.equal({ state: WatcherAppointmentState.WATCHING });
-        }
-    );
+        expect(result).to.deep.equal({ state: WatcherAppointmentState.WATCHING });
+    });
 
-    fnIt<WatcherAppointmentStateReducer>(
+    fnIt<EventFilterStateReducer>(
         w => w.getInitialState,
         "does not initialize to OBSERVED if event is present, but deeper than startBlock",
         () => {
             // Appointment with same locator, but with startBlock past the event trigger
-            const appFromBlock3Mock = mock(Appointment);
-            when(appFromBlock3Mock.eventFilter).thenReturn({
-                address: observedEventAddress,
-                topics: observedEventTopics
-            });
-            when(appFromBlock3Mock.id).thenReturn("app1");
-            when(appFromBlock3Mock.startBlock).thenReturn(3);
-            when(appFromBlock3Mock.endBlock).thenReturn(1000);
-            const appointmentFromBlock3 = throwingInstance(appFromBlock3Mock);
-
-            const asr = new WatcherAppointmentStateReducer(blockCache, appointmentFromBlock3);
+            const asr = new EventFilterStateReducer(blockCache, observedEventFilter, 3);
             expect(asr.getInitialState(blocks[3])).to.deep.equal({
                 state: WatcherAppointmentState.WATCHING
             });
         }
     );
 
-    fnIt<WatcherAppointmentStateReducer>(
+    fnIt<EventFilterStateReducer>(
         w => w.getInitialState,
         "does initialize to OBSERVED if event is present exactly at startBlock",
         () => {
             // Appointment with same locator, but with startBlock past the event trigger
-            const appFromBlock2Mock = mock(Appointment);
-            when(appFromBlock2Mock.eventFilter).thenReturn({
-                address: observedEventAddress,
-                topics: observedEventTopics
-            });
-            when(appFromBlock2Mock.id).thenReturn("app1");
-            when(appFromBlock2Mock.startBlock).thenReturn(2);
-            when(appFromBlock2Mock.endBlock).thenReturn(1000);
-            const appointmentFromBlock2 = throwingInstance(appFromBlock2Mock);
-
-            const asr = new WatcherAppointmentStateReducer(blockCache, appointmentFromBlock2);
+            const asr = new EventFilterStateReducer(blockCache, observedEventFilter, 2);
             expect(asr.getInitialState(blocks[3])).to.deep.equal({
                 state: WatcherAppointmentState.OBSERVED,
                 blockObserved: 2
@@ -170,8 +136,8 @@ describe("WatcherAppointmentStateReducer", () => {
         }
     );
 
-    fnIt<WatcherAppointmentStateReducer>(w => w.reduce, "does change state if event is observed in new block", () => {
-        const asr = new WatcherAppointmentStateReducer(blockCache, appointment);
+    fnIt<EventFilterStateReducer>(w => w.reduce, "does change state if event is observed in new block", () => {
+        const asr = new EventFilterStateReducer(blockCache, observedEventFilter, startBlock);
 
         const result = asr.reduce(
             {
@@ -186,8 +152,8 @@ describe("WatcherAppointmentStateReducer", () => {
         });
     });
 
-    fnIt<WatcherAppointmentStateReducer>(w => w.reduce, "does not change from OBSERVED when new blocks come", () => {
-        const asr = new WatcherAppointmentStateReducer(blockCache, appointment);
+    fnIt<EventFilterStateReducer>(w => w.reduce, "does not change from OBSERVED when new blocks come", () => {
+        const asr = new EventFilterStateReducer(blockCache, observedEventFilter, startBlock);
 
         const result = asr.reduce(
             {
@@ -221,12 +187,9 @@ describe("Watcher", () => {
 
     beforeEach(() => {
         const appMock = mock(Appointment);
-        when(appMock.eventFilter).thenReturn({
-            address: observedEventAddress,
-            topics: observedEventTopics
-        });
         when(appMock.id).thenReturn("app1");
         when(appMock.endBlock).thenReturn(100);
+        when(appMock.encodeForResponse()).thenReturn("data1");
         appointment = throwingInstance(appMock);
 
         mockedStore = mock(AppointmentStore);
@@ -238,7 +201,9 @@ describe("Watcher", () => {
         store = throwingInstance(mockedStore);
 
         mockedResponder = mock(MultiResponder);
-        when(mockedResponder.startResponse(appointment, anything())).thenResolve();
+        const pisaContractAddress = "pisa_address";
+        when(mockedResponder.pisaContractAddress).thenReturn(pisaContractAddress)
+        when(mockedResponder.startResponse(pisaContractAddress, appointment.encodeForResponse(), anyNumber(), appointment.id, anything(), anything())).thenResolve();
         responder = throwingInstance(mockedResponder);
     });
 

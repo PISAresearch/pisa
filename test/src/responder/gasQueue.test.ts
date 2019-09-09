@@ -14,29 +14,6 @@ const createIdentifier = (data: string, to: string) => {
     return new PisaTransactionIdentifier(1, data, to, new BigNumber(0), new BigNumber(500));
 };
 
-const createAppointment = (id: string): Appointment => {
-    return Appointment.fromIAppointment({
-        challengePeriod: 10,
-        contractAddress: "contractAddress",
-        customerAddress: "customerAddress",
-        data: "data",
-        endBlock: 10,
-        eventAddress: "contractAddress",
-        eventABI: "eventABI",
-        eventArgs: "eventArgs",
-        gasLimit: 100,
-        customerChosenId: id,
-        nonce: 1,
-        mode: 1,
-        paymentHash: "paymentHash",
-        preCondition: "preCondition",
-        postCondition: "postCondition",
-        refund: "3",
-        startBlock: 7,
-        customerSig: "sig"
-    });
-};
-
 const createGasQueueItem = (
     appointmentId: string,
     nonce: number,
@@ -45,7 +22,7 @@ const createGasQueueItem = (
     identifier: PisaTransactionIdentifier
 ) => {
     return new GasQueueItem(
-        new GasQueueItemRequest(identifier, idealGasPrice, createAppointment(appointmentId), 0),
+        new GasQueueItemRequest(identifier, idealGasPrice, appointmentId, 0),
         currentGasPrice,
         idealGasPrice,
         nonce
@@ -92,12 +69,16 @@ describe("GasQueue", () => {
     });
 
     it("constructor can contain items", () => {
-        const items = [createGasQueueItem("1", 1, new BigNumber(10), new BigNumber(10), createIdentifier("data", "to"))];
+        const items = [
+            createGasQueueItem("1", 1, new BigNumber(10), new BigNumber(10), createIdentifier("data", "to"))
+        ];
         new GasQueue(items, 2, 1, 1);
     });
 
     it("constructor emptyNonce must be last item nonce plus one", () => {
-        const items = [createGasQueueItem("1", 1, new BigNumber(10), new BigNumber(10), createIdentifier("data", "to"))];
+        const items = [
+            createGasQueueItem("1", 1, new BigNumber(10), new BigNumber(10), createIdentifier("data", "to"))
+        ];
         expect(() => new GasQueue(items, 3, 1, 1)).to.throw(ArgumentError);
     });
 
@@ -172,12 +153,7 @@ describe("GasQueue", () => {
             createGasQueueItem("1", 1, new BigNumber(10), new BigNumber(12), createIdentifier("data", "to")),
             createGasQueueItem("2", 2, new BigNumber(9), new BigNumber(11), createIdentifier("data1", "to1"))
         ];
-        const request = new GasQueueItemRequest(
-            createIdentifier("data2", "to2"),
-            new BigNumber(8),
-            createAppointment("1"),
-            0
-        );
+        const request = new GasQueueItemRequest(createIdentifier("data2", "to2"), new BigNumber(8), "1", 0);
 
         const queue = new GasQueue(items, emptyNonce, replacementRate, maxQueueDepth);
         const appendedQueue = queue.add(request);
@@ -203,12 +179,7 @@ describe("GasQueue", () => {
             createGasQueueItem("2", 2, new BigNumber(100), new BigNumber(100), createIdentifier("data1", "to1")),
             createGasQueueItem("3", 3, new BigNumber(80), new BigNumber(80), createIdentifier("data2", "to2"))
         ];
-        const request = new GasQueueItemRequest(
-            createIdentifier("data3", "to3"),
-            new BigNumber(110),
-            createAppointment("1"),
-            0
-        );
+        const request = new GasQueueItemRequest(createIdentifier("data3", "to3"), new BigNumber(110), "1", 0);
 
         const queue = new GasQueue(items, emptyNonce, replacementRate, maxQueueDepth);
         const appendedQueue = queue.add(request);
@@ -247,12 +218,7 @@ describe("GasQueue", () => {
             createGasQueueItem("2", 2, new BigNumber(100), new BigNumber(100), createIdentifier("data1", "to1")),
             createGasQueueItem("3", 3, new BigNumber(80), new BigNumber(80), createIdentifier("data2", "to2"))
         ];
-        const request = new GasQueueItemRequest(
-            createIdentifier("data3", "to3"),
-            new BigNumber(110),
-            createAppointment("1"),
-            0
-        );
+        const request = new GasQueueItemRequest(createIdentifier("data3", "to3"), new BigNumber(110), "1", 0);
 
         const queue = new GasQueue(items, 4, 15, 3);
         expect(() => queue.add(request)).to.throw(ArgumentError);
@@ -490,9 +456,27 @@ describe("GasQueue", () => {
     });
 
     fnIt<GasQueue>(() => GasQueue.serialise, "correctly deserialises and serialises", () => {
-        const item1 = createGasQueueItem("1", 1, new BigNumber(90), new BigNumber(90), createIdentifier("data1", "to1"));
-        const item2 = createGasQueueItem("2", 2, new BigNumber(50), new BigNumber(60), createIdentifier("data2", "to2"));
-        const item3 = createGasQueueItem("3", 3, new BigNumber(30), new BigNumber(40), createIdentifier("data3", "to3"));
+        const item1 = createGasQueueItem(
+            "1",
+            1,
+            new BigNumber(90),
+            new BigNumber(90),
+            createIdentifier("data1", "to1")
+        );
+        const item2 = createGasQueueItem(
+            "2",
+            2,
+            new BigNumber(50),
+            new BigNumber(60),
+            createIdentifier("data2", "to2")
+        );
+        const item3 = createGasQueueItem(
+            "3",
+            3,
+            new BigNumber(30),
+            new BigNumber(40),
+            createIdentifier("data3", "to3")
+        );
 
         const queue = new GasQueue([item1, item2, item3], 4, 12, 10);
 
