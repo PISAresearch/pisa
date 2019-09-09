@@ -168,12 +168,12 @@
         "preCondition": {
           "type": "string",
           "description": "Not currently supported, set to `0x`",
-          "example": "0x5bf2b49d8b43dbc21ab4b757d5bebcd3ed6d50c092aa2648c49cd76bce28c9cc"
+          "example": "0x"
         },
         "postCondition": {
           "type": "string",
           "description": "Not currently supported, set to `0x`",
-          "example": "0x5bf2b49d8b43dbc21ab4b757d5bebcd3ed6d50c092aa2648c49cd76bce28c9cc"
+          "example": "0x"
         },
         "customerSig": {
           "type": "string",
