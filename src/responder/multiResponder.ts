@@ -71,8 +71,8 @@ export class MultiResponder {
                     appointment.encodeForResponse(),
                     this.pisaContractAddress,
                     new BigNumber(0),
-                    // it appears that sometimes pisa requires a lot of gas to function - resetting data shards?
-                    new BigNumber(appointment.gasLimit + 1000000)
+                    // it appears that sometimes pisa requires a lot of gas to function - resetting data shards creates contracts... => millions of gas
+                    new BigNumber(appointment.gasLimit + 2000000)
                 );
                 const idealGas = await this.gasEstimator.estimate(appointment);
                 const request = new GasQueueItemRequest(txIdentifier, idealGas, appointment, blockObserved);
