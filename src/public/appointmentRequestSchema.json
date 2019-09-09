@@ -11,6 +11,7 @@
         "data",
         "endBlock",
         "eventABI",
+        "eventAddress",
         "eventArgs",
         "gasLimit",
         "id",
@@ -56,6 +57,10 @@
             "$id": "#/properties/eventABI",
             "type": "string"
         },
+        "eventAddress": {
+            "$id": "#/properties/eventAddress",
+            "type": "string"
+        },
         "eventArgs": {
             "$id": "#/properties/eventArgs",
             "type": "string"
@@ -68,9 +73,7 @@
         },
         "id": {
             "$id": "#/properties/id",
-            "type": "number",
-            "minimum": 0,
-            "maximum": 9007199254740991
+            "type": "string"
         },
         "nonce": {
             "$id": "#/properties/nonce",

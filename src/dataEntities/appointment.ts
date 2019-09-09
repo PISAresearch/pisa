@@ -66,6 +66,11 @@ export interface IAppointmentBase {
     readonly gasLimit: number;
 
     /**
+     * The address to watch for emitted events
+     */
+    readonly eventAddress: string;
+
+    /**
      * A human readable (https://blog.ricmoo.com/human-readable-contract-abis-in-ethers-js-141902f4d917) event abi
      */
     readonly eventABI: string;
@@ -102,7 +107,7 @@ export interface IAppointmentRequest extends IAppointmentBase {
     /**
      * an appointment id, supplied by the customer
      */
-    readonly id: number;
+    readonly id: string;
 
     /**
      * An identifier for the dispute handler to be used in checking state during recourse
@@ -114,7 +119,7 @@ export interface IAppointment extends IAppointmentBase {
     /**
      * an appointment id, supplied by the customer
      */
-    readonly customerChosenId: number;
+    readonly customerChosenId: string;
 
     /**
      * An identifier for the dispute handler to be used in checking state during recourse
@@ -132,12 +137,13 @@ export class Appointment {
         public readonly startBlock: number,
         public readonly endBlock: number,
         public readonly challengePeriod: number,
-        public readonly customerChosenId: number,
+        public readonly customerChosenId: string,
         public readonly nonce: number,
         public readonly data: string,
         public readonly refund: BigNumber,
         public readonly gasLimit: number,
         public readonly mode: number,
+        public readonly eventAddress: string,
         public readonly eventABI: string,
         public readonly eventArgs: string,
         public readonly preCondition: string,
@@ -159,6 +165,7 @@ export class Appointment {
             new BigNumber(appointment.refund),
             appointment.gasLimit,
             appointment.mode,
+            appointment.eventAddress,
             appointment.eventABI,
             appointment.eventArgs,
             appointment.preCondition,
@@ -181,6 +188,7 @@ export class Appointment {
             refund: appointment.refund.toHexString(),
             gasLimit: appointment.gasLimit,
             mode: appointment.mode,
+            eventAddress: appointment.eventAddress,
             eventABI: appointment.eventABI,
             eventArgs: appointment.eventArgs,
             preCondition: appointment.preCondition,
@@ -203,6 +211,7 @@ export class Appointment {
             new BigNumber(appointmentRequest.refund),
             appointmentRequest.gasLimit,
             appointmentRequest.mode,
+            appointmentRequest.eventAddress,
             appointmentRequest.eventABI,
             appointmentRequest.eventArgs,
             appointmentRequest.preCondition,
@@ -225,6 +234,7 @@ export class Appointment {
             refund: appointment.refund.toHexString(),
             gasLimit: appointment.gasLimit,
             mode: appointment.mode,
+            eventAddress: appointment.eventAddress,
             eventABI: appointment.eventABI,
             eventArgs: appointment.eventArgs,
             preCondition: appointment.preCondition,
@@ -445,7 +455,7 @@ export class Appointment {
         // finally encode the topics using the abi
         const topics = eventInterface.events[name].encodeTopics(topicInput);
         return {
-            address: this.contractAddress,
+            address: this.eventAddress,
             topics
         };
     }
@@ -456,7 +466,7 @@ export class Appointment {
     public encode() {
         const appointmentInfo = ethers.utils.defaultAbiCoder.encode(
             ...groupTuples([
-                ["uint", this.customerChosenId],
+                ["bytes32", this.customerChosenId],
                 ["uint", this.nonce],
                 ["uint", this.startBlock],
                 ["uint", this.endBlock],
@@ -477,6 +487,7 @@ export class Appointment {
 
         const conditionInfo = ethers.utils.defaultAbiCoder.encode(
             ...groupTuples([
+                ["address", this.eventAddress],
                 ["string", this.eventABI],
                 ["bytes", this.eventArgs],
                 ["bytes", this.preCondition],

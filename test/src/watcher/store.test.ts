@@ -9,13 +9,14 @@ import { Appointment, ApplicationError } from "../../../src/dataEntities";
 import fnIt from "../../utils/fnIt";
 chai.use(chaiAsPromised);
 
-const getAppointment = (id: number, endBlock: number, nonce: number) => {
+const getAppointment = (id: string, endBlock: number, nonce: number) => {
     return Appointment.fromIAppointment({
         challengePeriod: 10,
         contractAddress: "contractAddress",
         customerAddress: "customerAddress",
         data: "data",
         endBlock,
+        eventAddress: "contractAddress",
         eventABI: "eventABI",
         eventArgs: "eventArgs",
         gasLimit: 100,
@@ -52,7 +53,7 @@ describe("Store", () => {
     const subDbString = "!watcher!"
 
     fnIt<AppointmentStore>(s => s.addOrUpdateByLocator, "does add appointment", async () => {
-        const appointment1 = getAppointment(1, 5, 1);
+        const appointment1 = getAppointment("0x0000000000000000000000000000000000000000000000000000000000000001", 5, 1);
         await store.addOrUpdateByLocator(appointment1);
 
         const storedAppointments = [...store.getExpiredSince(appointment1.endBlock + 1)];
@@ -63,8 +64,8 @@ describe("Store", () => {
     });
 
     fnIt<AppointmentStore>(s => s.addOrUpdateByLocator, "does add multiple appointments", async () => {
-        const appointment1 = getAppointment(1, 1, 1);
-        const appointment2 = getAppointment(2, 1, 1);
+        const appointment1 = getAppointment("0x0000000000000000000000000000000000000000000000000000000000000001", 1, 1);
+        const appointment2 = getAppointment("0x0000000000000000000000000000000000000000000000000000000000000002", 1, 1);
 
         await store.addOrUpdateByLocator(appointment1);
         await store.addOrUpdateByLocator(appointment2);
@@ -79,8 +80,8 @@ describe("Store", () => {
     });
 
     fnIt<AppointmentStore>(s => s.addOrUpdateByLocator, "does update older appointment", async () => {
-        const appointment1 = getAppointment(1, 1, 1);
-        const appointment2 = getAppointment(1, 1, 2);
+        const appointment1 = getAppointment("0x0000000000000000000000000000000000000000000000000000000000000001", 1, 1);
+        const appointment2 = getAppointment("0x0000000000000000000000000000000000000000000000000000000000000001", 1, 2);
 
         // first appointment is accepted
         await store.addOrUpdateByLocator(appointment1);
@@ -96,8 +97,8 @@ describe("Store", () => {
     });
 
     fnIt<AppointmentStore>(s => s.addOrUpdateByLocator, "does not update newer appointment", async () => {
-        const appointment1 = getAppointment(1, 1, 1);
-        const appointment2 = getAppointment(1, 1, 2);
+        const appointment1 = getAppointment("0x0000000000000000000000000000000000000000000000000000000000000001", 1, 1);
+        const appointment2 = getAppointment("0x0000000000000000000000000000000000000000000000000000000000000001", 1, 2);
 
         // second is added
         await store.addOrUpdateByLocator(appointment2);
@@ -121,7 +122,7 @@ describe("Store", () => {
         }
     };
     fnIt<AppointmentStore>(s => s.removeById, "does remove appointment", async () => {
-        const appointment1 = getAppointment(1, 1, 1);
+        const appointment1 = getAppointment("0x0000000000000000000000000000000000000000000000000000000000000001", 1, 1);
 
         // second is added
         await store.addOrUpdateByLocator(appointment1);
@@ -134,7 +135,7 @@ describe("Store", () => {
     });
 
     fnIt<AppointmentStore>(s => s.removeById, "does not remove appointment already removed", async () => {
-        const appointment1 = getAppointment(1, 1, 1);
+        const appointment1 = getAppointment("0x0000000000000000000000000000000000000000000000000000000000000001", 1, 1);
 
         // second is added
         await store.addOrUpdateByLocator(appointment1);
@@ -148,8 +149,8 @@ describe("Store", () => {
     });
 
     fnIt<AppointmentStore>(s => s.removeById, "does not remove non-existant appointment", async () => {
-        const appointment1 = getAppointment(1, 1, 1);
-        const appointment2 = getAppointment(2, 1, 1);
+        const appointment1 = getAppointment("0x0000000000000000000000000000000000000000000000000000000000000001", 1, 1);
+        const appointment2 = getAppointment("0x0000000000000000000000000000000000000000000000000000000000000002", 1, 1);
 
         await store.addOrUpdateByLocator(appointment1);
         const result = await store.removeById(appointment2.id);
@@ -161,7 +162,7 @@ describe("Store", () => {
     });
 
     fnIt<AppointmentStore>(s => s.removeById, "does allow add after remove", async () => {
-        const appointment1 = getAppointment(1, 1, 1);
+        const appointment1 = getAppointment("0x0000000000000000000000000000000000000000000000000000000000000001", 1, 1);
 
         await store.addOrUpdateByLocator(appointment1);
         await store.removeById(appointment1.id);
@@ -173,8 +174,8 @@ describe("Store", () => {
     });
 
     fnIt<AppointmentStore>(s => s.removeById, "does not remove other appointments", async () => {
-        const appointment1 = getAppointment(1, 1, 1);
-        const appointment2 = getAppointment(2, 1, 1);
+        const appointment1 = getAppointment("0x0000000000000000000000000000000000000000000000000000000000000001", 1, 1);
+        const appointment2 = getAppointment("0x0000000000000000000000000000000000000000000000000000000000000002", 1, 1);
 
         await store.addOrUpdateByLocator(appointment1);
         await store.addOrUpdateByLocator(appointment2);
@@ -189,9 +190,9 @@ describe("Store", () => {
     });
 
     fnIt<AppointmentStore>(s => s.getExpiredSince, "fetches items with end block less than supplied", async () => {
-        const appointment1 = getAppointment(1, 1, 1);
-        const appointment2 = getAppointment(2, 5, 1);
-        const appointment3 = getAppointment(3, 10, 1);
+        const appointment1 = getAppointment("0x0000000000000000000000000000000000000000000000000000000000000001", 1, 1);
+        const appointment2 = getAppointment("0x0000000000000000000000000000000000000000000000000000000000000002", 5, 1);
+        const appointment3 = getAppointment("0x0000000000000000000000000000000000000000000000000000000000000003", 10, 1);
 
         await store.addOrUpdateByLocator(appointment1);
         await store.addOrUpdateByLocator(appointment2);
@@ -201,10 +202,10 @@ describe("Store", () => {
     });
 
     it("startup does load all appointments", async () => {
-        const appointment1 = getAppointment(1, 1, 1);
-        const appointment2 = getAppointment(2, 5, 1);
-        const appointment3 = getAppointment(3, 10, 1);
-        const appointment4 = getAppointment(3, 10, 2);
+        const appointment1 = getAppointment("0x0000000000000000000000000000000000000000000000000000000000000001", 1, 1);
+        const appointment2 = getAppointment("0x0000000000000000000000000000000000000000000000000000000000000002", 5, 1);
+        const appointment3 = getAppointment("0x0000000000000000000000000000000000000000000000000000000000000003", 10, 1);
+        const appointment4 = getAppointment("0x0000000000000000000000000000000000000000000000000000000000000003", 10, 2);
 
         const testDB = levelup(
             encodingDown<string, any>(MemDown(), {
@@ -235,10 +236,10 @@ describe("Store", () => {
     });
 
     fnIt<AppointmentStore>(s => s.getAll, "returns all appointments", async () => {
-        const appointment1 = getAppointment(1, 1, 1);
-        const appointment2 = getAppointment(2, 500000000000, 1);
-        const appointment3 = getAppointment(3, 10, 1);
-        const appointment3A = getAppointment(3, 1000000000000000, 2);
+        const appointment1 = getAppointment("0x0000000000000000000000000000000000000000000000000000000000000001", 1, 1);
+        const appointment2 = getAppointment("0x0000000000000000000000000000000000000000000000000000000000000002", 500000000000, 1);
+        const appointment3 = getAppointment("0x0000000000000000000000000000000000000000000000000000000000000003", 10, 1);
+        const appointment3A = getAppointment("0x0000000000000000000000000000000000000000000000000000000000000003", 1000000000000000, 2);
 
         await store.addOrUpdateByLocator(appointment1);
         await store.addOrUpdateByLocator(appointment2);

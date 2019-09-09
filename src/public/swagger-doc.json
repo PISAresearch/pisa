@@ -2,7 +2,7 @@
   "swagger": "2.0",
   "info": {
     "description": "PISA is an accountable watching service. PISA can be hired to watch for on-chain events by requesting an appointment. At its core PISA is a watch and respond service, you can configure PISA to watch for EVM events and provide it with data to respond with if the event occurs.\n",
-    "version": "0.1.0 Alpha",
+    "version": "0.1.1 Alpha",
     "title": "PISA Watchtower",
     "contact": {
       "email": "cpbuckland88@gmail.com"
@@ -16,7 +16,7 @@
   "tags": [
     {
       "name": "Appointment",
-      "description": "An appointment specifies all the information that PISA requires to watch for an event, and respond with data. The appointment is loosely made up of four sections: \n1. Metadata: \n  * Customer address - address of the customer \n  * Appointment id - unique id chosen by the customer \n  * Nonce - counter that can be incremented to replace an appointment \n  * Start block - the block when the appointment starts, only events observed between start and end block will be responded to \n  * End block - the block when the appointment ends \n  * Refund - the amount to be refunded to the customer if the PISA fails to respond \n  * Payment hash - proof that the customer has paid PISA \n2. Event data \n  * Contract address - the address that emits the event, and the address that pisa will respond to \n  * Event ABI - A human readable ABI that specifies the structure of the event \n  * Event args - The ABI encoded arguments used to filter the event \n3. Response data \n  * Data - the data to be submitted by PISA on response \n  * Gas limit - the gas to be supplied to the response \n  * Challenge period - the amount of time after the event that PISA has to respond \n  * Mode - used to specify pre and post conditions \n  * Pre condition - not currently supported, set to `0x` \n  * Post condition - not currently supported, set to `0x` \n4. Signature data \n  * Customer sig - a signature by the private key corresponding to the customer address over the supplied appointment data."
+      "description": "An appointment specifies all the information that PISA requires to watch for an event, and respond with data. The appointment is loosely made up of four sections: \n1. Metadata: \n  * Customer address - address of the customer \n  * Appointment id - unique id chosen by the customer \n  * Nonce - counter that can be incremented to replace an appointment \n  * Start block - the block when the appointment starts, only events observed between start and end block will be responded to \n  * End block - the block when the appointment ends \n  * Refund - the amount to be refunded to the customer if the PISA fails to respond \n  * Payment hash - proof that the customer has paid PISA \n2. Event data \n  * Event address - The address that emits the tiggering event \n  * Event ABI - A human readable ABI that specifies the structure of the event \n  * Event args - The ABI encoded arguments used to filter the event \n3. Response data \n  * Contract address - The address that pisa will respond to \n  * Data - the data to be submitted by PISA on response \n  * Gas limit - the gas to be supplied to the response \n  * Challenge period - the amount of time after the event that PISA has to respond \n  * Mode - used to specify pre and post conditions \n  * Pre condition - not currently supported, set to `0x` \n  * Post condition - not currently supported, set to `0x` \n4. Signature data \n  * Customer sig - a signature by the private key corresponding to the customer address over the supplied appointment data."
     }
   ],
   "paths": {
@@ -64,6 +64,7 @@
         "customerSig",
         "data",
         "endBlock",
+        "eventAddress",
         "eventABI",
         "eventArgs",
         "gasLimit",
@@ -83,11 +84,9 @@
           "example": "0x9e64b53b935602cd0657343C69Fe200fb3cD05c8"
         },
         "id": {
-          "type": "number",
-          "description": "A unique id, chosen by the customer.",
-          "minimum": 0,
-          "maximum": 9007199254740991,
-          "example": 200
+          "type": "string",
+          "description": "A unique id, chosen by the customer. Bytes32.",
+          "example": "0x61f307f9dc16833ff12d511e22a20ac2a4d0adaa2f48292ebad9e0c80a2bb75d"
         },
         "nonce": {
           "type": "integer",
@@ -120,9 +119,9 @@
           "description": "Proof that payment has been made to the PISA service. Whilst in its testing phase PISA operates for free :) Use the hash 0xfc1624bdc50da30f2ea37b7debabeac1f6166db013c5880dcf63907b04199138 to gain access to the service.",
           "example": "0xfc1624bdc50da30f2ea37b7debabeac1f6166db013c5880dcf63907b04199138"
         },
-        "contractAddress": {
+        "eventAddress": {
           "type": "string",
-          "description": "The address of the external contract from which the event will be emitted and to which the data will be submitted.",
+          "description": "The address of the external contract from which the event will be emitted.",
           "example": "0x81b7e08f65bdf5648606c89998a9cc8164397647"
         },
         "eventABI": {
@@ -134,6 +133,11 @@
           "type": "string",
           "description": "PISA can be triggered by an event with specific arguments. Event args is used to specify the specific arguments that must match in order for pisa to respond. These arguments will be encoded into topics and used to filter events, for this reason currently only indexed event arguments are supported.\n\nThe event args field is the abi encoded representation of the supplied indexed arguments. Additional to this the arguments must be prefixed with a 0-indexed integer array which specifies the indexes of the event arguments to be filtered on.\n\n#### Example with two arguments\n```\neventABI: \"event TestEvent(address indexed, uint256, uint256 indexed)\";\neventArgs: ethers.utils.defaultAbiCoder.encode(\n  [\"uint8[]\", \"address\", \"uint256\"],\n  [[0, 2], \"0xbbF5029Fd710d227630c8b7d338051B8E76d50B3\", 20]\n);\n```\nIn this example an event ABI is specified with three arguments: `address indexed, uint256, uint256 indexed`. The eventArgs specify values for the indexed parameters and an array which specifies that both indexed parameters should be used in the filter.\n\n\n#### Example with one argument\n```\neventABI: \"event TestEvent(address indexed, uint256, uint256 indexed)\";\neventArgs: ethers.utils.defaultAbiCoder.encode(\n  [\"uint8[]\", \"uint256\"],\n  [[2], 20]\n);\n```\nIn this example, although the event allows for filtering on two indexed parameters the eventArgs only specify that the second indexed parameter, a uint256, be used in the filter\n\n#### Example with no arguments\n```\neventABI: \"event TestEvent(address indexed, uint256, uint256 indexed)\";\neventArgs: ethers.utils.defaultAbiCoder.encode(\n  [\"uint8[]\"],\n  [[]]\n);\n```\nIt is possible to specify that none of the arguments be used in the filter. In this case an empty array can be provided to state that none of the indexed parameters of the event ABI should be used.\n",
           "example": "0xf778daa96e1bdf7745b02debfd61d9bcc46da294dd059fa3ce13b263d06e389a"
+        },
+        "contractAddress": {
+          "type": "string",
+          "description": "The address of the external contract to which the data will be submitted.",
+          "example": "0x81b7e08f65bdf5648606c89998a9cc8164397647"
         },
         "data": {
           "type": "string",
@@ -164,16 +168,16 @@
         "preCondition": {
           "type": "string",
           "description": "Not currently supported, set to `0x`",
-          "example": "0x5bf2b49d8b43dbc21ab4b757d5bebcd3ed6d50c092aa2648c49cd76bce28c9cc"
+          "example": "0x"
         },
         "postCondition": {
           "type": "string",
           "description": "Not currently supported, set to `0x`",
-          "example": "0x5bf2b49d8b43dbc21ab4b757d5bebcd3ed6d50c092aa2648c49cd76bce28c9cc"
+          "example": "0x"
         },
         "customerSig": {
           "type": "string",
-          "description": "The customer must sign the appointment to prove its authenticity. The appointment is broken down into three subsections to allow for easier decoding in solidity. These must be encoded separately before being hashed and signed.\n\n#### Example signature\n\n```\nconst basicBytes = ethers.utils.defaultAbiCoder.encode(\n  [\n    \"uint\", \n    \"uint\", \n    \"uint\", \n    \"uint\", \n    \"uint\", \n    \"uint\", \n    \"bytes32\"\n  ],\n  [\n    request.id,\n    request.nonce,\n    request.startBlock,\n    request.endBlock,\n    request.challengePeriod,\n    request.refund,\n    request.paymentHash\n  ]\n);\n\nconst callBytes = ethers.utils.defaultAbiCoder.encode(\n  [\n    \"address\", \n    \"address\", \n    \"uint\", \n    \"bytes\"\n  ],\n  [\n    request.contractAddress, \n    request.customerAddress, \n    request.gasLimit, \n    request.data\n  ]\n);\n\nconst conditionBytes = ethers.utils.defaultAbiCoder.encode(\n  [\n    \"string\", \n    \"bytes\", \n    \"bytes\", \n    \"bytes\", \n    \"uint\"\n  ],\n  [\n    request.eventABI,\n    request.eventArgs,\n    request.preCondition,\n    request.postCondition,\n    request.mode\n  ]\n);\n\nconst appointmentBytes = ethers.utils.defaultAbiCoder.encode(\n  [\n    \"bytes\", \n    \"bytes\", \n    \"bytes\"\n  ], \n  [\n    basicBytes, \n    callBytes,\n    conditionBytes\n  ]\n);\n\nconst hashForSig = ethers.utils.keccak256(appointmentBytes);\nconst customerSig = await wallet.signMessage(ethers.utils.arrayify(hashForSig));\n```\n",
+          "description": "The customer must sign the appointment to prove its authenticity. The appointment is broken down into three subsections to allow for easier decoding in solidity. These must be encoded separately before being hashed and signed.\n\n#### Example signature\n\n```\nconst basicBytes = ethers.utils.defaultAbiCoder.encode(\n  [\n    \"uint\", \n    \"uint\", \n    \"uint\", \n    \"uint\", \n    \"uint\", \n    \"uint\", \n    \"bytes32\"\n  ],\n  [\n    request.id,\n    request.nonce,\n    request.startBlock,\n    request.endBlock,\n    request.challengePeriod,\n    request.refund,\n    request.paymentHash\n  ]\n);\n\nconst callBytes = ethers.utils.defaultAbiCoder.encode(\n  [\n    \"address\", \n    \"address\", \n    \"uint\", \n    \"bytes\"\n  ],\n  [\n    request.contractAddress, \n    request.customerAddress, \n    request.gasLimit, \n    request.data\n  ]\n);\n\nconst conditionBytes = ethers.utils.defaultAbiCoder.encode(\n  [\n    \"address\", \n    \"string\", \n    \"bytes\", \n    \"bytes\", \n    \"bytes\", \n    \"uint\"\n  ],\n  [\n    request.eventAddress,\n    request.eventABI,\n    request.eventArgs,\n    request.preCondition,\n    request.postCondition,\n    request.mode\n  ]\n);\n\nconst appointmentBytes = ethers.utils.defaultAbiCoder.encode(\n  [\n    \"bytes\", \n    \"bytes\", \n    \"bytes\"\n  ], \n  [\n    basicBytes, \n    callBytes,\n    conditionBytes\n  ]\n);\n\nconst hashForSig = ethers.utils.keccak256(appointmentBytes);\nconst customerSig = await wallet.signMessage(ethers.utils.arrayify(hashForSig));\n```\n",
           "example": "0x0870ede99ad9547ca2f45140ac5088291da331379283383278886814419c795d5571f560f302ba9ec45485a5e6cb237224baed39d15597cf530cac162556a6a000"
         }
       }

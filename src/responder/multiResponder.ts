@@ -17,7 +17,8 @@ import { ResponderStore } from "./store";
 export class MultiResponder {
     private readonly zStore: ResponderStore;
     private readonly lockManager = new LockManager();
-    public static readonly PisaGasAllowance = 400000;
+    // it appears that sometimes pisa requires a lot of gas to function - resetting data shards creates contracts... => millions of gas
+    public static readonly PisaGasAllowance = 2000000;
 
     /**
      * The current queue of pending transaction being handled by this responder

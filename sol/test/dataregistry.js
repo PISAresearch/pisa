@@ -77,13 +77,13 @@ contract('DataRegistry', (accounts) => {
     let encoded = web3.eth.abi.encodeParameters(['uint','uint','uint'], [1,2,3]);
 
     // Store the data
-    await registryInstance.setRecord(123, encoded, {from: accounts[7]});
+    await registryInstance.setRecord("0x123", encoded, {from: accounts[7]});
     let shard = await registryInstance.getDataShardIndex.call(blockNo);
-    let data = await registryInstance.fetchRecord.call(shard, accounts[7], 123, 0);
+    let data = await registryInstance.fetchRecord.call(shard, accounts[7], "0x123", 0);
     assert.equal(encoded,data, "Encoded data should be stored in the data registry");
 
     // Confirm there is no "out of bound" exception thrown
-    data = await registryInstance.fetchRecord.call(shard, accounts[7], 123, 2);
+    data = await registryInstance.fetchRecord.call(shard, accounts[7], "0x123", 2);
     assert.notEqual(encoded,data, "No data should be stored!");
   });
 
@@ -99,10 +99,10 @@ contract('DataRegistry', (accounts) => {
     let encoded1 = web3.eth.abi.encodeParameters(['uint','uint'], [6787891,1231232]);
 
     // Store the data
-    await registryInstance.setRecord(123, encoded0, {from: accounts[6]});
-    await registryInstance.setRecord(123, encoded1, {from: accounts[6]});
+    await registryInstance.setRecord("0x123", encoded0, {from: accounts[6]});
+    await registryInstance.setRecord("0x123", encoded1, {from: accounts[6]});
     let shard = await registryInstance.getDataShardIndex.call(blockNo);
-    let data = await registryInstance.fetchRecords.call(shard, accounts[6], 123);
+    let data = await registryInstance.fetchRecords.call(shard, accounts[6], "0x123");
 
     // Check the fetch was successful and then check what we fetched
     assert.equal(encoded0,data[0]);
@@ -110,7 +110,7 @@ contract('DataRegistry', (accounts) => {
     assert.notEqual(encoded1, data[0]);
 
     // No records should exist. So return should be false.
-    data = await registryInstance.fetchRecords.call(shard, accounts[5], 123);
+    data = await registryInstance.fetchRecords.call(shard, accounts[5], "0x123");
     assert.equal(data.length, 0);
   });
 
@@ -126,13 +126,13 @@ contract('DataRegistry', (accounts) => {
     let hash =  web3.utils.keccak256(encoded);
 
     // Store the data
-    await registryInstance.setHash(111111, encoded, {from: accounts[7]});
+    await registryInstance.setHash("0x111111", encoded, {from: accounts[7]});
     let shard = await registryInstance.getDataShardIndex.call(blockNo);
-    let h = await registryInstance.fetchHash.call(shard, accounts[7], 111111, 0);
+    let h = await registryInstance.fetchHash.call(shard, accounts[7], "0x111111", 0);
     assert.equal(h, hash, "Hash should be stored in the data registry");
 
     // Confirm there is no "out of bound" exception thrown
-    h = await registryInstance.fetchHash.call(shard, accounts[7], 111111, 2);
+    h = await registryInstance.fetchHash.call(shard, accounts[7], "0x111111", 2);
     assert.notEqual(hash,h, "No hash should be stored!");
   });
 
@@ -148,10 +148,10 @@ contract('DataRegistry', (accounts) => {
     let encoded1 = web3.eth.abi.encodeParameters(['uint','uint'], [42373248,1917239]);
 
     // Store the data
-    await registryInstance.setHash(999, encoded0, {from: accounts[6]});
-    await registryInstance.setHash(999, encoded1, {from: accounts[6]});
+    await registryInstance.setHash("0x999", encoded0, {from: accounts[6]});
+    await registryInstance.setHash("0x999", encoded1, {from: accounts[6]});
     let shard = await registryInstance.getDataShardIndex.call(blockNo);
-    let data = await registryInstance.fetchHashes.call(shard, accounts[6], 999);
+    let data = await registryInstance.fetchHashes.call(shard, accounts[6], "0x999");
 
     // Check the fetch was successful and then check what we fetched
     assert.equal(web3.utils.keccak256(encoded0),data[0]);
@@ -159,7 +159,7 @@ contract('DataRegistry', (accounts) => {
     assert.notEqual(web3.utils.keccak256(encoded1), data[0]);
 
     // No records should exist. So return should be false.
-    data = await registryInstance.fetchRecords.call(shard, accounts[5], 999);
+    data = await registryInstance.fetchRecords.call(shard, accounts[5], "0x999");
     assert.equal(data.length, 0);
   });
 
@@ -182,12 +182,12 @@ contract('DataRegistry', (accounts) => {
         let encoded2 = web3.eth.abi.encodeParameters(['uint','uint','uint'], [oldtimestamp-10,oldtimestamp+10,5]);
 
         // Store encoded data from an account
-        let result = await registryInstance.setRecord(123, encoded, {from: accounts[9]});
+        let result = await registryInstance.setRecord("0x123", encoded, {from: accounts[9]});
         let datashard =  await registryInstance.getDataShardIndex.call(oldtimestamp);
         let addr = await registryInstance.getDataShardAddress.call(oldtimestamp);
 
         // Store different encoded data from another account
-        result = await registryInstance.setRecord(123, encoded2, {from: accounts[6]});
+        result = await registryInstance.setRecord("0x123", encoded2, {from: accounts[6]});
         let samedatashard =  await registryInstance.getDataShardIndex.call(oldtimestamp);
         let sameaddr = await registryInstance.getDataShardAddress.call(oldtimestamp);
 
