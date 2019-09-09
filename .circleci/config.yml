@@ -96,4 +96,7 @@ workflows:
     jobs:
       - build
       - contract-test
-      - integration-test
+      - integration-test:
+          filters:
+            tags:
+              only: /v.*/
