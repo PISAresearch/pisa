@@ -140,10 +140,11 @@ describe("GasPriceEstimator", () => {
         const gasPriceEstimator = new GasPriceEstimator(provider, blockCache);
         const endBlock = 2000;
         const estimate = await gasPriceEstimator.estimate(endBlock);
-        const expectedValue = new ExponentialGasCurve(currentGasPrice, endBlock - 500).getGasPrice(
+        const expectedValue = new ExponentialGasCurve(currentGasPrice, endBlock - currentBlock).getGasPrice(
             endBlock - currentBlock
         );
 
         expect(estimate.toNumber()).to.equal(expectedValue.toNumber());
+        expect(estimate.toNumber()).to.not.be.greaterThan(ExponentialGasCurve.MAX_GAS_PRICE)
     });
 });

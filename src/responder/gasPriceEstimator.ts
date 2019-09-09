@@ -27,8 +27,8 @@ export class GasPriceEstimator {
 
         const timeLeft = endBlock - currentHead.number;
 
-        // we set that the current gas price should be at the end block - 500
-        const curve = new ExponentialGasCurve(currentPrice, endBlock - 500);
+        // we set that the current gas price to be the current estimate
+        const curve = new ExponentialGasCurve(currentPrice, timeLeft);
         return curve.getGasPrice(Math.max(timeLeft, 0));
     }
 }
