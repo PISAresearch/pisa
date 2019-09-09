@@ -2,7 +2,7 @@
   "swagger": "2.0",
   "info": {
     "description": "PISA is an accountable watching service. PISA can be hired to watch for on-chain events by requesting an appointment. At its core PISA is a watch and respond service, you can configure PISA to watch for EVM events and provide it with data to respond with if the event occurs.\n",
-    "version": "0.1.0 Alpha",
+    "version": "0.1.1 Alpha",
     "title": "PISA Watchtower",
     "contact": {
       "email": "cpbuckland88@gmail.com"
