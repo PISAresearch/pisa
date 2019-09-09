@@ -90,13 +90,29 @@ jobs:
           path: ./logs/
       - store_artifacts:
           path: ./test/integration/remote/logs/
+  build-tag:
+    working_directory: ~/test
+    machine:
+      image: circleci/classic:201808-01
+      docker_layer_caching: true
+    steps:
+      - checkout
+      - run: 
+          name: build docker
+          command: docker build --target deploy -t pisaresearch/pisa:$CIRCLE_TAG -f docker/app.Dockerfile .
+      - run: 
+          name: push docker
+          command: |
+              echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
+              docker push pisaresearch/pisa:$CIRCLE_TAG
 workflows:
   version: 2
   build:
     jobs:
       - build
       - contract-test
-      - integration-test:
+      - integration-test
+      - build-tag:
           filters:
             tags:
               only: /v.*/
