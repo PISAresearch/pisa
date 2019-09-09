@@ -173,6 +173,8 @@ export class ParityContainer extends DockerContainer {
             validator.account,
             "--reseal-on-txs",
             "none",
+            "--reseal-min-period", // to make multiple transaction confirm at the same time
+            "0", // see https://github.com/wbwangk/parity-wiki/blob/master/Private-development-chain.md#customizing-the-development-chain
             "--usd-per-tx",
             "0"
         ];
