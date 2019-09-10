@@ -14,7 +14,7 @@ module.exports = {
   networks: {
     development: {
       network_id: "*",
-      gas: 7500000,
+      gas: 8000000,
       provider: function() {
         return provider;
       },
