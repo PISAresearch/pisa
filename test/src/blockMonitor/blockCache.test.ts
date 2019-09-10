@@ -1,5 +1,4 @@
 import "mocha";
-import { spy } from "ts-mockito";
 import { expect } from "chai";
 import { BlockCache, getConfirmations } from "../../../src/blockMonitor";
 import { ArgumentError, IBlockStub, TransactionHashes, ApplicationError, BlockItemStore } from "../../../src/dataEntities";
