@@ -56,6 +56,20 @@ export interface ResponderBlock extends IBlockStub {
 export interface Block extends IBlockStub, Logs, Transactions, TransactionHashes {}
 
 export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService {
+    // Keys used by the BlockCache
+    /** Stores the content of the block. */
+    public static KEY_BLOCK = "block";
+    /** True if the block was attached to the BlockCache; otherwise the block is still 'detached'. */
+    public static KEY_ATTACHED = "attached";
+
+    // Keys used by the BlockchainMachine
+    /** Stores the anchor state computed for this block; indexed by component. */
+    public static KEY_STATE = "state";
+
+    /** Stores the anchor state of the nearest ancestor (including the block itself)s
+     * that was emitted as a "new head"; indexed by component. */
+    public static KEY_PREVEMITTEDSTATE = "prevEmittedState";
+
     private readonly subDb: LevelUp<EncodingDown<string, any>>;
     constructor(db: LevelUp<EncodingDown<string, any>>) {
         super("block-item-store");

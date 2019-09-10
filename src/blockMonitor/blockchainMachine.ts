@@ -123,19 +123,25 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
                 if (this.blockProcessor.blockCache.hasBlock(block.parentHash)) {
                     const parentBlock = this.blockProcessor.blockCache.getBlock(block.parentHash);
 
-                    prevHeadAnchorState = this.blockItemStore.getItem(parentBlock.hash, `${component.name}:prevEmittedState`);
+                    prevHeadAnchorState = this.blockItemStore.getItem(parentBlock.hash, `${component.name}:${BlockItemStore.KEY_PREVEMITTEDSTATE}`);
 
                     const prevAnchorState =
-                        this.blockItemStore.getItem(parentBlock.hash, `${component.name}:state`) || component.reducer.getInitialState(parentBlock);
+                        this.blockItemStore.getItem(parentBlock.hash, `${component.name}:${BlockItemStore.KEY_STATE}`) ||
+                        component.reducer.getInitialState(parentBlock);
 
                     newState = component.reducer.reduce(prevAnchorState, block);
                 } else {
                     newState = component.reducer.getInitialState(block);
                 }
 
-                await this.blockItemStore.putBlockItem(block.number, block.hash, `${component.name}:state`, newState);
+                await this.blockItemStore.putBlockItem(block.number, block.hash, `${component.name}:${BlockItemStore.KEY_STATE}`, newState);
                 if (prevHeadAnchorState) {
-                    await this.blockItemStore.putBlockItem(block.number, block.hash, `${component.name}:prevEmittedState`, prevHeadAnchorState);
+                    await this.blockItemStore.putBlockItem(
+                        block.number,
+                        block.hash,
+                        `${component.name}:${BlockItemStore.KEY_PREVEMITTEDSTATE}`,
+                        prevHeadAnchorState
+                    );
                 }
             }
         } finally {
@@ -152,7 +158,7 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
             // components
 
             for (const component of this.components) {
-                const state: AnchorState = this.blockItemStore.getItem(head.hash, `${component.name}:state`);
+                const state: AnchorState = this.blockItemStore.getItem(head.hash, `${component.name}:${BlockItemStore.KEY_STATE}`);
                 if (state == undefined) {
                     // Since processNewBlock is always called before processNewHead, this should never happen
                     this.logger.error(
@@ -161,10 +167,10 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
                     return;
                 }
 
-                const prevEmittedState: AnchorState | null = this.blockItemStore.getItem(head.hash, `${component.name}:prevEmittedState`);
+                const prevEmittedState: AnchorState | null = this.blockItemStore.getItem(head.hash, `${component.name}:${BlockItemStore.KEY_PREVEMITTEDSTATE}`);
 
                 // this is now the latest anchor stated for an emitted head block; update the store accordingly
-                await this.blockItemStore.putBlockItem(head.number, head.hash, `${component.name}:prevEmittedState`, state);
+                await this.blockItemStore.putBlockItem(head.number, head.hash, `${component.name}:${BlockItemStore.KEY_PREVEMITTEDSTATE}`, state);
 
                 if (prevEmittedState) {
                     // save actions in the store
