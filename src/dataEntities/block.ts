@@ -118,7 +118,7 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
     }
 
     // This behavior is too specific for the needs of the BlockCache; should be refactored
-    // returns the items stored under the key "block" for the specific height, and wether they are
+    // returns the items stored under the key BlockItemStore.KEY_BLOCK for the specific height, and wether they are
     public getBlocksAtHeight(height: number): (TBlock & { attached: boolean })[] {
         const itemsAtHeight = this.itemsByHeight.get(height) || new Set();
         // collect blocks and attachment info
@@ -127,10 +127,10 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
 
         for (const item of itemsAtHeight) {
             // check if it is the actual block
-            if (item.endsWith(":block")) {
-                const itemKey = item.slice(0, -":block".length);
+            if (item.endsWith(`:${BlockItemStore.KEY_BLOCK}`)) {
+                const itemKey = item.slice(0, -`:${BlockItemStore.KEY_BLOCK}`.length);
                 const block = this.items.get(item) as TBlock;
-                const attached = this.items.get(itemKey + ":attached") as boolean;
+                const attached = this.items.get(itemKey + `:${BlockItemStore.KEY_ATTACHED}`) as boolean;
                 blocks.push({ ...block, attached: attached });
             }
         }
