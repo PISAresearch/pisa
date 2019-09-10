@@ -90,7 +90,7 @@ describe("alpha", () => {
         // setup
         const startBlock = await provider.getBlockNumber();
         const helpMessage = "sos";
-        const id = "0x0000000000000000000000000000000000000000000000000000000000000002";
+        const id = "0x0000000000000000000000000000000000000000000000000000000000000004";
         const nonce = 1;
 
         // create an appointment
