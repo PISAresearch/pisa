@@ -4,6 +4,7 @@ import { ArgumentError } from "./errors";
 import { LevelUp } from "levelup";
 import EncodingDown from "encoding-down";
 import { StartStopService } from "./startStop";
+import { AnchorState } from "../blockMonitor/component";
 const sub = require("subleveldown");
 
 export interface IBlockStub {
@@ -63,17 +64,17 @@ export type BlockAndAttached<TBlock extends IBlockStub> = {
 export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService {
     // Keys used by the BlockCache
     /** Stores the content of the block. */
-    public static KEY_BLOCK = "block";
+    private static KEY_BLOCK = "block";
     /** True if the block was attached to the BlockCache; otherwise the block is still 'detached'. */
-    public static KEY_ATTACHED = "attached";
+    private static KEY_ATTACHED = "attached";
 
     // Keys used by the BlockchainMachine
     /** Stores the anchor state computed for this block; indexed by component. */
-    public static KEY_STATE = "state";
+    private static KEY_STATE = "state";
 
     /** Stores the anchor state of the nearest ancestor (including the block itself)s
      * that was emitted as a "new head"; indexed by component. */
-    public static KEY_PREVEMITTEDSTATE = "prevEmittedState";
+    private static KEY_PREVEMITTEDSTATE = "prevEmittedState";
 
     private readonly subDb: LevelUp<EncodingDown<string, any>>;
     constructor(db: LevelUp<EncodingDown<string, any>>) {
@@ -101,6 +102,7 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
     }
     protected async stopInternal() {}
 
+    // should only be used internally, kept public for testing
     public async putBlockItem(blockHeight: number, blockHash: string, itemKey: string, item: any) {
         const memKey = `${blockHash}:${itemKey}`;
         const dbKey = `${blockHeight}:${memKey}`;
@@ -121,6 +123,34 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
         const key = `${blockHash}:${itemKey}`;
         return this.items.get(key);
     }
+
+    public block = {
+        get: (blockHash: string): TBlock =>
+            this.getItem(blockHash, BlockItemStore.KEY_BLOCK), // prettier-ignore
+        set: (blockHeight: number, blockHash: string, block: TBlock) =>
+            this.putBlockItem(blockHeight, blockHash, BlockItemStore.KEY_BLOCK, block) // prettier-ignore
+    };
+
+    public attached = {
+        get: (blockHash: string): boolean =>
+            this.getItem(blockHash, BlockItemStore.KEY_ATTACHED), // prettier-ignore
+        set: (blockHeight: number, blockHash: string, attached: boolean) =>
+            this.putBlockItem(blockHeight, blockHash, BlockItemStore.KEY_ATTACHED, attached) // prettier-ignore
+    };
+
+    public anchorState = {
+        get: <TAnchorState>(componentName: string, blockHash: string): TAnchorState =>
+            this.getItem(blockHash, `${componentName}:${BlockItemStore.KEY_STATE}`), // prettier-ignore
+        set: (componentName: string, blockHeight: number, blockHash: string, newState: AnchorState) =>
+            this.putBlockItem(blockHeight, blockHash, `${componentName}:${BlockItemStore.KEY_STATE}`, newState)
+    };
+
+    public prevEmittedAnchorState = {
+        get: <TAnchorState>(componentName: string, blockHash: string): TAnchorState =>
+            this.getItem(blockHash, `${componentName}:${BlockItemStore.KEY_PREVEMITTEDSTATE}`), // prettier-ignore
+        set: (componentName: string, blockHeight: number, blockHash: string, newPrevEmittedState: AnchorState) =>
+            this.putBlockItem(blockHeight, blockHash, `${componentName}:${BlockItemStore.KEY_PREVEMITTEDSTATE}`, newPrevEmittedState)
+    };
 
     /**
      * Returns the items stored under the key BlockItemStore.KEY_BLOCK for the specific height, and whether they are attached or not.

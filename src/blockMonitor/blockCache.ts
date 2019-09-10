@@ -123,7 +123,7 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
 
         for (const { block } of blocksToAdd) {
             // Update the block in the db (as it is now attached)
-            await this.blockStore.putBlockItem(height, block.hash, BlockItemStore.KEY_ATTACHED, true);
+            await this.blockStore.attached.set(height, block.hash, true);
 
             // A detached block became attached, thus we need to emit the new block event
             await this.emitNewBlockEvent(block);
@@ -167,7 +167,7 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
             // Acquire the lock, as multiple adds cannot safely occur in parallel
             await this.lock.acquire();
 
-            const attached = this.blockStore.getItem(block.hash, BlockItemStore.KEY_ATTACHED);
+            const attached = this.blockStore.attached.get(block.hash);
             if (attached === true) return BlockAddResult.NotAddedAlreadyExisted; // block already added
             if (block.number < this.minHeight) return BlockAddResult.NotAddedBlockNumberTooLow; // block already too deep, nothing to do
             if (attached === false) return BlockAddResult.NotAddedAlreadyExistedDetached; // block already detached
@@ -182,8 +182,8 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
 
             if (this.canAttachBlock(block)) {
                 // This should happen atomically once the BlockStoreItem is refactored to allow batching
-                await this.blockStore.putBlockItem(block.number, block.hash, BlockItemStore.KEY_BLOCK, block);
-                await this.blockStore.putBlockItem(block.number, block.hash, BlockItemStore.KEY_ATTACHED, true);
+                await this.blockStore.block.set(block.number, block.hash, block);
+                await this.blockStore.attached.set(block.number, block.hash, true);
 
                 await this.emitNewBlockEvent(block);
 
@@ -199,8 +199,8 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
                 return BlockAddResult.Added;
             } else {
                 // This should happen atomically once the BlockStoreItem is refactored to allow batching
-                await this.blockStore.putBlockItem(block.number, block.hash, BlockItemStore.KEY_BLOCK, block);
-                await this.blockStore.putBlockItem(block.number, block.hash, BlockItemStore.KEY_ATTACHED, false);
+                await this.blockStore.block.set(block.number, block.hash, block);
+                await this.blockStore.attached.set(block.number, block.hash, false);
                 return BlockAddResult.AddedDetached;
             }
         } finally {
@@ -213,7 +213,7 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
      * @param blockHash
      */
     public getBlock(blockHash: string): Readonly<TBlock> {
-        const block = this.blockStore.getItem(blockHash, BlockItemStore.KEY_BLOCK);
+        const block = this.blockStore.block.get(blockHash);
         if (!block) throw new ApplicationError(`Block not found for hash: ${blockHash}.`);
         return block;
     }
@@ -222,8 +222,8 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
      * Returns true if the block with hash `blockHash` is currently in cache; if `includeDetached` is `true`, detached blocks are also considered.
      **/
     public hasBlock(blockHash: string, includeDetached: boolean = false): boolean {
-        const block = this.blockStore.getItem(blockHash, BlockItemStore.KEY_BLOCK);
-        const attached = this.blockStore.getItem(blockHash, BlockItemStore.KEY_ATTACHED);
+        const block = this.blockStore.block.get(blockHash);
+        const attached = this.blockStore.attached.get(blockHash);
 
         if (!includeDetached && !attached) return false;
         else return !!block;

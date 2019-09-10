@@ -344,8 +344,8 @@ describe("BlockchainMachine", () => {
         const [actions] = capture(spiedComponent.applyAction).last();
 
         const nextStateExpected = { someNumber: initialState.someNumber + blocks[1].number + blocks[2].number };
-        expect(prevState).to.deep.equal(initialState);
-        expect(nextState).to.deep.equal(nextStateExpected);
+        expect(prevState, "prevState is correct").to.deep.equal(initialState);
+        expect(nextState, "nextState is correct").to.deep.equal(nextStateExpected);
         expect(actions).to.deep.include({ prevState: initialState, newState: nextStateExpected });
 
         await bm.stop();
