@@ -20,22 +20,11 @@ async function getBlockFromProvider(
     blockNumberOrHash: string | number,
     includeTransactions: boolean = false
 ) {
-    try {
-        const block = await provider.getBlock(blockNumberOrHash, includeTransactions);
+    const block = await provider.getBlock(blockNumberOrHash, includeTransactions);
 
-        if (!block) throw new BlockFetchingError(`The provider returned null for block ${blockNumberOrHash}.`);
+    if (!block) throw new BlockFetchingError(`The provider returned null for block ${blockNumberOrHash}.`);
 
-        return block;
-    } catch (doh) {
-        // On infura the provider occasionally returns an error with message 'unknown block'.
-        // See https://github.com/PISAresearch/pisa/issues/227
-        // We rethrow this as BlockFetchingError, and rethrow any other error as-is.
-        if (doh instanceof Error && doh.message === "unknown block") {
-            throw new BlockFetchingError(`Error while fetching block ${blockNumberOrHash} from the provider.`, doh);
-        } else {
-            throw doh;
-        }
-    }
+    return block;
 }
 
 export const blockStubAndTxHashFactory = (provider: ethers.providers.Provider) => async (
@@ -54,29 +43,42 @@ export const blockStubAndTxHashFactory = (provider: ethers.providers.Provider) =
 export const blockFactory = (provider: ethers.providers.Provider) => async (
     blockNumberOrHash: string | number
 ): Promise<Block> => {
-    const block = await getBlockFromProvider(provider, blockNumberOrHash, true);
+    try {
+        const block = await getBlockFromProvider(provider, blockNumberOrHash, true);
 
-    // We could filter out the logs that we are not interesting in order to save space
-    // (e.g.: only keep the logs from the DataRegistry).
-    const logs = await provider.getLogs({
-        blockHash: block.hash
-    });
+        // We could filter out the logs that we are not interesting in order to save space
+        // (e.g.: only keep the logs from the DataRegistry).
+        const logs = await provider.getLogs({
+            blockHash: block.hash
+        });
 
-    const transactions = (block.transactions as any) as ethers.providers.TransactionResponse[];
-    for (const tx of transactions) {
-        // we should use chain id, but for some reason chain id is not present in transactions from ethersjs
-        // therefore we fallback to network id when chain id is not present
-        if (tx.chainId == undefined) tx.chainId = (tx as any).networkId;
+        const transactions = (block.transactions as any) as ethers.providers.TransactionResponse[];
+        for (const tx of transactions) {
+            // we should use chain id, but for some reason chain id is not present in transactions from ethersjs
+            // therefore we fallback to network id when chain id is not present
+            if (tx.chainId == undefined) tx.chainId = (tx as any).networkId;
+        }
+
+        return {
+            hash: block.hash,
+            number: block.number,
+            parentHash: block.parentHash,
+            transactions: transactions,
+            transactionHashes: ((block.transactions as any) as ethers.providers.TransactionResponse[]).map(
+                t => t.hash!
+            ),
+            logs
+        };
+    } catch (doh) {
+        // On infura the provider occasionally returns an error with message 'unknown block'.
+        // See https://github.com/PISAresearch/pisa/issues/227
+        // We rethrow this as BlockFetchingError, and rethrow any other error as-is.
+        if (doh instanceof Error && doh.message === "unknown block") {
+            throw new BlockFetchingError(`Error while fetching block ${blockNumberOrHash} from the provider.`, doh);
+        } else {
+            throw doh;
+        }
     }
-
-    return {
-        hash: block.hash,
-        number: block.number,
-        parentHash: block.parentHash,
-        transactions: transactions,
-        transactionHashes: ((block.transactions as any) as ethers.providers.TransactionResponse[]).map(t => t.hash!),
-        logs
-    };
 };
 
 /**
