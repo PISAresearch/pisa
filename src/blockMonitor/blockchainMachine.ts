@@ -68,7 +68,15 @@ export class ActionStore extends StartStopService {
     }
 }
 
-// Generic class to handle the anchor statee of a blockchain state machine
+/**
+ * Generic class to handle the anchor state of a blockchain state machine.
+ *
+ * For each block that is added to the cache (and for each added component), this will compute the new anchor state for
+ * that component. Moreover, every time a "new head" event is emitted, this class will use the component's `detectChanges`
+ * function to compute the appropriate actions, by comparing the newly computed anchor state with the anchor state of the
+ * closest ancestor that was emitted as "new head". Since the latter might no longer be in the BlockCache, its anchor state
+ * is propagated in each subsequent block; thus, every block stores its anchor state, and the "closest emitted ancestor"'s one.
+ */
 export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopService {
     private components: Component<AnchorState, IBlockStub, ComponentAction>[] = [];
     private componentNames: Set<string> = new Set();
