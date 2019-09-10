@@ -6,6 +6,7 @@ import { Block, TransactionHashes } from "../dataEntities/block";
 import { BlockFetchingError, ApplicationError } from "../dataEntities/errors";
 import { LevelUp } from "levelup";
 import EncodingDown from "encoding-down";
+import { createNamedLogger, Logger } from "../logger";
 const sub = require("subleveldown");
 
 type BlockFactory<TBlock> = (provider: ethers.providers.Provider) => (blockNumberOrHash: number | string) => Promise<TBlock>;
@@ -83,8 +84,10 @@ export const blockFactory = (provider: ethers.providers.Provider) => async (bloc
 
 export class BlockProcessorStore {
     private readonly subDb: LevelUp<EncodingDown<string, any>>;
+    private logger: Logger;
     constructor(db: LevelUp<EncodingDown<string, any>>) {
         this.subDb = sub(db, `block-processor`, { valueEncoding: "json" });
+        this.logger = createNamedLogger(`block-processor-store`);
     }
 
     async getLatestHeadNumber() {
@@ -92,8 +95,11 @@ export class BlockProcessorStore {
             const headObj = await this.subDb.get("head");
             return (headObj as { head: number }).head;
         } catch (doh) {
-            // TODO: errors other than "key not found" should be logged
-            return undefined; // likely key not found
+            if (doh.type !== "NotFoundError") {
+                // Log any error, except for "key not found", which is expected
+                this.logger.error(doh);
+            }
+            return undefined;
         }
     }
     async setLatestHeadNumber(value: number) {
@@ -111,9 +117,6 @@ export class BlockProcessorStore {
 export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService {
     // keeps track of the last block hash received, in order to correctly emit NEW_HEAD_EVENT; null on startup
     private lastBlockHashReceived: string | null;
-
-    // set of blocks currently emitted in a NEW_HEAD_EVENT
-    private emittedBlockHeads: WeakSet<Readonly<TBlock>> = new WeakSet();
 
     private mBlockCache: BlockCache<TBlock>;
 
@@ -167,25 +170,23 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
      */
     public removeNewHeadListener(listener: NewHeadListener<TBlock>) {
         const idx = this.newHeadListeners.findIndex(l => l === listener);
-        if (idx === -1) throw new ApplicationError("No such listener exists.");
+        if (idx === -1) throw new ApplicationError(`No such listener exists: ${listener}.`);
 
         this.newHeadListeners.splice(idx, 1);
     }
 
-    // updates the new head block in the cache and emits the appropriate events
+    // emits the appropriate events and updates the new head block in the store
     private async processNewHead(headBlock: Readonly<TBlock>) {
         try {
             this.mBlockCache.setHead(headBlock.hash);
-
-            await this.store.setLatestHeadNumber(headBlock.number);
 
             // only emit new head events after it is started
             if (this.started) {
                 // Emit the new head
                 await Promise.all(this.newHeadListeners.map(listener => listener(headBlock)));
-
-                this.emittedBlockHeads.add(headBlock);
             }
+
+            await this.store.setLatestHeadNumber(headBlock.number);
         } catch (doh) {
             this.logger.error(doh);
         }

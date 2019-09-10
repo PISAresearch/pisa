@@ -54,7 +54,7 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
     // As the BlockCache has an on-disk store, a lock is used to serialize parallel write accesses
     private lock = new Lock();
 
-    // True before the first block ever is added
+    /** True before the first block ever is added */
     public get isEmpty() {
         return this.mIsEmpty;
     }
@@ -62,8 +62,8 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
     // the current head of the chain
     private headHash: string;
 
-    // Height of the highest known block
     private mMaxHeight = 0;
+    /** Height of the highest known block */
     public get maxHeight() {
         return this.mMaxHeight;
     }
@@ -87,7 +87,7 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
      */
     constructor(public readonly maxDepth: number, private readonly blockStore: BlockItemStore<TBlock>) {}
 
-    // Remove all the blocks that are deeper than maxDepth, and all connected information.
+    /** Remove all the blocks that are deeper than maxDepth, and all connected information. */
     private async prune() {
         while (this.pruneHeight < this.minHeight) {
             await this.blockStore.deleteItemsAtHeight(this.pruneHeight);
@@ -113,15 +113,16 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
         }
     }
 
-    // Processes all the detached blocks at the given height, marking them as attached if necessary.
-    // If there are any, add them and repeat with the next height (as some blocks might now have become attached)
+    /**
+     * Processes all the detached blocks at the given height, marking them as attached if necessary.
+     * If there are any, add them and repeat with the next height (as some blocks might now have become attached)
+     */
     private async processDetached(height: number) {
         const blocksAtHeight = this.blockStore.getBlocksAtHeight(height);
         const blocksToAdd = blocksAtHeight.filter(b => !b.attached);
 
         for (const block of blocksToAdd) {
             await this.blockStore.putBlockItem(height, block.hash, "attached", true);
-            block.attached = true;
 
             // A bit ugly, and it would break if TBlock already contained an "attached" property.
             // Perhaps a refactoring of the BlockItemStore could make this cleaner.
@@ -139,8 +140,10 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
         }
     }
 
-    // If minHeight is increased after adding some blocks, some previously detached blocks should now be moved into blocksByHash.
-    // Since the process itself could (in rare circumstances) also increase minHeight, we check if this is the case and repeat the cycle.
+    /**
+     * If minHeight is increased after adding some blocks, some previously detached blocks should now be moved into blocksByHash.
+     * Since the process itself could (in rare circumstances) also increase minHeight, we check if this is the case and repeat the cycle.
+     */
     private async processDetachedBlocksAtMinHeight() {
         let prevMinHeight: number;
         do {
@@ -181,7 +184,7 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
             }
 
             if (this.canAttachBlock(block)) {
-                // TODO: this should happen atomically
+                // This should happen atomically once the BlockStoreItem is refactored to allow batching
                 await this.blockStore.putBlockItem(block.number, block.hash, "block", block);
                 await this.blockStore.putBlockItem(block.number, block.hash, "attached", true);
 
@@ -198,7 +201,7 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
                 await this.processDetachedBlocksAtMinHeight();
                 return BlockAddResult.Added;
             } else {
-                // TODO: this should happen atomically
+                // This should happen atomically once the BlockStoreItem is refactored to allow batching
                 await this.blockStore.putBlockItem(block.number, block.hash, "block", block);
                 await this.blockStore.putBlockItem(block.number, block.hash, "attached", false);
                 return BlockAddResult.AddedDetached;
@@ -242,7 +245,7 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
      */
     public removeNewBlockListener(listener: NewBlockListener<TBlock>) {
         const idx = this.newBlockListeners.findIndex(l => l === listener);
-        if (idx === -1) throw new ApplicationError("No such listener exists.");
+        if (idx === -1) throw new ApplicationError(`No such listener exists: ${listener}.`);
 
         this.newBlockListeners.splice(idx, 1);
     }

@@ -32,7 +32,7 @@ export class ActionStore extends StartStopService {
             const componentName = key.substring(0, i);
             const actionId = key.substring(i + 1);
 
-            const actionWithId = this.addId(value, actionId);
+            const actionWithId = { id: actionId, action: value };
 
             const componentActions = this.actions.get(componentName);
             if (componentActions) componentActions.add(actionWithId);
@@ -41,20 +41,14 @@ export class ActionStore extends StartStopService {
     }
     protected async stopInternal() {}
 
-    // commodity function to wrap an action with an existing id, or generate a new unique id if not given
-    private addId(action: ComponentAction, id?: string): ActionAndId {
-        return {
-            id: id || uuid(),
-            action
-        };
-    }
-
     public getActions(componentName: string) {
         return this.actions.get(componentName) || new Set();
     }
 
     public async storeActions(componentName: string, actions: ComponentAction[]) {
-        const actionsWithId = actions.map(a => this.addId(a));
+        // we forge unique ids for actions to uniquely distinguish them in the db
+        const actionsWithId = actions.map(a => ({ id: uuid(), action: a }));
+
         const componentSet = this.actions.get(componentName);
         if (componentSet) actionsWithId.forEach(a => componentSet.add(a));
         else this.actions.set(componentName, new Set(actionsWithId));
@@ -129,9 +123,7 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
                 if (this.blockProcessor.blockCache.hasBlock(block.parentHash)) {
                     const parentBlock = this.blockProcessor.blockCache.getBlock(block.parentHash);
 
-                    if (parentBlock) {
-                        prevHeadAnchorState = this.blockItemStore.getItem(parentBlock.hash, `${component.name}:prevEmittedState`);
-                    }
+                    prevHeadAnchorState = this.blockItemStore.getItem(parentBlock.hash, `${component.name}:prevEmittedState`);
 
                     const prevAnchorState =
                         this.blockItemStore.getItem(parentBlock.hash, `${component.name}:state`) || component.reducer.getInitialState(parentBlock);
@@ -141,7 +133,6 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
                     newState = component.reducer.getInitialState(block);
                 }
 
-                // states.set(block, newState);
                 await this.blockItemStore.putBlockItem(block.number, block.hash, `${component.name}:state`, newState);
                 if (prevHeadAnchorState) {
                     await this.blockItemStore.putBlockItem(block.number, block.hash, `${component.name}:prevEmittedState`, prevHeadAnchorState);
