@@ -121,15 +121,12 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
         const blocksAtHeight = this.blockStore.getBlocksAtHeight(height);
         const blocksToAdd = blocksAtHeight.filter(b => !b.attached);
 
-        for (const block of blocksToAdd) {
+        for (const { block } of blocksToAdd) {
+            // Update the block in the db (as it is now attached)
             await this.blockStore.putBlockItem(height, block.hash, BlockItemStore.KEY_ATTACHED, true);
 
-            // A bit ugly, and it would break if TBlock already contained an "attached" property.
-            // Perhaps a refactoring of the BlockItemStore could make this cleaner.
-            const { attached, ...others } = block;
-            const cleanedBlock: TBlock = ({ ...others } as unknown) as TBlock;
-
-            await this.emitNewBlockEvent(cleanedBlock);
+            // A detached block became attached, thus we need to emit the new block event
+            await this.emitNewBlockEvent(block);
         }
 
         if (blocksToAdd.length > 0) {

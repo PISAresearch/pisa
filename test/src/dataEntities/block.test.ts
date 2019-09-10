@@ -107,12 +107,12 @@ describe("BlockItemStore", () => {
         await addSampleData(store);
 
         // sort the returned elements, as order is not relevant
-        const result = store.getBlocksAtHeight(10).sort((a, b) => (a.hash < b.hash ? -1 : 1));
+        const result = store.getBlocksAtHeight(10).sort((a, b) => (a.block.hash < b.block.hash ? -1 : 1));
 
         expect(result.length, "returns the right number of blocks").to.equal(2);
-        expect(result[0]).to.deep.include(block10a);
+        expect(result[0].block).to.deep.equal(block10a);
         expect(result[0].attached).to.be.true;
-        expect(result[1]).to.deep.include(block10b);
+        expect(result[1].block).to.deep.equal(block10b);
         expect(result[1].attached).to.be.false;
     });
 

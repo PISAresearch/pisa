@@ -55,6 +55,11 @@ export interface ResponderBlock extends IBlockStub {
 
 export interface Block extends IBlockStub, Logs, Transactions, TransactionHashes {}
 
+export type BlockAndAttached<TBlock extends IBlockStub> = {
+    block: TBlock;
+    attached: boolean;
+};
+
 export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService {
     // Keys used by the BlockCache
     /** Stores the content of the block. */
@@ -117,13 +122,14 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
         return this.items.get(key);
     }
 
-    // This behavior is too specific for the needs of the BlockCache; should be refactored
-    // returns the items stored under the key BlockItemStore.KEY_BLOCK for the specific height, and wether they are
-    public getBlocksAtHeight(height: number): (TBlock & { attached: boolean })[] {
+    /**
+     * Returns the items stored under the key BlockItemStore.KEY_BLOCK for the specific height, and whether they are attached or not.
+     **/
+    public getBlocksAtHeight(height: number): BlockAndAttached<TBlock>[] {
         const itemsAtHeight = this.itemsByHeight.get(height) || new Set();
         // collect blocks and attachment info
 
-        const blocks: (TBlock & { attached: boolean })[] = [];
+        const blocks: BlockAndAttached<TBlock>[] = [];
 
         for (const item of itemsAtHeight) {
             // check if it is the actual block
@@ -131,13 +137,13 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
                 const itemKey = item.slice(0, -`:${BlockItemStore.KEY_BLOCK}`.length);
                 const block = this.items.get(item) as TBlock;
                 const attached = this.items.get(itemKey + `:${BlockItemStore.KEY_ATTACHED}`) as boolean;
-                blocks.push({ ...block, attached: attached });
+                blocks.push({ block, attached });
             }
         }
         return blocks;
     }
 
-    // delete all blocks and supplements
+    /** Delete all blocks and other indexed items for that height. */
     public async deleteItemsAtHeight(height: number) {
         const itemsAtHeight = this.itemsByHeight.get(height);
         if (itemsAtHeight) {
