@@ -6,6 +6,7 @@ import { Logs, IBlockStub, hasLogMatchingEventFilter } from "../dataEntities/blo
 import { StateReducer, MappedStateReducer, MappedState, Component, BlockNumberState, BlockNumberReducer } from "../blockMonitor/component";
 import logger from "../logger";
 import { MultiResponder } from "../responder";
+import { EventFilter } from "ethers";
 
 export enum WatcherAppointmentState {
     WATCHING,
@@ -28,15 +29,20 @@ export type WatcherAppointmentAnchorState = WatcherAppointmentAnchorStateWatchin
 /** The complete anchor state for the watcher, that also includes the block number */
 type WatcherAnchorState = MappedState<WatcherAppointmentAnchorState> & BlockNumberState;
 
-export class WatcherAppointmentStateReducer implements StateReducer<WatcherAppointmentAnchorState, IBlockStub & Logs> {
-    constructor(private cache: ReadOnlyBlockCache<IBlockStub & Logs>, private appointment: Appointment) {
-        const filter = this.appointment.eventFilter;
-        if (!filter.topics) throw new ApplicationError(`topics should not be undefined`);
+export class EventFilterStateReducer implements StateReducer<WatcherAppointmentAnchorState, IBlockStub & Logs> {
+    constructor(
+        private cache: ReadOnlyBlockCache<IBlockStub & Logs>,
+        private filter: EventFilter,
+        private startBlock: number
+    ) {
+        if (!filter.topics) throw new ApplicationError(`topics should be defined`);
     }
     public getInitialState(block: IBlockStub & Logs): WatcherAppointmentAnchorState {
-        const filter = this.appointment.eventFilter;
-
-        const eventAncestor = this.cache.findAncestor(block.hash, ancestor => hasLogMatchingEventFilter(ancestor, filter), this.appointment.startBlock);
+        const eventAncestor = this.cache.findAncestor(
+            block.hash,
+            ancestor => hasLogMatchingEventFilter(ancestor, this.filter),
+            this.startBlock
+        );
 
         if (!eventAncestor) {
             return {
@@ -50,7 +56,7 @@ export class WatcherAppointmentStateReducer implements StateReducer<WatcherAppoi
         }
     }
     public reduce(prevState: WatcherAppointmentAnchorState, block: IBlockStub & Logs): WatcherAppointmentAnchorState {
-        if (prevState.state === WatcherAppointmentState.WATCHING && hasLogMatchingEventFilter(block, this.appointment.eventFilter)) {
+        if (prevState.state === WatcherAppointmentState.WATCHING && hasLogMatchingEventFilter(block, this.filter)) {
             return {
                 state: WatcherAppointmentState.OBSERVED,
                 blockObserved: block.number
@@ -102,7 +108,7 @@ export class Watcher extends Component<WatcherAnchorState, IBlockStub & Logs, Wa
         super(
             new MappedStateReducer(
                 () => store.getAll(),
-                appointment => new WatcherAppointmentStateReducer(blockCache, appointment),
+                appointment => new EventFilterStateReducer(blockCache, appointment.eventFilter, appointment.startBlock),
                 appointment => appointment.id,
                 new BlockNumberReducer()
             )
@@ -150,7 +156,7 @@ export class Watcher extends Component<WatcherAnchorState, IBlockStub & Logs, Wa
 
             // Log if started watching a new appointment
             if (!prevWatcherAppointmentState && appointmentState.state === WatcherAppointmentState.WATCHING) {
-                logger.info({ state: appointmentState, id: appointmentId, blockNumber: state.blockNumber }, `Started watching for appointment.`);
+                logger.info({ state: appointmentState, id: appointmentId, blockNumber: state.blockNumber }, `Started watching for appointment.`); // prettier-ignore
             }
 
             // Start response if necessary
@@ -190,7 +196,14 @@ export class Watcher extends Component<WatcherAnchorState, IBlockStub & Logs, Wa
     public async applyAction(action: WatcherAction) {
         switch (action.kind) {
             case WatcherActionKind.StartResponse:
-                await this.responder.startResponse(action.appointment, action.blockObserved);
+                await this.responder.startResponse(
+                    this.responder.pisaContractAddress,
+                    action.appointment.encodeForResponse(),
+                    action.appointment.gasLimit + MultiResponder.PisaGasAllowance,
+                    action.appointment.id,
+                    action.blockObserved,
+                    action.blockObserved + action.appointment.challengePeriod
+                );
                 break;
             case WatcherActionKind.RemoveAppointment:
                 await this.store.removeById(action.appointmentId);

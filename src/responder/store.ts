@@ -65,7 +65,7 @@ export class ResponderStore extends StartStopService {
         // update these transactions locally and in the db
         const differenceById = new Map<string, GasQueueItem>();
         difference.forEach(d => {
-            const id = d.request.appointment.id
+            const id = d.request.id
             this.mTransactions.set(id, d);
             differenceById.set(id, d);
         });

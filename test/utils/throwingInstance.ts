@@ -1,4 +1,5 @@
 import { instance } from "ts-mockito";
+import * as chai from "chai";
 
 /**
  * Creates an instance of a mocked object. Calls to methods or properties that have not been stubbed will throw errors
@@ -13,8 +14,8 @@ export default function throwingInstance<TMock extends object>(target: TMock) {
             if (stubbedMethods.includes(prop)) {
                 return Reflect.get(target, prop);
             } else {
-                //We use this to print the error. Throwing an error will not always be called as some other error(indirect consquence of not stubbing) might catch and not log the error
-                console.log(prop + " has not been stubbed. Use when() to stub this method before calling it.");
+                // fail any tests using this instance
+                chai.assert.fail(undefined, prop, prop + " has not been stubbed. Use when() to stub this method before calling it.")
             }
         }
     };
