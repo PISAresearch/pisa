@@ -242,7 +242,7 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
      */
     public removeNewBlockListener(listener: NewBlockListener<TBlock>) {
         const idx = this.newBlockListeners.findIndex(l => l === listener);
-        if (idx === -1) throw new ApplicationError(`No such listener exists: ${listener}.`);
+        if (idx === -1) throw new ApplicationError("No such listener exists.");
 
         this.newBlockListeners.splice(idx, 1);
     }

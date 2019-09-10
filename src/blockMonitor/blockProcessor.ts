@@ -178,7 +178,7 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
      */
     public removeNewHeadListener(listener: NewHeadListener<TBlock>) {
         const idx = this.newHeadListeners.findIndex(l => l === listener);
-        if (idx === -1) throw new ApplicationError(`No such listener exists: ${listener}.`);
+        if (idx === -1) throw new ApplicationError("No such listener exists.");
 
         this.newHeadListeners.splice(idx, 1);
     }
