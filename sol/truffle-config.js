@@ -1,3 +1,9 @@
+const ganache = require("ganache-core")
+const provider = ganache.provider({
+    gasLimit: 8000000,
+    mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect"
+});
+
 module.exports = {
   // Uncommenting the defaults below
   // provides for an easier quick-start with Ganache.
@@ -7,10 +13,11 @@ module.exports = {
 
   networks: {
     development: {
-      host: "0.0.0.0",
-      port: 7545,
       network_id: "*",
-      gas: 7500000
+      gas: 7500000,
+      provider: function() {
+        return provider;
+      },
     },
     test: {
       host: "0.0.0.0",
