@@ -61,6 +61,11 @@ export type BlockAndAttached<TBlock extends IBlockStub> = {
     attached: boolean;
 };
 
+/**
+ * This store is a support structure for the block cache and all the related components that need to store blocks and other data that
+ * is attached to those blocks, but pruning data that is too old. All the items are stored by block number and block hash, and can be
+ * retrieved by block hash only. Moreover, there are methods to retrieve and/or delete all the blocks (and any attached info) at a certain height.
+ */
 export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService {
     // Keys used by the BlockCache
     /** Stores the content of the block. */
@@ -124,6 +129,7 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
         return this.items.get(key);
     }
 
+    // Type safe methods to store blocks
     public block = {
         get: (blockHash: string): TBlock =>
             this.getItem(blockHash, BlockItemStore.KEY_BLOCK), // prettier-ignore
@@ -131,6 +137,7 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
             this.putBlockItem(blockHeight, blockHash, BlockItemStore.KEY_BLOCK, block) // prettier-ignore
     };
 
+    // Type safe methods to store the "attached" boolean for each block (used in the BlockCache)
     public attached = {
         get: (blockHash: string): boolean =>
             this.getItem(blockHash, BlockItemStore.KEY_ATTACHED), // prettier-ignore
@@ -138,6 +145,7 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
             this.putBlockItem(blockHeight, blockHash, BlockItemStore.KEY_ATTACHED, attached) // prettier-ignore
     };
 
+    // Type safe methods to store the anchor state for each block, indexed by component (used in the BlockchainMachine)
     public anchorState = {
         get: <TAnchorState>(componentName: string, blockHash: string): TAnchorState =>
             this.getItem(blockHash, `${componentName}:${BlockItemStore.KEY_STATE}`), // prettier-ignore
@@ -145,6 +153,7 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
             this.putBlockItem(blockHeight, blockHash, `${componentName}:${BlockItemStore.KEY_STATE}`, newState)
     };
 
+    // Type safe methods to store the latest emitted anchor state for each block, indexed by component (used in the BlockchainMachine)
     public prevEmittedAnchorState = {
         get: <TAnchorState>(componentName: string, blockHash: string): TAnchorState =>
             this.getItem(blockHash, `${componentName}:${BlockItemStore.KEY_PREVEMITTEDSTATE}`), // prettier-ignore
