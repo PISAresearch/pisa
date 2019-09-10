@@ -32,7 +32,14 @@ export class PisaTower {
         // is this a relay transaction, if so, add it to the responder.
         // if not, add it to the watcher
         if (appointment.mode === AppointmentMode.Relay) {
-            await this.multiResponder.startResponse(appointment, 0);
+            await this.multiResponder.startResponse(
+                this.multiResponder.pisaContractAddress,
+                appointment.encodeForResponse(),
+                appointment.gasLimit + MultiResponder.PisaGasAllowance,
+                appointment.id,
+                appointment.startBlock,
+                appointment.startBlock + appointment.challengePeriod
+            );
         } else {
             // add this to the store so that other components can pick up on it
             const currentAppointment = this.store.appointmentsByLocator.get(appointment.locator);
@@ -74,9 +81,11 @@ export class HotEthereumAppointmentSigner extends EthereumAppointmentSigner {
     public async signAppointment(appointment: Appointment): Promise<string> {
         const packedData = appointment.encode();
         // now hash the packed data with the address before signing
-        const digest = ethers.utils.keccak256(ethers.utils.defaultAbiCoder.encode(
-            ...groupTuples([["bytes", packedData], ["address", this.pisaContractAddress]])
-        ));        
+        const digest = ethers.utils.keccak256(
+            ethers.utils.defaultAbiCoder.encode(
+                ...groupTuples([["bytes", packedData], ["address", this.pisaContractAddress]])
+            )
+        );
         return await this.signer.signMessage(ethers.utils.arrayify(digest));
     }
 }

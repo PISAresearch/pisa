@@ -2,14 +2,14 @@
   "swagger": "2.0",
   "info": {
     "description": "PISA is an accountable watching service. PISA can be hired to watch for on-chain events by requesting an appointment. At its core PISA is a watch and respond service, you can configure PISA to watch for EVM events and provide it with data to respond with if the event occurs.\n",
-    "version": "0.1.0 Alpha",
+    "version": "0.1.1 Alpha",
     "title": "PISA Watchtower",
     "contact": {
       "email": "cpbuckland88@gmail.com"
     },
     "license": {
-      "name": "Apache 2.0",
-      "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
+      "name": "MIT",
+      "url": "https://opensource.org/licenses/MIT"
     }
   },
   "basePath": "/",
@@ -168,12 +168,12 @@
         "preCondition": {
           "type": "string",
           "description": "Not currently supported, set to `0x`",
-          "example": "0x5bf2b49d8b43dbc21ab4b757d5bebcd3ed6d50c092aa2648c49cd76bce28c9cc"
+          "example": "0x"
         },
         "postCondition": {
           "type": "string",
           "description": "Not currently supported, set to `0x`",
-          "example": "0x5bf2b49d8b43dbc21ab4b757d5bebcd3ed6d50c092aa2648c49cd76bce28c9cc"
+          "example": "0x"
         },
         "customerSig": {
           "type": "string",
