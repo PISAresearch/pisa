@@ -108,6 +108,10 @@ describe("ActionStore", () => {
         await actionStore.start();
     });
 
+    afterEach(async () => {
+        if (actionStore.started) await actionStore.stop();
+    });
+
     it("can store an retrieve some actions", async () => {
         await actionStore.storeActions(componentName, testActions);
 
@@ -193,6 +197,11 @@ describe("BlockchainMachine", () => {
 
         actionStore = new ActionStore(db);
         await actionStore.start();
+    });
+
+    afterEach(async () => {
+        if (actionStore.started) await actionStore.stop();
+        if (blockStore.started) await blockStore.stop();
     });
 
     fnIt<BlockchainMachine<any>>(b => b.addComponent, "throws ApplicationError if already started", async () => {
