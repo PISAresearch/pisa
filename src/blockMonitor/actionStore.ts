@@ -57,8 +57,8 @@ export class ActionStore extends StartStopService {
         else this.actions.set(componentName, new Set(actionsWithId));
 
         let batch = this.subDb.batch();
-        actionsWithId.forEach(actionWithId => {
-            batch = batch.put(componentName + ":" + actionWithId.id, actionWithId.action);
+        actionsWithId.forEach(({ id, action }) => {
+            batch = batch.put(componentName + ":" + id, action);
         });
         await batch.write();
         return actionsWithId;
