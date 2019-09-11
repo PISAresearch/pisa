@@ -81,12 +81,16 @@ describe("BlockItemStore", () => {
     const sampleBlocks: IBlockStub[] = [block10a, block10b, block42];
 
     async function addSampleData(bis: BlockItemStore<IBlockStub>) {
-        await bis.putBlockItem(block10a.number, block10a.hash, "block", block10a);
-        await bis.putBlockItem(block10a.number, block10a.hash, "attached", true);
-        await bis.putBlockItem(block42.number, block42.hash, "block", block42);
-        await bis.putBlockItem(block42.number, block42.hash, "attached", true);
-        await bis.putBlockItem(block10b.number, block10b.hash, "block", block10b);
-        await bis.putBlockItem(block10b.number, block10b.hash, "attached", false);
+        await store.withBatch(
+            async () => {
+                await bis.putBlockItem(block10a.number, block10a.hash, "block", block10a);
+                await bis.putBlockItem(block10a.number, block10a.hash, "attached", true);
+                await bis.putBlockItem(block42.number, block42.hash, "block", block42);
+                await bis.putBlockItem(block42.number, block42.hash, "attached", true);
+                await bis.putBlockItem(block10b.number, block10b.hash, "block", block10b);
+                await bis.putBlockItem(block10b.number, block10b.hash, "attached", false);
+           }
+        );
     }
 
     beforeEach(async () => {
@@ -95,8 +99,14 @@ describe("BlockItemStore", () => {
         await store.start();
     });
 
+    afterEach(async () => {
+        await store.stop();
+    });
+
     it("can store and retrieve an item", async () => {
-        await store.putBlockItem(sampleBlocks[0].number, sampleBlocks[0].hash, sampleKey, sampleValue);
+        await store.withBatch(
+            async () => store.putBlockItem(sampleBlocks[0].number, sampleBlocks[0].hash, sampleKey, sampleValue)
+        );
 
         const storedItem = await store.getItem(sampleBlocks[0].hash, sampleKey);
 
@@ -119,7 +129,7 @@ describe("BlockItemStore", () => {
     fnIt<BlockItemStore<any>>(b => b.deleteItemsAtHeight, "deletes all the items at a specific height", async () => {
         await addSampleData(store);
 
-        await store.deleteItemsAtHeight(10);
+        await store.withBatch(async () => store.deleteItemsAtHeight(10));
 
         // Check that all items at height 10 return undefined, but all the others are not changed
         expect(await store.getItem(block10a.hash, "block")).to.be.undefined;

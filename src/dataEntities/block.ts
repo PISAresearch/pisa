@@ -1,10 +1,11 @@
 import { ethers } from "ethers";
 import { BigNumber } from "ethers/utils";
-import { ArgumentError } from "./errors";
-import { LevelUp } from "levelup";
+import { ArgumentError, ApplicationError } from "./errors";
+import { LevelUp, LevelUpChain } from "levelup";
 import EncodingDown from "encoding-down";
 import { StartStopService } from "./startStop";
 import { AnchorState } from "../blockMonitor/component";
+import { Lock } from "../utils/lock";
 const sub = require("subleveldown");
 
 export interface IBlockStub {
@@ -61,6 +62,9 @@ export type BlockAndAttached<TBlock extends IBlockStub> = {
     attached: boolean;
 };
 
+// Represents an update to the store, so it can be batched with others
+type ItemPut = { blockHeight: number, blockHash: string, itemKey: string, item: any }
+
 /**
  * This store is a support structure for the block cache and all the related components that need to store blocks and other data that
  * is attached to those blocks, but pruning data that is too old. All the items are stored by block number and block hash, and can be
@@ -90,6 +94,9 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
     private itemsByHeight: Map<number, Set<string>> = new Map();
     private items: Map<string, any> = new Map();
 
+    private lock = new Lock();
+    private batch: LevelUpChain<any, any> | null = null;
+
     protected async startInternal() {
         // load all items from the db
         for await (const record of this.subDb.createReadStream()) {
@@ -108,7 +115,10 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
     protected async stopInternal() {}
 
     // should only be used internally, kept public for testing
-    public async putBlockItem(blockHeight: number, blockHash: string, itemKey: string, item: any) {
+
+    public putBlockItem(blockHeight: number, blockHash: string, itemKey: string, item: any) {
+        if (this.batch == null) throw new ApplicationError("Changes must be done within a withBatch call");
+
         const memKey = `${blockHash}:${itemKey}`;
         const dbKey = `${blockHeight}:${memKey}`;
 
@@ -117,7 +127,7 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
         else this.itemsByHeight.set(blockHeight, new Set([memKey]));
         this.items.set(memKey, item);
 
-        await this.subDb.put(dbKey, item);
+        this.batch.put(dbKey, item);
     }
 
     /**
@@ -185,17 +195,32 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
     }
 
     /** Delete all blocks and other indexed items for that height. */
-    public async deleteItemsAtHeight(height: number) {
+    public deleteItemsAtHeight(height: number) {
+        if (this.batch == null) throw new ApplicationError("Changes must be done within a withBatch call");
+
         const itemsAtHeight = this.itemsByHeight.get(height);
         if (itemsAtHeight) {
             this.itemsByHeight.delete(height);
-            let batch = this.subDb.batch();
             for (const key of itemsAtHeight) {
                 const dbKey = `${height}:${key}`;
-                batch.del(dbKey);
+                this.batch.del(dbKey);
                 this.items.delete(key);
             }
-            await batch.write();
         }
+    }
+
+    public async withBatch(callback: () => Promise<void>) {
+        await this.lock.acquire();
+
+        if (this.batch != null) throw new ApplicationError("The lock was acquired but there was already a batch. This is a bug.");
+
+        this.batch = this.subDb.batch();
+
+        // TODO: what to do if callback throws? Should probably rethrow after cleanup
+        await callback();
+
+        await this.batch.write();
+        this.batch = null;
+        this.lock.release();
     }
 }
