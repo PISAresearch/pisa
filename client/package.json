@@ -1,0 +1,32 @@
+{
+  "name": "pisa-client",
+  "version": "0.1.2",
+  "description": "A client library for the PISA api.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/PISAresearch/pisa.git"
+  },
+  "keywords": [
+    "pisa",
+    "ethereum",
+    "statechannels"
+  ],
+  "author": "Chris Buckland",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/PISAresearch/pisa/issues"
+  },
+  "homepage": "https://github.com/PISAresearch/pisa#readme",
+  "devDependencies": {
+    "cross-fetch": "^3.0.4",
+    "ts-node": "^8.3.0",
+    "typescript": "^3.6.3"
+  },
+  "dependencies": {
+    "ethers": "^4.0.37"
+  }
+}
