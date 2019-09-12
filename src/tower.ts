@@ -5,7 +5,6 @@ import { AppointmentMode } from "./dataEntities/appointment";
 import { MultiResponder } from "./responder";
 import { Logger } from "./logger";
 import { ReadOnlyBlockCache } from "./blockMonitor";
-import { groupTuples } from "./utils/ethers";
 
 /**
  * A PISA tower, configured to watch for specified appointment types
@@ -79,13 +78,8 @@ export class HotEthereumAppointmentSigner extends EthereumAppointmentSigner {
      * @param appointment
      */
     public async signAppointment(appointment: Appointment): Promise<string> {
-        const packedData = appointment.encode();
         // now hash the packed data with the address before signing
-        const digest = ethers.utils.keccak256(
-            ethers.utils.defaultAbiCoder.encode(
-                ...groupTuples([["bytes", packedData], ["address", this.pisaContractAddress]])
-            )
-        );
+        const digest = ethers.utils.keccak256(appointment.encodeForSig(this.pisaContractAddress));
         return await this.signer.signMessage(ethers.utils.arrayify(digest));
     }
 }
