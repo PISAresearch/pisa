@@ -4,7 +4,7 @@ import { Server } from "http";
 import { ethers } from "ethers";
 import { PublicInspectionError, PublicDataValidationError, ApplicationError, StartStopService } from "./dataEntities";
 import { Watcher, AppointmentStore } from "./watcher";
-import { PisaTower, HotEthereumAppointmentSigner } from "./tower";
+import { PisaTower } from "./tower";
 import { GasPriceEstimator, MultiResponder, MultiResponderComponent, ResponderStore } from "./responder";
 import { IArgConfig } from "./dataEntities/config";
 import { BlockProcessor, BlockCache } from "./blockMonitor";
@@ -101,13 +101,10 @@ export class PisaService extends StartStopService {
         this.blockchainMachine.addComponent(watcher);
         this.blockchainMachine.addComponent(responder);
 
-        // if a key to sign receipts was provided, create an EthereumAppointmentSigner
-        const appointmentSigner = new HotEthereumAppointmentSigner(receiptWallet, config.pisaContractAddress);
-
         // tower
         const tower = new PisaTower(
             this.appointmentStore,
-            appointmentSigner,
+            receiptWallet,
             multiResponder,
             blockCache,
             config.pisaContractAddress
@@ -127,10 +124,11 @@ export class PisaService extends StartStopService {
         app.get(this.JSON_SCHEMA_ROUTE, (req, res) => {
             res.sendFile(path.join(__dirname, "dataEntities/appointmentRequestSchema.json"));
         });
+
         // set up 404
-        app.get("*", function(req, res) {
+        app.all("*", function(req, res) {
             res.status(404).json({
-                message: "Route not found, only availale routes are POST at /appointment and GET at /docs.html"
+                message: `Route ${req.url} not found, only availale routes are POST at /appointment and GET at /docs.html`
             });
         });
 

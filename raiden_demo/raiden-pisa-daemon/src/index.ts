@@ -3,10 +3,11 @@ import * as fs from "fs";
 import { SqliteListener } from "./sqlite-listener";
 import { BalanceProofSigGroup, IRawBalanceProof } from "./balanceProof";
 import { getWallet } from "./wallet";
-import { PisaClient } from "./pisaClient";
 import { RaidenTools } from "./tools";
 import { ethers } from "ethers";
 import { keccak256 } from "ethers/utils";
+import PisaClient from "../../../client";
+
 
 const argv = require("yargs")
     .scriptName("raiden-pisa-daemon")
@@ -35,8 +36,8 @@ const run = async (startingRowId: number) => {
             .toString()
             .trim();
         const wallet = await getWallet(argv.keyfile, password);
-        const pisaClient = new PisaClient(argv.pisa);
-        const pisaContractAddress = argv.pisaContractAddress;
+        const pisaClient = new PisaClient("http://" + argv.pisa, argv.pisaContractAddress);
+        
         const provider = new ethers.providers.JsonRpcProvider(argv.jsonRpcUrl);
 
         const callback = async (bp: IRawBalanceProof) => {
@@ -54,34 +55,26 @@ const run = async (startingRowId: number) => {
                 nonClosingSig
             );
 
-            const blockNumber = await provider.getBlockNumber();
+            const blockNumber = await provider.getBlockNumber();            
 
-            const request = {
-                challengePeriod: 200,
-                contractAddress: sigGroup.token_network_identifier,
-                customerAddress: wallet.address,
-                data: encodedForUpdate,
-                endBlock: 10000,
-                eventAddress: sigGroup.token_network_identifier,
-                eventABI: RaidenTools.eventABI(),
-                eventArgs: RaidenTools.eventArgs(sigGroup.channel_identifier, bp.sender),
-                gasLimit: 200000,
-                id: "0x0000000000000000000000000000000000000000000000000000000000000001",
-                nonce: 0,
-                mode: 1,
-                preCondition: "0x",
-                postCondition: "0x",
-                refund: "0",
-                startBlock: blockNumber,
-                paymentHash: ethers.utils.keccak256(ethers.utils.toUtf8Bytes("on-the-house")),
-                customerSig: "0x"
-            };
-            const encoded = encode(request, pisaContractAddress);
-            const hashedWithAddress = keccak256(encoded);
-            const sig = await wallet.signMessage(ethers.utils.arrayify(hashedWithAddress));
-            request.customerSig = sig;
+            const signer = (digest: string) => wallet.signMessage(ethers.utils.arrayify(digest))
+            const request = await pisaClient.generateRequest(
+                signer,
+                sigGroup.token_network_identifier,
+                wallet.address,
+                blockNumber,
+                10000,
+                200,
+                "0x0000000000000000000000000000000000000000000000000000000000000001",
+                0,
+                encodedForUpdate,
+                200000,
+                sigGroup.token_network_identifier,
+                RaidenTools.eventABI(),
+                RaidenTools.eventArgs(sigGroup.channel_identifier, bp.sender),
+            );
             console.log(request);
-            await pisaClient.requestAppointment(request);
+            await pisaClient.executeRequest(request);
         };
 
         const listener = new SqliteListener(10000, argv.db, startingRowId, callback);
