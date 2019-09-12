@@ -183,7 +183,7 @@ describe("BlockProcessor", () => {
     it("correctly processes the blockchain head after startup", async () => {
         emitBlockHash("a1");
 
-        blockProcessor = new BlockProcessor(provider, blockStubAndTxFactory, blockCache, blockProcessorStore);
+        blockProcessor = new BlockProcessor(provider, blockStubAndTxFactory, blockCache, blockStore, blockProcessorStore);
         await blockProcessor.start();
 
         expect(blockProcessor.blockCache.head.hash).to.equal("a1");
@@ -192,7 +192,7 @@ describe("BlockProcessor", () => {
     it("adds the first block received to the cache and emits a new head event after the corresponding new block events from the BlockCache", async () => {
         emitBlockHash("a4");
 
-        blockProcessor = new BlockProcessor(provider, blockStubAndTxFactory, blockCache, blockProcessorStore);
+        blockProcessor = new BlockProcessor(provider, blockStubAndTxFactory, blockCache, blockStore, blockProcessorStore);
         await blockProcessor.start();
 
         let newHeadCalled = false;
@@ -227,7 +227,7 @@ describe("BlockProcessor", () => {
     });
 
     it("adds to the blockCache all ancestors until a known block", async () => {
-        blockProcessor = new BlockProcessor(provider, blockStubAndTxFactory, blockCache, blockProcessorStore);
+        blockProcessor = new BlockProcessor(provider, blockStubAndTxFactory, blockCache, blockStore, blockProcessorStore);
 
         const subscribers = [];
         for (let i = 1; i <= 5; i++) {
@@ -250,7 +250,7 @@ describe("BlockProcessor", () => {
     });
 
     it("adds both chain until the common ancestor if there is a fork", async () => {
-        blockProcessor = new BlockProcessor(provider, blockStubAndTxFactory, blockCache, blockProcessorStore);
+        blockProcessor = new BlockProcessor(provider, blockStubAndTxFactory, blockCache, blockStore, blockProcessorStore);
 
         const subscribersA = [];
         for (let i = 1; i <= 6; i++) {
@@ -290,7 +290,7 @@ describe("BlockProcessor", () => {
     // namely the parent of a known block.
     // This situation occurred in tests on Ropsten using Infura, see https://github.com/PISAresearch/pisa/issues/227.
     it("resumes adding blocks after a previous failure when a new block is emitted", async () => {
-        blockProcessor = new BlockProcessor(provider, blockStubAndTxFactory, blockCache, blockProcessorStore);
+        blockProcessor = new BlockProcessor(provider, blockStubAndTxFactory, blockCache, blockStore, blockProcessorStore);
 
         emitBlockHash("a1");
 
@@ -322,7 +322,7 @@ describe("BlockProcessor", () => {
     // While documentation of ethers.js does not currently state this possibility, this situation occurred in tests on Ropsten using Infura,
     // see https://github.com/PISAresearch/pisa/issues/227.
     it("resumes adding blocks after a previous failure due to getBlock throwing an error when a new block is emitted", async () => {
-        blockProcessor = new BlockProcessor(provider, blockStubAndTxFactory, blockCache, blockProcessorStore);
+        blockProcessor = new BlockProcessor(provider, blockStubAndTxFactory, blockCache, blockStore, blockProcessorStore);
 
         emitBlockHash("a1");
 

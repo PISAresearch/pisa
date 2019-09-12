@@ -83,12 +83,12 @@ describe("BlockItemStore", () => {
     async function addSampleData(bis: BlockItemStore<IBlockStub>) {
         await store.withBatch(
             async () => {
-                await bis.putBlockItem(block10a.number, block10a.hash, "block", block10a);
-                await bis.putBlockItem(block10a.number, block10a.hash, "attached", true);
-                await bis.putBlockItem(block42.number, block42.hash, "block", block42);
-                await bis.putBlockItem(block42.number, block42.hash, "attached", true);
-                await bis.putBlockItem(block10b.number, block10b.hash, "block", block10b);
-                await bis.putBlockItem(block10b.number, block10b.hash, "attached", false);
+                bis.putBlockItem(block10a.number, block10a.hash, "block", block10a);
+                bis.putBlockItem(block10a.number, block10a.hash, "attached", true);
+                bis.putBlockItem(block42.number, block42.hash, "block", block42);
+                bis.putBlockItem(block42.number, block42.hash, "attached", true);
+                bis.putBlockItem(block10b.number, block10b.hash, "block", block10b);
+                bis.putBlockItem(block10b.number, block10b.hash, "attached", false);
            }
         );
     }
@@ -108,7 +108,7 @@ describe("BlockItemStore", () => {
             async () => store.putBlockItem(sampleBlocks[0].number, sampleBlocks[0].hash, sampleKey, sampleValue)
         );
 
-        const storedItem = await store.getItem(sampleBlocks[0].hash, sampleKey);
+        const storedItem = store.getItem(sampleBlocks[0].hash, sampleKey);
 
         expect(storedItem).to.deep.equal(sampleValue);
     });
@@ -132,12 +132,12 @@ describe("BlockItemStore", () => {
         await store.withBatch(async () => store.deleteItemsAtHeight(10));
 
         // Check that all items at height 10 return undefined, but all the others are not changed
-        expect(await store.getItem(block10a.hash, "block")).to.be.undefined;
-        expect(await store.getItem(block10a.hash, "attached")).to.be.undefined;
-        expect(await store.getItem(block42.hash, "block")).to.deep.include(block42);
-        expect(await store.getItem(block42.hash, "attached")).to.be.true;
-        expect(await store.getItem(block10b.hash, "block")).to.be.undefined;
-        expect(await store.getItem(block10b.hash, "attached")).to.be.undefined;
+        expect(store.getItem(block10a.hash, "block")).to.be.undefined;
+        expect(store.getItem(block10a.hash, "attached")).to.be.undefined;
+        expect(store.getItem(block42.hash, "block")).to.deep.include(block42);
+        expect(store.getItem(block42.hash, "attached")).to.be.true;
+        expect(store.getItem(block10b.hash, "block")).to.be.undefined;
+        expect(store.getItem(block10b.hash, "attached")).to.be.undefined;
     });
 
     it("actually persists items into the database", async () => {
@@ -149,11 +149,11 @@ describe("BlockItemStore", () => {
         await newStore.start();
 
         // Check that all items still return the correct value for the new store
-        expect(await newStore.getItem(block10a.hash, "block")).to.deep.include(block10a);
-        expect(await newStore.getItem(block10a.hash, "attached")).to.be.true;
-        expect(await newStore.getItem(block42.hash, "block")).to.deep.include(block42);
-        expect(await newStore.getItem(block42.hash, "attached")).to.be.true;
-        expect(await newStore.getItem(block10b.hash, "block")).to.deep.include(block10b);
-        expect(await newStore.getItem(block10b.hash, "attached")).to.be.false;
+        expect(newStore.getItem(block10a.hash, "block")).to.deep.include(block10a);
+        expect(newStore.getItem(block10a.hash, "attached")).to.be.true;
+        expect(newStore.getItem(block42.hash, "block")).to.deep.include(block42);
+        expect(newStore.getItem(block42.hash, "attached")).to.be.true;
+        expect(newStore.getItem(block10b.hash, "block")).to.deep.include(block10b);
+        expect(newStore.getItem(block10b.hash, "attached")).to.be.false;
     });
 });

@@ -97,6 +97,10 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
     private lock = new Lock();
     private batch: LevelUpChain<any, any> | null = null;
 
+    private get batchOrDb() {
+        return this.batch || this.subDb;
+    }
+
     protected async startInternal() {
         // load all items from the db
         for await (const record of this.subDb.createReadStream()) {
@@ -117,8 +121,6 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
     // should only be used internally, kept public for testing
 
     public putBlockItem(blockHeight: number, blockHash: string, itemKey: string, item: any) {
-        if (this.batch == null) throw new ApplicationError("Changes must be done within a withBatch call");
-
         const memKey = `${blockHash}:${itemKey}`;
         const dbKey = `${blockHeight}:${memKey}`;
 
@@ -127,7 +129,7 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
         else this.itemsByHeight.set(blockHeight, new Set([memKey]));
         this.items.set(memKey, item);
 
-        this.batch.put(dbKey, item);
+        this.batchOrDb.put(dbKey, item);
     }
 
     /**
@@ -196,14 +198,12 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
 
     /** Delete all blocks and other indexed items for that height. */
     public deleteItemsAtHeight(height: number) {
-        if (this.batch == null) throw new ApplicationError("Changes must be done within a withBatch call");
-
         const itemsAtHeight = this.itemsByHeight.get(height);
         if (itemsAtHeight) {
             this.itemsByHeight.delete(height);
             for (const key of itemsAtHeight) {
                 const dbKey = `${height}:${key}`;
-                this.batch.del(dbKey);
+                this.batchOrDb.del(dbKey);
                 this.items.delete(key);
             }
         }

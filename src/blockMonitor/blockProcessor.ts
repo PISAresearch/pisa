@@ -2,7 +2,7 @@ import { ethers } from "ethers";
 import { StartStopService } from "../dataEntities";
 import { ReadOnlyBlockCache, BlockCache, BlockAddResult } from "./blockCache";
 import { IBlockStub } from "../dataEntities";
-import { Block, TransactionHashes } from "../dataEntities/block";
+import { Block, TransactionHashes, BlockItemStore } from "../dataEntities/block";
 import { BlockFetchingError, ApplicationError } from "../dataEntities/errors";
 import { LevelUp } from "levelup";
 import EncodingDown from "encoding-down";
@@ -144,6 +144,7 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
         private provider: ethers.providers.BaseProvider,
         blockFactory: BlockFactory<TBlock>,
         blockCache: BlockCache<TBlock>,
+        private readonly blockItemStore: BlockItemStore<TBlock>,
         private readonly store: BlockProcessorStore
     ) {
         super("block-processor");
@@ -167,16 +168,18 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
 
     // emits the appropriate events and updates the new head block in the store
     private async processNewHead(headBlock: Readonly<TBlock>) {
-        try {
-            this.mBlockCache.setHead(headBlock.hash);
+        await this.blockItemStore.withBatch(async () => {
+            try {
+                this.mBlockCache.setHead(headBlock.hash);
 
-            // only emit new head events after it is started
-            if (this.started) this.newHead.emit(headBlock);
+                // only emit new head events after it is started
+                if (this.started) this.newHead.emit(headBlock);
 
-            await this.store.setLatestHeadNumber(headBlock.number);
-        } catch (doh) {
-            this.logger.error(doh);
-        }
+                await this.store.setLatestHeadNumber(headBlock.number);
+            } catch (doh) {
+                this.logger.error(doh);
+            }
+        });
     }
 
     // Checks if a block is already in the block cache; if not, requests it remotely.
