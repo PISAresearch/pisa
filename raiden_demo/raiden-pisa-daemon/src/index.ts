@@ -106,7 +106,7 @@ const encode = (request: any, pisaContractAddress: string) => {
                 request.startBlock,
                 request.endBlock,
                 request.challengePeriod,
-                request.customerChosenId,
+                request.id,
                 request.nonce,
                 request.data,
                 request.refund,
