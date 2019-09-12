@@ -1,6 +1,7 @@
 import { ApplicationError, ArgumentError } from "../dataEntities";
 import { IBlockStub, TransactionHashes, BlockItemStore } from "../dataEntities/block";
 import { Lock } from "../utils/lock";
+import { BlockEvent } from "../utils/event";
 
 // Possible return values of addBlock
 export enum BlockAddResult {
@@ -20,13 +21,12 @@ export type NewBlockListener<TBlock> = (block: TBlock) => Promise<void>;
  * This interface represents the read-only view of a BlockCache.
  */
 export interface ReadOnlyBlockCache<TBlock extends IBlockStub> {
+    NewBlock: BlockEvent<TBlock>;
     readonly maxDepth: number;
     readonly maxHeight: number;
     readonly minHeight: number;
     getBlock(blockHash: string): Readonly<TBlock>;
     hasBlock(blockHash: string, includeDetached?: boolean): boolean;
-    addNewBlockListener(listener: NewBlockListener<TBlock>): void;
-    removeNewBlockListener(listener: NewBlockListener<TBlock>): void;
     ancestry(initialBlockHash: string): IterableIterator<Readonly<TBlock>>;
     findAncestor(initialBlockHash: string, predicate: (block: Readonly<TBlock>) => boolean, minHeight?: number): Readonly<TBlock> | null;
     getOldestAncestorInCache(blockHash: string): TBlock;
@@ -54,6 +54,8 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
     // As the BlockCache has an on-disk store, a lock is used to serialize parallel write accesses
     private lock = new Lock();
 
+    public NewBlock = new BlockEvent<TBlock>();
+
     /** True before the first block ever is added */
     public get isEmpty() {
         return this.mIsEmpty;
@@ -67,8 +69,6 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
     public get maxHeight() {
         return this.mMaxHeight;
     }
-
-    private newBlockListeners: NewBlockListener<TBlock>[] = [];
 
     /**
      * Returns the minimum height of blocks that can currently be stored.
@@ -107,12 +107,6 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
         return this.isEmpty || this.hasBlock(block.parentHash) || block.number === this.minHeight;
     }
 
-    private async emitNewBlockEvent(block: TBlock) {
-        for (const listener of this.newBlockListeners) {
-            await listener(block);
-        }
-    }
-
     /**
      * Processes all the detached blocks at the given height, marking them as attached if necessary.
      * If there are any, add them and repeat with the next height (as some blocks might now have become attached)
@@ -126,7 +120,7 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
             await this.blockStore.attached.set(height, block.hash, true);
 
             // A detached block became attached, thus we need to emit the new block event
-            await this.emitNewBlockEvent(block);
+            await this.NewBlock.emit(block);
         }
 
         if (blocksToAdd.length > 0) {
@@ -185,7 +179,7 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
                 await this.blockStore.block.set(block.number, block.hash, block);
                 await this.blockStore.attached.set(block.number, block.hash, true);
 
-                await this.emitNewBlockEvent(block);
+                await this.NewBlock.emit(block);
 
                 // If the maximum block height increased, we might have to prune some old info
                 await this.updateMaxHeightAndPrune(block.number);
@@ -227,24 +221,6 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
 
         if (!includeDetached && !attached) return false;
         else return !!block;
-    }
-
-    /**
-     * Adds a `listener` to receive "new block" events.
-     * @param listener
-     */
-    public addNewBlockListener(listener: NewBlockListener<TBlock>) {
-        this.newBlockListeners.push(listener);
-    }
-
-    /**
-     * Removes `listener` from the list of listeners for new block events.
-     */
-    public removeNewBlockListener(listener: NewBlockListener<TBlock>) {
-        const idx = this.newBlockListeners.findIndex(l => l === listener);
-        if (idx === -1) throw new ApplicationError("No such listener exists.");
-
-        this.newBlockListeners.splice(idx, 1);
     }
 
     /**

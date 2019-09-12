@@ -12,6 +12,7 @@ import { ActionStore } from "../../../src/blockMonitor/actionStore";
 import { IBlockStub, ApplicationError, BlockItemStore } from "../../../src/dataEntities";
 import { StateReducer } from "../../../src/blockMonitor/component";
 import fnIt from "../../utils/fnIt";
+import { BlockEvent } from "../../../src/utils/event";
 
 const blocks: IBlockStub[] = [
     {
@@ -90,28 +91,13 @@ interface CanEmitAsNewHead {
 }
 
 class MockBlockProcessor {
-    private newHeadListeners: ((head: Readonly<IBlockStub>) => Promise<void>)[] = [];
-
-    public addNewHeadListener(listener: (head: Readonly<IBlockStub>) => Promise<void>) {
-        this.newHeadListeners.push(listener);
-    }
-    public removeNewHeadListener(listener: (head: Readonly<IBlockStub>) => Promise<void>) {
-        const idx = this.newHeadListeners.findIndex(l => l === listener);
-        if (idx === -1) throw new ApplicationError("No such listener exists.");
-
-        this.newHeadListeners.splice(idx, 1);
-    }
-
-    // Fake the emission of a block (calling all the new_head listeners)
-    public async emitAsNewHead(head: IBlockStub) {
-        return Promise.all(this.newHeadListeners.map(listener => listener(head)));
-    }
+    public NewHead = new BlockEvent<IBlockStub>();
 }
 
 describe("BlockchainMachine", () => {
     let reducer: ExampleReducer;
     let spiedReducer: ExampleReducer;
-    let blockProcessor: BlockProcessor<IBlockStub> & CanEmitAsNewHead;
+    let blockProcessor: BlockProcessor<IBlockStub>;
     let db: any;
     let blockStore: BlockItemStore<IBlockStub>;
     let blockCache: BlockCache<IBlockStub>;
@@ -120,7 +106,7 @@ describe("BlockchainMachine", () => {
     // Utility function to add a block to the block cache and also emit it as new head in the blockProcessor.
     const addAndEmitBlock = async (block: IBlockStub) => {
         await blockCache.addBlock(block);
-        await blockProcessor.emitAsNewHead(block);
+        await blockProcessor.NewHead.emit(block);
     };
 
     beforeEach(async () => {
@@ -136,7 +122,7 @@ describe("BlockchainMachine", () => {
         // Since we only need to process events, we mock the BlockProcessor with an EventEmitter
         const bp: any = new MockBlockProcessor();
         bp.blockCache = blockCache;
-        blockProcessor = bp as (BlockProcessor<IBlockStub> & CanEmitAsNewHead);
+        blockProcessor = bp as (BlockProcessor<IBlockStub>);
 
         actionStore = new ActionStore(db);
         await actionStore.start();

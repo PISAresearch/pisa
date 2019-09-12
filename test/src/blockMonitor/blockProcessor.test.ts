@@ -101,11 +101,11 @@ describe("BlockProcessor", () => {
                     } else {
                         resolve({ number: block.number, hash: block.hash });
                     }
-                    bp.blockCache.removeNewBlockListener(newBlockHandler);
+                    bp.blockCache.NewBlock.removeListener(newBlockHandler);
                 }
             };
 
-            bp.blockCache.addNewBlockListener(newBlockHandler);
+            bp.blockCache.NewBlock.addListener(newBlockHandler);
         });
     };
 
@@ -198,7 +198,7 @@ describe("BlockProcessor", () => {
         let newHeadCalled = false;
 
         const newHeadPromise = new Promise(resolve => {
-            blockProcessor.addNewHeadListener(async (head: IBlockStub) => {
+            blockProcessor.NewHead.addListener(async (head: IBlockStub) => {
                 newHeadCalled = true;
                 if (!blockCache.hasBlock("a5")) resolve(new Error(`The BlockCache did not have block a5 when its new head event was emitted`));
 
@@ -213,9 +213,9 @@ describe("BlockProcessor", () => {
                 // New head should be the last emitted event
                 newHeadCalledBeforeNewBlock = true;
             }
-            blockCache.removeNewBlockListener(newBlockListener);
+            blockCache.NewBlock.removeListener(newBlockListener);
         };
-        blockCache.addNewBlockListener(newBlockListener);
+        blockCache.NewBlock.addListener(newBlockListener);
 
         emitBlockHash("a5");
 
