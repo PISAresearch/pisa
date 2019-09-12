@@ -9,6 +9,9 @@ COPY package*.json ./
 
 # install packages
 RUN ["npm", "ci", "--only=prod"];
+# we need truffle to compile contracts needed in production
+# but we dont want to ship truffle into production, so we dont include it in the production packages section
+RUN ["npm", "i", "-g", "truffle"];
 
 # copy the src and the configs
 COPY ./src ./src
