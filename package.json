@@ -4,7 +4,7 @@
     "description": "Arbitration Outsourcing for State Channels",
     "main": "index.js",
     "scripts": {
-        "build": "rm -rf ./build && npm run compile-sol && npx tsc && cp -r ./raiden_demo build/raiden_demo && cp ./src/public/favicon.ico ./build/src/public/favicon.ico",        
+        "build": "rm -rf ./build && npm run compile-sol && npx tsc && cp -r ./raiden_demo build/raiden_demo && cp ./src/public/favicon.ico ./build/src/public/favicon.ico",
         "build-autominer": "cd build/raiden_demo/autominer && npm install && npm run build",
         "build-client": "cd client && npm install",
         "build-raiden-pisa-daemon": "cd build/raiden_demo/raiden-pisa-daemon && npm install && npm run build",
