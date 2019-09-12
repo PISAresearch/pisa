@@ -90,10 +90,7 @@ describe("sos end to end", () => {
         );
         // encode the request and sign it
         const appointment = Appointment.fromIAppointmentRequest(appointmentRequest);
-        const encoded = appointment.encode();
-        const hashedWithAddress = keccak256(
-            defaultAbiCoder.encode(["bytes", "address"], [encoded, pisaContractAddress])
-        );
+        const hashedWithAddress = keccak256(appointment.encodeForSig(pisaContractAddress));
         const customerSig = await user.signMessage(arrayify(hashedWithAddress));
 
         return Appointment.fromIAppointmentRequest({
@@ -202,7 +199,7 @@ describe("sos end to end", () => {
             "sos",
             "yay"
         );
-        await pisaContract.respond(appointment.encode(), appointment.customerSig, {
+        await pisaContract.respond(appointment.orderForEncoding(), appointment.customerSig, {
             gasLimit: appointment.gasLimit + 200000
         });
 

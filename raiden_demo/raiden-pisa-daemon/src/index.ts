@@ -76,10 +76,8 @@ const run = async (startingRowId: number) => {
                 paymentHash: ethers.utils.keccak256(ethers.utils.toUtf8Bytes("on-the-house")),
                 customerSig: "0x"
             };
-            const encoded = encode(request);
-            const hashedWithAddress = keccak256(
-                ethers.utils.defaultAbiCoder.encode(["bytes", "address"], [encoded, pisaContractAddress])
-            );
+            const encoded = encode(request, pisaContractAddress);
+            const hashedWithAddress = keccak256(encoded);
             const sig = await wallet.signMessage(ethers.utils.arrayify(hashedWithAddress));
             request.customerSig = sig;
             console.log(request);
@@ -95,52 +93,34 @@ const run = async (startingRowId: number) => {
     }
 };
 
-function groupTuples(tupleArray: [string, any][]): [string[], any[]] {
-    return tupleArray.reduce(
-        // for some reason the ts compiler wont accept the proper types here
-        // so we have to use 'any' instead of [string[], any[]] for 'prev'
-        (prev: any, cur: [string, any]) => {
-            prev[0].push(cur[0]);
-            prev[1].push(cur[1]);
-            return prev;
-        },
-        [[] as string[], [] as any[]]
-    );
-}
-
-const encode = (request: any) => {
-    const appointmentInfo = ethers.utils.defaultAbiCoder.encode(
-        ...groupTuples([
-            ["bytes32", request.id],
-            ["uint", request.nonce],
-            ["uint", request.startBlock],
-            ["uint", request.endBlock],
-            ["uint", request.challengePeriod],
-            ["uint", request.refund],
-            ["bytes32", request.paymentHash]
-        ])
-    );
-    const contractInfo = ethers.utils.defaultAbiCoder.encode(
-        ...groupTuples([
-            ["address", request.contractAddress],
-            ["address", request.customerAddress],
-            ["uint", request.gasLimit],
-            ["bytes", request.data]
-        ])
-    );
-    const conditionInfo = ethers.utils.defaultAbiCoder.encode(
-        ...groupTuples([
-            ["address", request.eventAddress],
-            ["string", request.eventABI],
-            ["bytes", request.eventArgs],
-            ["bytes", request.preCondition],
-            ["bytes", request.postCondition],
-            ["uint", request.mode]
-        ])
-    );
-
+const encode = (request: any, pisaContractAddress: string) => {
     return ethers.utils.defaultAbiCoder.encode(
-        ...groupTuples([["bytes", appointmentInfo], ["bytes", contractInfo], ["bytes", conditionInfo]])
+        [
+            "tuple(address,address,uint,uint,uint,bytes32,uint,bytes,uint,uint,uint,address,string,bytes,bytes,bytes,bytes32)",
+            "address"
+        ],
+        [
+            [
+                request.contractAddress,
+                request.customerAddress,
+                request.startBlock,
+                request.endBlock,
+                request.challengePeriod,
+                request.customerChosenId,
+                request.nonce,
+                request.data,
+                request.refund,
+                request.gasLimit,
+                request.mode,
+                request.eventAddress,
+                request.eventABI,
+                request.eventArgs,
+                request.preCondition,
+                request.postCondition,
+                request.paymentHash
+            ],
+            pisaContractAddress
+        ]
     );
 };
 

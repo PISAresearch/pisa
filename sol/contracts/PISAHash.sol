@@ -141,7 +141,7 @@ contract PISAHash {
         require(watchers[msg.sender], "Only watcher can send this job");
 
         // Check customer signed appointment
-        bytes32 sigHash = keccak256(abi.encode(abi.encode(_appointment), address(this)));
+        bytes32 sigHash = keccak256(abi.encode(_appointment, address(this)));
         require(_appointment.cus == recoverEthereumSignedMessage(sigHash, _cussig), "PISA response cancelled as customer did not authorise this job");
 
         // Sometimes PISA should only respond if some condition is satisified
@@ -204,7 +204,7 @@ contract PISAHash {
         // Both PISA and the customer must have authorised it!
         // This is to avoid PISA faking a receipt and sending it as "recourse"
         // With a "lower" refund amount!
-        bytes32 sigHash = keccak256(abi.encode(abi.encode(_appointment), address(this)));
+        bytes32 sigHash = keccak256(abi.encode((_appointment), address(this)));
         require(watchers[recoverEthereumSignedMessage(sigHash, _sig[0])], "PISA did not sign job");
         require(_appointment.cus == recoverEthereumSignedMessage(sigHash, _sig[1]), "Customer did not sign job");
 
@@ -303,7 +303,7 @@ contract PISAHash {
       // require(watchers[msg.sender] || admin == msg.sender, "Only PISA can call it");
 
       // Check signature
-      bytes32 sighash = keccak256(abi.encode(abi.encode(_appointment), address(this)));
+      bytes32 sighash = keccak256(abi.encode(_appointment, address(this)));
       require(_appointment.cus == recoverEthereumSignedMessage(sighash, _cussig), "Customer did not sign job");
 
       // Compute PISAID

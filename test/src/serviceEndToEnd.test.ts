@@ -67,8 +67,7 @@ const appointmentRequest = async (
     };
 
     const app = Appointment.parse(bareAppointment);
-    const encoded = app.encode();
-    const hashedWithAddress = keccak256(defaultAbiCoder.encode(["bytes", "address"], [encoded, pisaContractAddress]));
+    const hashedWithAddress = keccak256(app.encodeForSig(pisaContractAddress));
 
     const sig = await customer.signMessage(arrayify(hashedWithAddress));
 

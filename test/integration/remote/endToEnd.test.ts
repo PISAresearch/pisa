@@ -29,39 +29,34 @@ const prepareLogsDir = (dirPath: string) => {
     fs.mkdirSync(dirPath);
 };
 
-const encode = (request: IAppointmentRequest) => {
-    const appointmentInfo = ethers.utils.defaultAbiCoder.encode(
-        ...groupTuples([
-            ["bytes32", request.id],
-            ["uint", request.nonce],
-            ["uint", request.startBlock],
-            ["uint", request.endBlock],
-            ["uint", request.challengePeriod],
-            ["uint", request.refund],
-            ["bytes32", request.paymentHash]
-        ])
-    );
-    const contractInfo = ethers.utils.defaultAbiCoder.encode(
-        ...groupTuples([
-            ["address", request.contractAddress],
-            ["address", request.customerAddress],
-            ["uint", request.gasLimit],
-            ["bytes", request.data]
-        ])
-    );
-    const conditionInfo = ethers.utils.defaultAbiCoder.encode(
-        ...groupTuples([
-            ["address", request.eventAddress],
-            ["string", request.eventABI],
-            ["bytes", request.eventArgs],
-            ["bytes", request.preCondition],
-            ["bytes", request.postCondition],
-            ["uint", request.mode]
-        ])
-    );
-
+const encode = (request: IAppointmentRequest, pisaContractAddress: string) => {
     return ethers.utils.defaultAbiCoder.encode(
-        ...groupTuples([["bytes", appointmentInfo], ["bytes", contractInfo], ["bytes", conditionInfo]])
+        [
+            "tuple(address,address,uint,uint,uint,bytes32,uint,bytes,uint,uint,uint,address,string,bytes,bytes,bytes,bytes32)",
+            "address"
+        ],
+        [
+            [
+                request.contractAddress,
+                request.customerAddress,
+                request.startBlock,
+                request.endBlock,
+                request.challengePeriod,
+                request.id,
+                request.nonce,
+                request.data,
+                request.refund,
+                request.gasLimit,
+                request.mode,
+                request.eventAddress,
+                request.eventABI,
+                request.eventArgs,
+                request.preCondition,
+                request.postCondition,
+                request.paymentHash
+            ],
+            pisaContractAddress
+        ]
     );
 };
 
@@ -129,7 +124,7 @@ describe("Integration", function() {
         // adding a wait here appears to stop intermittent errors that occur
         // during the integration tests. This isnt a great solution but it works
         // for now
-        await wait(10000);        
+        await wait(10000);
     });
 
     afterEach(async () => {
@@ -187,10 +182,8 @@ describe("Integration", function() {
         };
 
         const appointment = createAppointmentRequest(data, key0.account, currentBlock);
-        const hash = encode(appointment);
-        const hashedWithAddress = ethers.utils.keccak256(
-            ethers.utils.defaultAbiCoder.encode(["bytes", "address"], [hash, pisaContractAddress])
-        );
+        const encoding = encode(appointment, pisaContractAddress);
+        const hashedWithAddress = ethers.utils.keccak256(encoding);
         const sig = await key0.wallet.signMessage(ethers.utils.arrayify(hashedWithAddress));
 
         const clone = { ...appointment, customerSig: sig };
@@ -305,10 +298,8 @@ describe("Integration", function() {
             };
 
             const appointment = createAppointmentRequest(data, wallets0[i].address);
-            const hash = encode(appointment);
-            const hashedWithAddress = ethers.utils.keccak256(
-                ethers.utils.defaultAbiCoder.encode(["bytes", "address"], [hash, pisaContractAddress])
-            );
+            const encoding = encode(appointment, pisaContractAddress);
+            const hashedWithAddress = ethers.utils.keccak256(encoding);
             const sig = await wallets0[i].signMessage(ethers.utils.arrayify(hashedWithAddress));
             const clone = { ...appointment, customerSig: sig };
 
