@@ -59,17 +59,13 @@ jobs:
     steps:
       - checkout
       - run: 
-          # pull master as it may contain the same npm packages - in which case it's quicker to pull than to rebuild
-          name: pull docker
-          command: |
-              echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
-              docker pull pisaresearch/pisa:master
-      - run: 
           name: build docker
           command: docker build --target deploy -t pisaresearch/pisa:$CIRCLE_BRANCH -f docker/app.Dockerfile .
       - run: 
           name: push docker
-          command: docker push pisaresearch/pisa:$CIRCLE_BRANCH
+          command: |
+              echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
+              docker push pisaresearch/pisa:$CIRCLE_BRANCH
       - run:
           name: Install node@11.14.0
           command: |
