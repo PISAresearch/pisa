@@ -4,7 +4,6 @@ import Ajv from "ajv";
 import { PublicDataValidationError, PublicInspectionError } from "./errors";
 import logger from "../logger";
 import { BigNumber } from "ethers/utils";
-import { groupTuples } from "../utils/ethers";
 import { Logger } from "../logger";
 import betterAjvErrors from "better-ajv-errors";
 import { ReadOnlyBlockCache } from "../blockMonitor/index.js";
@@ -323,8 +322,10 @@ export class Appointment {
         if((this.endBlock - this.startBlock) > 60000) throw new PublicDataValidationError(`Appointment duration too great. Maximum duration between start and end block is 60000.`); // prettier-ignore
         if((this.endBlock - this.startBlock) < 100) throw new PublicDataValidationError(`Appointment duration too small. Minimum duration between start and end block is 100.`); // prettier-ignore
 
-        if(this.preCondition !== "0x") throw new PublicDataValidationError("Pre-condition currently not supported. Please set to '0x'");
-        if(this.postCondition !== "0x") throw new PublicDataValidationError("Post-condition currently not supported. Please set to '0x'");
+        if (this.preCondition !== "0x")
+            throw new PublicDataValidationError("Pre-condition currently not supported. Please set to '0x'");
+        if (this.postCondition !== "0x")
+            throw new PublicDataValidationError("Post-condition currently not supported. Please set to '0x'");
 
         try {
             this.mEventFilter = this.parseEventArgs();
@@ -340,16 +341,15 @@ export class Appointment {
         // check the sig
         let encoded;
         try {
-            encoded = this.encode();
+            // try to encode the solidity type
+            encoded = this.encodeForSig(pisaContractAddress);
         } catch (doh) {
             log.error(doh);
             throw new PublicDataValidationError("Invalid solidity type. An error has occurred ABI encoding a field. This may be due to incorrect bytes encoding, please ensure that all byte(s) fields are of the correct length and are prefixed with 0x."); //prettier-ignore
         }
         let recoveredAddress;
         try {
-            const hashForSig = ethers.utils.keccak256(
-                ethers.utils.defaultAbiCoder.encode(["bytes", "address"], [encoded, pisaContractAddress])
-            );
+            const hashForSig = ethers.utils.keccak256(encoded);
             recoveredAddress = ethers.utils.verifyMessage(ethers.utils.arrayify(hashForSig), this.customerSig);
         } catch (doh) {
             log.error(doh);
@@ -461,59 +461,52 @@ export class Appointment {
     }
 
     /**
-     * The ABI encoded representation for this appointment
+     * Order the properties of the appointment prior to encoding as a tuple
      */
-    public encode() {
-        const appointmentInfo = ethers.utils.defaultAbiCoder.encode(
-            ...groupTuples([
-                ["bytes32", this.customerChosenId],
-                ["uint", this.nonce],
-                ["uint", this.startBlock],
-                ["uint", this.endBlock],
-                ["uint", this.challengePeriod],
-                ["uint", this.refund],
-                ["bytes32", this.paymentHash]
-            ])
-        );
-
-        const contractInfo = ethers.utils.defaultAbiCoder.encode(
-            ...groupTuples([
-                ["address", this.contractAddress],
-                ["address", this.customerAddress],
-                ["uint", this.gasLimit],
-                ["bytes", this.data]
-            ])
-        );
-
-        const conditionInfo = ethers.utils.defaultAbiCoder.encode(
-            ...groupTuples([
-                ["address", this.eventAddress],
-                ["string", this.eventABI],
-                ["bytes", this.eventArgs],
-                ["bytes", this.preCondition],
-                ["bytes", this.postCondition],
-                ["uint", this.mode]
-            ])
-        );
-
-        const encodedAppointment = ethers.utils.defaultAbiCoder.encode(
-            ...groupTuples([["bytes", appointmentInfo], ["bytes", contractInfo], ["bytes", conditionInfo]])
-        );
-
-        return encodedAppointment;
+    public orderForEncoding() {
+        return [
+            this.contractAddress,
+            this.customerAddress,
+            this.startBlock,
+            this.endBlock,
+            this.challengePeriod,
+            this.customerChosenId,
+            this.nonce,
+            this.data,
+            this.refund,
+            this.gasLimit,
+            this.mode,
+            this.eventAddress,
+            this.eventABI,
+            this.eventArgs,
+            this.preCondition,
+            this.postCondition,
+            this.paymentHash
+        ];
     }
+
+    public static EncodingTupleDefinition =
+        "tuple(address,address,uint,uint,uint,bytes32,uint,bytes,uint,uint,uint,address,string,bytes,bytes,bytes,bytes32)";
 
     /**
      * Encode this appointment as a function call to response
      * @param appointment
      */
     public encodeForResponse() {
-        const encoded = this.encode();
         const sig = this.customerSig;
-
         const iFace = new ethers.utils.Interface(ABI);
+        return iFace.functions.respond.encode([this.orderForEncoding(), sig]);
+    }
 
-        return iFace.functions["respond"].encode([encoded, sig]);
+    /**
+     * Encode this appointment ready for signing
+     * @param pisaContractAddress The appointment is combined with the address of the pisa contract before signature
+     */
+    public encodeForSig(pisaContractAddress: string) {
+        return ethers.utils.defaultAbiCoder.encode(
+            [Appointment.EncodingTupleDefinition, "address"],
+            [this.orderForEncoding(), pisaContractAddress]
+        );
     }
 }
 

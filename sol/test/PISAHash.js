@@ -53,7 +53,6 @@ let encodedAppointment; // Appointment encoding
 let tupleAppointment; // Appointment encode as a struct/tuple
 let channelid; // Channel ID
 let appointmentToSign; // Encodes the appointment + PISA contract address
-let hashToSign;
 let cussig; // Customer Accounts[3] signature
 let pisasig; // PISA Accounts[3] signature
 
@@ -149,7 +148,7 @@ function createToCall(_mode, _v) {
   }
 }
 
-function createAppointment(_sc, _blockNo, _cus, _v, _nonce, _mode, _precondition, _postcondition, _minChallengePeriod) {
+function createAppointment(_sc, _blockNo, _cus, _v, _nonce, _mode, _precondition, _postcondition, _minChallengePeriod, pisaContractAddress) {
 
   let endBlock = _blockNo + 100;
   let minChallengePeriod = _minChallengePeriod;
@@ -181,7 +180,14 @@ function createAppointment(_sc, _blockNo, _cus, _v, _nonce, _mode, _precondition
   appointment['contractAddress'] = _sc;
 
   tupleAppointment = toTupleAppointment(appointment);
-  encodedAppointment = encodeStruct(web3, appointment);
+  encodedAppointment = web3.eth.abi.encodeParameter(
+    appointmentStructDefinition,
+    appointmentToStructSerialisation(appointment)
+  )
+  appointmentToSign = web3.eth.abi.encodeParameters(
+    [appointmentStructDefinition, "address"],
+    [appointmentToStructSerialisation(appointment), pisaContractAddress]
+  )
 }
 
 const toTupleAppointment = (app) => {
@@ -209,60 +215,57 @@ const toTupleAppointment = (app) => {
         app['paymentHash']
     ];
 }
+const appointmentStructDefinition = {
+    'Appointment': {
+        'sc': 'address',
+        'cus': 'address',
+        'startTime': 'uint',
+        'finishTime': 'uint',
+        'challengeTime': 'uint',
 
-const encodeStruct = (web3, app) => {
-    return web3.eth.abi.encodeParameter(
-        {
-            'Appointment': {
-                'sc': 'address',
-                'cus': 'address',
-                'startTime': 'uint',
-                'finishTime': 'uint',
-                'challengeTime': 'uint',
-    
-                'appointmentid': 'bytes32',
-                'nonce': 'uint',
-    
-                'call': 'bytes',
-                'refund': 'uint',
-                'gas': 'uint',
-                'mode': 'uint',
-    
-                'eventAddress': 'address',
-                'eventAbi': 'string',
-                'eventArgs': 'bytes',
-    
-                'preCondition': 'bytes',
-                'postCondition': 'bytes',
-                'h': 'bytes32'
-            }
-        },
-        {
-            "sc": app["contractAddress"],
-            "cus": app["customerAddress"],
-            'startTime': app["startBlock"],
-            'finishTime': app["endBlock"],
-            'challengeTime': app["challengePeriod"],
-    
-            'appointmentid': app["id"],
-            'nonce': app["nonce"],
-    
-            'call': app["data"],
-            'refund': app["refund"],
-            'gas': app["gasLimit"],
-            'mode': app["mode"],
-    
-            'eventAddress': app["eventAddress"],
-            'eventAbi': app["eventABI"],
-            'eventArgs': app["eventArgs"],
-    
-            'preCondition': app["precondition"],
-            'postCondition': app["postcondition"],
-            'h': app["paymentHash"]
-        }
-    )
+        'appointmentid': 'bytes32',
+        'nonce': 'uint',
+
+        'call': 'bytes',
+        'refund': 'uint',
+        'gas': 'uint',
+        'mode': 'uint',
+
+        'eventAddress': 'address',
+        'eventAbi': 'string',
+        'eventArgs': 'bytes',
+
+        'preCondition': 'bytes',
+        'postCondition': 'bytes',
+        'h': 'bytes32'
+    }
 }
 
+const appointmentToStructSerialisation = (app) => {
+    return {
+        "sc": app["contractAddress"],
+        "cus": app["customerAddress"],
+        'startTime': app["startBlock"],
+        'finishTime': app["endBlock"],
+        'challengeTime': app["challengePeriod"],
+
+        'appointmentid': app["id"],
+        'nonce': app["nonce"],
+
+        'call': app["data"],
+        'refund': app["refund"],
+        'gas': app["gasLimit"],
+        'mode': app["mode"],
+
+        'eventAddress': app["eventAddress"],
+        'eventAbi': app["eventABI"],
+        'eventArgs': app["eventArgs"],
+
+        'preCondition': app["precondition"],
+        'postCondition': app["postcondition"],
+        'h': app["paymentHash"]
+    }
+}
 
 module.exports = {
     advanceTime,
@@ -442,9 +445,8 @@ contract('PISAHash', (accounts) => {
 
       // Accounts[3] = customer
       // Accounts[1] = watcher
-      createAppointment(challengeInstance.address, blockNo, accounts[3], 20, 9, 1, "0x0000000000000000000000000000000000000000", web3.eth.abi.encodeParameter('uint', 50), 50);
+      createAppointment(challengeInstance.address, blockNo, accounts[3], 20, 9, 1, "0x0000000000000000000000000000000000000000", web3.eth.abi.encodeParameter('uint', 50), 50, pisaHashInstance.address);
 
-      appointmentToSign = web3.eth.abi.encodeParameters(['bytes','address'],[encodedAppointment, pisaHashInstance.address]);
       let hash = web3.utils.keccak256(appointmentToSign);
       hashToSign = hash;
 
@@ -588,8 +590,7 @@ contract('PISAHash', (accounts) => {
 
       // Accounts[3] = customer
       // Accounts[1] = watcher
-      createAppointment(challengeInstance.address, blockNo-110, accounts[3], 100, 20, 1, "0x0000000000000000000000000000000000000000", web3.eth.abi.encodeParameter('uint', 100), 100);
-      appointmentToSign = web3.eth.abi.encodeParameters(['bytes','address'],[encodedAppointment, pisaHashInstance.address]);
+      createAppointment(challengeInstance.address, blockNo-110, accounts[3], 100, 20, 1, "0x0000000000000000000000000000000000000000", web3.eth.abi.encodeParameter('uint', 100), 100, pisaHashInstance.address);
 
       // Customer signs job
       let hash = web3.utils.keccak256(appointmentToSign);
@@ -628,8 +629,7 @@ contract('PISAHash', (accounts) => {
 
       // Accounts[3] = customer
       // Accounts[1] = watcher
-      createAppointment(challengeInstance.address, blockNo-100, accounts[3], 100, 20, 1, "0x0000000000000000000000000000000000000000", web3.eth.abi.encodeParameter('uint', 100), 50);
-      appointmentToSign = web3.eth.abi.encodeParameters(['bytes','address'],[encodedAppointment, pisaHashInstance.address]);
+      createAppointment(challengeInstance.address, blockNo-100, accounts[3], 100, 20, 1, "0x0000000000000000000000000000000000000000", web3.eth.abi.encodeParameter('uint', 100), 50, pisaHashInstance.address);
 
       // Customer signs job
       let hash = web3.utils.keccak256(appointmentToSign);
@@ -670,9 +670,7 @@ contract('PISAHash', (accounts) => {
 
       // Accounts[3] = customer
       // Accounts[1] = watcher
-      createAppointment(challengeInstance.address, blockNo-210, accounts[3], 100, 20, 1, "0x0000000000000000000000000000000000000000", web3.eth.abi.encodeParameter('uint', 100), 50);
-
-      appointmentToSign = web3.eth.abi.encodeParameters(['bytes','address'],[encodedAppointment, pisaHashInstance.address]);
+      createAppointment(challengeInstance.address, blockNo-210, accounts[3], 100, 20, 1, "0x0000000000000000000000000000000000000000", web3.eth.abi.encodeParameter('uint', 100), 50, pisaHashInstance.address);
 
       // Customer signs job
       let hash = web3.utils.keccak256(appointmentToSign);
@@ -718,8 +716,7 @@ contract('PISAHash', (accounts) => {
 
       // Accounts[3] = customer
       // Accounts[1] = watcher
-      createAppointment(challengeInstance.address, blockNo-110, accounts[3], 100, 20, 1, "0x0000000000000000000000000000000000000000", web3.eth.abi.encodeParameter('uint', 100), 50);
-      appointmentToSign = web3.eth.abi.encodeParameters(['bytes','address'],[encodedAppointment, pisaHashInstance.address]);
+      createAppointment(challengeInstance.address, blockNo-110, accounts[3], 100, 20, 1, "0x0000000000000000000000000000000000000000", web3.eth.abi.encodeParameter('uint', 100), 50, pisaHashInstance.address);
 
       // Customer signs job
       let hash = web3.utils.keccak256(appointmentToSign);
@@ -931,8 +928,7 @@ contract('PISAHash', (accounts) => {
         let blockNo = await web3.eth.getBlockNumber();
         let shard = await registryInstance.getDataShardIndex.call(blockNo);
 
-        createAppointment(challengeInstance.address, blockNo, accounts[3], 21, 10, 2, "0x0000000000000000000000000000000000000000", web3.eth.abi.encodeParameter('uint', 50), 50);
-        appointmentToSign = web3.eth.abi.encodeParameters(['bytes','address'],[encodedAppointment, pisaHashInstance.address]);
+        createAppointment(challengeInstance.address, blockNo, accounts[3], 21, 10, 2, "0x0000000000000000000000000000000000000000", web3.eth.abi.encodeParameter('uint', 50), 50, pisaHashInstance.address);
         // PISA MUST RESPOND. Should not fail!
         // await truffleAssert.reverts(pisaHashInstance.respond(tupleAppointment, cussig, {from: accounts[1]}), "PISA response cancelled as customer did not authorise this job");
         let h = web3.utils.keccak256(appointmentToSign);
@@ -966,9 +962,7 @@ contract('PISAHash', (accounts) => {
 
           // Accounts[3] = customer
           // Accounts[1] = watcher
-          createAppointment(challengeInstance.address, blockNo, accounts[3], 150, 28, 2, "0x0000000000000000000000000000000000000000", web3.eth.abi.encodeParameter('uint', 150), 50);
-
-          appointmentToSign = web3.eth.abi.encodeParameters(['bytes','address'],[encodedAppointment, pisaHashInstance.address]);
+          createAppointment(challengeInstance.address, blockNo, accounts[3], 150, 28, 2, "0x0000000000000000000000000000000000000000", web3.eth.abi.encodeParameter('uint', 150), 50, pisaHashInstance.address);
           let hash = web3.utils.keccak256(appointmentToSign);
 
           cussig =  await web3.eth.sign(hash,accounts[3]);
@@ -1026,7 +1020,7 @@ contract('PISAHash', (accounts) => {
           let blockNo = await web3.eth.getBlockNumber();
 
           // Change Nonce to something in the future.
-          createAppointment(challengeInstance.address, blockNo, accounts[3], 200, 28, 2, "0x0000000000000000000000000000000000000000", web3.eth.abi.encodeParameter('uint', 200), 50);
+          createAppointment(challengeInstance.address, blockNo, accounts[3], 200, 28, 2, "0x0000000000000000000000000000000000000000", web3.eth.abi.encodeParameter('uint', 200), 50, pisaHashInstance.address);
 
           // OK lets try to compute pisaid locally after creating a new appointment
           let pisaidEncoded= web3.eth.abi.encodeParameters(['address', 'address', 'uint'], [challengeInstance.address, appointment['customerAddress'], channelid]);
@@ -1035,7 +1029,6 @@ contract('PISAHash', (accounts) => {
           assert.isTrue(cheatedlog['triggered'], "Recourse for nonce 28 should be triggered");
           assert.isTrue(!cheatedlog['resolved'], "Recourse for nonce 28 should not already be resolved");
 
-          appointmentToSign = web3.eth.abi.encodeParameters(['bytes','address'],[encodedAppointment, pisaHashInstance.address]);
           let hash = web3.utils.keccak256(appointmentToSign);
 
           cussig =  await web3.eth.sign(hash,accounts[3]);
@@ -1058,7 +1051,7 @@ contract('PISAHash', (accounts) => {
           let blockNo = await web3.eth.getBlockNumber();
 
           // Change Nonce to something in the future.
-          createAppointment(challengeInstance.address, blockNo, accounts[3], 200, 30, 2, "0x0000000000000000000000000000000000000000", web3.eth.abi.encodeParameter('uint', 200), 50);
+          createAppointment(challengeInstance.address, blockNo, accounts[3], 200, 30, 2, "0x0000000000000000000000000000000000000000", web3.eth.abi.encodeParameter('uint', 200), 50, pisaHashInstance.address);
 
           // OK lets try to compute pisaid locally after creating a new appointment
           let pisaidEncoded= web3.eth.abi.encodeParameters(['address', 'address', 'uint'], [challengeInstance.address, appointment['customerAddress'], channelid]);
@@ -1067,7 +1060,6 @@ contract('PISAHash', (accounts) => {
           assert.isTrue(cheatedlog['triggered'], "Recourse for nonce 28 should be triggered");
           assert.isTrue(!cheatedlog['resolved'], "Recourse for nonce 28 should not already be resolved");
 
-          appointmentToSign = web3.eth.abi.encodeParameters(['bytes','address'],[encodedAppointment, pisaHashInstance.address]);
           let hash = web3.utils.keccak256(appointmentToSign);
 
           cussig =  await web3.eth.sign(hash,accounts[3]);
@@ -1090,12 +1082,11 @@ contract('PISAHash', (accounts) => {
           let blockNo = await web3.eth.getBlockNumber();
 
           // Change Nonce to something in the future.
-          createAppointment(challengeInstance.address, blockNo, accounts[3], 200, 35, 2, "0x0000000000000000000000000000000000000000", web3.eth.abi.encodeParameter('uint', 200), 50);
+          createAppointment(challengeInstance.address, blockNo, accounts[3], 200, 35, 2, "0x0000000000000000000000000000000000000000", web3.eth.abi.encodeParameter('uint', 200), 50, pisaHashInstance.address);
           let pisaidEncoded= web3.eth.abi.encodeParameters(['address', 'address', 'uint'], [challengeInstance.address, appointment['customerAddress'], channelid]);
           let pisaid = web3.utils.keccak256(pisaidEncoded);
 
           // PISA + Customer signs new appointment
-          appointmentToSign = web3.eth.abi.encodeParameters(['bytes','address'],[encodedAppointment, pisaHashInstance.address]);
           let hash = web3.utils.keccak256(appointmentToSign);
 
           pisasig =  await web3.eth.sign(hash,accounts[1]);
@@ -1142,9 +1133,8 @@ contract('PISAHash', (accounts) => {
           let blockNo = await web3.eth.getBlockNumber();
 
           // Change Nonce to something in the future.
-          createAppointment(mockAuction.address, blockNo-10, accounts[3], 500, 37, 10, mockAuctionHandler.address, "0x0000000000000000000000000000000000000000", 50);
+          createAppointment(mockAuction.address, blockNo-10, accounts[3], 500, 37, 10, mockAuctionHandler.address, "0x0000000000000000000000000000000000000000", 50, pisaHashInstance.address);
 
-          appointmentToSign = web3.eth.abi.encodeParameters(['bytes','address'],[encodedAppointment, pisaHashInstance.address]);
           let hash = web3.utils.keccak256(appointmentToSign);
 
           cussig =  await web3.eth.sign(hash,accounts[3]);
@@ -1191,9 +1181,8 @@ contract('PISAHash', (accounts) => {
           let blockNo = await web3.eth.getBlockNumber();
 
           // Change Nonce to something in the future.
-          createAppointment(challengeInstance.address, blockNo-10, accounts[3], 500, 40, 2, "0x0000000000000000000000000000000000000000", web3.eth.abi.encodeParameter('uint', 500), 50);
+          createAppointment(challengeInstance.address, blockNo-10, accounts[3], 500, 40, 2, "0x0000000000000000000000000000000000000000", web3.eth.abi.encodeParameter('uint', 500), 50, pisaHashInstance.address);
 
-          appointmentToSign = web3.eth.abi.encodeParameters(['bytes','address'],[encodedAppointment, pisaHashInstance.address]);
           let hash = web3.utils.keccak256(appointmentToSign);
 
           cussig =  await web3.eth.sign(hash,accounts[3]);
@@ -1339,9 +1328,8 @@ contract('PISAHash', (accounts) => {
           let blockNo = await web3.eth.getBlockNumber();
 
           // Change Nonce to something in the future.
-          createAppointment(challengeInstance.address, blockNo-10, accounts[3], 1230, 50, 2, "0x0000000000000000000000000000000000000000", web3.eth.abi.encodeParameter('uint', 1230), 50);
+          createAppointment(challengeInstance.address, blockNo-10, accounts[3], 1230, 50, 2, "0x0000000000000000000000000000000000000000", web3.eth.abi.encodeParameter('uint', 1230), 50, pisaHashInstance.address);
 
-          appointmentToSign = web3.eth.abi.encodeParameters(['bytes','address'],[encodedAppointment, pisaHashInstance.address]);
           let hash = web3.utils.keccak256(appointmentToSign);
 
           cussig =  await web3.eth.sign(hash,accounts[3]);

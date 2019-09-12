@@ -141,10 +141,7 @@ describe("Appointment", () => {
     });
 
     const sign = async (appointment: Appointment, wallet: ethers.Wallet) => {
-        const encoded = appointment.encode();
-        const hashedWithAddress = ethers.utils.keccak256(
-            ethers.utils.defaultAbiCoder.encode(["bytes", "address"], [encoded, pisaContractAddress])
-        );
+        const hashedWithAddress = ethers.utils.keccak256(appointment.encodeForSig(pisaContractAddress));
         const sig = await wallet.signMessage(ethers.utils.arrayify(hashedWithAddress));
         const clone = { ...Appointment.toIAppointmentRequest(appointment), customerSig: sig };
         return Appointment.parse(clone);
@@ -277,7 +274,7 @@ describe("Appointment", () => {
             PublicDataValidationError
         );
     });
-    
+
     fnIt<Appointment>(a => a.validate, "throws refund > 0.1 ether", async () => {
         const app = Appointment.parse(testAppointmentRequest);
         const signedAppointment = await sign(app, customerSigner);
