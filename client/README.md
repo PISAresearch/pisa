@@ -4,7 +4,7 @@ A thin client for the PISA API running a http://alpha.pisa.watch:5487.
 
 The PISA contract is currently deployed on Ropsten at 0xA02C7260c0020343040A504Ef24252c120be60b9
 
-The client library supports **relay** and **event triggered** transactions. If no event information is provided when generating an appointment request then a relay transaction will be created. See http://alpha.pisa.watch:5487/docs.html for more information on individual parameters
+The client library supports **relay** and **event triggered** appointments. If no event information is provided when generating an appointment request then a relay appointment will be created. See http://alpha.pisa.watch:5487/docs.html for more information on individual parameters
 
 Simple example with ethersjs
 --
