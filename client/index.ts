@@ -2,22 +2,24 @@ import crossFetch from "cross-fetch";
 import { defaultAbiCoder, keccak256, verifyMessage, arrayify } from "ethers/utils";
 
 class AppointmentRequest {
-    readonly contractAddress: string;
     readonly customerAddress: string;
+    readonly id: string;
+    readonly nonce: number;
     readonly startBlock: number;
     readonly endBlock: number;
-    readonly challengePeriod: number;
-    readonly nonce: number;
-    readonly data: string;
-    readonly refund: string;
-    readonly gasLimit: number;
+    readonly paymentHash: string;
+
     readonly eventAddress: string;
     readonly eventABI: string;
     readonly eventArgs: string;
+
+    readonly contractAddress: string;
+    readonly data: string;
+    readonly gasLimit: number;
+    readonly challengePeriod: number;
+    readonly refund: string;
     readonly preCondition: string;
     readonly postCondition: string;
-    readonly paymentHash: string;
-    readonly id: string;
     readonly mode: number;
 }
 
@@ -39,7 +41,7 @@ export default class PisaClient {
      * @param pisaUrl The PISA server url
      * @param pisaContractAddress The address of the on-chain PISA contract
      */
-    constructor(public readonly pisaUrl: string, public readonly pisaContractAddress: string) {}
+    public constructor(public readonly pisaUrl: string, public readonly pisaContractAddress: string) {}
 
     /**
      * Encode the request in the correct format for signature
@@ -108,78 +110,76 @@ export default class PisaClient {
     /**
      * Generates a request object that can be used to request an **relay** appointment from
      * a pisa tower.
-     * See http://alpha.pisa.watch:5487/docs.html for parameter details.
      * @param signer A signing function to create a signature.
      *   Receives a correctly formatted digest of the appointment, must return a signature
      *   created by the priv key associated with the customerAddress
-     * @param contractAddress
      * @param customerAddress
-     * @param startBlock
-     * @param endBlock
-     * @param challengePeriod
      * @param id
      * @param nonce
+     * @param startBlock
+     * @param endBlock
+     * @param contractAddress
      * @param data
      * @param gasLimit
+     * @param challengePeriod
      */
     generateRequest(
         signer: (digest: string) => Promise<string>,
-        contractAddress: string,
         customerAddress: string,
-        startBlock: number,
-        endBlock: number,
-        challengePeriod: number,
         id: string,
         nonce: number,
+        startBlock: number,
+        endBlock: number,
+        contractAddress: string,
         data: string,
-        gasLimit: number
+        gasLimit: number,
+        challengePeriod: number
     ): Promise<SignedApppointmentRequest>;
     /**
      * Generates a request object that can be used to request an appointment from
      * a pisa tower.
-     * See http://alpha.pisa.watch:5487/docs.html for parameter details.
      * @param signer A signing function to create a signature.
      *   Receives a correctly formatted digest of the appointment, must return a signature
      *   created by the priv key associated with the customerAddress
-     * @param contractAddress
      * @param customerAddress
-     * @param startBlock
-     * @param endBlock
-     * @param challengePeriod
      * @param id
      * @param nonce
+     * @param startBlock
+     * @param endBlock
+     * @param contractAddress
      * @param data
      * @param gasLimit
+     * @param challengePeriod
      * @param eventAddress
      * @param eventABI
      * @param eventArgs
      */
     generateRequest(
         signer: (digest: string) => Promise<string>,
-        contractAddress: string,
         customerAddress: string,
-        startBlock: number,
-        endBlock: number,
-        challengePeriod: number,
         id: string,
         nonce: number,
+        startBlock: number,
+        endBlock: number,
+        contractAddress: string,
         data: string,
         gasLimit: number,
+        challengePeriod: number,
         eventAddress: string,
         eventABI: string,
         eventArgs: string
     ): Promise<SignedApppointmentRequest>;
     public async generateRequest(
         signer: (digest: string) => Promise<string>,
-        contractAddress: string,
         customerAddress: string,
-        startBlock: number,
-        endBlock: number,
-        challengePeriod: number,
         id: string,
         nonce: number,
+        startBlock: number,
+        endBlock: number,
+        contractAddress: string,
         data: string,
         gasLimit: number,
+        challengePeriod: number,
         eventAddress?: string,
         eventABI?: string,
         eventArgs?: string
@@ -244,78 +244,76 @@ export default class PisaClient {
     /**
      * Generates a request object that can be used to request an **relay** appointment from
      * a pisa tower. Also sends the request to the PISA tower to receive an appointment receipt.
-     * See http://alpha.pisa.watch:5487/docs.html for parameter details.
      * @param signer A signing function to create a signature.
      *   Receives a correctly formatted digest of the appointment, must return a signature
      *   created by the priv key associated with the customerAddress
-     * @param contractAddress
      * @param customerAddress
-     * @param startBlock
-     * @param endBlock
-     * @param challengePeriod
      * @param id
      * @param nonce
+     * @param startBlock
+     * @param endBlock
+     * @param contractAddress
      * @param data
      * @param gasLimit
+     * @param challengePeriod
      */
     generateAndExecuteRequest(
         signer: (digest: string) => Promise<string>,
-        contractAddress: string,
         customerAddress: string,
-        startBlock: number,
-        endBlock: number,
-        challengePeriod: number,
         id: string,
         nonce: number,
+        startBlock: number,
+        endBlock: number,
+        contractAddress: string,
         data: string,
-        gasLimit: number
+        gasLimit: number,
+        challengePeriod: number
     ): Promise<AppointmentReceipt>;
     /**
      * Generates a request object that can be used to request an appointment from
      * a pisa tower. Also sends the request to the PISA tower to receive an appointment receipt.
-     * See http://alpha.pisa.watch:5487/docs.html for parameter details.
      * @param signer A signing function to create a signature.
      *   Receives a correctly formatted digest of the appointment, must return a signature
      *   created by the priv key associated with the customerAddress
-     * @param contractAddress
      * @param customerAddress
-     * @param startBlock
-     * @param endBlock
-     * @param challengePeriod
      * @param id
      * @param nonce
+     * @param startBlock
+     * @param endBlock
+     * @param contractAddress
      * @param data
      * @param gasLimit
+     * @param challengePeriod
      * @param eventAddress
      * @param eventABI
      * @param eventArgs
      */
     generateAndExecuteRequest(
         signer: (digest: string) => Promise<string>,
-        contractAddress: string,
         customerAddress: string,
-        startBlock: number,
-        endBlock: number,
-        challengePeriod: number,
         id: string,
         nonce: number,
+        startBlock: number,
+        endBlock: number,
+        contractAddress: string,
         data: string,
         gasLimit: number,
+        challengePeriod: number,
         eventAddress: string,
         eventABI: string,
         eventArgs: string
     ): Promise<AppointmentReceipt>;
     public async generateAndExecuteRequest(
         signer: (digest: string) => Promise<string>,
-        contractAddress: string,
         customerAddress: string,
-        startBlock: number,
-        endBlock: number,
-        challengePeriod: number,
         id: string,
         nonce: number,
+        startBlock: number,
+        endBlock: number,
+        contractAddress: string,
         data: string,
         gasLimit: number,
+        challengePeriod: number,
         eventAddress?: string,
         eventABI?: string,
         eventArgs?: string
@@ -324,30 +322,30 @@ export default class PisaClient {
             eventAddress && eventABI && eventArgs
                 ? await this.generateRequest(
                       signer,
-                      contractAddress,
                       customerAddress,
-                      startBlock,
-                      endBlock,
-                      challengePeriod,
                       id,
                       nonce,
+                      startBlock,
+                      endBlock,
+                      contractAddress,
                       data,
                       gasLimit,
+                      challengePeriod,
                       eventAddress,
                       eventABI,
                       eventArgs
                   )
                 : await this.generateRequest(
                       signer,
-                      contractAddress,
                       customerAddress,
-                      startBlock,
-                      endBlock,
-                      challengePeriod,
                       id,
                       nonce,
+                      startBlock,
+                      endBlock,
+                      contractAddress,
                       data,
-                      gasLimit
+                      gasLimit,
+                      challengePeriod
                   );
         return await this.executeRequest(request);
     }

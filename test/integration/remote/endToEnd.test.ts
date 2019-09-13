@@ -129,15 +129,15 @@ describe("Integration", function() {
 
         await client.generateAndExecuteRequest(
             disgest => key0.wallet.signMessage(ethers.utils.arrayify(disgest)),
-            channelContract.address,
             key0.account,
-            currentBlock,
-            1000,
-            100,
             id,
             0,
+            currentBlock,
+            1000,
+            channelContract.address,
             data,
             1000000,
+            100,
             channelContract.address,
             KitsuneTools.eventABI(),
             KitsuneTools.eventArgs()
@@ -229,15 +229,15 @@ describe("Integration", function() {
 
             await client.generateAndExecuteRequest(
                 disgest => wallets0[i].signMessage(ethers.utils.arrayify(disgest)),
-                channelContracts[i].address,
                 wallets0[i].address,
-                0,
-                1000,
-                100,
                 id,
                 0,
+                0,
+                1000,
+                channelContracts[i].address,
                 data,
                 1000000,
+                100,
                 channelContracts[i].address,
                 KitsuneTools.eventABI(),
                 KitsuneTools.eventArgs()
