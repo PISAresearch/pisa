@@ -11,7 +11,7 @@ COPY package*.json ./
 RUN ["npm", "ci", "--only=prod"];
 # we need truffle to compile contracts needed in production
 # but we dont want to ship truffle into production, so we dont include it in the production packages section
-RUN ["npm", "i", "-g", "truffle"];
+RUN ["npm", "i", "-D", "truffle@5.0.34"];
 
 # copy the src and the configs
 COPY ./src ./src
@@ -19,7 +19,7 @@ COPY ./sol ./sol
 COPY ./tsconfig.json ./tsconfig.json
 
 # build
-RUN ["npm", "run", "build"]
+RUN ["npm", "run", "build-prod"]
 
 ######################
 ####### DEPLOY #######
