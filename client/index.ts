@@ -41,6 +41,87 @@ export default class PisaClient {
      */
     constructor(public readonly pisaUrl: string, public readonly pisaContractAddress: string) {}
 
+    /**
+     * Encode the request in the correct format for signature
+     * @param request
+     */
+    private encodeAndHash(request: AppointmentRequest): string {
+        const tupleDefinition =
+            "tuple(address,address,uint,uint,uint,bytes32,uint,bytes,uint,uint,uint,address,string,bytes,bytes,bytes,bytes32)";
+
+        const encoded = defaultAbiCoder.encode(
+            [tupleDefinition, "address"],
+            [
+                [
+                    request.contractAddress,
+                    request.customerAddress,
+                    request.startBlock,
+                    request.endBlock,
+                    request.challengePeriod,
+                    request.id,
+                    request.nonce,
+                    request.data,
+                    request.refund,
+                    request.gasLimit,
+                    request.mode,
+                    request.eventAddress,
+                    request.eventABI,
+                    request.eventArgs,
+                    request.preCondition,
+                    request.postCondition,
+                    request.paymentHash
+                ],
+                this.pisaContractAddress
+            ]
+        );
+
+        return keccak256(encoded);
+    }
+
+    /**
+     * Check the response is 200, else throw an error with the contained messgae
+     * @param response
+     */
+    private async checkResponse(response: Response) {
+        if (!response.ok) {
+            const contentType = response.headers.get("content-type");
+            if (contentType && contentType.indexOf("application/json") !== -1) {
+                throw new Error((await response.json()).message);
+            } else {
+                throw new Error(await response.text());
+            }
+        }
+        return response;
+    }
+
+    /**
+     * Check that the returned receipt was correctly signed
+     * @param receipt
+     */
+    private async validateReceipt(receipt: AppointmentReceipt): Promise<AppointmentReceipt> {
+        const hash = this.encodeAndHash(receipt.appointment);
+        const recoveredAddress = verifyMessage(arrayify(hash), receipt.watcherSignature);
+        if (recoveredAddress.toLowerCase() === receipt.watcherAddress.toLowerCase()) return receipt;
+        else throw new Error("Invalid receipt. Watcher signature invalid.");
+    }
+
+    /**
+     * Generates a request object that can be used to request an **relay** appointment from
+     * a pisa tower.
+     * See http://alpha.pisa.watch:5487/docs.html for parameter details.
+     * @param signer A signing function to create a signature.
+     *   Receives a correctly formatted digest of the appointment, must return a signature
+     *   created by the priv key associated with the customerAddress
+     * @param contractAddress
+     * @param customerAddress
+     * @param startBlock
+     * @param endBlock
+     * @param challengePeriod
+     * @param id
+     * @param nonce
+     * @param data
+     * @param gasLimit
+     */
     generateRequest(
         signer: (digest: string) => Promise<string>,
         contractAddress: string,
@@ -53,6 +134,26 @@ export default class PisaClient {
         data: string,
         gasLimit: number
     ): Promise<SignedApppointmentRequest>;
+    /**
+     * Generates a request object that can be used to request an appointment from
+     * a pisa tower.
+     * See http://alpha.pisa.watch:5487/docs.html for parameter details.
+     * @param signer A signing function to create a signature.
+     *   Receives a correctly formatted digest of the appointment, must return a signature
+     *   created by the priv key associated with the customerAddress
+     * @param contractAddress
+     * @param customerAddress
+     * @param startBlock
+     * @param endBlock
+     * @param challengePeriod
+     * @param id
+     * @param nonce
+     * @param data
+     * @param gasLimit
+     * @param eventAddress
+     * @param eventABI
+     * @param eventArgs
+     */
     generateRequest(
         signer: (digest: string) => Promise<string>,
         contractAddress: string,
@@ -124,58 +225,10 @@ export default class PisaClient {
         };
     }
 
-    public encodeAndHash(request: AppointmentRequest): string {
-        const tupleDefinition =
-            "tuple(address,address,uint,uint,uint,bytes32,uint,bytes,uint,uint,uint,address,string,bytes,bytes,bytes,bytes32)";
-
-        const encoded = defaultAbiCoder.encode(
-            [tupleDefinition, "address"],
-            [
-                [
-                    request.contractAddress,
-                    request.customerAddress,
-                    request.startBlock,
-                    request.endBlock,
-                    request.challengePeriod,
-                    request.id,
-                    request.nonce,
-                    request.data,
-                    request.refund,
-                    request.gasLimit,
-                    request.mode,
-                    request.eventAddress,
-                    request.eventABI,
-                    request.eventArgs,
-                    request.preCondition,
-                    request.postCondition,
-                    request.paymentHash
-                ],
-                this.pisaContractAddress
-            ]
-        );
-
-        return keccak256(encoded);
-    }
-
-    private async checkResponse(response: Response) {
-        if (!response.ok) {
-            const contentType = response.headers.get("content-type");
-            if (contentType && contentType.indexOf("application/json") !== -1) {
-                throw new Error((await response.json()).message);
-            } else {
-                throw new Error(await response.text());
-            }
-        }
-        return response;
-    }
-
-    private async validateReceipt(receipt: AppointmentReceipt): Promise<AppointmentReceipt> {
-        const hash = this.encodeAndHash(receipt.appointment);
-        const recoveredAddress = verifyMessage(arrayify(hash), receipt.watcherSignature);
-        if (recoveredAddress.toLowerCase() === receipt.watcherAddress.toLowerCase()) return receipt;
-        else throw new Error("Invalid receipt. Watcher signature invalid.");
-    }
-
+    /**
+     * Makes a request to the remote PISA tower for the provided appointment.
+     * @param request
+     */
     public async executeRequest(request: SignedApppointmentRequest): Promise<AppointmentReceipt> {
         const response = await crossFetch(this.pisaUrl + "/" + PisaClient.APPOINTMENT_ENDPOINT, {
             method: "POST",
@@ -188,7 +241,24 @@ export default class PisaClient {
             .then(rec => this.validateReceipt(rec as AppointmentReceipt));
     }
 
-    public async generateAndExecuteRequest(
+    /**
+     * Generates a request object that can be used to request an **relay** appointment from
+     * a pisa tower. Also sends the request to the PISA tower to receive an appointment receipt.
+     * See http://alpha.pisa.watch:5487/docs.html for parameter details.
+     * @param signer A signing function to create a signature.
+     *   Receives a correctly formatted digest of the appointment, must return a signature
+     *   created by the priv key associated with the customerAddress
+     * @param contractAddress
+     * @param customerAddress
+     * @param startBlock
+     * @param endBlock
+     * @param challengePeriod
+     * @param id
+     * @param nonce
+     * @param data
+     * @param gasLimit
+     */
+    generateAndExecuteRequest(
         signer: (digest: string) => Promise<string>,
         contractAddress: string,
         customerAddress: string,
@@ -200,7 +270,27 @@ export default class PisaClient {
         data: string,
         gasLimit: number
     ): Promise<AppointmentReceipt>;
-    public async generateAndExecuteRequest(
+    /**
+     * Generates a request object that can be used to request an appointment from
+     * a pisa tower. Also sends the request to the PISA tower to receive an appointment receipt.
+     * See http://alpha.pisa.watch:5487/docs.html for parameter details.
+     * @param signer A signing function to create a signature.
+     *   Receives a correctly formatted digest of the appointment, must return a signature
+     *   created by the priv key associated with the customerAddress
+     * @param contractAddress
+     * @param customerAddress
+     * @param startBlock
+     * @param endBlock
+     * @param challengePeriod
+     * @param id
+     * @param nonce
+     * @param data
+     * @param gasLimit
+     * @param eventAddress
+     * @param eventABI
+     * @param eventArgs
+     */
+    generateAndExecuteRequest(
         signer: (digest: string) => Promise<string>,
         contractAddress: string,
         customerAddress: string,
