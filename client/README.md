@@ -26,7 +26,7 @@ const challengePeriod = 200;
 // event info
 const eventAddress = "0x9e64b53b935602cd0657343C69Fe200fb3cD05c8";
 const eventABI = "event EventDispute(uint256 indexed)";
-const eventArgs = "0xf778daa96e1bdf7745b02debfd61d9bcc46da294dd059fa3ce13b263d06e389a"
+const eventArgs = "0xf778daa96e1bdf7745b02debfd61d9bcc46da294dd059fa3ce13b263d06e389a";
 
 const pisaClient = new PisaClient("http://alpha.pisa.watch:5487", "0xA02C7260c0020343040A504Ef24252c120be60b9");
 const receipt = await pisaClient.generateAndExecuteRequest(
