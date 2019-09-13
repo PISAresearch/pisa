@@ -21,6 +21,10 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
     // lock used to make sure that all events are processed in order
     private lock = new Lock();
 
+    // As actions are executed asynchronously (and they might take time), we keep track of actions that are running,
+    // so that we do not run the same action multiple times.
+    private runningActionIds = new Set<string>();
+
     protected async startInternal(): Promise<void> {
         if (!this.blockProcessor.started) this.logger.error("The BlockchainMachine should be started before the BlockchainMachine.");
         if (!this.actionStore.started) this.logger.error("The ActionStore should be started before the BlockchainMachine.");
@@ -118,13 +122,22 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
                     const newActions = component.detectChanges(prevEmittedState, state);
                     if (newActions.length > 0) await this.actionStore.storeActions(component.name, newActions);
 
-                    // load all the actions (might include oldler actions; also, they now have id)
+                    // load all the actions (might include older actions; also, they now have id)
                     const actionAndIds = this.actionStore.getActions(component.name);
 
-                    // side effects must be thread safe, so we can execute them concurrently
+                    // Side effects must be thread safe, so we can execute them concurrently
+                    // Note that actions are executed in background and not awaited for in here. Thus, it is necessary
+                    // to keep track of actions that are still running, whose ids are stored in `this.runninActionIds`.
                     actionAndIds.forEach(async a => {
-                        await component.applyAction(a.action);
-                        this.actionStore.removeAction(component.name, a);
+                        const { action, id } = a;
+                        if (!this.runningActionIds.has(id)) {
+                            this.runningActionIds.add(id)
+
+                            await component.applyAction(action);
+
+                            this.actionStore.removeAction(component.name, a);
+                            this.runningActionIds.delete(id);
+                        }
                     });
                 }
             }
