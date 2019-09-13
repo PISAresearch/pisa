@@ -40,7 +40,6 @@ describe("Integration", function() {
         const currentDirectory = __dirname;
         const logDir = "logs";
         const logsDirectory = path.join(currentDirectory, logDir);
-
         prepareLogsDir(logsDirectory);
         const chainData = new ChainData(
             "IntegrationPoA",
