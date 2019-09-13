@@ -172,15 +172,15 @@ describe("Service end-to-end", () => {
         try {
             const res = await exPisaClient.generateAndExecuteRequest(
                 digest => wallet0.signMessage(arrayify(digest)),
-                channelContract.address,
                 account0,
-                currentBlockNumber,
-                1000,
-                100,
                 "0x0000000000000000000000000000000000000000000000000000000000000001",
                 0,
+                currentBlockNumber,
+                1000,
+                channelContract.address,
                 data,
                 1000000,
+                100,
                 channelContract.address,
                 KitsuneTools.eventABI(),
                 KitsuneTools.eventArgs()
@@ -204,15 +204,15 @@ describe("Service end-to-end", () => {
         const currentBlockNumber = await provider.getBlockNumber();
         await pisaClient.generateAndExecuteRequest(
             digest => wallet0.signMessage(arrayify(digest)),
-            channelContract.address,
             account0,
-            currentBlockNumber,
-            1000,
-            100,
             "0x0000000000000000000000000000000000000000000000000000000000000001",
             0,
+            currentBlockNumber,
+            1000,
+            channelContract.address,
             data,
             1000000,
+            100,
             channelContract.address,
             KitsuneTools.eventABI(),
             KitsuneTools.eventArgs()
@@ -249,15 +249,15 @@ describe("Service end-to-end", () => {
         const currentBlockNumber = await provider.getBlockNumber();
         const req = await pisaClient.generateRequest(
             (digest: string) => wallet0.signMessage(arrayify(digest)),
-            channelContract.address,
             account0,
-            currentBlockNumber,
-            1000,
-            100,
             "0x0000000000000000000000000000000000000000000000000000000000000001",
             0,
+            currentBlockNumber,
+            1000,
+            channelContract.address,
             data,
             1000000,
+            100,
             channelContract.address,
             KitsuneTools.eventABI(),
             KitsuneTools.eventArgs()
@@ -292,15 +292,15 @@ describe("Service end-to-end", () => {
         const currentBlockNumber = await provider.getBlockNumber();
         const req = await pisaClient.generateRequest(
             (digest: string) => wallet0.signMessage(arrayify(digest)),
-            oneWayChannelContract.address,
             account0,
-            currentBlockNumber,
-            1000,
-            100,
             "0x0000000000000000000000000000000000000000000000000000000000000001",
             0,
+            currentBlockNumber,
+            1000,
+            oneWayChannelContract.address,
             data,
-            1000000
+            1000000,
+            100,
         );
 
         // now register a callback on the setstate event and trigger a response
@@ -324,15 +324,15 @@ describe("Service end-to-end", () => {
         const currentBlockNumber = await provider.getBlockNumber();
         const req = await pisaClient.generateRequest(
             (digest: string) => wallet0.signMessage(arrayify(digest)),
-            oneWayChannelContract.address,
             account0,
-            currentBlockNumber,
-            1000,
-            100,
             "0x0000000000000000000000000000000000000000000000000000000000000001",
             0,
+            currentBlockNumber,
+            1000,
+            oneWayChannelContract.address,
             data,
-            1000000
+            1000000,
+            100,
         );
 
         // now register a callback on the setstate event and trigger a response
