@@ -212,54 +212,38 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
     // It is called for each new block received, but also at startup (during startInternal).
     private async processBlockNumber(blockNumber: number) {
         try {
-            // we cant process blocks greater than max depth of the cache
-            // so if the cache is empty any block is fine, otherwise
-            // the blocknumber cannot be more than maxDepth greater than the head
-            const maxBlock = this.mBlockCache.isEmpty // prettier-ignore
-                ? blockNumber
-                : this.blockCache.head.number + this.blockCache.maxDepth;
-            let synchronised; // will be set to false if we fell behind, hence we did not yet process all the blocks
-            let processingBlockNumber;
-            if (maxBlock < blockNumber) {
-                processingBlockNumber = maxBlock;
-                synchronised = false;
-            } else {
-                processingBlockNumber = blockNumber;
-                synchronised = true;
-            }
+            let processingBlockNumber: number; // the block processed in this batch; will be equal to blockNumber on the last batch
+            let observedBlock: TBlock; // the block the provider returned for height processingBlockNumber
+            do {
+                // As the block hash we receive when we query the provider by block number is not guaranteed to be the same on multiple calls
+                // (as there could have been a reorg, or the query might be processed by a different node), we only do this query once to get a block hash,
+                // then we proceed backwards using the parentHash to get enough ancestors until we can attach to the BlockCache.
+                // We split the processing in batches of at most blockCache.maxDepth blocks, in order to avoid keeping a very large number of blocks in memory.
+                // It should be only one batch under normal circumstances, but we might fall behing more, for example, if Pisa crashed and there was some downtime.
 
-            const observedBlock = await this.getBlockRemote(processingBlockNumber);
+                processingBlockNumber = this.mBlockCache.isEmpty
+                    ? blockNumber // if cache is empty, process just the current block
+                    : Math.min(blockNumber, this.blockCache.head.number + this.blockCache.maxDepth); // otherwise, download a batch of blocks (up to blockNumber)
 
-            if (this.blockCache.hasBlock(observedBlock.hash, true)) {
-                // We received a block that we already processed before. Ignore, but log that it happened
-                this.logger.info(`Received block #${blockNumber} with hash ${observedBlock.hash}, that was already known. Skipping.`);
-                return;
-            }
+                observedBlock = await this.getBlockRemote(processingBlockNumber);
+                if (processingBlockNumber === blockNumber) this.lastBlockHashReceived = observedBlock.hash;
 
-            this.lastBlockHashReceived = observedBlock.hash;
+                // starting from observedBlock, add to the cache and download the parent, until the return value signals that block is attached
+                let curBlock = observedBlock;
+                while (true) {
+                    const addResult = await this.mBlockCache.addBlock(curBlock)
+                    if (addResult !== BlockAddResult.AddedDetached && addResult !== BlockAddResult.NotAddedAlreadyExistedDetached)
+                        break;
 
-            // fetch ancestors and keep adding until one is found that is attached
-            let curBlock: Readonly<TBlock> = observedBlock;
-            let blockResult: BlockAddResult;
-            const observedBlockResult = (blockResult = await this.mBlockCache.addBlock(curBlock));
-
-            while (blockResult === BlockAddResult.AddedDetached || blockResult === BlockAddResult.NotAddedAlreadyExistedDetached) {
-                curBlock = await this.getBlock(curBlock.parentHash);
-                blockResult = await this.mBlockCache.addBlock(curBlock);
-            }
+                    curBlock = await this.getBlock(curBlock.parentHash);
+                }
+            } while (processingBlockNumber !== blockNumber);
 
             // is the observed block still the last block received (or the first block, during startup)?
             // and was the block added to the cache?
-            if (
-                synchronised && // prettier-ignore
-                this.lastBlockHashReceived === observedBlock.hash &&
-                observedBlockResult !== BlockAddResult.NotAddedBlockNumberTooLow
-            ) {
+            if (this.lastBlockHashReceived === observedBlock.hash) {
                 await this.processNewHead(observedBlock);
             }
-
-            // finally, if we didnt process all the blocks, then we need to go again
-            if (!synchronised) await this.processBlockNumber(blockNumber);
         } catch (doh) {
             if (doh instanceof BlockFetchingError) this.logger.info(doh);
             else this.logger.error(doh);
