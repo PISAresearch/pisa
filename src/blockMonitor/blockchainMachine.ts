@@ -1,7 +1,7 @@
 import { BlockProcessor } from "./blockProcessor";
 import { IBlockStub, StartStopService, ApplicationError } from "../dataEntities";
 import { Component, AnchorState, ComponentAction } from "./component";
-import { ActionStore } from "./actionStore";
+import { ActionStore, ActionAndId } from "./actionStore";
 import { BlockItemStore } from "../dataEntities/block";
 import { Lock } from "../utils/lock";
 
@@ -21,9 +21,22 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
     // lock used to make sure that all events are processed in order
     private lock = new Lock();
 
-    // As actions are executed asynchronously (and they might take time), we keep track of actions that are running,
-    // so that we do not run the same action multiple times.
-    private runningActionIds = new Set<string>();
+    /**
+     * Runs all the actions in `actionAndIds` for `component`. Actions are all executed in parallel, and each action is removed
+     * from the ActionStore upon completion.s
+     */
+    private runActionsForComponent(component: Component<AnchorState, IBlockStub, ComponentAction>, actionAndIds: Iterable<ActionAndId>) {
+        // Side effects must be thread safe, so we can execute them concurrently
+        // Note that actions are executed in background and not awaited for in here.
+        [...actionAndIds].forEach(async a => {
+            try {
+                await component.applyAction(a.action);
+                this.actionStore.removeAction(component.name, a);
+            } catch(doh) {
+                this.logger.error(doh);
+            }
+        });
+    }
 
     protected async startInternal(): Promise<void> {
         if (!this.blockProcessor.started) this.logger.error("The BlockchainMachine should be started before the BlockchainMachine.");
@@ -32,7 +45,15 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
 
         this.blockProcessor.addNewHeadListener(this.processNewHead);
         this.blockProcessor.blockCache.addNewBlockListener(this.processNewBlock);
+
+        // For each component, load and start any action that was stored in the ActionStore
+        for (const component of this.components) {
+            const actionAndIds = this.actionStore.getActions(component.name);
+            this.runActionsForComponent(component, actionAndIds);
+        }
+
     }
+
     protected async stopInternal(): Promise<void> {
         this.blockProcessor.removeNewHeadListener(this.processNewHead);
         this.blockProcessor.blockCache.removeNewBlockListener(this.processNewBlock);
@@ -120,25 +141,10 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
                 if (prevEmittedState) {
                     // save actions in the store
                     const newActions = component.detectChanges(prevEmittedState, state);
-                    if (newActions.length > 0) await this.actionStore.storeActions(component.name, newActions);
-
-                    // load all the actions (might include older actions; also, they now have id)
-                    const actionAndIds = this.actionStore.getActions(component.name);
-
-                    // Side effects must be thread safe, so we can execute them concurrently
-                    // Note that actions are executed in background and not awaited for in here. Thus, it is necessary
-                    // to keep track of actions that are still running, whose ids are stored in `this.runninActionIds`.
-                    actionAndIds.forEach(async a => {
-                        const { action, id } = a;
-                        if (!this.runningActionIds.has(id)) {
-                            this.runningActionIds.add(id)
-
-                            await component.applyAction(action);
-
-                            this.actionStore.removeAction(component.name, a);
-                            this.runningActionIds.delete(id);
-                        }
-                    });
+                    if (newActions.length > 0) {
+                        const actionAndIds = await this.actionStore.storeActions(component.name, newActions);
+                        this.runActionsForComponent(component, actionAndIds);
+                    }
                 }
             }
         } finally {

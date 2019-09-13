@@ -11,6 +11,7 @@ export interface ActionAndId {
     action: ComponentAction;
 }
 
+/** This class stores the actions for each component in the database. */
 export class ActionStore extends StartStopService {
     private readonly subDb: LevelUp<EncodingDown<string, any>>;
     private actions: Map<string, Set<ActionAndId>> = new Map();
@@ -38,11 +39,16 @@ export class ActionStore extends StartStopService {
     }
     protected async stopInternal() {}
 
+    /** Returns all the actions stored for `componentName`. */
     public getActions(componentName: string) {
         return this.actions.get(componentName) || new Set();
     }
 
-    public async storeActions(componentName: string, actions: ComponentAction[]) {
+    /**
+     * Adds `actions` to the actions stored for `componentName`, after wrapping each action with a unique `id`.
+     * @returns the array of wrapped actions.
+     */
+    public async storeActions(componentName: string, actions: ComponentAction[]): Promise<ActionAndId[]> {
         // we forge unique ids for actions to uniquely distinguish them in the db
         const actionsWithId = actions.map(a => ({ id: uuid(), action: a }));
 
@@ -55,8 +61,10 @@ export class ActionStore extends StartStopService {
             batch = batch.put(componentName + ":" + actionWithId.id, actionWithId.action);
         });
         await batch.write();
+        return actionsWithId;
     }
 
+    /** Removes the action contained in `actionAndId`  */
     public async removeAction(componentName: string, actionAndId: ActionAndId) {
         const actions = this.actions.get(componentName);
         if (!actions) return;

@@ -39,6 +39,15 @@ describe("ActionStore", () => {
         expect(retrievedActions).to.deep.equal(testActions);
     });
 
+    fnIt<ActionStore>(a => a.storeActions, "returns wrapped all the wrapped actions and ids", async () => {
+        const actionsAndIds = await actionStore.storeActions(componentName, testActions);
+
+        expect(testActions.length).to.equal(actionsAndIds.length);
+        for(let i = 0; i < testActions.length; i++) {
+            expect(actionsAndIds[i].action).to.deep.equal(testActions[i]);
+        }
+    });
+
     fnIt<ActionStore>(a => a.removeAction, "removes an action", async () => {
         await actionStore.storeActions(componentName, testActions);
 
