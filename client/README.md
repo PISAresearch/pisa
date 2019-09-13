@@ -30,7 +30,7 @@ const eventArgs = "0xf778daa96e1bdf7745b02debfd61d9bcc46da294dd059fa3ce13b263d06
 
 const pisaClient = new PisaClient("http://alpha.pisa.watch:5487", "0xA02C7260c0020343040A504Ef24252c120be60b9");
 const appointment = await pisaClient.generateRequest(
-    (digest: string) => userWallet.signMessage(arrayify(digest)),
+    digest => userWallet.signMessage(arrayify(digest)),
     userWallet.address,
     appointmentId,
     nonce,
