@@ -103,11 +103,10 @@ export class BlockProcessorStore {
             const headObj = await this.subDb.get("head");
             return (headObj as { head: number }).head;
         } catch (doh) {
-            if (doh.type !== "NotFoundError") {
-                // Log any error, except for "key not found", which is expected
-                this.logger.error(doh);
-            }
-            return undefined;
+            // Rethrow any error, except for "key not found", which is expected
+            if (doh.type === "NotFoundError") return undefined;
+
+            throw doh;
         }
     }
     async setLatestHeadNumber(value: number) {
