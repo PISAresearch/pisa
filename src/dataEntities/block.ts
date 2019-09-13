@@ -79,7 +79,7 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
 
     /** Stores the anchor state of the nearest ancestor (including the block itself)s
      * that was emitted as a "new head"; indexed by component. */
-    private static KEY_PREVEMITTEDSTATE = "prevEmittedState";
+    private static KEY_PREV_EMITTED_STATE = "prevEmittedState";
 
     private readonly subDb: LevelUp<EncodingDown<string, any>>;
     constructor(db: LevelUp<EncodingDown<string, any>>) {
@@ -156,13 +156,14 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
     // Type safe methods to store the latest emitted anchor state for each block, indexed by component (used in the BlockchainMachine)
     public prevEmittedAnchorState = {
         get: <TAnchorState>(componentName: string, blockHash: string): TAnchorState =>
-            this.getItem(blockHash, `${componentName}:${BlockItemStore.KEY_PREVEMITTEDSTATE}`), // prettier-ignore
+            this.getItem(blockHash, `${componentName}:${BlockItemStore.KEY_PREV_EMITTED_STATE}`), // prettier-ignore
         set: (componentName: string, blockHeight: number, blockHash: string, newPrevEmittedState: AnchorState) =>
-            this.putBlockItem(blockHeight, blockHash, `${componentName}:${BlockItemStore.KEY_PREVEMITTEDSTATE}`, newPrevEmittedState)
+            this.putBlockItem(blockHeight, blockHash, `${componentName}:${BlockItemStore.KEY_PREV_EMITTED_STATE}`, newPrevEmittedState)
     };
 
     /**
-     * Returns the items stored under the key BlockItemStore.KEY_BLOCK for the specific height, and whether they are attached or not.
+     * Returns the blocks for the specific height, and whether they are attached or not.
+     * Blocks are stored under the key `BlockItemStore.KEY_BLOCK`, and wether they are attached is in `BlockItemStore.KEY_ATTACHED`.
      **/
     public getBlocksAtHeight(height: number): BlockAndAttached<TBlock>[] {
         const itemsAtHeight = this.itemsByHeight.get(height) || new Set();

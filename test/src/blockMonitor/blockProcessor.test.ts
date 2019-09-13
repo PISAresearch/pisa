@@ -74,7 +74,7 @@ describe("BlockProcessorStore", () => {
         expect(await newStore.getLatestHeadNumber()).to.equal(42);
     });
 
-    fnIt<BlockProcessorStore>(b => b.setLatestHeadNumber, "setLatestHeadNumber overwites current head number", async () => {
+    fnIt<BlockProcessorStore>(b => b.setLatestHeadNumber, "overwites current head number", async () => {
         await store.setLatestHeadNumber(42);
         await store.setLatestHeadNumber(100);
         expect(await store.getLatestHeadNumber()).to.equal(100);
