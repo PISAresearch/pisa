@@ -39,7 +39,7 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
     }
 
     protected async startInternal(): Promise<void> {
-        if (!this.blockProcessor.started) this.logger.error("The BlockchainMachine should be started before the BlockchainMachine.");
+        if (!this.blockProcessor.started) this.logger.error("The BlockProcessor should be started before the BlockchainMachine.");
         if (!this.actionStore.started) this.logger.error("The ActionStore should be started before the BlockchainMachine.");
         if (!this.blockItemStore.started) this.logger.error("The BlockItemStore should be started before the BlockchainMachine.");
 
