@@ -28,6 +28,11 @@ const blocks: IBlockStub[] = [
         hash: "hash2",
         number: 2,
         parentHash: "hash1"
+    },
+    {
+        hash: "hash3",
+        number: 3,
+        parentHash: "hash2"
     }
 ];
 
@@ -62,6 +67,21 @@ class ExampleComponent extends Component<ExampleState, IBlockStub, TestAction> {
     public async applyAction(actions: TestAction) {}
     public detectChanges(prevState: ExampleState, state: ExampleState): TestAction[] {
         return [{ prevState: prevState, newState: state }];
+    }
+}
+
+class ExampleComponentWithSlowAction extends ExampleComponent {
+    private resolvers = new Set<() => void>();
+    public async applyAction(actions: TestAction) {
+        // promise that never resolves until resolveAction is called
+        await new Promise(resolve => {
+            this.resolvers.add(resolve);
+        })
+    }
+    public resolveActions() {
+        // resolve any running action
+        for (const resolve of this.resolvers) resolve();
+        this.resolvers.clear();
     }
 }
 
@@ -279,6 +299,48 @@ describe("BlockchainMachine", () => {
         expect(prevState, "prevState is correct").to.deep.equal(initialState);
         expect(nextState, "nextState is correct").to.deep.equal(nextStateExpected);
         expect(actions).to.deep.include({ prevState: initialState, newState: nextStateExpected });
+
+        await bm.stop();
+    });
+
+    it("processNewHead does not call applyAction multiple times on the same action if it takes a long time", async () => {
+        // In this test, we make sure that an action emitted while processing a new head is still not completed when
+        // processing the next head. The BlockchainMachine should not run the first action again in this case.
+
+        const bm = new BlockchainMachine(blockProcessor, actionStore, blockStore);
+        const component = new ExampleComponentWithSlowAction(reducer);
+        const spiedComponent = spy(component);
+
+        bm.addComponent(component);
+        await bm.start();
+
+        await addAndEmitBlock(blocks[0]);
+        await blockCache.addBlock(blocks[1]);
+        await addAndEmitBlock(blocks[2]);
+
+        // action is still running
+
+        await addAndEmitBlock(blocks[3]);
+
+        // now resolve all actions
+        component.resolveActions();
+
+        await Promise.resolve();
+
+        const midState = { someNumber: initialState.someNumber + blocks[1].number + blocks[2].number };
+        const finalState = { someNumber: initialState.someNumber + blocks[1].number + blocks[2].number + blocks[3].number };
+
+        const firstAction = { prevState: initialState, newState: midState };
+        const secondAction = { prevState: midState, newState: finalState };
+
+        verify(spiedComponent.detectChanges(anything(), anything())).twice();
+        verify(spiedComponent.applyAction(anything())).twice();
+
+        // Check that applyAction was called on the right data
+        const [action1] = capture(spiedComponent.applyAction).first();
+        const [action2] = capture(spiedComponent.applyAction).last();
+        expect(action1).to.deep.equal(firstAction);
+        expect(action2).to.deep.equal(secondAction);
 
         await bm.stop();
     });
