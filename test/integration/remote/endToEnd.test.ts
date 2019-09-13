@@ -7,13 +7,11 @@ import fs from "fs";
 import path from "path";
 import { ethers } from "ethers";
 import { KitsuneTools } from "../../external/kitsune/tools";
-import request from "request-promise";
 import { wait } from "../../../src/utils";
 import { PisaContainer, ParityContainer } from "../docker";
 import { FileUtils } from "../fileUtil";
 import { ChainData } from "../chainData";
 import { KeyStore } from "../keyStore";
-import { Appointment, IAppointmentRequest } from "../../../src/dataEntities";
 import { deployPisa } from "../../src/utils/contract";
 import { PisaClient } from "../../../client";
 
@@ -29,44 +27,12 @@ const prepareLogsDir = (dirPath: string) => {
     fs.mkdirSync(dirPath);
 };
 
-const encode = (request: IAppointmentRequest, pisaContractAddress: string) => {
-    return ethers.utils.defaultAbiCoder.encode(
-        [
-            "tuple(address,address,uint,uint,uint,bytes32,uint,bytes,uint,uint,uint,address,string,bytes,bytes,bytes,bytes32)",
-            "address"
-        ],
-        [
-            [
-                request.contractAddress,
-                request.customerAddress,
-                request.startBlock,
-                request.endBlock,
-                request.challengePeriod,
-                request.id,
-                request.nonce,
-                request.data,
-                request.refund,
-                request.gasLimit,
-                request.mode,
-                request.eventAddress,
-                request.eventABI,
-                request.eventArgs,
-                request.preCondition,
-                request.postCondition,
-                request.paymentHash
-            ],
-            pisaContractAddress
-        ]
-    );
-};
-
 describe("Integration", function() {
     this.timeout(100000);
     let pisa: PisaContainer,
         parity: ParityContainer,
         network: DockerClient.Network,
         parityPort: number,
-        pisaContractAddress: string,
         provider: ethers.providers.JsonRpcProvider,
         client: PisaClient;
 
@@ -105,8 +71,6 @@ describe("Integration", function() {
         provider.pollingInterval = 100;
         const wallet = new ethers.Wallet(KeyStore.theKeyStore.account1.wallet.privateKey, provider);
         const pisaContract = await deployPisa(wallet);
-
-        pisaContractAddress = pisaContract.address;
 
         const pisaPort = 3000;
         const config: IArgConfig = {
