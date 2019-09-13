@@ -37,7 +37,7 @@ export default class PisaClient {
     /**
      *
      * @param pisaUrl The PISA server url
-     * @param pisaContractAddress The address of the on-chain contract
+     * @param pisaContractAddress The address of the on-chain PISA contract
      */
     constructor(public readonly pisaUrl: string, public readonly pisaContractAddress: string) {}
 
