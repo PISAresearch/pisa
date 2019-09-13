@@ -31,7 +31,7 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
         [...actionAndIds].forEach(async a => {
             try {
                 await component.applyAction(a.action);
-                this.actionStore.removeAction(component.name, a);
+                await this.actionStore.removeAction(component.name, a);
             } catch(doh) {
                 this.logger.error(doh);
             }
