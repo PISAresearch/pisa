@@ -1,5 +1,6 @@
 {
     "name": "pisa",
+    "private": true,
     "version": "1.0.0",
     "description": "Arbitration Outsourcing for State Channels",
     "main": "index.js",
