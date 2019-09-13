@@ -1,6 +1,6 @@
 {
   "name": "pisa-client",
-  "version": "0.1.2",
+  "version": "0.1.2-rc1",
   "description": "A client library for the PISA API.",
   "main": "build/index.js",
   "types": "build/index.d.ts",
