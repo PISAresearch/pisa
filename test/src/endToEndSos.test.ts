@@ -47,15 +47,15 @@ describe("sos end to end", () => {
         const pisaClient = new PisaClient(`http://${nextConfig.hostName}:${nextConfig.hostPort}`, pisaContractAddress);
         return await pisaClient.generateAndExecuteRequest(
             digest => user.signMessage(arrayify(digest)),
-            rescueContract.address,
             user.address,
-            startBlock,
-            startBlock + 200,
-            100,
             appointmentId,
             nonce,
+            startBlock,
+            startBlock + 200,
+            rescueContract.address,
             SosContract.encodeData(rescueMessage),
             100000,
+            100,
             rescueContract.address,
             SosContract.DISTRESS_EVENT_ABI,
             SosContract.encodeArgs(helpMessage)
@@ -142,15 +142,15 @@ describe("sos end to end", () => {
         const pisaClient = new PisaClient(`http://${nextConfig.hostName}:${nextConfig.hostPort}`, pisaContract.address);
         const appointment = await pisaClient.generateRequest(
             (digest: string) => user1.signMessage(arrayify(digest)),
-            rescueContract.address,
             user1.address,
-            startBlock,
-            startBlock + 200,
-            100,
             appointmentId,
             nonce,
+            startBlock,
+            startBlock + 200,
+            rescueContract.address,
             SosContract.encodeData(rescueMessage),
             100000,
+            100,
             rescueContract.address,
             SosContract.DISTRESS_EVENT_ABI,
             SosContract.encodeArgs(helpMessage)
