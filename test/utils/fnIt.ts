@@ -12,11 +12,11 @@ const getName = <T>(fn: (arg: T) => (...args: any[]) => any) => {
 /* fnIt can be used to retrieve function names rather than writing them manually. This will be useful when refactoring
 there is no need to go back an change all the tests manually in case a function name has been changed. */
 /**
- * 
- * @param fn 
- * @param message 
- * @param test 
+ *
+ * @param fn
+ * @param message
+ * @param test
  */
-export default function fnIt<T>(fn: (t: T) => (...args: any[]) => any, message: string, test: () => void) {
+export default function fnIt<T>(fn: (t: T) => (...args: any[]) => any, message: string, test?: () => void) {
     return it(getName<T>(fn) + " " + message, test);
 }
