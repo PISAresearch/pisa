@@ -6,7 +6,7 @@ import { IBlockStub, ApplicationError } from "../dataEntities";
  * Concrete subclasses must implement an `emit` method method to actually emits the event and calls all the listeners,
  * awaiting each one of them.
  */
-export abstract class Event<TListener extends Function> {
+export abstract class Event<TListener extends (...args: any[]) => Promise<void>> {
     protected listeners: TListener[] = [];
 
     /**

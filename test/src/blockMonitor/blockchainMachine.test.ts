@@ -86,12 +86,8 @@ class ExampleComponentWithSlowAction extends ExampleComponent {
     }
 }
 
-interface CanEmitAsNewHead {
-    emitAsNewHead(head: IBlockStub): Promise<void>;
-}
-
 class MockBlockProcessor {
-    public NewHead = new BlockEvent<IBlockStub>();
+    public newHead = new BlockEvent<IBlockStub>();
 }
 
 describe("BlockchainMachine", () => {
@@ -106,7 +102,7 @@ describe("BlockchainMachine", () => {
     // Utility function to add a block to the block cache and also emit it as new head in the blockProcessor.
     const addAndEmitBlock = async (block: IBlockStub) => {
         await blockCache.addBlock(block);
-        await blockProcessor.NewHead.emit(block);
+        await blockProcessor.newHead.emit(block);
     };
 
     beforeEach(async () => {

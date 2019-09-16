@@ -128,7 +128,7 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
 
     private mBlockCache: BlockCache<TBlock>;
 
-    public NewHead = new BlockEvent<TBlock>();
+    public newHead = new BlockEvent<TBlock>();
 
     // Returned in the constructor by blockProvider: obtains the block remotely (or throws an exception on failure)
     private getBlockRemote: (blockNumberOrHash: string | number) => Promise<TBlock>;
@@ -171,7 +171,7 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
             this.mBlockCache.setHead(headBlock.hash);
 
             // only emit new head events after it is started
-            if (this.started) this.NewHead.emit(headBlock);
+            if (this.started) this.newHead.emit(headBlock);
 
             await this.store.setLatestHeadNumber(headBlock.number);
         } catch (doh) {

@@ -93,7 +93,7 @@ describe("BlockCache", () => {
         const blocks = generateBlocks(10, 5, "main");
 
         const newBlockSpy = new NewBlockSpy();
-        bc.NewBlock.addListener(newBlockSpy.newBlockListener);
+        bc.newBlock.addListener(newBlockSpy.newBlockListener);
 
         await bc.addBlock(blocks[0]);
 
@@ -107,7 +107,7 @@ describe("BlockCache", () => {
         await bc.addBlock(blocks[0]);
 
         const newBlockSpy = new NewBlockSpy();
-        bc.NewBlock.addListener(newBlockSpy.newBlockListener);
+        bc.newBlock.addListener(newBlockSpy.newBlockListener);
 
         await bc.addBlock(blocks[2]); //unattached block
 
@@ -120,7 +120,7 @@ describe("BlockCache", () => {
         await bc.addBlock(blocks[0]);
 
         const newBlockSpy = new NewBlockSpy();
-        bc.NewBlock.addListener(newBlockSpy.newBlockListener);
+        bc.newBlock.addListener(newBlockSpy.newBlockListener);
 
         await bc.addBlock(blocks[2]); //unattached block
         await bc.addBlock(blocks[1]); //now both blocks become attached

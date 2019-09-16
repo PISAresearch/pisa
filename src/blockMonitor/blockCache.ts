@@ -21,7 +21,7 @@ export type NewBlockListener<TBlock> = (block: TBlock) => Promise<void>;
  * This interface represents the read-only view of a BlockCache.
  */
 export interface ReadOnlyBlockCache<TBlock extends IBlockStub> {
-    NewBlock: BlockEvent<TBlock>;
+    newBlock: BlockEvent<TBlock>;
     readonly maxDepth: number;
     readonly maxHeight: number;
     readonly minHeight: number;
@@ -54,7 +54,7 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
     // As the BlockCache has an on-disk store, a lock is used to serialize parallel write accesses
     private lock = new Lock();
 
-    public NewBlock = new BlockEvent<TBlock>();
+    public newBlock = new BlockEvent<TBlock>();
 
     /** True before the first block ever is added */
     public get isEmpty() {
@@ -120,7 +120,7 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
             await this.blockStore.attached.set(height, block.hash, true);
 
             // A detached block became attached, thus we need to emit the new block event
-            await this.NewBlock.emit(block);
+            await this.newBlock.emit(block);
         }
 
         if (blocksToAdd.length > 0) {
@@ -179,7 +179,7 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
                 await this.blockStore.block.set(block.number, block.hash, block);
                 await this.blockStore.attached.set(block.number, block.hash, true);
 
-                await this.NewBlock.emit(block);
+                await this.newBlock.emit(block);
 
                 // If the maximum block height increased, we might have to prune some old info
                 await this.updateMaxHeightAndPrune(block.number);
