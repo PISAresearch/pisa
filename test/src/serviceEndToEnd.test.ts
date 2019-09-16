@@ -108,15 +108,7 @@ describe("Service end-to-end", () => {
         pisaContractAddress = pisaContract.address;
         const nonce = await responderWallet.getTransactionCount();
 
-        service = new PisaService(
-            nextConfig,
-            provider,
-            responderWallet,
-            nonce,
-            provider.network.chainId,
-            signerWallet,
-            db
-        );
+        service = new PisaService(nextConfig, provider, responderWallet, nonce, provider.network.chainId, signerWallet, db);
         await service.start();
 
         // accounts
@@ -130,11 +122,7 @@ describe("Service end-to-end", () => {
         disputePeriod = 11;
 
         // contract
-        const channelContractFactory = new ethers.ContractFactory(
-            KitsuneTools.ContractAbi,
-            KitsuneTools.ContractBytecode,
-            provider.getSigner()
-        );
+        const channelContractFactory = new ethers.ContractFactory(KitsuneTools.ContractAbi, KitsuneTools.ContractBytecode, provider.getSigner());
         // add the responder as a user, so that it's allowed to call trigger dispute
         oneWayChannelContract = await channelContractFactory.deploy([pisaContractAddress], disputePeriod);
         channelContract = await channelContractFactory.deploy([account0, account1], disputePeriod);
@@ -151,6 +139,11 @@ describe("Service end-to-end", () => {
         const signerWallet = new ethers.Wallet(nextConfig.receiptKey!, provider);
         const nonce = await responderWallet.getTransactionCount();
 
+        const exDb = levelup(
+            encodingDown<string, any>(MemDown(), {
+                valueEncoding: "json"
+            })
+        );
         const exService = new PisaService(
             { ...nextConfig, hostPort: nextConfig.hostPort + 1 },
             provider,
@@ -158,7 +151,7 @@ describe("Service end-to-end", () => {
             nonce,
             provider.network.chainId,
             signerWallet,
-            db
+            exDb
         );
 
         const round = 1;
@@ -167,15 +160,7 @@ describe("Service end-to-end", () => {
         const sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash));
         const data = KitsuneTools.encodeSetStateData(hashState, round, sig0, sig1);
         const currentBlockNumber = await provider.getBlockNumber();
-        const appRequest = await appointmentRequest(
-            data,
-            channelContract.address,
-            1,
-            wallet0,
-            account0,
-            currentBlockNumber,
-            pisaContractAddress
-        );
+        const appRequest = await appointmentRequest(data, channelContract.address, 1, wallet0, account0, currentBlockNumber, pisaContractAddress);
 
         try {
             await request.post(`http://${nextConfig.hostName}:${nextConfig.hostPort + 1}/appointment`, {
@@ -205,15 +190,7 @@ describe("Service end-to-end", () => {
         const sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash));
         const data = KitsuneTools.encodeSetStateData(hashState, round, sig0, sig1);
         const currentBlockNumber = await provider.getBlockNumber();
-        const appRequest = await appointmentRequest(
-            data,
-            channelContract.address,
-            1,
-            wallet0,
-            account0,
-            currentBlockNumber,
-            pisaContractAddress
-        );
+        const appRequest = await appointmentRequest(data, channelContract.address, 1, wallet0, account0, currentBlockNumber, pisaContractAddress);
 
         const res = await request.post(`http://${nextConfig.hostName}:${nextConfig.hostPort}/appointment`, {
             json: appRequest
@@ -248,15 +225,7 @@ describe("Service end-to-end", () => {
         const sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash));
         const data = KitsuneTools.encodeSetStateData(hashState, round, sig0, sig1);
         const currentBlockNumber = await provider.getBlockNumber();
-        const appRequest = await appointmentRequest(
-            data,
-            channelContract.address,
-            1,
-            wallet0,
-            account0,
-            currentBlockNumber,
-            pisaContractAddress
-        );
+        const appRequest = await appointmentRequest(data, channelContract.address, 1, wallet0, account0, currentBlockNumber, pisaContractAddress);
 
         const res = await request.post(`http://${nextConfig.hostName}:${nextConfig.hostPort}/appointment`, {
             json: appRequest
@@ -293,15 +262,7 @@ describe("Service end-to-end", () => {
     it("create channel, relay trigger dispute", async () => {
         const data = KitsuneTools.encodeTriggerDisputeData();
         const currentBlockNumber = await provider.getBlockNumber();
-        const appRequest = await appointmentRequest(
-            data,
-            oneWayChannelContract.address,
-            0,
-            wallet0,
-            account0,
-            currentBlockNumber,
-            pisaContractAddress
-        );
+        const appRequest = await appointmentRequest(data, oneWayChannelContract.address, 0, wallet0, account0, currentBlockNumber, pisaContractAddress);
 
         // now register a callback on the setstate event and trigger a response
         const triggerDisputeEvent = "EventDispute(uint256)";
@@ -324,15 +285,7 @@ describe("Service end-to-end", () => {
     it("create channel, relay twice throws error trigger dispute", async () => {
         const data = KitsuneTools.encodeTriggerDisputeData();
         const currentBlockNumber = await provider.getBlockNumber();
-        const appRequest = await appointmentRequest(
-            data,
-            oneWayChannelContract.address,
-            0,
-            wallet0,
-            account0,
-            currentBlockNumber,
-            pisaContractAddress
-        );
+        const appRequest = await appointmentRequest(data, oneWayChannelContract.address, 0, wallet0, account0, currentBlockNumber, pisaContractAddress);
 
         // now register a callback on the setstate event and trigger a response
         const triggerDisputeEvent = "EventDispute(uint256)";

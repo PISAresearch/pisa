@@ -1,13 +1,21 @@
 import "mocha";
 import * as chai from "chai";
 import chaiAsPromised from "chai-as-promised";
+
+import LevelUp from "levelup";
+import EncodingDown from "encoding-down";
+import MemDown from "memdown";
+
 import { ethers } from "ethers";
 import { mock, when, anything } from "ts-mockito";
 import { EventEmitter } from "events";
 import { BlockProcessor, BlockCache, blockStubAndTxFactory } from "../../../src/blockMonitor";
-import { IBlockStub } from "../../../src/dataEntities";
+import { IBlockStub, BlockItemStore } from "../../../src/dataEntities";
 import { wait } from "../../../src/utils";
 import throwingInstance from "../../utils/throwingInstance";
+
+import { BlockProcessorStore } from "../../../src/blockMonitor/blockProcessor";
+import fnIt from "../../utils/fnIt";
 
 chai.use(chaiAsPromised);
 const expect = chai.expect;
@@ -45,42 +53,66 @@ const blocksByHash: { [key: string]: IBlockStub } = {
     c10: { number: 10, hash: "c10", parentHash: "c9" }
 };
 
+describe("BlockProcessorStore", () => {
+    let db: any;
+    let store: BlockProcessorStore;
+
+    beforeEach(async () => {
+        db = LevelUp(EncodingDown<string, any>(MemDown(), { valueEncoding: "json" }));
+        store = new BlockProcessorStore(db);
+    });
+
+    it("can set and get the latest head number", async () => {
+        await store.setLatestHeadNumber(42);
+        expect(await store.getLatestHeadNumber()).to.equal(42);
+    });
+
+    fnIt<BlockProcessorStore>(b => b.setLatestHeadNumber, "stores the latest head number in the db", async () => {
+        await store.setLatestHeadNumber(42);
+
+        const newStore = new BlockProcessorStore(db); // new store with the same db
+        expect(await newStore.getLatestHeadNumber()).to.equal(42);
+    });
+
+    fnIt<BlockProcessorStore>(b => b.setLatestHeadNumber, "overwites current head number", async () => {
+        await store.setLatestHeadNumber(42);
+        await store.setLatestHeadNumber(100);
+        expect(await store.getLatestHeadNumber()).to.equal(100);
+    });
+});
+
 describe("BlockProcessor", () => {
     const maxDepth = 5;
+    let db: any;
+    let blockStore: BlockItemStore<IBlockStub>;
+
     let blockCache: BlockCache<IBlockStub>;
+    let blockProcessorStore: BlockProcessorStore;
     let blockProcessor: BlockProcessor<IBlockStub>;
     let mockProvider: ethers.providers.BaseProvider;
     let provider: ethers.providers.BaseProvider;
 
-    const createNewBlockSubscriber = (
-        bp: BlockProcessor<IBlockStub>,
-        bc: BlockCache<IBlockStub>,
-        blockHash: string
-    ) => {
+    const createNewBlockSubscriber = (bp: BlockProcessor<IBlockStub>, bc: BlockCache<IBlockStub>, blockHash: string) => {
         return new Promise(resolve => {
-            const newBlockHandler = (block: IBlockStub) => {
+            const newBlockHandler = async (block: IBlockStub) => {
                 if (block.hash === blockHash) {
                     if (!bc.hasBlock(blockHash)) {
                         resolve(new Error(`Expected block with hash ${blockHash} not found in the BlockCache.`));
                     } else {
                         resolve({ number: block.number, hash: block.hash });
                     }
-                    bp.off(BlockProcessor.NEW_BLOCK_EVENT, newBlockHandler);
+                    bp.blockCache.removeNewBlockListener(newBlockHandler);
                 }
             };
 
-            bp.on(BlockProcessor.NEW_BLOCK_EVENT, newBlockHandler);
+            bp.blockCache.addNewBlockListener(newBlockHandler);
         });
     };
 
     // Instructs the mock provider to switch to the chain given by block `hash` (and its ancestors),
     // then emits the block number corresponding to `hash`.
     // If `returnNullAtHash` is provided, getBlock will return null for that block hash (simulating a provider failure).
-    function emitBlockHash(
-        hash: string,
-        returnNullAtHash: string | null = null,
-        throwErrorAtHash: string | null = null
-    ) {
+    function emitBlockHash(hash: string, returnNullAtHash: string | null = null, throwErrorAtHash: string | null = null) {
         let curBlockHash: string = hash;
         while (curBlockHash in blocksByHash) {
             const curBlock = blocksByHash[curBlockHash];
@@ -93,9 +125,7 @@ describe("BlockProcessor", () => {
         when(mockProvider.getBlockNumber()).thenResolve(blocksByHash[hash].number);
 
         if (returnNullAtHash != null) {
-            when(mockProvider.getBlock(returnNullAtHash, anything())).thenResolve(
-                (null as any) as ethers.providers.Block
-            );
+            when(mockProvider.getBlock(returnNullAtHash, anything())).thenResolve((null as any) as ethers.providers.Block);
         }
 
         if (throwErrorAtHash != null) {
@@ -105,7 +135,13 @@ describe("BlockProcessor", () => {
     }
 
     beforeEach(async () => {
-        blockCache = new BlockCache(maxDepth);
+        db = LevelUp(EncodingDown<string, any>(MemDown(), { valueEncoding: "json" }));
+        blockStore = new BlockItemStore<IBlockStub>(db);
+        await blockStore.start();
+
+        blockCache = new BlockCache(maxDepth, blockStore);
+
+        blockProcessorStore = new BlockProcessorStore(db);
 
         // Instruct the mocked provider to return the blocks by hash with getBlock
         mockProvider = mock(ethers.providers.BaseProvider);
@@ -131,9 +167,7 @@ describe("BlockProcessor", () => {
             eventEmitter.removeAllListeners(arg0);
             return provider;
         });
-        when(mockProvider.emit(anything(), anything())).thenCall((arg0: any, arg1: any) =>
-            eventEmitter.emit(arg0, arg1)
-        );
+        when(mockProvider.emit(anything(), anything())).thenCall((arg0: any, arg1: any) => eventEmitter.emit(arg0, arg1));
 
         // We initially return 0 as the current block number
         when(mockProvider.getBlockNumber()).thenResolve(0);
@@ -143,54 +177,57 @@ describe("BlockProcessor", () => {
 
     afterEach(async () => {
         await blockProcessor.stop();
+        await blockStore.stop();
     });
 
     it("correctly processes the blockchain head after startup", async () => {
         emitBlockHash("a1");
 
-        blockProcessor = new BlockProcessor(provider, blockStubAndTxFactory, blockCache);
+        blockProcessor = new BlockProcessor(provider, blockStubAndTxFactory, blockCache, blockProcessorStore);
         await blockProcessor.start();
 
         expect(blockProcessor.blockCache.head.hash).to.equal("a1");
     });
 
-    it("adds the first block received to the cache and emits a NEW_HEAD_EVENT after the NEW_BLOCK_EVENTs", async () => {
+    it("adds the first block received to the cache and emits a new head event after the corresponding new block events from the BlockCache", async () => {
         emitBlockHash("a4");
 
-        blockProcessor = new BlockProcessor(provider, blockStubAndTxFactory, blockCache);
+        blockProcessor = new BlockProcessor(provider, blockStubAndTxFactory, blockCache, blockProcessorStore);
         await blockProcessor.start();
 
         let newHeadCalled = false;
 
         const newHeadPromise = new Promise(resolve => {
-            blockProcessor.on(BlockProcessor.NEW_HEAD_EVENT, (head: IBlockStub) => {
+            blockProcessor.addNewHeadListener(async (head: IBlockStub) => {
                 newHeadCalled = true;
-                if (!blockCache.hasBlock("a5"))
-                    resolve(new Error(`The BlockCache did not have block a5 when its NEW_HEAD_EVENT was emitted`));
+                if (!blockCache.hasBlock("a5")) resolve(new Error(`The BlockCache did not have block a5 when its new head event was emitted`));
 
                 resolve({ number: head.number, hash: head.hash });
             });
         });
 
         let newHeadCalledBeforeNewBlock = false;
-        blockProcessor.once(BlockProcessor.NEW_BLOCK_EVENT, (block: IBlockStub) => {
+
+        const newBlockListener = async (block: IBlockStub) => {
             if (newHeadCalled) {
                 // New head should be the last emitted event
                 newHeadCalledBeforeNewBlock = true;
             }
-        });
+            blockCache.removeNewBlockListener(newBlockListener);
+        };
+        blockCache.addNewBlockListener(newBlockListener);
 
         emitBlockHash("a5");
 
         const resNewHead = await newHeadPromise;
 
-        expect(newHeadCalledBeforeNewBlock, "did not call NEW_HEAD before NEW_BLOCK").to.be.false;
+        expect(newHeadCalledBeforeNewBlock, "did not emit new head before the BlockCaches's new block event").to.be.false;
 
         return expect(resNewHead).to.deep.equal({ number: 5, hash: "a5" });
     });
 
     it("adds to the blockCache all ancestors until a known block", async () => {
-        blockProcessor = new BlockProcessor(provider, blockStubAndTxFactory, blockCache);
+        blockProcessor = new BlockProcessor(provider, blockStubAndTxFactory, blockCache, blockProcessorStore);
 
         const subscribers = [];
         for (let i = 1; i <= 5; i++) {
@@ -213,7 +250,7 @@ describe("BlockProcessor", () => {
     });
 
     it("adds both chain until the common ancestor if there is a fork", async () => {
-        blockProcessor = new BlockProcessor(provider, blockStubAndTxFactory, blockCache);
+        blockProcessor = new BlockProcessor(provider, blockStubAndTxFactory, blockCache, blockProcessorStore);
 
         const subscribersA = [];
         for (let i = 1; i <= 6; i++) {
@@ -253,7 +290,7 @@ describe("BlockProcessor", () => {
     // namely the parent of a known block.
     // This situation occurred in tests on Ropsten using Infura, see https://github.com/PISAresearch/pisa/issues/227.
     it("resumes adding blocks after a previous failure when a new block is emitted", async () => {
-        blockProcessor = new BlockProcessor(provider, blockStubAndTxFactory, blockCache);
+        blockProcessor = new BlockProcessor(provider, blockStubAndTxFactory, blockCache, blockProcessorStore);
 
         emitBlockHash("a1");
 
@@ -285,7 +322,7 @@ describe("BlockProcessor", () => {
     // While documentation of ethers.js does not currently state this possibility, this situation occurred in tests on Ropsten using Infura,
     // see https://github.com/PISAresearch/pisa/issues/227.
     it("resumes adding blocks after a previous failure due to getBlock throwing an error when a new block is emitted", async () => {
-        blockProcessor = new BlockProcessor(provider, blockStubAndTxFactory, blockCache);
+        blockProcessor = new BlockProcessor(provider, blockStubAndTxFactory, blockCache, blockProcessorStore);
 
         emitBlockHash("a1");
 

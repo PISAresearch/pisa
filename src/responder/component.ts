@@ -1,12 +1,5 @@
 import { PisaTransactionIdentifier } from "./gasQueue";
-import {
-    MappedState,
-    StateReducer,
-    MappedStateReducer,
-    Component,
-    BlockNumberState,
-    BlockNumberReducer
-} from "../blockMonitor/component";
+import { MappedState, StateReducer, MappedStateReducer, Component, BlockNumberState, BlockNumberReducer } from "../blockMonitor/component";
 import { ReadOnlyBlockCache } from "../blockMonitor";
 import { Block } from "../dataEntities";
 import { MultiResponder } from "./multiResponder";
@@ -45,10 +38,7 @@ export class ResponderAppointmentReducer implements StateReducer<ResponderAppoin
         private readonly address: string
     ) {}
 
-    private txIdentifierInBlock(
-        block: ResponderBlock,
-        identifier: PisaTransactionIdentifier
-    ): { blockNumber: number; nonce: number } | null {
+    private txIdentifierInBlock(block: ResponderBlock, identifier: PisaTransactionIdentifier): { blockNumber: number; nonce: number } | null {
         for (const tx of block.transactions) {
             // a contract creation - cant be of interest
             if (!tx.to) continue;
@@ -143,22 +133,16 @@ export type CheckResponderBalanceAction = {
     readonly kind: ResponderActionKind.CheckResponderBalance;
 };
 
-export type ResponderAction =
-    | TxMinedAction
-    | ReEnqueueMissingItemsAction
-    | EndResponseAction
-    | CheckResponderBalanceAction;
+export type ResponderAction = TxMinedAction | ReEnqueueMissingItemsAction | EndResponseAction | CheckResponderBalanceAction;
 
 /**
  * Handle the state events related to the multiresponder. Knows how to interpret
  * changes in the responder anchor state, and when to fire side effects.
  */
 export class MultiResponderComponent extends Component<ResponderAnchorState, Block, ResponderAction> {
-    public constructor(
-        private readonly responder: MultiResponder,
-        blockCache: ReadOnlyBlockCache<Block>,
-        private readonly confirmationsRequired: number
-    ) {
+    public readonly name = "responder";
+
+    public constructor(private readonly responder: MultiResponder, blockCache: ReadOnlyBlockCache<Block>, private readonly confirmationsRequired: number) {
         super(
             new MappedStateReducer(
                 () => [...responder.transactions.values()],
@@ -176,9 +160,7 @@ export class MultiResponderComponent extends Component<ResponderAnchorState, Blo
         );
     }
 
-    private hasResponseBeenMined = (
-        appointmentState: ResponderAppointmentAnchorState | undefined
-    ): appointmentState is MinedResponseState =>
+    private hasResponseBeenMined = (appointmentState: ResponderAppointmentAnchorState | undefined): appointmentState is MinedResponseState =>
         appointmentState != undefined && appointmentState.kind === ResponderStateKind.Mined;
 
     private shouldAppointmentBeRemoved = (
@@ -195,9 +177,7 @@ export class MultiResponderComponent extends Component<ResponderAnchorState, Blo
         // every time the we handle a new head event there could potentially have been
         // a reorg, which in turn may have caused some items to be lost from the pending pool.
         // Therefore we check all of the missing items and re-enqueue them if necessary
-        const reEnqueueItems = [...state.items.values()]
-            .filter(appState => appState.kind === ResponderStateKind.Pending)
-            .map(q => q.appointmentId);
+        const reEnqueueItems = [...state.items.values()].filter(appState => appState.kind === ResponderStateKind.Pending).map(q => q.appointmentId);
         if (reEnqueueItems.length > 0) {
             actions.push({ kind: ResponderActionKind.ReEnqueueMissingItems, appointmentIds: reEnqueueItems });
         }
@@ -225,10 +205,7 @@ export class MultiResponderComponent extends Component<ResponderAnchorState, Blo
             }
 
             // after a certain number of confirmations we can stop tracking a transaction
-            if (
-                !this.shouldAppointmentBeRemoved(prevState, prevItem) &&
-                this.shouldAppointmentBeRemoved(state, currentItem)
-            ) {
+            if (!this.shouldAppointmentBeRemoved(prevState, prevItem) && this.shouldAppointmentBeRemoved(state, currentItem)) {
                 logger.info({state: currentItem, id: appointmentId, blockNumber: state.blockNumber }, "Response removed.") // prettier-ignore
                 actions.push({
                     kind: ResponderActionKind.EndResponse,
