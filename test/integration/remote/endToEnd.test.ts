@@ -228,7 +228,7 @@ describe("Integration", function() {
             const id = "0x0000000000000000000000000000000000000000000000000000000000000001";
 
             await client.generateAndExecuteRequest(
-                disgest => wallets0[i].signMessage(ethers.utils.arrayify(disgest)),
+                digest => wallets0[i].signMessage(ethers.utils.arrayify(digest)),
                 wallets0[i].address,
                 id,
                 0,
