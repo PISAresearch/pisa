@@ -86,9 +86,12 @@ describe("ResponderAppointmentReducer", () => {
         await blockStore.start();
 
         blockCache = new BlockCache<ResponderBlock>(100, blockStore);
-        for (const block of blocks) {
-            await blockCache.addBlock(block);
-        }
+
+        await blockStore.withBatch(async () => {
+            for (const block of blocks) {
+                await blockCache.addBlock(block);
+            }
+        })
     });
 
     fnIt<ResponderAppointmentReducer>(r => r.getInitialState, "sets pending tx", () => {

@@ -214,7 +214,11 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
                 // starting from observedBlock, add to the cache and download the parent, until the return value signals that block is attached
                 let curBlock = observedBlock;
                 while (true) {
-                    const addResult = await this.mBlockCache.addBlock(curBlock)
+                    let addResult: BlockAddResult | null = null;
+                    await this.blockItemStore.withBatch(async () => {
+                        addResult = await this.mBlockCache.addBlock(curBlock);
+                    });
+
                     if (addResult !== BlockAddResult.AddedDetached && addResult !== BlockAddResult.NotAddedAlreadyExistedDetached)
                         break;
 

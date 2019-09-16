@@ -70,13 +70,20 @@ describe("WatcherAppointmentStateReducer", () => {
     when(appMock.id).thenReturn("app1");
     when(appMock.startBlock).thenReturn(0);
     when(appMock.endBlock).thenReturn(1000);
-    const appointment = throwingInstance(appMock);
 
     const db = LevelUp(EncodingDown<string, any>(MemDown(), { valueEncoding: "json" }));
     const blockStore = new BlockItemStore<IBlockStub & Logs>(db);
 
     const blockCache = new BlockCache<IBlockStub & Logs>(100, blockStore);
-    blocks.forEach(b => blockCache.addBlock(b));
+
+    before(async () => {
+        await blockStore.start();
+        await blockStore.withBatch(async () => {
+            for (const b of blocks) {
+                await blockCache.addBlock(b);
+            }
+        });
+    });
 
     it("constructor throws ApplicationError if the topics are not set in the filter", () => {
         expect(() => new EventFilterStateReducer(blockCache, { address: "address" }, 0)).to.throw(ApplicationError);
@@ -193,9 +200,8 @@ describe("Watcher", () => {
     const CONFIRMATIONS_BEFORE_REMOVAL = 20;
 
     const db = LevelUp(EncodingDown<string, any>(MemDown(), { valueEncoding: "json" }));
-    const blockStore = new BlockItemStore<IBlockStub & Logs>(db);
-    const blockCache = new BlockCache<IBlockStub & Logs>(100, blockStore);
-    blocks.forEach(b => blockCache.addBlock(b));
+    let blockStore: BlockItemStore<IBlockStub & Logs>;
+    let blockCache: BlockCache<IBlockStub & Logs>;
 
     let mockedStore: AppointmentStore;
     let store: AppointmentStore;
@@ -204,6 +210,19 @@ describe("Watcher", () => {
     let responder: MultiResponder;
 
     let appointment: Appointment;
+
+    before(async () => {
+        blockStore = new BlockItemStore<IBlockStub & Logs>(db);
+        await blockStore.start();
+
+        blockCache = new BlockCache<IBlockStub & Logs>(100, blockStore);
+
+        blockStore.withBatch(async () => {
+            for (const b of blocks) {
+                await blockCache.addBlock(b);
+            }
+        });
+    });
 
     beforeEach(() => {
         const appMock = mock(Appointment);

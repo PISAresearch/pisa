@@ -95,10 +95,11 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
     private items: Map<string, any> = new Map();
 
     private lock = new Lock();
-    private batch: LevelUpChain<any, any> | null = null;
 
-    private get batchOrDb() {
-        return this.batch || this.subDb;
+    private mBatch: LevelUpChain<any, any> | null = null;
+    private get batch() {
+        if (!this.mBatch) throw new ApplicationError("Write accesses must be executed within a withBatch callback.");
+        return this.mBatch;
     }
 
     protected async startInternal() {
@@ -129,7 +130,7 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
         else this.itemsByHeight.set(blockHeight, new Set([memKey]));
         this.items.set(memKey, item);
 
-        this.batchOrDb.put(dbKey, item);
+        this.batch.put(dbKey, item);
     }
 
     /**
@@ -203,24 +204,24 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
             this.itemsByHeight.delete(height);
             for (const key of itemsAtHeight) {
                 const dbKey = `${height}:${key}`;
-                this.batchOrDb.del(dbKey);
+                this.batch.del(dbKey);
                 this.items.delete(key);
             }
         }
     }
 
-    public async withBatch(callback: () => Promise<void>) {
+    public async withBatch(callback: () => Promise<any>) {
         await this.lock.acquire();
 
-        if (this.batch != null) throw new ApplicationError("The lock was acquired but there was already a batch. This is a bug.");
+        if (this.mBatch) throw new ApplicationError("The lock was acquired but there was already a batch. This is a bug.");
 
-        this.batch = this.subDb.batch();
+        this.mBatch = this.subDb.batch();
 
         // TODO: what to do if callback throws? Should probably rethrow after cleanup
         await callback();
 
-        await this.batch.write();
-        this.batch = null;
+        await this.mBatch.write();
+        this.mBatch = null;
         this.lock.release();
     }
 }
