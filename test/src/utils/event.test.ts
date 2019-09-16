@@ -61,6 +61,9 @@ describe("Event", async () => {
         const otherListener = async (b: IBlockStub) => {};
 
         e.addListener(listener);
-        expect(() => e.removeListener(otherListener)).to.throw(ApplicationError);
+        expect(() => e.removeListener(otherListener), "throws for a listener that was never added").to.throw(ApplicationError);
+
+        e.removeListener(listener);
+        expect(() => e.removeListener(listener), "throws for a listener that was already removed").to.throw(ApplicationError);
     });
 });

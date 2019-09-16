@@ -122,7 +122,7 @@ describe("BlockchainMachine", () => {
         // Since we only need to process events, we mock the BlockProcessor with an EventEmitter
         const bp: any = new MockBlockProcessor();
         bp.blockCache = blockCache;
-        blockProcessor = bp as (BlockProcessor<IBlockStub>);
+        blockProcessor = bp as BlockProcessor<IBlockStub>;
 
         actionStore = new ActionStore(db);
         await actionStore.start();
