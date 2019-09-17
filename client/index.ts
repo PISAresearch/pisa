@@ -48,8 +48,7 @@ export default class PisaClient {
      * @param request
      */
     private encodeAndHash(request: AppointmentRequest): string {
-        const tupleDefinition =
-            "tuple(address,address,uint,uint,uint,bytes32,uint,bytes,uint,uint,uint,address,string,bytes,bytes,bytes,bytes32)";
+        const tupleDefinition = "tuple(address,address,uint,uint,uint,bytes32,uint,bytes,uint,uint,uint,address,string,bytes,bytes,bytes,bytes32)";
 
         const encoded = defaultAbiCoder.encode(
             [tupleDefinition, "address"],
@@ -319,22 +318,8 @@ export default class PisaClient {
         eventArgs?: string
     ): Promise<AppointmentReceipt> {
         const request =
-            eventAddress && eventABI && eventArgs
-                ? await this.generateRequest(
-                      signer,
-                      customerAddress,
-                      id,
-                      nonce,
-                      startBlock,
-                      endBlock,
-                      contractAddress,
-                      data,
-                      gasLimit,
-                      challengePeriod,
-                      eventAddress,
-                      eventABI,
-                      eventArgs
-                  )
+            !eventAddress && !eventABI && !eventArgs
+                ? await this.generateRequest(signer, customerAddress, id, nonce, startBlock, endBlock, contractAddress, data, gasLimit, challengePeriod)
                 : await this.generateRequest(
                       signer,
                       customerAddress,
@@ -345,7 +330,13 @@ export default class PisaClient {
                       contractAddress,
                       data,
                       gasLimit,
-                      challengePeriod
+                      challengePeriod,
+                      // we need to cast to string here to allow the compiler to accept possibly undefined values
+                      // this should only be the case if a caller has passed in undefined as one of the event args
+                      // in which case we can pass it to generateRequest in below where an error will be thrown.
+                      eventAddress as string,
+                      eventABI as string,
+                      eventArgs as string
                   );
         return await this.executeRequest(request);
     }
