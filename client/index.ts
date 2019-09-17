@@ -317,27 +317,24 @@ export default class PisaClient {
         eventABI?: string,
         eventArgs?: string
     ): Promise<AppointmentReceipt> {
-        const request =
-            !eventAddress && !eventABI && !eventArgs
-                ? await this.generateRequest(signer, customerAddress, id, nonce, startBlock, endBlock, contractAddress, data, gasLimit, challengePeriod)
-                : await this.generateRequest(
-                      signer,
-                      customerAddress,
-                      id,
-                      nonce,
-                      startBlock,
-                      endBlock,
-                      contractAddress,
-                      data,
-                      gasLimit,
-                      challengePeriod,
-                      // we need to cast to string here to allow the compiler to accept possibly undefined values
-                      // this should only be the case if a caller has passed in undefined as one of the event args
-                      // in which case we can pass it to generateRequest in below where an error will be thrown.
-                      eventAddress as string,
-                      eventABI as string,
-                      eventArgs as string
-                  );
+        const request = await this.generateRequest(
+            signer,
+            customerAddress,
+            id,
+            nonce,
+            startBlock,
+            endBlock,
+            contractAddress,
+            data,
+            gasLimit,
+            challengePeriod,
+            // we need to cast to string here to allow the compiler to accept possibly undefined values
+            // this should only be the case if a caller has passed in undefined as one of the event args
+            // in which case we can pass it to generateRequest in below where an error will be thrown.
+            eventAddress as string,
+            eventABI as string,
+            eventArgs as string
+        );
         return await this.executeRequest(request);
     }
 }
