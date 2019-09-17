@@ -173,7 +173,7 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
                 this.mBlockCache.setHead(headBlock.hash);
 
                 // only emit new head events after it is started
-                if (this.started) this.newHead.emit(headBlock);
+                if (this.started) await this.newHead.emit(headBlock);
 
                 await this.store.setLatestHeadNumber(headBlock.number);
             });

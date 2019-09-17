@@ -357,7 +357,7 @@ describe("BlockProcessor", () => {
         blockProcessor = new BlockProcessor(provider, blockStubAndTxFactory, blockCache, blockStore, blockProcessorStore);
         emitBlockHash("a1");
         await blockProcessor.start();
-        blockProcessor.addNewHeadListener(async (block: IBlockStub) => {
+        blockProcessor.newHead.addListener(async (block: IBlockStub) => {
             if (block.hash === "a3") throw new Error("Some very serious error");
         });
 
