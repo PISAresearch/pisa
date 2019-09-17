@@ -1,4 +1,5 @@
 import "mocha";
+import request from "request-promise";
 import * as SosContract from "./../smoke/SOSContract";
 import { Wallet, ethers } from "ethers";
 import levelup, { LevelUp } from "levelup";
@@ -6,12 +7,12 @@ import MemDown from "memdown";
 import encodingDown from "encoding-down";
 import config from "../../src/dataEntities/config";
 import Ganache from "ganache-core";
+import { Appointment, IAppointmentRequest } from "../../src/dataEntities";
 import { PisaService } from "../../src/service";
 import { wait } from "../../src/utils";
-import { BigNumber, arrayify } from "ethers/utils";
+import { BigNumber, keccak256, arrayify, defaultAbiCoder } from "ethers/utils";
 import { expect } from "chai";
 import { deployPisa } from "./utils/contract";
-import PisaClient from "../../client";
 const ganache = Ganache.provider({
     mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect",
     gasLimit: 8000000
@@ -33,6 +34,71 @@ const provider = new ethers.providers.Web3Provider(ganache);
 provider.pollingInterval = 100;
 
 describe("sos end to end", () => {
+    const createAppointmentRequest = (
+        contractAddress: string,
+        customerAddress: string,
+        data: string,
+        eventAbi: string,
+        eventArgs: string,
+        id: string,
+        nonce: number,
+        startBlock: number
+    ): IAppointmentRequest => {
+        return {
+            challengePeriod: 100,
+            contractAddress,
+            customerAddress: customerAddress,
+            data,
+            endBlock: startBlock + 200,
+            eventAddress: contractAddress,
+            eventABI: eventAbi,
+            eventArgs: eventArgs,
+            gasLimit: 100000,
+            id,
+            nonce: nonce,
+            mode: 1,
+            preCondition: "0x",
+            postCondition: "0x",
+            refund: "0",
+            startBlock,
+            paymentHash: "0xfc1624bdc50da30f2ea37b7debabeac1f6166db013c5880dcf63907b04199138",
+            customerSig: "dummy"
+        };
+    };
+
+    const createRescueRequestAppointment = async (
+        rescueContract: ethers.Contract,
+        pisaContractAddress: string,
+        provider: ethers.providers.BaseProvider,
+        user: ethers.Wallet,
+        appointmentId: string,
+        helpMessage: string,
+        rescueMessage: string
+    ) => {
+        // setup
+        const startBlock = await provider.getBlockNumber();
+        const nonce = 1;
+        const appointmentRequest = createAppointmentRequest(
+            rescueContract.address,
+            user.address,
+            SosContract.encodeData(rescueMessage),
+            SosContract.DISTRESS_EVENT_ABI,
+            SosContract.encodeArgs(helpMessage),
+            appointmentId,
+            nonce,
+            startBlock
+        );
+        // encode the request and sign it
+        const appointment = Appointment.fromIAppointmentRequest(appointmentRequest);
+        const hashedWithAddress = keccak256(appointment.encodeForSig(pisaContractAddress));
+        const customerSig = await user.signMessage(arrayify(hashedWithAddress));
+
+        return Appointment.fromIAppointmentRequest({
+            ...appointmentRequest,
+            customerSig: customerSig
+        });
+    };
+
     const getAppointmentForMessage = async (
         pisaContractAddress: string,
         user: ethers.Wallet,
@@ -40,26 +106,19 @@ describe("sos end to end", () => {
         rescueMessage: string,
         appointmentId: string
     ) => {
-        // setup
-        const startBlock = await provider.getBlockNumber();
-        const nonce = 1;
-
-        const pisaClient = new PisaClient(`http://${nextConfig.hostName}:${nextConfig.hostPort}`, pisaContractAddress);
-        return await pisaClient.generateAndExecuteRequest(
-            digest => user.signMessage(arrayify(digest)),
-            user.address,
+        const rescueRequest1 = await createRescueRequestAppointment(
+            rescueContract,
+            pisaContractAddress,
+            provider,
+            user,
             appointmentId,
-            nonce,
-            startBlock,
-            startBlock + 200,
-            rescueContract.address,
-            SosContract.encodeData(rescueMessage),
-            100000,
-            100,
-            rescueContract.address,
-            SosContract.DISTRESS_EVENT_ABI,
-            SosContract.encodeArgs(helpMessage)
+            helpMessage,
+            rescueMessage
         );
+
+        return await request.post(`http://${nextConfig.hostName}:${nextConfig.hostPort}/appointment`, {
+            json: Appointment.toIAppointmentRequest(rescueRequest1)
+        });
     };
 
     const callDistressAndWaitForRescue = async (
@@ -71,7 +130,7 @@ describe("sos end to end", () => {
         rescueContract.once(SosContract.RESCUE_EVENT_METHOD_SIGNATURE, () => (success = true));
         const tx = await rescueContract.help(helpMessage, { gasLimit: 1000000 });
         await tx.wait();
-        await waitForPredicate(() => success, 10, 1000, helpMessage + ":" + errorMessage);
+        await waitForPredicate(() => success, 500, 20, helpMessage + ":" + errorMessage);
     };
 
     const callDistressAndWaitForCounter = async (helpMessage: string, count: number) => {
@@ -131,56 +190,18 @@ describe("sos end to end", () => {
 
     it("setup pisa and call sos", async () => {
         const pisaContract = await deployPisa(responderWallet);
-        const helpMessage = "sos";
-        const rescueMessage = "yay";
-        const appointmentId = "0x0000000000000000000000000000000000000000000000000000000000000001";
-
-        // setup
-        const startBlock = await provider.getBlockNumber();
-        const nonce = 1;
-
-        const pisaClient = new PisaClient(`http://${nextConfig.hostName}:${nextConfig.hostPort}`, pisaContract.address);
-        const appointment = await pisaClient.generateRequest(
-            (digest: string) => user1.signMessage(arrayify(digest)),
-            user1.address,
-            appointmentId,
-            nonce,
-            startBlock,
-            startBlock + 200,
-            rescueContract.address,
-            SosContract.encodeData(rescueMessage),
-            100000,
-            100,
-            rescueContract.address,
-            SosContract.DISTRESS_EVENT_ABI,
-            SosContract.encodeArgs(helpMessage)
+        const appointment = await createRescueRequestAppointment(
+            rescueContract,
+            pisaContract.address,
+            provider,
+            user1,
+            "0x0000000000000000000000000000000000000000000000000000000000000001",
+            "sos",
+            "yay"
         );
-        
-
-        await pisaContract.respond(
-            [
-                appointment.contractAddress,
-                appointment.customerAddress,
-                appointment.startBlock,
-                appointment.endBlock,
-                appointment.challengePeriod,
-                appointment.id,
-                appointment.nonce,
-                appointment.data,
-                appointment.refund,
-                appointment.gasLimit,
-                appointment.mode,
-                appointment.eventAddress,
-                appointment.eventABI,
-                appointment.eventArgs,
-                appointment.preCondition,
-                appointment.postCondition,
-                appointment.paymentHash
-            ],
-            appointment.customerSig,
-            { gasLimit: appointment.gasLimit + 2000000 }
-        );
-        
+        await pisaContract.respond(appointment.orderForEncoding(), appointment.customerSig, {
+            gasLimit: appointment.gasLimit + 200000
+        });
 
         const rescueCount: BigNumber = await rescueContract.rescueCount();
         expect(rescueCount.toNumber()).to.equal(1);
@@ -194,7 +215,6 @@ describe("sos end to end", () => {
             "yay",
             "0x0000000000000000000000000000000000000000000000000000000000000001"
         );
-        
         await callDistressAndWaitForRescue(rescueContract, "sos", "Failed 1");
 
         await getAppointmentForMessage(

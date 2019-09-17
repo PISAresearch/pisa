@@ -7,13 +7,15 @@ import fs from "fs";
 import path from "path";
 import { ethers } from "ethers";
 import { KitsuneTools } from "../../external/kitsune/tools";
+import request from "request-promise";
 import { wait } from "../../../src/utils";
 import { PisaContainer, ParityContainer } from "../docker";
 import { FileUtils } from "../fileUtil";
 import { ChainData } from "../chainData";
 import { KeyStore } from "../keyStore";
+import { Appointment, IAppointmentRequest } from "../../../src/dataEntities";
+import { groupTuples } from "../../../src/utils/ethers";
 import { deployPisa } from "../../src/utils/contract";
-import { PisaClient } from "../../../client";
 
 const newId = () => {
     return uuid().substr(0, 8);
@@ -27,19 +29,51 @@ const prepareLogsDir = (dirPath: string) => {
     fs.mkdirSync(dirPath);
 };
 
+const encode = (request: IAppointmentRequest, pisaContractAddress: string) => {
+    return ethers.utils.defaultAbiCoder.encode(
+        [
+            "tuple(address,address,uint,uint,uint,bytes32,uint,bytes,uint,uint,uint,address,string,bytes,bytes,bytes,bytes32)",
+            "address"
+        ],
+        [
+            [
+                request.contractAddress,
+                request.customerAddress,
+                request.startBlock,
+                request.endBlock,
+                request.challengePeriod,
+                request.id,
+                request.nonce,
+                request.data,
+                request.refund,
+                request.gasLimit,
+                request.mode,
+                request.eventAddress,
+                request.eventABI,
+                request.eventArgs,
+                request.preCondition,
+                request.postCondition,
+                request.paymentHash
+            ],
+            pisaContractAddress
+        ]
+    );
+};
+
 describe("Integration", function() {
     this.timeout(100000);
     let pisa: PisaContainer,
         parity: ParityContainer,
         network: DockerClient.Network,
         parityPort: number,
-        provider: ethers.providers.JsonRpcProvider,
-        client: PisaClient;
+        pisaContractAddress: string,
+        provider: ethers.providers.JsonRpcProvider;
 
     beforeEach(async () => {
         const currentDirectory = __dirname;
         const logDir = "logs";
         const logsDirectory = path.join(currentDirectory, logDir);
+
         prepareLogsDir(logsDirectory);
         const chainData = new ChainData(
             "IntegrationPoA",
@@ -71,11 +105,12 @@ describe("Integration", function() {
         const wallet = new ethers.Wallet(KeyStore.theKeyStore.account1.wallet.privateKey, provider);
         const pisaContract = await deployPisa(wallet);
 
-        const pisaPort = 3000;
+        pisaContractAddress = pisaContract.address;
+
         const config: IArgConfig = {
             dbDir: "db",
             hostName: "0.0.0.0",
-            hostPort: pisaPort,
+            hostPort: 3000,
             loglevel: "info",
             jsonRpcUrl: `http://${parity.name}:${parityPort}`,
             responderKey: KeyStore.theKeyStore.account1.wallet.privateKey,
@@ -83,12 +118,9 @@ describe("Integration", function() {
             watcherResponseConfirmations: 0,
             pisaContractAddress: pisaContract.address
         };
-
-        pisa = new PisaContainer(dockerClient, `pisa-${newId()}`, config, pisaPort, logsDirectory, networkName);
+        pisa = new PisaContainer(dockerClient, `pisa-${newId()}`, config, 3000, logsDirectory, networkName);
 
         await pisa.start(true);
-
-        client = new PisaClient(`http://0.0.0.0:${pisaPort}`, pisaContract.address);
         // adding a wait here appears to stop intermittent errors that occur
         // during the integration tests. This isnt a great solution but it works
         // for now
@@ -125,23 +157,40 @@ describe("Integration", function() {
         const sig1 = await key1.wallet.signMessage(ethers.utils.arrayify(setStateHash));
         const currentBlock = await provider.getBlockNumber();
         const data = KitsuneTools.encodeSetStateData(hashState, round, sig0, sig1);
-        const id = "0x0000000000000000000000000000000000000000000000000000000000000001";
 
-        await client.generateAndExecuteRequest(
-            digest => key0.wallet.signMessage(ethers.utils.arrayify(digest)),
-            key0.account,
-            id,
-            0,
-            currentBlock,
-            1000,
-            channelContract.address,
-            data,
-            1000000,
-            100,
-            channelContract.address,
-            KitsuneTools.eventABI(),
-            KitsuneTools.eventArgs()
-        );
+        const createAppointmentRequest = (data: string, acc: string, currentBlock: number): IAppointmentRequest => {
+            return {
+                challengePeriod: 100,
+                contractAddress: channelContract.address,
+                customerAddress: acc,
+                data,
+                endBlock: 1000,
+                eventAddress: channelContract.address,
+                eventABI: KitsuneTools.eventABI(),
+                eventArgs: KitsuneTools.eventArgs(),
+                gasLimit: 1000000,
+                id: "0x0000000000000000000000000000000000000000000000000000000000000001",
+                nonce: 0,
+                mode: 1,
+                preCondition: "0x",
+                postCondition: "0x",
+                refund: "0",
+                startBlock: currentBlock,
+                paymentHash: Appointment.FreeHash,
+                customerSig: "0x"
+            };
+        };
+
+        const appointment = createAppointmentRequest(data, key0.account, currentBlock);
+        const encoding = encode(appointment, pisaContractAddress);
+        const hashedWithAddress = ethers.utils.keccak256(encoding);
+        const sig = await key0.wallet.signMessage(ethers.utils.arrayify(hashedWithAddress));
+
+        const clone = { ...appointment, customerSig: sig };
+
+        const res = await request.post(`http://localhost:${pisa.config.hostPort}/appointment`, {
+            json: clone
+        });
 
         // now register a callback on the setstate event and trigger a response
         const setStateEvent = "EventEvidence(uint256, bytes32)";
@@ -225,23 +274,38 @@ describe("Integration", function() {
             const sig1 = await wallets1[i].signMessage(ethers.utils.arrayify(setStateHash));
             const data = KitsuneTools.encodeSetStateData(hashState, round, sig0, sig1);
 
-            const id = "0x0000000000000000000000000000000000000000000000000000000000000001";
+            const createAppointmentRequest = (data: string, acc: string): IAppointmentRequest => {
+                return {
+                    challengePeriod: 100,
+                    contractAddress: channelContracts[i].address,
+                    customerAddress: acc,
+                    data,
+                    endBlock: 110,
+                    eventAddress: channelContracts[i].address,
+                    eventABI: KitsuneTools.eventABI(),
+                    eventArgs: KitsuneTools.eventArgs(),
+                    gasLimit: 1000000,
+                    id: "0x0000000000000000000000000000000000000000000000000000000000000001",
+                    nonce: 0,
+                    mode: 1,
+                    preCondition: "0x",
+                    postCondition: "0x",
+                    refund: "0",
+                    startBlock: 0,
+                    paymentHash: Appointment.FreeHash,
+                    customerSig: "0x"
+                };
+            };
 
-            await client.generateAndExecuteRequest(
-                digest => wallets0[i].signMessage(ethers.utils.arrayify(digest)),
-                wallets0[i].address,
-                id,
-                0,
-                0,
-                1000,
-                channelContracts[i].address,
-                data,
-                1000000,
-                100,
-                channelContracts[i].address,
-                KitsuneTools.eventABI(),
-                KitsuneTools.eventArgs()
-            );
+            const appointment = createAppointmentRequest(data, wallets0[i].address);
+            const encoding = encode(appointment, pisaContractAddress);
+            const hashedWithAddress = ethers.utils.keccak256(encoding);
+            const sig = await wallets0[i].signMessage(ethers.utils.arrayify(hashedWithAddress));
+            const clone = { ...appointment, customerSig: sig };
+
+            await request.post(`http://localhost:${pisa.config.hostPort}/appointment`, {
+                json: clone
+            });
 
             // now register a callback on the setstate event and trigger a response
             const setStateEvent = "EventEvidence(uint256, bytes32)";

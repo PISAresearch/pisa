@@ -14,8 +14,7 @@ const ajv = new Ajv({ jsonPointers: true, allErrors: true });
 const appointmentRequestValidation = ajv.compile(appointmentRequestSchemaJson);
 
 export enum AppointmentMode {
-    Relay = 0,
-    EventTriggered = 1
+    Relay = 0
 }
 
 export interface IAppointmentBase {
@@ -323,23 +322,17 @@ export class Appointment {
         if((this.endBlock - this.startBlock) > 60000) throw new PublicDataValidationError(`Appointment duration too great. Maximum duration between start and end block is 60000.`); // prettier-ignore
         if((this.endBlock - this.startBlock) < 100) throw new PublicDataValidationError(`Appointment duration too small. Minimum duration between start and end block is 100.`); // prettier-ignore
 
-        if (this.preCondition !== "0x") throw new PublicDataValidationError("Pre-condition currently not supported. Please set to '0x'"); //prettier-ignore
-        if (this.postCondition !== "0x") throw new PublicDataValidationError("Post-condition currently not supported. Please set to '0x'"); //prettier-ignore
-        
-        if (this.mode === AppointmentMode.EventTriggered) {
-            try {
-                this.mEventFilter = this.parseEventArgs();
-            } catch (doh) {
-                if (doh instanceof PublicDataValidationError) throw doh;
-                log.error(doh);
-                throw new PublicDataValidationError("Invalid event arguments for ABI.");
-            }
-        } else if (this.mode === AppointmentMode.Relay){
-            if(this.eventAddress !== "0x0000000000000000000000000000000000000000") throw new PublicDataValidationError("Event address must be set to \"0x0000000000000000000000000000000000000000\" for relay transactions.") //prettier-ignore
-            if(this.eventABI !== "") throw new PublicDataValidationError("Event address must be set to \"\" for relay transactions.") //prettier-ignore
-            if(this.eventArgs !== "0x") throw new PublicDataValidationError("Event address must be set to \"0x\" for relay transactions.") //prettier-ignore
-        } else {
-            throw new PublicDataValidationError("Mode must be set to 0 or 1. 0 for relay appointments, 1 for event triggered appointments."); //prettier-ignore
+        if (this.preCondition !== "0x")
+            throw new PublicDataValidationError("Pre-condition currently not supported. Please set to '0x'");
+        if (this.postCondition !== "0x")
+            throw new PublicDataValidationError("Post-condition currently not supported. Please set to '0x'");
+
+        try {
+            this.mEventFilter = this.parseEventArgs();
+        } catch (doh) {
+            if (doh instanceof PublicDataValidationError) throw doh;
+            log.error(doh);
+            throw new PublicDataValidationError("Invalid event arguments for ABI.");
         }
 
         // check refund and gas limit are reasonable
@@ -521,20 +514,11 @@ export class Appointment {
  * An appointment signed by PISA
  */
 export class SignedAppointment {
-    constructor(
-        public readonly appointment: Appointment,
-        public readonly signerAddress: string,
-        public readonly signature: string
-    ) {}
+    constructor(public readonly appointment: Appointment, public readonly signature: string) {}
     public serialise() {
-        const signedAppointment: {
-            appointment: IAppointmentRequest;
-            watcherSignature: string;
-            watcherAddress: string;
-        } = {
-            appointment: Appointment.toIAppointmentRequest(this.appointment),
-            watcherSignature: this.signature,
-            watcherAddress: this.signerAddress
+        const signedAppointment: IAppointmentRequest & { signature: string } = {
+            ...Appointment.toIAppointmentRequest(this.appointment),
+            signature: this.signature
         };
 
         return JSON.stringify(signedAppointment);
