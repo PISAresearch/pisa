@@ -6,7 +6,7 @@ import EncodingDown from "encoding-down";
 import MemDown from "memdown";
 
 import { hasLogMatchingEventFilter, IBlockStub, Logs, BlockItemStore } from "../../../src/dataEntities/block";
-import { ArgumentError } from "../../../src/dataEntities";
+import { ArgumentError, ApplicationError } from "../../../src/dataEntities";
 import fnIt from "../../utils/fnIt";
 
 describe("hasLogMatchingEventFilter", () => {
@@ -111,6 +111,15 @@ describe("BlockItemStore", () => {
         const storedItem = store.getItem(sampleBlocks[0].hash, sampleKey);
 
         expect(storedItem).to.deep.equal(sampleValue);
+    });
+
+    fnIt<BlockItemStore<any>>(b => b.putBlockItem, "throws ApplicationError if no executed within a withBatch callback", async () => {
+        expect(() => store.putBlockItem(42, "0x424242", "test", {})).to.throw(ApplicationError);
+    });
+
+    fnIt<BlockItemStore<any>>(b => b.withBatch, "rejects with the same error if the callback rejects", async () => {
+        const doh = new Error("Oh no!");
+        expect(store.withBatch(async () => { throw doh })).to.be.rejectedWith(doh);
     });
 
     fnIt<BlockItemStore<any>>(b => b.getBlocksAtHeight, "gets all the blocks at a specific height and correctly reads the `attached` property", async () => {
