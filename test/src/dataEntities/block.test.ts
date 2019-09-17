@@ -122,6 +122,13 @@ describe("BlockItemStore", () => {
         expect(store.withBatch(async () => { throw doh })).to.be.rejectedWith(doh);
     });
 
+    fnIt<BlockItemStore<any>>(b => b.withBatch, "rejects with ApplicationError if a batch was already open", async () => {
+        await store.withBatch(async () => {
+            expect(store.withBatch(async () => {})).to.be.rejectedWith(ApplicationError);
+        });
+    });
+
+
     fnIt<BlockItemStore<any>>(b => b.getBlocksAtHeight, "gets all the blocks at a specific height and correctly reads the `attached` property", async () => {
         await addSampleData(store);
 

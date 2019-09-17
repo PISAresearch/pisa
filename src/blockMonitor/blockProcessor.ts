@@ -8,6 +8,7 @@ import { LevelUp } from "levelup";
 import EncodingDown from "encoding-down";
 import { createNamedLogger, Logger } from "../logger";
 import { BlockEvent } from "../utils/event";
+import { Lock } from "../utils/lock";
 const sub = require("subleveldown");
 
 type BlockFactory<TBlock> = (provider: ethers.providers.Provider) => (blockNumberOrHash: number | string) => Promise<TBlock>;
@@ -93,10 +94,8 @@ export const blockFactory = (provider: ethers.providers.Provider) => async (
 
 export class BlockProcessorStore {
     private readonly subDb: LevelUp<EncodingDown<string, any>>;
-    private logger: Logger;
     constructor(db: LevelUp<EncodingDown<string, any>>) {
         this.subDb = sub(db, `block-processor`, { valueEncoding: "json" });
-        this.logger = createNamedLogger(`block-processor-store`);
     }
 
     async getLatestHeadNumber() {
@@ -132,6 +131,8 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
 
     // Returned in the constructor by blockProvider: obtains the block remotely (or throws an exception on failure)
     private getBlockRemote: (blockNumberOrHash: string | number) => Promise<TBlock>;
+
+    private blockItemStoreLock = new Lock();
 
     /**
      * Returns the ReadOnlyBlockCache associated to this BlockProcessor.
@@ -169,6 +170,7 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
     // emits the appropriate events and updates the new head block in the store
     private async processNewHead(headBlock: Readonly<TBlock>) {
         try {
+            await this.blockItemStoreLock.acquire();
             await this.blockItemStore.withBatch(async () => {
                 this.mBlockCache.setHead(headBlock.hash);
 
@@ -179,6 +181,8 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
             await this.store.setLatestHeadNumber(headBlock.number);
         } catch (doh) {
             this.logger.error(doh);
+        } finally {
+            this.blockItemStoreLock.release();
         }
     }
 
@@ -215,9 +219,15 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
                 let curBlock = observedBlock;
                 while (true) {
                     let addResult: BlockAddResult | null = null;
-                    await this.blockItemStore.withBatch(async () => {
-                        addResult = await this.mBlockCache.addBlock(curBlock);
-                    });
+
+                    try {
+                        await this.blockItemStoreLock.acquire();
+                        await this.blockItemStore.withBatch(async () => {
+                            addResult = await this.mBlockCache.addBlock(curBlock);
+                        });
+                    } finally {
+                        this.blockItemStoreLock.release();
+                    }
 
                     if (addResult !== BlockAddResult.AddedDetached && addResult !== BlockAddResult.NotAddedAlreadyExistedDetached)
                         break;

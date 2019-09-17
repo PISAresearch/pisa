@@ -5,7 +5,6 @@ import { LevelUp, LevelUpChain } from "levelup";
 import EncodingDown from "encoding-down";
 import { StartStopService } from "./startStop";
 import { AnchorState } from "../blockMonitor/component";
-import { Lock } from "../utils/lock";
 const sub = require("subleveldown");
 
 export interface IBlockStub {
@@ -90,8 +89,6 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
 
     private itemsByHeight: Map<number, Set<string>> = new Map();
     private items: Map<string, any> = new Map();
-
-    private lock = new Lock();
 
     private mBatch: LevelUpChain<any, any> | null = null;
     private get batch() {
@@ -214,12 +211,15 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
      * Such errors must be taken seriously, as they might imply that sequence of updates is partially executed in memory, but did not complete correctly,
      * potentially causing an inconsistent state. As the write to db happens atomically, restarting is a viable option and should always recover from a
      * consistent state.
+     *
+     * @throws ApplicationError if there is already an open batch that did not yet close.
      */
     public async withBatch(callback: () => Promise<any>) {
-        await this.lock.acquire();
-        try {
-            if (this.mBatch) throw new ApplicationError("The lock was acquired but there was already a batch. This is a bug.");
+        if (this.mBatch) {
+            throw new ApplicationError("There is already an open batch.");
+        }
 
+        try {
             this.mBatch = this.subDb.batch();
 
             await callback();
@@ -227,7 +227,6 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
             await this.mBatch.write();
         } finally {
             this.mBatch = null;
-            this.lock.release();
         }
     }
 }
