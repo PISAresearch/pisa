@@ -142,7 +142,6 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
                     if (newActions.length > 0) {
                         const actionAndIds = await this.actionStore.storeActions(component.name, newActions);
                         this.runActionsForComponent(component, actionAndIds);
-
                     }
                 }
             }

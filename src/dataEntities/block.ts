@@ -62,9 +62,6 @@ export type BlockAndAttached<TBlock extends IBlockStub> = {
     attached: boolean;
 };
 
-// Represents an update to the store, so it can be batched with others
-type ItemPut = { blockHeight: number, blockHash: string, itemKey: string, item: any }
-
 /**
  * This store is a support structure for the block cache and all the related components that need to store blocks and other data that
  * is attached to those blocks, but pruning data that is too old. All the items are stored by block number and block hash, and can be
@@ -210,18 +207,27 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
         }
     }
 
+    /**
+     * Executes a sequence with write access to the db. All writes are effective in memory immediately, but they are only written to disk
+     * atomically at the end of the sequence.
+     * If `callback` is rejected, or if the write to disk fails, this call will reject with the same error.
+     * Such errors must be taken seriously, as they might imply that sequence of updates is partially executed in memory, but did not complete correctly,
+     * potentially causing an inconsistent state. As the write to db happens atomically, restarting is a viable option and should always recover from a
+     * consistent state.
+     */
     public async withBatch(callback: () => Promise<any>) {
         await this.lock.acquire();
+        try {
+            if (this.mBatch) throw new ApplicationError("The lock was acquired but there was already a batch. This is a bug.");
 
-        if (this.mBatch) throw new ApplicationError("The lock was acquired but there was already a batch. This is a bug.");
+            this.mBatch = this.subDb.batch();
 
-        this.mBatch = this.subDb.batch();
+            await callback();
 
-        // TODO: what to do if callback throws? Should probably rethrow after cleanup
-        await callback();
-
-        await this.mBatch.write();
-        this.mBatch = null;
-        this.lock.release();
+            await this.mBatch.write();
+        } finally {
+            this.mBatch = null;
+            this.lock.release();
+        }
     }
 }

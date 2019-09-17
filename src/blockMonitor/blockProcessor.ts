@@ -168,18 +168,18 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
 
     // emits the appropriate events and updates the new head block in the store
     private async processNewHead(headBlock: Readonly<TBlock>) {
-        await this.blockItemStore.withBatch(async () => {
-            try {
+        try {
+            await this.blockItemStore.withBatch(async () => {
                 this.mBlockCache.setHead(headBlock.hash);
 
                 // only emit new head events after it is started
                 if (this.started) this.newHead.emit(headBlock);
 
                 await this.store.setLatestHeadNumber(headBlock.number);
-            } catch (doh) {
-                this.logger.error(doh);
-            }
-        });
+            });
+        } catch (doh) {
+            this.logger.error(doh);
+        }
     }
 
     // Checks if a block is already in the block cache; if not, requests it remotely.
