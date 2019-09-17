@@ -337,4 +337,54 @@ describe("Appointment", () => {
             PublicDataValidationError
         );
     });
+
+    fnIt<Appointment>(a => a.validate, "relay mode passes for zero'd event args", async () => {
+        const clone = { ...testAppointmentRequest };
+        clone.mode = 0;
+        clone.eventAddress = "0x0000000000000000000000000000000000000000";
+        clone.eventABI = "";
+        clone.eventArgs = "0x";
+        const testAppointment = Appointment.parse(clone);
+        const signedAppointment = await sign(testAppointment, customerSigner);
+        await signedAppointment.validate(blockCache, pisaContractAddress);
+    });
+
+    fnIt<Appointment>(a => a.validate, "relay mode fails for non zero event address", async () => {
+        const clone = { ...testAppointmentRequest };
+        clone.mode = 0;
+        // clone.eventAddress = "0x0000000000000000000000000000000000000000";
+        clone.eventABI = "";
+        clone.eventArgs = "0x";
+        const testAppointment = Appointment.parse(clone);
+        const signedAppointment = await sign(testAppointment, customerSigner);
+        return expect(signedAppointment.validate(blockCache, pisaContractAddress)).to.eventually.be.rejectedWith(
+            PublicDataValidationError
+        );
+    });
+
+    fnIt<Appointment>(a => a.validate, "relay mode fails for non zero event ABI", async () => {
+        const clone = { ...testAppointmentRequest };
+        clone.mode = 0;
+        clone.eventAddress = "0x0000000000000000000000000000000000000000";
+        // clone.eventABI = "";
+        clone.eventArgs = "0x";
+        const testAppointment = Appointment.parse(clone);
+        const signedAppointment = await sign(testAppointment, customerSigner);
+        return expect(signedAppointment.validate(blockCache, pisaContractAddress)).to.eventually.be.rejectedWith(
+            PublicDataValidationError
+        );
+    });
+
+    fnIt<Appointment>(a => a.validate, "relay mode fails for non zero event args", async () => {
+        const clone = { ...testAppointmentRequest };
+        clone.mode = 0;
+        clone.eventAddress = "0x0000000000000000000000000000000000000000";
+        clone.eventABI = "";
+        // clone.eventArgs = "0x";
+        const testAppointment = Appointment.parse(clone);
+        const signedAppointment = await sign(testAppointment, customerSigner);
+        return expect(signedAppointment.validate(blockCache, pisaContractAddress)).to.eventually.be.rejectedWith(
+            PublicDataValidationError
+        );
+    });
 });

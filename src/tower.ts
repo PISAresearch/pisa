@@ -12,7 +12,7 @@ import { ReadOnlyBlockCache } from "./blockMonitor";
 export class PisaTower {
     constructor(
         private readonly store: AppointmentStore,
-        private readonly appointmentSigner: EthereumAppointmentSigner,
+        private readonly appointmentSigner: ethers.Wallet,
         private readonly multiResponder: MultiResponder,
         private readonly blockCache: ReadOnlyBlockCache<IBlockStub>,
         private readonly pisaContractAddress: string
@@ -47,39 +47,8 @@ export class PisaTower {
             } else throw new PublicDataValidationError(`Appointment already exists and nonce too low. Should be greater than ${appointment.nonce}.`); // prettier-ignore
         }
 
-        const signature = await this.appointmentSigner.signAppointment(appointment);
-        return new SignedAppointment(appointment, signature);
-    }
-}
-
-/**
- * This class is responsible for signing Ethereum appointments.
- */
-export abstract class EthereumAppointmentSigner {
-    /**
-     * Signs `appointment`. Returns a promise that resolves to the signature of the appointment.
-     *
-     * @param appointment
-     */
-    public abstract async signAppointment(appointment: Appointment): Promise<string>;
-}
-
-/**
- * This EthereumAppointmentSigner signs appointments using a hot wallet.
- */
-export class HotEthereumAppointmentSigner extends EthereumAppointmentSigner {
-    constructor(private readonly signer: ethers.Signer, public readonly pisaContractAddress: string) {
-        super();
-    }
-
-    /**
-     * Signs `appointment`. Returns a promise that resolves to the signature of the appointment.
-     *
-     * @param appointment
-     */
-    public async signAppointment(appointment: Appointment): Promise<string> {
-        // now hash the packed data with the address before signing
         const digest = ethers.utils.keccak256(appointment.encodeForSig(this.pisaContractAddress));
-        return await this.signer.signMessage(ethers.utils.arrayify(digest));
+        const signature = await this.appointmentSigner.signMessage(ethers.utils.arrayify(digest));
+        return new SignedAppointment(appointment, this.appointmentSigner.address, signature);
     }
 }
