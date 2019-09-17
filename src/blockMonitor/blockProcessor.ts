@@ -7,6 +7,7 @@ import { BlockFetchingError, ApplicationError } from "../dataEntities/errors";
 import { LevelUp } from "levelup";
 import EncodingDown from "encoding-down";
 import { createNamedLogger, Logger } from "../logger";
+import { BlockEvent } from "../utils/event";
 const sub = require("subleveldown");
 
 type BlockFactory<TBlock> = (provider: ethers.providers.Provider) => (blockNumberOrHash: number | string) => Promise<TBlock>;
@@ -127,7 +128,7 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
 
     private mBlockCache: BlockCache<TBlock>;
 
-    private newHeadListeners: NewHeadListener<TBlock>[] = [];
+    public newHead = new BlockEvent<TBlock>();
 
     // Returned in the constructor by blockProvider: obtains the block remotely (or throws an exception on failure)
     private getBlockRemote: (blockNumberOrHash: string | number) => Promise<TBlock>;
@@ -164,34 +165,13 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
         this.provider.removeListener("block", this.processBlockNumber);
     }
 
-    /**
-     * Adds a new listener for new head events.
-     * @param listener the listener for new head event; it will be passed the emitted `TBlock`.
-     */
-    public addNewHeadListener(listener: NewHeadListener<TBlock>) {
-        this.newHeadListeners.push(listener);
-    }
-
-    /**
-     * Removes `listener` from the list of listeners for new head events.
-     */
-    public removeNewHeadListener(listener: NewHeadListener<TBlock>) {
-        const idx = this.newHeadListeners.findIndex(l => l === listener);
-        if (idx === -1) throw new ApplicationError("No such listener exists.");
-
-        this.newHeadListeners.splice(idx, 1);
-    }
-
     // emits the appropriate events and updates the new head block in the store
     private async processNewHead(headBlock: Readonly<TBlock>) {
         try {
             this.mBlockCache.setHead(headBlock.hash);
 
             // only emit new head events after it is started
-            if (this.started) {
-                // Emit the new head
-                await Promise.all(this.newHeadListeners.map(listener => listener(headBlock)));
-            }
+            if (this.started) this.newHead.emit(headBlock);
 
             await this.store.setLatestHeadNumber(headBlock.number);
         } catch (doh) {
