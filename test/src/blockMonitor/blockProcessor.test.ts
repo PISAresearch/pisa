@@ -134,14 +134,18 @@ describe("BlockProcessor", () => {
         provider.emit("block", blocksByHash[hash].number);
     }
 
-    beforeEach(async () => {
-        db = LevelUp(EncodingDown<string, any>(MemDown(), { valueEncoding: "json" }));
+    async function startStores() {
         blockStore = new BlockItemStore<IBlockStub>(db);
         await blockStore.start();
 
         blockCache = new BlockCache(maxDepth, blockStore);
 
         blockProcessorStore = new BlockProcessorStore(db);
+    }
+
+    beforeEach(async () => {
+        db = LevelUp(EncodingDown<string, any>(MemDown(), { valueEncoding: "json" }));
+        await startStores();
 
         // Instruct the mocked provider to return the blocks by hash with getBlock
         mockProvider = mock(ethers.providers.BaseProvider);
@@ -347,5 +351,31 @@ describe("BlockProcessor", () => {
         expect(blockCache.hasBlock("a5", false), "has complete block a5").to.be.true;
         expect(blockCache.hasBlock("a4", false), "has complete block a4").to.be.true;
         expect(blockCache.hasBlock("a3", false), "has complete block a3").to.be.true;
+    });
+
+    it("does not save to db if an event listener throws", async () => {
+        blockProcessor = new BlockProcessor(provider, blockStubAndTxFactory, blockCache, blockStore, blockProcessorStore);
+        emitBlockHash("a1");
+        await blockProcessor.start();
+        blockProcessor.addNewHeadListener(async (block: IBlockStub) => {
+            if (block.hash === "a3") throw new Error("Some very serious error");
+        });
+
+        emitBlockHash("a2"); // OK
+        await wait(20);
+
+        emitBlockHash("a3"); // listener throws an error
+        await wait(20);
+
+        // Now tear down and restart everything
+        await blockProcessor.stop();
+        await blockStore.stop()
+
+        await startStores();
+
+        await blockProcessor.start();
+
+        // The store should still be at a2, not a3.
+        expect(await blockProcessorStore.getLatestHeadNumber()).to.equal(2);
     });
 });
