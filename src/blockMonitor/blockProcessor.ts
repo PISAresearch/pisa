@@ -174,9 +174,9 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
 
                 // only emit new head events after it is started
                 if (this.started) await this.newHead.emit(headBlock);
-
-                await this.store.setLatestHeadNumber(headBlock.number);
             });
+
+            await this.store.setLatestHeadNumber(headBlock.number);
         } catch (doh) {
             this.logger.error(doh);
         }

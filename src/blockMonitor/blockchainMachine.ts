@@ -133,9 +133,6 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
 
                 const prevEmittedState: AnchorState | null = this.blockItemStore.prevEmittedAnchorState.get(component.name, head.hash);
 
-                // this is now the latest anchor stated for an emitted head block; update the store accordingly
-                this.blockItemStore.prevEmittedAnchorState.set(component.name, head.number, head.hash, state);
-
                 if (prevEmittedState) {
                     // save actions in the store
                     const newActions = component.detectChanges(prevEmittedState, state);
@@ -144,6 +141,9 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
                         this.runActionsForComponent(component, actionAndIds);
                     }
                 }
+
+                // this is now the latest anchor stated for an emitted head block; update the store accordingly
+                this.blockItemStore.prevEmittedAnchorState.set(component.name, head.number, head.hash, state);
             }
         } finally {
             this.lock.release();
