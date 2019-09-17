@@ -170,19 +170,28 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
     // emits the appropriate events and updates the new head block in the store
     private async processNewHead(headBlock: Readonly<TBlock>) {
         try {
-            await this.blockItemStoreLock.acquire();
-            await this.blockItemStore.withBatch(async () => {
-                this.mBlockCache.setHead(headBlock.hash);
+            this.mBlockCache.setHead(headBlock.hash);
 
-                // only emit new head events after it is started
-                if (this.started) await this.newHead.emit(headBlock);
-            });
+            // only emit new head events after it is started
+            if (this.started) {
+                try {
+                    await this.blockItemStoreLock.acquire();
+                    await this.blockItemStore.withBatch(
+                        // All the writes in the BlockItemStore that happen in any of the components are executed as part of the same batch.
+                        // Thus, they are either all written to the db, or none of them is.
+                        async () => await this.newHead.emit(headBlock)
+                    );
+                } finally {
+                    this.blockItemStoreLock.release();
+                }
+            }
 
+            // We update the latest head number in the BlockProcessorStore only after successfully updateing everything in the components,
+            // Thus, in case of failure above, we do not update the head number for the block processor in order to repeat the processing
+            // upon startup.
             await this.store.setLatestHeadNumber(headBlock.number);
         } catch (doh) {
             this.logger.error(doh);
-        } finally {
-            this.blockItemStoreLock.release();
         }
     }
 
@@ -223,6 +232,8 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
                     try {
                         await this.blockItemStoreLock.acquire();
                         await this.blockItemStore.withBatch(async () => {
+                            // We execute all the writes in the components as a consequence of updating this block
+                            // in the same batch. Thus, they either all succeed or they are not written to disk.
                             addResult = await this.mBlockCache.addBlock(curBlock);
                         });
                     } finally {
