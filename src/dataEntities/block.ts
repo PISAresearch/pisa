@@ -65,6 +65,10 @@ export type BlockAndAttached<TBlock extends IBlockStub> = {
  * This store is a support structure for the block cache and all the related components that need to store blocks and other data that
  * is attached to those blocks, but pruning data that is too old. All the items are stored by block number and block hash, and can be
  * retrieved by block hash only. Moreover, there are methods to retrieve and/or delete all the blocks (and any attached info) at a certain height.
+ *
+ * All write actions must be executed within a `withBatch` callback, and they are effective immediately in memory, but all the writes performed
+ * in the same `withBatch` call are either successfully written to the database, or not. This can be used to guarantee that the state that is
+ * persisted in the database is always consistent, and can be therefore be used as a checkpoint to restart the application.
  */
 export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService {
     // Keys used by the BlockCache
@@ -113,8 +117,10 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
     }
     protected async stopInternal() {}
 
-    // should only be used internally, kept public for testing
-
+    /**
+     * Should only be used internally, kept public for testing.
+     * Writes `item` for the `blockHash` at height `blockHeight` under the key `itemKey`.
+     **/
     public putBlockItem(blockHeight: number, blockHash: string, itemKey: string, item: any) {
         const memKey = `${blockHash}:${itemKey}`;
         const dbKey = `${blockHeight}:${memKey}`;
