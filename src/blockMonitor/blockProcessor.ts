@@ -179,6 +179,8 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
                     await this.blockItemStore.withBatch(
                         // All the writes in the BlockItemStore that happen in any of the components are executed as part of the same batch.
                         // Thus, they are either all written to the db, or none of them is.
+                        // As other objects (most notably the BlockchainMachine) are listenin to "new head" events and writing to the BlockItemStore,
+                        // we cannot be sure that the intermediate states are consistent without batching all the writes together.
                         async () => await this.newHead.emit(headBlock)
                     );
                 } finally {
@@ -186,7 +188,7 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
                 }
             }
 
-            // We update the latest head number in the BlockProcessorStore only after successfully updateing everything in the components,
+            // We update the latest head number in the BlockProcessorStore only after successfully updating everything in the components,
             // Thus, in case of failure above, we do not update the head number for the block processor in order to repeat the processing
             // upon startup.
             await this.store.setLatestHeadNumber(headBlock.number);
@@ -232,8 +234,14 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
                     try {
                         await this.blockItemStoreLock.acquire();
                         await this.blockItemStore.withBatch(async () => {
-                            // We execute all the writes in the components as a consequence of updating this block
-                            // in the same batch. Thus, they either all succeed or they are not written to disk.
+                            // We execute all the writes in the BlockCache and everything that listens to new blocks and writes to
+                            // the BlockItemStore, like the BlockchainMachine) in the same batch. Thus, they either all succeed or
+                            // they are not written to disk.
+                            // Note that adding a block might cause some other blocks that were detached in the BlockCache
+                            // to become attached, and a "new block" event will be emitted for each of them.
+                            // Not batching these writes could cause partial updates to be saved to storage, like blocks staying
+                            // detached in the BlockCache even if they should become attached, or blocks already emitted in the
+                            // BlockCache while some consequences of the same events are lost.
                             addResult = await this.mBlockCache.addBlock(curBlock);
                         });
                     } finally {

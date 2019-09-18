@@ -113,7 +113,7 @@ describe("BlockItemStore", () => {
         expect(storedItem).to.deep.equal(sampleValue);
     });
 
-    fnIt<BlockItemStore<any>>(b => b.putBlockItem, "throws ApplicationError if no executed within a withBatch callback", async () => {
+    fnIt<BlockItemStore<any>>(b => b.putBlockItem, "throws ApplicationError if not executed within a withBatch callback", async () => {
         expect(() => store.putBlockItem(42, "0x424242", "test", {})).to.throw(ApplicationError);
     });
 
