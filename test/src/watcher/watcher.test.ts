@@ -85,6 +85,10 @@ describe("WatcherAppointmentStateReducer", () => {
         });
     });
 
+    after(async () => {
+        await blockStore.stop();
+    });
+
     it("constructor throws ApplicationError if the topics are not set in the filter", () => {
         expect(() => new EventFilterStateReducer(blockCache, { address: "address" }, 0)).to.throw(ApplicationError);
     });
@@ -252,6 +256,10 @@ describe("Watcher", () => {
 
     afterEach(() => {
         resetCalls(mockedResponder);
+    });
+
+    after(async () => {
+        await blockStore.stop();
     });
 
     fnIt<Watcher>(w => w.detectChanges, "calls startResponse after event is OBSERVED for long enough", async () => {

@@ -94,6 +94,10 @@ describe("ResponderAppointmentReducer", () => {
         })
     });
 
+    afterEach(async () => {
+        await blockStore.stop();
+    });
+
     fnIt<ResponderAppointmentReducer>(r => r.getInitialState, "sets pending tx", () => {
         const reducer = new ResponderAppointmentReducer(blockCache, txID1.identifier, appointmentId1, 0, from1);
 
