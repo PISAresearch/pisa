@@ -119,6 +119,7 @@ export abstract class StartStopService extends EventEmitter {
                         return true;
                         // throw new ApplicationError (`Tried to access new Error.stack, but not found. Maybe your JS doesn't support it`);
                     const ownClassHallmark : string = `at new ${instance.constructor.name}`;
+                    // const spyHallmark : string = `XyXyXyXy`;
                     const spyHallmark : string = `at new Spy`;
                     const stack : string = anyErr.stack;
                     return (stack.indexOf(ownClassHallmark) > -1 || stack.indexOf(spyHallmark) > -1);
@@ -149,11 +150,17 @@ export abstract class StartStopService extends EventEmitter {
                 if (knownErrorsWillBeFixed.indexOf(prop) > -1)
                     return target[prop];
 
+// Only needed when Spy throws errror (ie bypass SpyHallmark in isConstructor)
+// if (prop==='emptyTestMethod')
+//       throw new ApplicationError (`Service not started. eTM${detailsOfNotStartedError (instance, prop)}`);
+
                 if (isWithinConstructor())
                     return target[prop];
 
                 if ((instance.logVerbosityOfNotStartedError >= 4) && (prop==="on" || prop==="off"))
                     return logOnOffEvents (target[prop]);
+
+            // console.log (new ApplicationError (`Service not started.${detailsOfNotStartedError (instance, prop)}`));
 
                 throw new ApplicationError (`Service not started.${detailsOfNotStartedError (instance, prop)}`);
             }

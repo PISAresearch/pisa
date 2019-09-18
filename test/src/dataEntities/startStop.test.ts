@@ -50,14 +50,16 @@ describe("StartStop", () => {
         const testService = new ManualStartStop();
         const spiedService = spy(testService);
 
+        // start once
+        testService.start();
+
         const started = new Promise(resolve => {
             testService.on(StartStopService.STARTED_EVENT, async () => {
                 resolve();
             });
         });
 
-        // start twice
-        testService.start();
+        // start again
         try {
             await testService.start();
             assert.fail();
@@ -88,23 +90,18 @@ describe("StartStop", () => {
         verify(spiedService.startInternal()).once();
         verify(spiedService.stopInternal()).once();
     });
-    
+
     it("start must be called before emptyTestMethod", async () => {
         const testService = new TestStartStop();
-        const spiedService = spy(testService);
 
         // call testMethod without first calling start
         try {
             testService.emptyTestMethod();
             assert.fail();
         } catch (err) {
+  console.log (err)
+
             expect((err as Error).message.slice(0,20)).to.equal("Service not started.");
         }
-
-        await testService.stop();
-
-        //the block event was only subscribed to once
-        verify(spiedService.startInternal()).once();
-        verify(spiedService.stopInternal()).once();
     });
 });

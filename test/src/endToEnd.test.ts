@@ -99,6 +99,7 @@ describe("End to end", () => {
 
         const store = new AppointmentStore(db);
 
+      await store.start();
         await store.addOrUpdateByLocator(appointment);
         const watcher = new Watcher(multiResponder, blockProcessor.blockCache, store, 0, 20);
         const player0Contract = channelContract.connect(provider.getSigner(player0));
@@ -107,7 +108,7 @@ describe("End to end", () => {
 
         blockchainMachine.addComponent(watcher);
         await blockProcessor.start();
-        await store.start();
+        // await store.start();
         await blockchainMachine.start();
         await responderStore.start();
 

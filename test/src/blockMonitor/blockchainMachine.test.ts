@@ -275,3 +275,5 @@ describe("BlockchainMachine", () => {
         await bm.stop();
     });
 });
+
+export default {};

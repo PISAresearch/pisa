@@ -196,3 +196,5 @@ describe("BlockNumberReducer", () => {
         expect(nextAnchorState.blockNumber).to.equal(blocks[2].number);
     });
 });
+
+export default {};

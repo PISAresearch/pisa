@@ -235,3 +235,5 @@ describe("BlockProcessor", () => {
         });
     });
 });
+
+export default {};

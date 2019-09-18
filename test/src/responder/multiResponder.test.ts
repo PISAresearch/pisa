@@ -91,7 +91,6 @@ describe("MultiResponder", () => {
 
         const responder = new MultiResponder(signer, increasingGasPriceEstimator, chainId, store, signer.address, 500000000000000000);
         await responder.startResponse(appointment);
-
         verify(responderStoreMock.updateQueue(anything())).once();
         verify(signerMock.sendTransaction(anything())).once();
     });
@@ -345,7 +344,7 @@ describe("MultiResponder", () => {
         const appointment = createAppointment(1, "data1");
         const responder = new MultiResponder(signer, decreasingGasPriceEstimator, chainId, store, signer.address, 500000000000000000);
 
-        await responder.startResponse(appointment);        
+        await responder.startResponse(appointment);
         expect(store.transactions.has(appointment.id)).to.be.true;
 
         await responder.endResponse(appointment.id);

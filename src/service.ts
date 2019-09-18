@@ -141,8 +141,8 @@ export class PisaService extends StartStopService {
     }
 
     protected async startInternal() {
-        await this.blockchainMachine.start();
         await this.blockProcessor.start();
+        await this.blockchainMachine.start();
         await this.appointmentStore.start();
         await this.responderStore.start();
     }
@@ -150,8 +150,8 @@ export class PisaService extends StartStopService {
     protected async stopInternal() {
         await this.responderStore.stop();
         await this.appointmentStore.stop();
-        await this.blockProcessor.stop();
         await this.blockchainMachine.stop();
+        await this.blockProcessor.stop();
 
         this.server.close(error => {
             if (error) this.logger.error(error);

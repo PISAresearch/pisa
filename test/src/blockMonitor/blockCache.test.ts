@@ -272,3 +272,5 @@ describe("getConfirmations", () => {
         );
     });
 });
+
+export default {};
