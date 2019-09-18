@@ -99,8 +99,6 @@ describe("StartStop", () => {
             testService.emptyTestMethod();
             assert.fail();
         } catch (err) {
-  console.log (err)
-
             expect((err as Error).message.slice(0,20)).to.equal("Service not started.");
         }
     });
