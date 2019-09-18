@@ -9,6 +9,7 @@ class TestStartStop extends StartStopService {
     }
     public async startInternal() {}
     public async stopInternal() {}
+    public async emptyTestMethod() {}
 }
 
 class ManualStartStop extends StartStopService {
@@ -81,6 +82,25 @@ describe("StartStop", () => {
 
         // stop twice
         await testService.stop();
+        await testService.stop();
+
+        //the block event was only subscribed to once
+        verify(spiedService.startInternal()).once();
+        verify(spiedService.stopInternal()).once();
+    });
+    
+    it("start must be called before emptyTestMethod", async () => {
+        const testService = new TestStartStop();
+        const spiedService = spy(testService);
+
+        // call testMethod without first calling start
+        try {
+            testService.emptyTestMethod();
+            assert.fail();
+        } catch (err) {
+            expect((err as Error).message.slice(0,20)).to.equal("Service not started.");
+        }
+
         await testService.stop();
 
         //the block event was only subscribed to once
