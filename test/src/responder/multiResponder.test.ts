@@ -53,7 +53,7 @@ describe("MultiResponder", () => {
     const replacementRate = 15;
     const chainId = 1;
 
-    beforeEach(() => {
+    beforeEach(async () => {
         signerMock = mock(ethers.Wallet);
         when(signerMock.address).thenReturn("address");
         when(signerMock.sendTransaction(anything())).thenResolve();
@@ -83,7 +83,12 @@ describe("MultiResponder", () => {
         db = LevelUp(EncodingDown<string, any>(MemDown(), { valueEncoding: "json" }));
         const seedQueue = new GasQueue([], 0, replacementRate, maxConcurrentResponses);
         store = new ResponderStore(db, "address", seedQueue);
+        await store.start();
         responderStoreMock = spy(store);
+    });
+
+    afterEach(async () => {
+        await store.stop();
     });
 
     fnIt<MultiResponder>(m => m.startResponse, "can issue transaction", async () => {
@@ -150,6 +155,7 @@ describe("MultiResponder", () => {
         const appointment2 = createAppointment(2, "data2");
         const appointment3 = createAppointment(3, "data3");
         const max2Store = new ResponderStore(db, "address", new GasQueue([], 0, replacementRate, 2));
+        await max2Store.start()
         const max2StoreMock = spy(max2Store);
         const responder = new MultiResponder(signer, decreasingGasPriceEstimator, chainId, max2Store, signer.address, 500000000000000000);
 
@@ -164,6 +170,7 @@ describe("MultiResponder", () => {
         expect(max2Store.transactions.size).to.deep.equal(2);
         verify(max2StoreMock.updateQueue(anything())).twice();
         verify(signerMock.sendTransaction(anything())).twice();
+        await max2Store.stop()
     });
 
     fnIt<MultiResponder>(m => m.txMined, "does dequeue", async () => {
