@@ -146,21 +146,15 @@ export abstract class StartStopService extends EventEmitter {
                     return target[prop];
 
                 // Temporary - remove this!
-                const knownErrorsWillBeFixed = ['addComponent',''];
+                const knownErrorsWillBeFixed = [''] // ['addComponent',''];
                 if (knownErrorsWillBeFixed.indexOf(prop) > -1)
                     return target[prop];
-
-// Only needed when Spy throws errror (ie bypass SpyHallmark in isConstructor)
-// if (prop==='emptyTestMethod')
-//       throw new ApplicationError (`Service not started. eTM${detailsOfNotStartedError (instance, prop)}`);
 
                 if (isWithinConstructor())
                     return target[prop];
 
                 if ((instance.logVerbosityOfNotStartedError >= 4) && (prop==="on" || prop==="off"))
                     return logOnOffEvents (target[prop]);
-
-            // console.log (new ApplicationError (`Service not started.${detailsOfNotStartedError (instance, prop)}`));
 
                 throw new ApplicationError (`Service not started.${detailsOfNotStartedError (instance, prop)}`);
             }
