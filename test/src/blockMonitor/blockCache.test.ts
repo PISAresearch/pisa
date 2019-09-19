@@ -19,14 +19,14 @@ function generateBlocks(
     for (let height = initialHeight; height < initialHeight + nBlocks; height++) {
         const transactions: string[] = [];
         for (let i = 0; i < 5; i++) {
-            transactions.push(`${chain}-block${height}tx${i + 1}`);
+        transactions.push(`${chain}-block${height}tx${i + 1}`);
         }
 
         const block = {
-            number: height,
-            hash: `hash-${chain}-${height}`,
-            parentHash: rootParentHash != null && height === initialHeight ? rootParentHash : `hash-${chain}-${height - 1}`,
-            transactionHashes: transactions
+        number: height,
+        hash: `hash-${chain}-${height}`,
+        parentHash: rootParentHash != null && height === initialHeight ? rootParentHash : `hash-${chain}-${height - 1}`,
+        transactionHashes: transactions
         };
 
         result.push(block as (IBlockStub & TransactionHashes));
@@ -55,16 +55,31 @@ describe("BlockCache", () => {
     const maxDepth = 10;
     let db: any;
     let blockStore: BlockItemStore<IBlockStub>;
+    let bc: BlockCache<IBlockStub>;
+
+    let resolveBatch: (value?: any) => void;
+
     beforeEach(async () => {
         db = LevelUp(EncodingDown<string, any>(MemDown(), { valueEncoding: "json" }));
         blockStore = new BlockItemStore<IBlockStub>(db);
         await blockStore.start();
+
+        bc = new BlockCache(maxDepth, blockStore);
+
+        // Create a batch that will be closed in the afterEach block, as the BlockCache assumes the batch is already open
+        blockStore.withBatch(() => new Promise(resolve => {
+        resolveBatch = resolve;
+        }));
     });
 
-    afterEach(async () => await blockStore.stop());
+    afterEach(async () => {
+        resolveBatch();
+        await Promise.resolve();
+
+        await blockStore.stop();
+    });
 
     it("records a block that was just added", async () => {
-        const bc = new BlockCache(maxDepth, blockStore);
         const blocks = generateBlocks(1, 0, "main");
 
         await bc.addBlock(blocks[0]);
@@ -73,7 +88,6 @@ describe("BlockCache", () => {
     });
 
     fnIt<BlockCache<any>>(b => b.addBlock, "adds blocks that are attached and returns Added", async () => {
-        const bc = new BlockCache(maxDepth, blockStore);
         const blocks = generateBlocks(10, 5, "main");
         expect(await bc.addBlock(blocks[0])).to.equal(BlockAddResult.Added);
         expect(await bc.addBlock(blocks[1])).to.equal(BlockAddResult.Added);
@@ -81,7 +95,6 @@ describe("BlockCache", () => {
     });
 
     fnIt<BlockCache<any>>(b => b.addBlock, "adds unattached blocks and returns false", async () => {
-        const bc = new BlockCache(maxDepth, blockStore);
         const blocks = generateBlocks(10, 5, "main");
         await bc.addBlock(blocks[0]);
         expect(await bc.addBlock(blocks[3])).to.equal(BlockAddResult.AddedDetached);
@@ -89,7 +102,6 @@ describe("BlockCache", () => {
     });
 
     it("emits a new block event when a new block is added and attached", async () => {
-        const bc = new BlockCache(maxDepth, blockStore);
         const blocks = generateBlocks(10, 5, "main");
 
         const newBlockSpy = new NewBlockSpy();
@@ -102,7 +114,6 @@ describe("BlockCache", () => {
     });
 
     it("does not emit a new block event when a new block is added unattached", async () => {
-        const bc = new BlockCache(maxDepth, blockStore);
         const blocks = generateBlocks(10, 5, "main");
         await bc.addBlock(blocks[0]);
 
@@ -115,7 +126,6 @@ describe("BlockCache", () => {
     });
 
     it("emits a new block event when an unattached block becomes attached", async () => {
-        const bc = new BlockCache(maxDepth, blockStore);
         const blocks = generateBlocks(10, 5, "main");
         await bc.addBlock(blocks[0]);
 
@@ -130,7 +140,6 @@ describe("BlockCache", () => {
     });
 
     fnIt<BlockCache<any>>(b => b.hasBlock, "returns true for an existing attached block", async () => {
-        const bc = new BlockCache(maxDepth, blockStore);
         const blocks = generateBlocks(10, 5, "main");
         await bc.addBlock(blocks[0]);
         await bc.addBlock(blocks[1]);
@@ -138,7 +147,6 @@ describe("BlockCache", () => {
     });
 
     fnIt<BlockCache<any>>(b => b.hasBlock, "returns false for a non-existing block", async () => {
-        const bc = new BlockCache(maxDepth, blockStore);
         const blocks = generateBlocks(10, 5, "main");
         await bc.addBlock(blocks[0]);
         await bc.addBlock(blocks[1]);
@@ -146,7 +154,6 @@ describe("BlockCache", () => {
     });
 
     fnIt<BlockCache<any>>(b => b.hasBlock, "returns false for an unattached block if allowPending=false", async () => {
-        const bc = new BlockCache(maxDepth, blockStore);
         const blocks = generateBlocks(10, 5, "main");
         await bc.addBlock(blocks[0]);
         await bc.addBlock(blocks[1]);
@@ -155,7 +162,6 @@ describe("BlockCache", () => {
     });
 
     fnIt<BlockCache<any>>(b => b.hasBlock, "returns true for an unattached block if allowPending=true", async () => {
-        const bc = new BlockCache(maxDepth, blockStore);
         const blocks = generateBlocks(10, 5, "main");
         await bc.addBlock(blocks[0]);
         await bc.addBlock(blocks[1]);
@@ -164,7 +170,6 @@ describe("BlockCache", () => {
     });
 
     fnIt<BlockCache<any>>(b => b.addBlock, "makes sure that a previously unattached block becomes attached if appropriate", async () => {
-        const bc = new BlockCache(maxDepth, blockStore);
         const blocks = generateBlocks(10, 5, "main");
         await bc.addBlock(blocks[0]);
         await bc.addBlock(blocks[3]);
@@ -177,7 +182,6 @@ describe("BlockCache", () => {
     });
 
     it("maxHeight does not change for unattached blocks", async () => {
-        const bc = new BlockCache(maxDepth, blockStore);
         const blocks = generateBlocks(10, 5, "main");
         await bc.addBlock(blocks[0]);
         await bc.addBlock(blocks[3]);
@@ -185,7 +189,6 @@ describe("BlockCache", () => {
     });
 
     fnIt<BlockCache<any>>(b => b.getBlock, "returns an attached block", async () => {
-        const bc = new BlockCache(maxDepth, blockStore);
         const blocks = generateBlocks(10, 5, "main");
         await bc.addBlock(blocks[0]);
         await bc.addBlock(blocks[1]);
@@ -194,7 +197,6 @@ describe("BlockCache", () => {
     });
 
     fnIt<BlockCache<any>>(b => b.getBlock, "returns an unattached block", async () => {
-        const bc = new BlockCache(maxDepth, blockStore);
         const blocks = generateBlocks(10, 5, "main");
         await bc.addBlock(blocks[0]);
         await bc.addBlock(blocks[1]);
@@ -203,7 +205,6 @@ describe("BlockCache", () => {
     });
 
     fnIt<BlockCache<any>>(b => b.getBlock, "throws ApplicationError for an unknown block", async () => {
-        const bc = new BlockCache(maxDepth, blockStore);
         const blocks = generateBlocks(10, 5, "main");
         await bc.addBlock(blocks[0]);
         await bc.addBlock(blocks[1]);
@@ -212,7 +213,6 @@ describe("BlockCache", () => {
     });
 
     it("minHeight is equal to the initial block height if less then maxDepth blocks are added", async () => {
-        const bc = new BlockCache(maxDepth, blockStore);
         const initialHeight = 3;
         const blocks = generateBlocks(maxDepth - 1, initialHeight, "main");
 
@@ -224,7 +224,6 @@ describe("BlockCache", () => {
     });
 
     it("minHeight is equal to the height of the highest added block minus maxDepth if more than maxDepth blocks are added", async () => {
-        const bc = new BlockCache(maxDepth, blockStore);
         const initialHeight = 3;
         const blocksAdded = 2 * maxDepth;
         const lastBlockAdded = initialHeight + blocksAdded - 1;
@@ -236,7 +235,6 @@ describe("BlockCache", () => {
     });
 
     it("maxHeight is equal to the height of the highest added block", async () => {
-        const bc = new BlockCache(maxDepth, blockStore);
         const initialHeight = 3;
         const blocksAdded = 2 * maxDepth;
         const lastBlockAdded = initialHeight + blocksAdded - 1;
@@ -254,7 +252,6 @@ describe("BlockCache", () => {
     });
 
     fnIt<BlockCache<any>>(b => b.canAttachBlock, "returns true for blocks whose height is equal to the initial height", async () => {
-        const bc = new BlockCache(maxDepth, blockStore);
 
         const blocks = generateBlocks(10, 5, "main");
         const otherBlocks = generateBlocks(10, 5, "other");
@@ -266,7 +263,6 @@ describe("BlockCache", () => {
     });
 
     fnIt<BlockCache<any>>(b => b.canAttachBlock, "returns false for blocks whose height is lower than the initial height", async () => {
-        const bc = new BlockCache(maxDepth, blockStore);
 
         const blocks = generateBlocks(10, 5, "main");
         const otherBlocks = generateBlocks(10, 5, "other");
@@ -278,7 +274,6 @@ describe("BlockCache", () => {
     });
 
     fnIt<BlockCache<any>>(b => b.canAttachBlock, "returns true for a block whose height is equal to the maximum depth", async () => {
-        const bc = new BlockCache(maxDepth, blockStore);
         const initialHeight = 3;
         const blocksAdded = maxDepth + 1;
         const blocks = generateBlocks(blocksAdded, initialHeight, "main");
@@ -291,7 +286,6 @@ describe("BlockCache", () => {
     });
 
     fnIt<BlockCache<any>>(b => b.canAttachBlock, "returns false for blocks whose height is lower than the maximum depth", async () => {
-        const bc = new BlockCache(maxDepth, blockStore);
         const initialHeight = 3;
         const blocksAdded = maxDepth + 1;
         const blocks = generateBlocks(blocksAdded, initialHeight, "main");
@@ -304,7 +298,6 @@ describe("BlockCache", () => {
     });
 
     fnIt<BlockCache<any>>(b => b.canAttachBlock, "returns true for a block whose parent is in the BlockCache", async () => {
-        const bc = new BlockCache(maxDepth, blockStore);
         const blocks = generateBlocks(10, 7, "main");
 
         await bc.addBlock(blocks[5]);
@@ -313,7 +306,6 @@ describe("BlockCache", () => {
     });
 
     fnIt<BlockCache<any>>(b => b.canAttachBlock, "returns false for a block above minHeight whose parent is not in the BlockCache", async () => {
-        const bc = new BlockCache(maxDepth, blockStore);
         const blocks = generateBlocks(10, 7, "main");
 
         await bc.addBlock(blocks[0]);
@@ -324,7 +316,6 @@ describe("BlockCache", () => {
     });
 
     it("records blocks until maximum depth", async () => {
-        const bc = new BlockCache(maxDepth, blockStore);
         const blocks = generateBlocks(maxDepth, 0, "main");
         for (const block of blocks) {
             await bc.addBlock(block);
@@ -333,7 +324,6 @@ describe("BlockCache", () => {
     });
 
     it("forgets blocks past the maximum depth", async () => {
-        const bc = new BlockCache(maxDepth, blockStore);
         const blocks = generateBlocks(maxDepth + 2, 0, "main"); // head is depth 0, so first pruned is maxDepth + 2
         for (const block of blocks) {
             await bc.addBlock(block);
@@ -342,7 +332,6 @@ describe("BlockCache", () => {
     });
 
     fnIt<BlockCache<any>>(b => b.ancestry, "iterates over all the ancestors", async () => {
-        const bc = new BlockCache(maxDepth, blockStore);
         const blocks = generateBlocks(10, 0, "main");
         for (const block of blocks) {
             await bc.addBlock(block);
@@ -361,7 +350,6 @@ describe("BlockCache", () => {
     });
 
     fnIt<BlockCache<any>>(b => b.findAncestor, "returns the nearest ancestor that satisfies the predicate", async () => {
-        const bc = new BlockCache(maxDepth, blockStore);
         const blocks = generateBlocks(5, 0, "main");
         for (const block of blocks) {
             await bc.addBlock(block);
@@ -374,7 +362,6 @@ describe("BlockCache", () => {
     });
 
     fnIt<BlockCache<any>>(b => b.findAncestor, "returns self if satisfies the predicate", async () => {
-        const bc = new BlockCache(maxDepth, blockStore);
         const blocks = generateBlocks(5, 0, "main");
         for (const block of blocks) {
             await bc.addBlock(block);
@@ -387,7 +374,6 @@ describe("BlockCache", () => {
     });
 
     fnIt<BlockCache<any>>(b => b.findAncestor, "returns self if satisfies the predicate", async () => {
-        const bc = new BlockCache(maxDepth, blockStore);
         const blocks = generateBlocks(5, 0, "main");
         for (const block of blocks) {
             await bc.addBlock(block);
@@ -399,7 +385,6 @@ describe("BlockCache", () => {
     });
 
     fnIt<BlockCache<any>>(b => b.findAncestor, "does not return at height less than minHeight", async () => {
-        const bc = new BlockCache(maxDepth, blockStore);
         const blocks = generateBlocks(5, 0, "main");
         for (const block of blocks) {
             await bc.addBlock(block);
@@ -412,7 +397,6 @@ describe("BlockCache", () => {
     });
 
     fnIt<BlockCache<any>>(b => b.findAncestor, "does return at height equal or more than minHeight", async () => {
-        const bc = new BlockCache(maxDepth, blockStore);
         const blocks = generateBlocks(5, 0, "main");
         for (const block of blocks) {
             await bc.addBlock(block);
@@ -426,7 +410,6 @@ describe("BlockCache", () => {
     });
 
     fnIt<BlockCache<any>>(b => b.getOldestAncestorInCache, "returns the deepest ancestor", async () => {
-        const bc = new BlockCache(maxDepth, blockStore);
         const blocks = generateBlocks(5, 0, "main");
         for (const block of blocks) {
             await bc.addBlock(block);
@@ -438,7 +421,6 @@ describe("BlockCache", () => {
     });
 
     fnIt<BlockCache<any>>(b => b.getOldestAncestorInCache, "throws ArgumentError for a hash not in cache", async () => {
-        const bc = new BlockCache(maxDepth, blockStore);
         const blocks = generateBlocks(5, 0, "main");
         for (const block of blocks) {
             await bc.addBlock(block);
@@ -447,7 +429,6 @@ describe("BlockCache", () => {
     });
 
     fnIt<BlockCache<any>>(b => b.setHead, "correctly sets new head", async () => {
-        const bc = new BlockCache(maxDepth, blockStore);
         const blocks = generateBlocks(1, 0, "main");
 
         await bc.addBlock(blocks[0]);
@@ -455,15 +436,13 @@ describe("BlockCache", () => {
         expect(bc.head).to.deep.equal(blocks[0]);
     });
 
-    fnIt<BlockCache<any>>(b => b.setHead, "setHead throws for head not in cache", () => {
-        const bc = new BlockCache(maxDepth, blockStore);
+    fnIt<BlockCache<any>>(b => b.setHead, "setHead throws for head not in cache", async () => {
         const blocks = generateBlocks(1, 0, "main");
 
         expect(() => bc.setHead(blocks[0].hash)).to.throw(ArgumentError);
     });
 
-    it("head throws if setHead never called", () => {
-        const bc = new BlockCache(maxDepth, blockStore);
+    it("head throws if setHead never called", async () => {
         expect(() => bc.head).to.throw(ApplicationError);
     });
 });
@@ -473,13 +452,31 @@ describe("getConfirmations", () => {
 
     let db: any;
     let blockStore: BlockItemStore<IBlockStub & TransactionHashes>;
-    beforeEach(() => {
+
+    let bc: BlockCache<IBlockStub & TransactionHashes>;
+
+    let resolveBatch: (value?: any) => void;
+    beforeEach(async () => {
         db = LevelUp(EncodingDown<string, any>(MemDown(), { valueEncoding: "json" }));
         blockStore = new BlockItemStore<IBlockStub & TransactionHashes>(db);
+        await blockStore.start();
+
+        bc = new BlockCache(maxDepth, blockStore);
+
+        // Create a batch that will be closed in the afterEach block, as the BlockCache assumes the batch is already open
+        blockStore.withBatch(() => new Promise(resolve => {
+            resolveBatch = resolve;
+        }));
+    });
+
+    afterEach(async () => {
+        resolveBatch();
+        await Promise.resolve();
+
+        await blockStore.stop();
     });
 
     it("correctly computes the number of confirmations for a transaction", async () => {
-        const bc = new BlockCache<IBlockStub & TransactionHashes>(maxDepth, blockStore);
         const blocks = generateBlocks(7, 0, "main"); // must be less blocks than maxDepth
         for (const block of blocks) {
             await bc.addBlock(block);
@@ -490,7 +487,6 @@ describe("getConfirmations", () => {
     });
 
     it("correctly returns 0 confirmations if transaction is not known", async () => {
-        const bc = new BlockCache<IBlockStub & TransactionHashes>(maxDepth, blockStore);
         const blocks = generateBlocks(128, 0, "main");
         for (const block of blocks) {
             await bc.addBlock(block);
@@ -501,7 +497,6 @@ describe("getConfirmations", () => {
     });
 
     it("throws ArgumentError if no block with the given hash is in the BlockCache", async () => {
-        const bc = new BlockCache<IBlockStub & TransactionHashes>(maxDepth, blockStore);
         const blocks = generateBlocks(128, 0, "main");
         for (const block of blocks) {
             await bc.addBlock(block);

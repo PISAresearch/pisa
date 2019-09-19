@@ -81,7 +81,6 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
             await this.lock.acquire();
 
             // Every time a new block is received we calculate the anchor state for that block and store it
-
             for (const component of this.components) {
                 // If the parent is available and its anchor state is known, the state can be computed with the reducer.
                 // If the parent is available but its anchor state is not known, first compute its parent's initial state, then apply the reducer.
@@ -103,10 +102,10 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
                     newState = component.reducer.getInitialState(block);
                 }
 
-                await this.blockItemStore.anchorState.set(component.name, block.number, block.hash, newState);
+                this.blockItemStore.anchorState.set(component.name, block.number, block.hash, newState);
                 if (prevHeadAnchorState) {
                     // copy prevEmittedAnchorState from the previous block
-                    await this.blockItemStore.prevEmittedAnchorState.set(component.name, block.number, block.hash, prevHeadAnchorState);
+                    this.blockItemStore.prevEmittedAnchorState.set(component.name, block.number, block.hash, prevHeadAnchorState);
                 }
             }
         } finally {
@@ -134,9 +133,6 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
 
                 const prevEmittedState: AnchorState | null = this.blockItemStore.prevEmittedAnchorState.get(component.name, head.hash);
 
-                // this is now the latest anchor stated for an emitted head block; update the store accordingly
-                await this.blockItemStore.prevEmittedAnchorState.set(component.name, head.number, head.hash, state);
-
                 if (prevEmittedState) {
                     // save actions in the store
                     const newActions = component.detectChanges(prevEmittedState, state);
@@ -145,6 +141,9 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
                         this.runActionsForComponent(component, actionAndIds);
                     }
                 }
+
+                // this is now the latest anchor stated for an emitted head block; update the store accordingly
+                this.blockItemStore.prevEmittedAnchorState.set(component.name, head.number, head.hash, state);
             }
         } finally {
             this.lock.release();

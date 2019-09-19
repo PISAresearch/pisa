@@ -6,7 +6,7 @@ import EncodingDown from "encoding-down";
 import MemDown from "memdown";
 
 import { hasLogMatchingEventFilter, IBlockStub, Logs, BlockItemStore } from "../../../src/dataEntities/block";
-import { ArgumentError } from "../../../src/dataEntities";
+import { ArgumentError, ApplicationError } from "../../../src/dataEntities";
 import fnIt from "../../utils/fnIt";
 
 describe("hasLogMatchingEventFilter", () => {
@@ -81,12 +81,16 @@ describe("BlockItemStore", () => {
     const sampleBlocks: IBlockStub[] = [block10a, block10b, block42];
 
     async function addSampleData(bis: BlockItemStore<IBlockStub>) {
-        await bis.putBlockItem(block10a.number, block10a.hash, "block", block10a);
-        await bis.putBlockItem(block10a.number, block10a.hash, "attached", true);
-        await bis.putBlockItem(block42.number, block42.hash, "block", block42);
-        await bis.putBlockItem(block42.number, block42.hash, "attached", true);
-        await bis.putBlockItem(block10b.number, block10b.hash, "block", block10b);
-        await bis.putBlockItem(block10b.number, block10b.hash, "attached", false);
+        await store.withBatch(
+            async () => {
+                bis.putBlockItem(block10a.number, block10a.hash, "block", block10a);
+                bis.putBlockItem(block10a.number, block10a.hash, "attached", true);
+                bis.putBlockItem(block42.number, block42.hash, "block", block42);
+                bis.putBlockItem(block42.number, block42.hash, "attached", true);
+                bis.putBlockItem(block10b.number, block10b.hash, "block", block10b);
+                bis.putBlockItem(block10b.number, block10b.hash, "attached", false);
+           }
+        );
     }
 
     beforeEach(async () => {
@@ -95,13 +99,35 @@ describe("BlockItemStore", () => {
         await store.start();
     });
 
-    it("can store and retrieve an item", async () => {
-        await store.putBlockItem(sampleBlocks[0].number, sampleBlocks[0].hash, sampleKey, sampleValue);
+    afterEach(async () => {
+        await store.stop();
+    });
 
-        const storedItem = await store.getItem(sampleBlocks[0].hash, sampleKey);
+    it("can store and retrieve an item", async () => {
+        await store.withBatch(
+            async () => store.putBlockItem(sampleBlocks[0].number, sampleBlocks[0].hash, sampleKey, sampleValue)
+        );
+
+        const storedItem = store.getItem(sampleBlocks[0].hash, sampleKey);
 
         expect(storedItem).to.deep.equal(sampleValue);
     });
+
+    fnIt<BlockItemStore<any>>(b => b.putBlockItem, "throws ApplicationError if not executed within a withBatch callback", async () => {
+        expect(() => store.putBlockItem(42, "0x424242", "test", {})).to.throw(ApplicationError);
+    });
+
+    fnIt<BlockItemStore<any>>(b => b.withBatch, "rejects with the same error if the callback rejects", async () => {
+        const doh = new Error("Oh no!");
+        expect(store.withBatch(async () => { throw doh })).to.be.rejectedWith(doh);
+    });
+
+    fnIt<BlockItemStore<any>>(b => b.withBatch, "rejects with ApplicationError if a batch was already open", async () => {
+        await store.withBatch(async () => {
+            expect(store.withBatch(async () => {})).to.be.rejectedWith(ApplicationError);
+        });
+    });
+
 
     fnIt<BlockItemStore<any>>(b => b.getBlocksAtHeight, "gets all the blocks at a specific height and correctly reads the `attached` property", async () => {
         await addSampleData(store);
@@ -119,15 +145,15 @@ describe("BlockItemStore", () => {
     fnIt<BlockItemStore<any>>(b => b.deleteItemsAtHeight, "deletes all the items at a specific height", async () => {
         await addSampleData(store);
 
-        await store.deleteItemsAtHeight(10);
+        await store.withBatch(async () => store.deleteItemsAtHeight(10));
 
         // Check that all items at height 10 return undefined, but all the others are not changed
-        expect(await store.getItem(block10a.hash, "block")).to.be.undefined;
-        expect(await store.getItem(block10a.hash, "attached")).to.be.undefined;
-        expect(await store.getItem(block42.hash, "block")).to.deep.include(block42);
-        expect(await store.getItem(block42.hash, "attached")).to.be.true;
-        expect(await store.getItem(block10b.hash, "block")).to.be.undefined;
-        expect(await store.getItem(block10b.hash, "attached")).to.be.undefined;
+        expect(store.getItem(block10a.hash, "block")).to.be.undefined;
+        expect(store.getItem(block10a.hash, "attached")).to.be.undefined;
+        expect(store.getItem(block42.hash, "block")).to.deep.include(block42);
+        expect(store.getItem(block42.hash, "attached")).to.be.true;
+        expect(store.getItem(block10b.hash, "block")).to.be.undefined;
+        expect(store.getItem(block10b.hash, "attached")).to.be.undefined;
     });
 
     it("actually persists items into the database", async () => {
@@ -139,11 +165,11 @@ describe("BlockItemStore", () => {
         await newStore.start();
 
         // Check that all items still return the correct value for the new store
-        expect(await newStore.getItem(block10a.hash, "block")).to.deep.include(block10a);
-        expect(await newStore.getItem(block10a.hash, "attached")).to.be.true;
-        expect(await newStore.getItem(block42.hash, "block")).to.deep.include(block42);
-        expect(await newStore.getItem(block42.hash, "attached")).to.be.true;
-        expect(await newStore.getItem(block10b.hash, "block")).to.deep.include(block10b);
-        expect(await newStore.getItem(block10b.hash, "attached")).to.be.false;
+        expect(newStore.getItem(block10a.hash, "block")).to.deep.include(block10a);
+        expect(newStore.getItem(block10a.hash, "attached")).to.be.true;
+        expect(newStore.getItem(block42.hash, "block")).to.deep.include(block42);
+        expect(newStore.getItem(block42.hash, "attached")).to.be.true;
+        expect(newStore.getItem(block10b.hash, "block")).to.deep.include(block10b);
+        expect(newStore.getItem(block10b.hash, "attached")).to.be.false;
     });
 });

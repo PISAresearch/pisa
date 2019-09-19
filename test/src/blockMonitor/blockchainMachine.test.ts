@@ -143,7 +143,7 @@ describe("BlockchainMachine", () => {
         bm.addComponent(new ExampleComponent(reducer));
         await bm.start();
 
-        await blockCache.addBlock(blocks[0]);
+        await blockStore.withBatch(async () => await blockCache.addBlock(blocks[0]));
 
         verify(spiedReducer.getInitialState(blocks[0])).once();
         verify(spiedReducer.reduce(anything(), anything())).never();
@@ -156,13 +156,13 @@ describe("BlockchainMachine", () => {
         bm.addComponent(new ExampleComponent(reducer));
         // start only after adding the first block
 
-        await blockCache.addBlock(blocks[0]);
+        await blockStore.withBatch(async () => await blockCache.addBlock(blocks[0]));
 
         await bm.start();
 
         resetCalls(spiedReducer);
 
-        await blockCache.addBlock(blocks[1]);
+        await blockStore.withBatch(async () => await blockCache.addBlock(blocks[1]));
 
         // initializer and reducer should both be called once
         verify(spiedReducer.getInitialState(blocks[0])).once(); // initial state from the parent block
@@ -183,12 +183,14 @@ describe("BlockchainMachine", () => {
         // this time we start the BlockchainMachine immediately
         await bm.start();
 
-        await blockCache.addBlock(blocks[0]);
-        await blockCache.addBlock(blocks[1]);
+        await blockStore.withBatch(async () => {
+            await blockCache.addBlock(blocks[0]);
+            await blockCache.addBlock(blocks[1]);
+        });
 
         resetCalls(spiedReducer);
 
-        await blockCache.addBlock(blocks[2]);
+        await blockStore.withBatch(async () => await blockCache.addBlock(blocks[2]));
 
         verify(spiedReducer.getInitialState(anything())).never();
         verify(spiedReducer.reduce(anything(), anything())).once();
@@ -219,14 +221,16 @@ describe("BlockchainMachine", () => {
 
         await bm.start();
 
-        await addAndEmitBlock(blocks[0]);
-        await addAndEmitBlock(blocks[1]);
+        await blockStore.withBatch(async () => {
+            await addAndEmitBlock(blocks[0]);
+            await addAndEmitBlock(blocks[1]);
+        });
 
         spiedReducers.forEach(r => resetCalls(r));
 
         // State of the parent is { someNumber: 42 + blocks[1].number }
 
-        await addAndEmitBlock(blocks[2]);
+        await blockStore.withBatch(async () => await addAndEmitBlock(blocks[2]));
 
         for (let i = 0; i < nComponents; i++) {
             // Check that each reducer was used, but not getInitialState
@@ -245,11 +249,13 @@ describe("BlockchainMachine", () => {
         bm.addComponent(component);
         await bm.start();
 
-        await addAndEmitBlock(blocks[0]);
+        await blockStore.withBatch(async () => await addAndEmitBlock(blocks[0]));
 
         // some new blocks added to the cache without a new_head event
-        await blockCache.addBlock(blocks[1]);
-        await blockCache.addBlock(blocks[2]);
+        await blockStore.withBatch(async () => {
+            await blockCache.addBlock(blocks[1]);
+            await blockCache.addBlock(blocks[2]);
+        });
 
         // applyAction should not have been called on the component
         verify(spiedComponent.detectChanges(anything(), anything())).never();
@@ -266,9 +272,11 @@ describe("BlockchainMachine", () => {
         bm.addComponent(component);
         await bm.start();
 
-        await addAndEmitBlock(blocks[0]);
-        await blockCache.addBlock(blocks[1]);
-        await addAndEmitBlock(blocks[2]);
+        await blockStore.withBatch(async () => {
+            await addAndEmitBlock(blocks[0]);
+            await blockCache.addBlock(blocks[1]);
+            await addAndEmitBlock(blocks[2]);
+        });
 
         verify(spiedComponent.detectChanges(anything(), anything())).once();
         verify(spiedComponent.applyAction(anything())).once();
@@ -296,13 +304,14 @@ describe("BlockchainMachine", () => {
         bm.addComponent(component);
         await bm.start();
 
-        await addAndEmitBlock(blocks[0]);
-        await blockCache.addBlock(blocks[1]);
-        await addAndEmitBlock(blocks[2]);
-
+        await blockStore.withBatch(async () => {
+            await addAndEmitBlock(blocks[0]);
+            await blockCache.addBlock(blocks[1]);
+            await addAndEmitBlock(blocks[2]);
+        });
         // action is still running
 
-        await addAndEmitBlock(blocks[3]);
+        await blockStore.withBatch(async () => await addAndEmitBlock(blocks[3]));
 
         // now resolve all actions
         component.resolveActions();
@@ -341,9 +350,11 @@ describe("BlockchainMachine", () => {
 
         await bm.start();
 
-        await addAndEmitBlock(blocks[0]);
-        await blockCache.addBlock(blocks[1]);
-        await addAndEmitBlock(blocks[2]);
+        await blockStore.withBatch(async () => {
+            await addAndEmitBlock(blocks[0]);
+            await blockCache.addBlock(blocks[1]);
+            await addAndEmitBlock(blocks[2]);
+        });
 
         for (let i = 0; i < nComponents; i++) {
             verify(spiedComponents[i].detectChanges(anything(), anything())).once();

@@ -90,7 +90,7 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
     /** Remove all the blocks that are deeper than maxDepth, and all connected information. */
     private async prune() {
         while (this.pruneHeight < this.minHeight) {
-            await this.blockStore.deleteItemsAtHeight(this.pruneHeight);
+            this.blockStore.deleteItemsAtHeight(this.pruneHeight);
             this.pruneHeight++;
         }
     }
@@ -117,7 +117,7 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
 
         for (const { block } of blocksToAdd) {
             // Update the block in the db (as it is now attached)
-            await this.blockStore.attached.set(height, block.hash, true);
+            this.blockStore.attached.set(height, block.hash, true);
 
             // A detached block became attached, thus we need to emit the new block event
             await this.newBlock.emit(block);
@@ -175,10 +175,8 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
             }
 
             if (this.canAttachBlock(block)) {
-                // This should happen atomically once the BlockStoreItem is refactored to allow batching
-                await this.blockStore.block.set(block.number, block.hash, block);
-                await this.blockStore.attached.set(block.number, block.hash, true);
-
+                this.blockStore.block.set(block.number, block.hash, block);
+                this.blockStore.attached.set(block.number, block.hash, true);
                 await this.newBlock.emit(block);
 
                 // If the maximum block height increased, we might have to prune some old info
@@ -192,9 +190,8 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
                 await this.processDetachedBlocksAtMinHeight();
                 return BlockAddResult.Added;
             } else {
-                // This should happen atomically once the BlockStoreItem is refactored to allow batching
-                await this.blockStore.block.set(block.number, block.hash, block);
-                await this.blockStore.attached.set(block.number, block.hash, false);
+                this.blockStore.block.set(block.number, block.hash, block);
+                this.blockStore.attached.set(block.number, block.hash, false);
                 return BlockAddResult.AddedDetached;
             }
         } finally {

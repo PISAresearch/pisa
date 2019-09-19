@@ -134,14 +134,18 @@ describe("BlockProcessor", () => {
         provider.emit("block", blocksByHash[hash].number);
     }
 
-    beforeEach(async () => {
-        db = LevelUp(EncodingDown<string, any>(MemDown(), { valueEncoding: "json" }));
+    async function startStores() {
         blockStore = new BlockItemStore<IBlockStub>(db);
         await blockStore.start();
 
         blockCache = new BlockCache(maxDepth, blockStore);
 
         blockProcessorStore = new BlockProcessorStore(db);
+    }
+
+    beforeEach(async () => {
+        db = LevelUp(EncodingDown<string, any>(MemDown(), { valueEncoding: "json" }));
+        await startStores();
 
         // Instruct the mocked provider to return the blocks by hash with getBlock
         mockProvider = mock(ethers.providers.BaseProvider);
@@ -183,7 +187,7 @@ describe("BlockProcessor", () => {
     it("correctly processes the blockchain head after startup", async () => {
         emitBlockHash("a1");
 
-        blockProcessor = new BlockProcessor(provider, blockStubAndTxFactory, blockCache, blockProcessorStore);
+        blockProcessor = new BlockProcessor(provider, blockStubAndTxFactory, blockCache, blockStore, blockProcessorStore);
         await blockProcessor.start();
 
         expect(blockProcessor.blockCache.head.hash).to.equal("a1");
@@ -192,7 +196,7 @@ describe("BlockProcessor", () => {
     it("adds the first block received to the cache and emits a new head event after the corresponding new block events from the BlockCache", async () => {
         emitBlockHash("a4");
 
-        blockProcessor = new BlockProcessor(provider, blockStubAndTxFactory, blockCache, blockProcessorStore);
+        blockProcessor = new BlockProcessor(provider, blockStubAndTxFactory, blockCache, blockStore, blockProcessorStore);
         await blockProcessor.start();
 
         let newHeadCalled = false;
@@ -227,7 +231,7 @@ describe("BlockProcessor", () => {
     });
 
     it("adds to the blockCache all ancestors until a known block", async () => {
-        blockProcessor = new BlockProcessor(provider, blockStubAndTxFactory, blockCache, blockProcessorStore);
+        blockProcessor = new BlockProcessor(provider, blockStubAndTxFactory, blockCache, blockStore, blockProcessorStore);
 
         const subscribers = [];
         for (let i = 1; i <= 5; i++) {
@@ -250,7 +254,7 @@ describe("BlockProcessor", () => {
     });
 
     it("adds both chain until the common ancestor if there is a fork", async () => {
-        blockProcessor = new BlockProcessor(provider, blockStubAndTxFactory, blockCache, blockProcessorStore);
+        blockProcessor = new BlockProcessor(provider, blockStubAndTxFactory, blockCache, blockStore, blockProcessorStore);
 
         const subscribersA = [];
         for (let i = 1; i <= 6; i++) {
@@ -290,7 +294,7 @@ describe("BlockProcessor", () => {
     // namely the parent of a known block.
     // This situation occurred in tests on Ropsten using Infura, see https://github.com/PISAresearch/pisa/issues/227.
     it("resumes adding blocks after a previous failure when a new block is emitted", async () => {
-        blockProcessor = new BlockProcessor(provider, blockStubAndTxFactory, blockCache, blockProcessorStore);
+        blockProcessor = new BlockProcessor(provider, blockStubAndTxFactory, blockCache, blockStore, blockProcessorStore);
 
         emitBlockHash("a1");
 
@@ -322,7 +326,7 @@ describe("BlockProcessor", () => {
     // While documentation of ethers.js does not currently state this possibility, this situation occurred in tests on Ropsten using Infura,
     // see https://github.com/PISAresearch/pisa/issues/227.
     it("resumes adding blocks after a previous failure due to getBlock throwing an error when a new block is emitted", async () => {
-        blockProcessor = new BlockProcessor(provider, blockStubAndTxFactory, blockCache, blockProcessorStore);
+        blockProcessor = new BlockProcessor(provider, blockStubAndTxFactory, blockCache, blockStore, blockProcessorStore);
 
         emitBlockHash("a1");
 
@@ -347,5 +351,31 @@ describe("BlockProcessor", () => {
         expect(blockCache.hasBlock("a5", false), "has complete block a5").to.be.true;
         expect(blockCache.hasBlock("a4", false), "has complete block a4").to.be.true;
         expect(blockCache.hasBlock("a3", false), "has complete block a3").to.be.true;
+    });
+
+    it("does not save to db if an event listener throws", async () => {
+        blockProcessor = new BlockProcessor(provider, blockStubAndTxFactory, blockCache, blockStore, blockProcessorStore);
+        emitBlockHash("a1");
+        await blockProcessor.start();
+        blockProcessor.newHead.addListener(async (block: IBlockStub) => {
+            if (block.hash === "a3") throw new Error("Some very serious error");
+        });
+
+        emitBlockHash("a2"); // OK
+        await wait(20);
+
+        emitBlockHash("a3"); // listener throws an error
+        await wait(20);
+
+        // Now tear down and restart everything
+        await blockProcessor.stop();
+        await blockStore.stop()
+
+        await startStores();
+
+        await blockProcessor.start();
+
+        // The store should still be at a2, not a3.
+        expect(await blockProcessorStore.getLatestHeadNumber()).to.equal(2);
     });
 });

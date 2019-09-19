@@ -72,7 +72,7 @@ export class PisaService extends StartStopService {
         this.blockItemStore = new BlockItemStore<Block>(db);
         const blockCache = new BlockCache<Block>(cacheLimit, this.blockItemStore);
         const blockProcessorStore = new BlockProcessorStore(db);
-        this.blockProcessor = new BlockProcessor<Block>(provider, blockFactory, blockCache, blockProcessorStore);
+        this.blockProcessor = new BlockProcessor<Block>(provider, blockFactory, blockCache, this.blockItemStore, blockProcessorStore);
 
         // stores
         this.appointmentStore = new AppointmentStore(db);

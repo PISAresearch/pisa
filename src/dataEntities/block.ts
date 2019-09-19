@@ -1,7 +1,7 @@
 import { ethers } from "ethers";
 import { BigNumber } from "ethers/utils";
-import { ArgumentError } from "./errors";
-import { LevelUp } from "levelup";
+import { ArgumentError, ApplicationError } from "./errors";
+import { LevelUp, LevelUpChain } from "levelup";
 import EncodingDown from "encoding-down";
 import { StartStopService } from "./startStop";
 import { AnchorState } from "../blockMonitor/component";
@@ -65,6 +65,10 @@ export type BlockAndAttached<TBlock extends IBlockStub> = {
  * This store is a support structure for the block cache and all the related components that need to store blocks and other data that
  * is attached to those blocks, but pruning data that is too old. All the items are stored by block number and block hash, and can be
  * retrieved by block hash only. Moreover, there are methods to retrieve and/or delete all the blocks (and any attached info) at a certain height.
+ *
+ * All write actions must be executed within a `withBatch` callback, and they are effective immediately in memory, but all the writes performed
+ * in the same `withBatch` call are either successfully written to the database, or not. This can be used to guarantee that the state that is
+ * persisted in the database is always consistent, and can be therefore be used as a checkpoint to restart the application.
  */
 export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService {
     // Keys used by the BlockCache
@@ -90,6 +94,12 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
     private itemsByHeight: Map<number, Set<string>> = new Map();
     private items: Map<string, any> = new Map();
 
+    private mBatch: LevelUpChain<any, any> | null = null;
+    private get batch() {
+        if (!this.mBatch) throw new ApplicationError("Write accesses must be executed within a withBatch callback.");
+        return this.mBatch;
+    }
+
     protected async startInternal() {
         // load all items from the db
         for await (const record of this.subDb.createReadStream()) {
@@ -107,8 +117,11 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
     }
     protected async stopInternal() {}
 
-    // should only be used internally, kept public for testing
-    public async putBlockItem(blockHeight: number, blockHash: string, itemKey: string, item: any) {
+    /**
+     * Should only be used internally, kept public for testing.
+     * Writes `item` for the `blockHash` at height `blockHeight` under the key `itemKey`.
+     **/
+    public putBlockItem(blockHeight: number, blockHash: string, itemKey: string, item: any) {
         const memKey = `${blockHash}:${itemKey}`;
         const dbKey = `${blockHeight}:${memKey}`;
 
@@ -117,7 +130,7 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
         else this.itemsByHeight.set(blockHeight, new Set([memKey]));
         this.items.set(memKey, item);
 
-        await this.subDb.put(dbKey, item);
+        this.batch.put(dbKey, item);
     }
 
     /**
@@ -185,17 +198,41 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
     }
 
     /** Delete all blocks and other indexed items for that height. */
-    public async deleteItemsAtHeight(height: number) {
+    public deleteItemsAtHeight(height: number) {
         const itemsAtHeight = this.itemsByHeight.get(height);
         if (itemsAtHeight) {
             this.itemsByHeight.delete(height);
-            let batch = this.subDb.batch();
             for (const key of itemsAtHeight) {
                 const dbKey = `${height}:${key}`;
-                batch.del(dbKey);
+                this.batch.del(dbKey);
                 this.items.delete(key);
             }
-            await batch.write();
+        }
+    }
+
+    /**
+     * Executes a sequence with write access to the db. All writes are effective in memory immediately, but they are only written to disk
+     * atomically at the end of the sequence.
+     * If `callback` is rejected, or if the write to disk fails, this call will reject with the same error.
+     * Such errors must be taken seriously, as they might imply that sequence of updates is partially executed in memory, but did not complete correctly,
+     * potentially causing an inconsistent state. As the write to db happens atomically, restarting is a viable option and should always recover from a
+     * consistent state.
+     *
+     * @throws ApplicationError if there is already an open batch that did not yet close.
+     */
+    public async withBatch(callback: () => Promise<any>) {
+        if (this.mBatch) {
+            throw new ApplicationError("There is already an open batch.");
+        }
+
+        try {
+            this.mBatch = this.subDb.batch();
+
+            await callback();
+
+            await this.mBatch.write();
+        } finally {
+            this.mBatch = null;
         }
     }
 }

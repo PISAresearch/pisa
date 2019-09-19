@@ -2,12 +2,13 @@ import { ethers } from "ethers";
 import { StartStopService } from "../dataEntities";
 import { ReadOnlyBlockCache, BlockCache, BlockAddResult } from "./blockCache";
 import { IBlockStub } from "../dataEntities";
-import { Block, TransactionHashes } from "../dataEntities/block";
+import { Block, TransactionHashes, BlockItemStore } from "../dataEntities/block";
 import { BlockFetchingError, ApplicationError } from "../dataEntities/errors";
 import { LevelUp } from "levelup";
 import EncodingDown from "encoding-down";
 import { createNamedLogger, Logger } from "../logger";
 import { BlockEvent } from "../utils/event";
+import { Lock } from "../utils/lock";
 const sub = require("subleveldown");
 
 type BlockFactory<TBlock> = (provider: ethers.providers.Provider) => (blockNumberOrHash: number | string) => Promise<TBlock>;
@@ -93,10 +94,8 @@ export const blockFactory = (provider: ethers.providers.Provider) => async (
 
 export class BlockProcessorStore {
     private readonly subDb: LevelUp<EncodingDown<string, any>>;
-    private logger: Logger;
     constructor(db: LevelUp<EncodingDown<string, any>>) {
         this.subDb = sub(db, `block-processor`, { valueEncoding: "json" });
-        this.logger = createNamedLogger(`block-processor-store`);
     }
 
     async getLatestHeadNumber() {
@@ -133,6 +132,8 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
     // Returned in the constructor by blockProvider: obtains the block remotely (or throws an exception on failure)
     private getBlockRemote: (blockNumberOrHash: string | number) => Promise<TBlock>;
 
+    private blockItemStoreLock = new Lock();
+
     /**
      * Returns the ReadOnlyBlockCache associated to this BlockProcessor.
      */
@@ -144,6 +145,7 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
         private provider: ethers.providers.BaseProvider,
         blockFactory: BlockFactory<TBlock>,
         blockCache: BlockCache<TBlock>,
+        private readonly blockItemStore: BlockItemStore<TBlock>,
         private readonly store: BlockProcessorStore
     ) {
         super("block-processor");
@@ -171,8 +173,24 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
             this.mBlockCache.setHead(headBlock.hash);
 
             // only emit new head events after it is started
-            if (this.started) this.newHead.emit(headBlock);
+            if (this.started) {
+                try {
+                    await this.blockItemStoreLock.acquire();
+                    await this.blockItemStore.withBatch(
+                        // All the writes in the BlockItemStore that happen in any of the components are executed as part of the same batch.
+                        // Thus, they are either all written to the db, or none of them is.
+                        // As other objects (most notably the BlockchainMachine) are listenin to "new head" events and writing to the BlockItemStore,
+                        // we cannot be sure that the intermediate states are consistent without batching all the writes together.
+                        async () => await this.newHead.emit(headBlock)
+                    );
+                } finally {
+                    this.blockItemStoreLock.release();
+                }
+            }
 
+            // We update the latest head number in the BlockProcessorStore only after successfully updating everything in the components,
+            // Thus, in case of failure above, we do not update the head number for the block processor in order to repeat the processing
+            // upon startup.
             await this.store.setLatestHeadNumber(headBlock.number);
         } catch (doh) {
             this.logger.error(doh);
@@ -211,7 +229,25 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
                 // starting from observedBlock, add to the cache and download the parent, until the return value signals that block is attached
                 let curBlock = observedBlock;
                 while (true) {
-                    const addResult = await this.mBlockCache.addBlock(curBlock)
+                    let addResult: BlockAddResult | null = null;
+
+                    try {
+                        await this.blockItemStoreLock.acquire();
+                        await this.blockItemStore.withBatch(async () => {
+                            // We execute all the writes in the BlockCache and everything that listens to new blocks and writes to
+                            // the BlockItemStore, like the BlockchainMachine) in the same batch. Thus, they either all succeed or
+                            // they are not written to disk.
+                            // Note that adding a block might cause some other blocks that were detached in the BlockCache
+                            // to become attached, and a "new block" event will be emitted for each of them.
+                            // Not batching these writes could cause partial updates to be saved to storage, like blocks staying
+                            // detached in the BlockCache even if they should become attached, or blocks already emitted in the
+                            // BlockCache while some consequences of the same events are lost.
+                            addResult = await this.mBlockCache.addBlock(curBlock);
+                        });
+                    } finally {
+                        this.blockItemStoreLock.release();
+                    }
+
                     if (addResult !== BlockAddResult.AddedDetached && addResult !== BlockAddResult.NotAddedAlreadyExistedDetached)
                         break;
 
