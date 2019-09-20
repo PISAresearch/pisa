@@ -65,8 +65,6 @@
         "data",
         "endBlock",
         "eventAddress",
-        "eventABI",
-        "eventArgs",
         "gasLimit",
         "id",
         "nonce",
@@ -75,7 +73,8 @@
         "preCondition",
         "postCondition",
         "refund",
-        "startBlock"
+        "startBlock",
+        "topicss"
       ],
       "properties": {
         "customerAddress": {
@@ -124,15 +123,10 @@
           "description": "The address of the external contract from which the event will be emitted.",
           "example": "0x81b7e08f65bdf5648606c89998a9cc8164397647"
         },
-        "eventABI": {
-          "type": "string",
-          "description": "The event ABI specifies the structure of the event that PISA will watch for. The format is 'human readable ABI', described here: https://blog.ricmoo.com/human-readable-contract-abis-in-ethers-js-141902f4d917\n\nThe event ABI must contain only one event, and any arguments that you wish to include in the filter must be indexed.\n\n#### Example event ABI\n```\n\"event TestEvent(address indexed, uint256, uint256 indexed)\"\n```\nThis event ABI specifies an event called TestEvent with three arguments. Only two of these arguments are indexed, these arguments can be included in the event args field.\n",
-          "example": "event EventDispute(uint256 indexed)"
-        },
-        "eventArgs": {
-          "type": "string",
-          "description": "PISA can be triggered by an event with specific arguments. Event args is used to specify the specific arguments that must match in order for pisa to respond. These arguments will be encoded into topics and used to filter events, for this reason currently only indexed event arguments are supported.\n\nThe event args field is the abi encoded representation of the supplied indexed arguments. Additional to this the arguments must be prefixed with a 0-indexed integer array which specifies the indexes of the event arguments to be filtered on.\n\n#### Example with two arguments\n```\neventABI: \"event TestEvent(address indexed, uint256, uint256 indexed)\";\neventArgs: ethers.utils.defaultAbiCoder.encode(\n  [\"uint8[]\", \"address\", \"uint256\"],\n  [[0, 2], \"0xbbF5029Fd710d227630c8b7d338051B8E76d50B3\", 20]\n);\n```\nIn this example an event ABI is specified with three arguments: `address indexed, uint256, uint256 indexed`. The eventArgs specify values for the indexed parameters and an array which specifies that both indexed parameters should be used in the filter.\n\n\n#### Example with one argument\n```\neventABI: \"event TestEvent(address indexed, uint256, uint256 indexed)\";\neventArgs: ethers.utils.defaultAbiCoder.encode(\n  [\"uint8[]\", \"uint256\"],\n  [[2], 20]\n);\n```\nIn this example, although the event allows for filtering on two indexed parameters the eventArgs only specify that the second indexed parameter, a uint256, be used in the filter\n\n#### Example with no arguments\n```\neventABI: \"event TestEvent(address indexed, uint256, uint256 indexed)\";\neventArgs: ethers.utils.defaultAbiCoder.encode(\n  [\"uint8[]\"],\n  [[]]\n);\n```\nIt is possible to specify that none of the arguments be used in the filter. In this case an empty array can be provided to state that none of the indexed parameters of the event ABI should be used.\n",
-          "example": "0xf778daa96e1bdf7745b02debfd61d9bcc46da294dd059fa3ce13b263d06e389a"
+        "topics": {
+          "type": "array",
+          "description": "PISA can be triggered by an event with specific arguments. This parameters allows to specify the topics of the log entry that should be matched. This parameter is an array where each element is the exact value of the topic of the log entry, or null if that topic is to be ignored. Note that for contracts generated in Solidity, the first topic is always the hash of the event signature.\n",
+          "example": "TODO:316: make an example"
         },
         "contractAddress": {
           "type": "string",
@@ -177,7 +171,7 @@
         },
         "customerSig": {
           "type": "string",
-          "description": "The customer must sign the appointment to prove its authenticity. The appointment is broken down into three subsections to allow for easier decoding in solidity. These must be encoded separately before being hashed and signed.\n\n#### Example signature\n\n```\nconst basicBytes = ethers.utils.defaultAbiCoder.encode(\n  [\n    \"uint\", \n    \"uint\", \n    \"uint\", \n    \"uint\", \n    \"uint\", \n    \"uint\", \n    \"bytes32\"\n  ],\n  [\n    request.id,\n    request.nonce,\n    request.startBlock,\n    request.endBlock,\n    request.challengePeriod,\n    request.refund,\n    request.paymentHash\n  ]\n);\n\nconst callBytes = ethers.utils.defaultAbiCoder.encode(\n  [\n    \"address\", \n    \"address\", \n    \"uint\", \n    \"bytes\"\n  ],\n  [\n    request.contractAddress, \n    request.customerAddress, \n    request.gasLimit, \n    request.data\n  ]\n);\n\nconst conditionBytes = ethers.utils.defaultAbiCoder.encode(\n  [\n    \"address\", \n    \"string\", \n    \"bytes\", \n    \"bytes\", \n    \"bytes\", \n    \"uint\"\n  ],\n  [\n    request.eventAddress,\n    request.eventABI,\n    request.eventArgs,\n    request.preCondition,\n    request.postCondition,\n    request.mode\n  ]\n);\n\nconst appointmentBytes = ethers.utils.defaultAbiCoder.encode(\n  [\n    \"bytes\", \n    \"bytes\", \n    \"bytes\"\n  ], \n  [\n    basicBytes, \n    callBytes,\n    conditionBytes\n  ]\n);\n\nconst hashForSig = ethers.utils.keccak256(appointmentBytes);\nconst customerSig = await wallet.signMessage(ethers.utils.arrayify(hashForSig));\n```\n",
+          "description": "The customer must sign the appointment to prove its authenticity. The appointment is broken down into three subsections to allow for easier decoding in solidity. These must be encoded separately before being hashed and signed.\n\n#### Example signature\n\n```\nconst basicBytes = ethers.utils.defaultAbiCoder.encode(\n  [\n    \"uint\", \n    \"uint\", \n    \"uint\", \n    \"uint\", \n    \"uint\", \n    \"uint\", \n    \"bytes32\"\n  ],\n  [\n    request.id,\n    request.nonce,\n    request.startBlock,\n    request.endBlock,\n    request.challengePeriod,\n    request.refund,\n    request.paymentHash\n  ]\n);\n\nconst callBytes = ethers.utils.defaultAbiCoder.encode(\n  [\n    \"address\", \n    \"address\", \n    \"uint\", \n    \"bytes\"\n  ],\n  [\n    request.contractAddress, \n    request.customerAddress, \n    request.gasLimit, \n    request.data\n  ]\n);\n\nconst conditionBytes = ethers.utils.defaultAbiCoder.encode(\n  [\n    \"address\", \n    \"bytes\", \n    \"bytes\", \n    \"bytes\", \n    \"uint\"\n  ],\n  [\n    request.eventAddress,\n    request.topics,\n    request.preCondition,\n    request.postCondition,\n    request.mode\n  ]\n);\n\nconst appointmentBytes = ethers.utils.defaultAbiCoder.encode(\n  [\n    \"bytes\", \n    \"bytes\", \n    \"bytes\"\n  ], \n  [\n    basicBytes, \n    callBytes,\n    conditionBytes\n  ]\n);\n\nconst hashForSig = ethers.utils.keccak256(appointmentBytes);\nconst customerSig = await wallet.signMessage(ethers.utils.arrayify(hashForSig));\n```\n",
           "example": "0x0870ede99ad9547ca2f45140ac5088291da331379283383278886814419c795d5571f560f302ba9ec45485a5e6cb237224baed39d15597cf530cac162556a6a000"
         }
       }

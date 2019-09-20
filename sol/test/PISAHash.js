@@ -168,8 +168,11 @@ function createAppointment(_sc, _blockNo, _cus, _v, _nonce, _mode, _precondition
   appointment['gasLimit'] = gas;
   appointment['mode'] = mode;
   appointment['eventAddress'] = _sc;
-  appointment['eventABI'] = "event doEvent(uint indexed, uint indexed, uint)";
-  appointment['eventArgs'] = web3.eth.abi.encodeParameters(['uint[]', 'uint'], [[0], 2]);
+  const eventSignature = "doEvent(uint,uint,uint)";
+  appointment['topics'] = web3.eth.abi.encodeParameters(["bool[4]", "bytes32[4]"],
+    [true, true, false, false],
+    [web3.eth.abi.keccak256(eventSignature), 2, 0, 0]
+  );
   appointment['precondition'] = _precondition;
   appointment['postcondition'] = _postcondition;
   appointment['paymentHash'] = h;
@@ -178,12 +181,9 @@ function createAppointment(_sc, _blockNo, _cus, _v, _nonce, _mode, _precondition
   appointment['challengePeriod'] = minChallengePeriod;
   appointment['contractAddress'] = _sc;
 
-  bytesEventABI = web3.utils.fromAscii(appointment['eventABI']);
-  appointment['eventArgs'] = appointment['eventArgs'];
-
   let encodeAppointmentInfo = web3.eth.abi.encodeParameters(['uint','uint','uint','uint','uint','uint', 'bytes32'], [appointment['id'], appointment['nonce'], appointment['startBlock'], appointment['endBlock'], appointment['challengePeriod'], appointment['refund'], appointment['paymentHash']]);
   let encodeContractInfo = web3.eth.abi.encodeParameters(['address','address','uint', 'bytes'], [appointment['contractAddress'], appointment['customerAddress'], appointment['gasLimit'], appointment['data']]);
-  let encodeConditions = web3.eth.abi.encodeParameters(['address', 'bytes','bytes','bytes','bytes', 'uint'], [appointment['eventAddress'], bytesEventABI, appointment['eventArgs'], appointment['precondition'], appointment['postcondition'], appointment['mode']]);
+  let encodeConditions = web3.eth.abi.encodeParameters(['address','bytes','bytes','bytes', 'uint'], [appointment['eventAddress'], appointment['topics'], appointment['precondition'], appointment['postcondition'], appointment['mode']]);
 
   encodedAppointment =  web3.eth.abi.encodeParameters(['bytes','bytes','bytes'],[encodeAppointmentInfo, encodeContractInfo, encodeConditions]);
 }
@@ -266,8 +266,7 @@ contract('PISAHash', (accounts) => {
   //                              "data": appointment['data'],
   //                              "endBlock": appointment['endBlock'],
   //                              "eventAddress": appointment['eventAddress],
-  //                              "eventABI": appointment['eventABI'],
-  //                              "eventArgs": appointment['eventArgs'],
+  //                              "topics": appointment['topics'],
   //                              "gasLimit": appointment['gasLimit'],
   //                              "id": appointment['id'],
   //                              "nonce": appointment['nonce'],
