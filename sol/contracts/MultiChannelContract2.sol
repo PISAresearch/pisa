@@ -20,6 +20,7 @@ contract MultiChannelContract {
       uint bal1; uint bal2;
       uint v; Flag flag;
       uint challengeExpiry; bool open;
+      uint disputeCounter;
     }
 
     // Challenge time information
@@ -77,7 +78,7 @@ contract MultiChannelContract {
 
         }
         // OK so the ID wasn't opened previously... lets open it
-        Channel memory chan = Channel(msg.sender, _user2 , msg.value, 0, 0, Flag.RESOLVED, 0, true);
+        Channel memory chan = Channel(msg.sender, _user2 , msg.value, 0, 0, Flag.RESOLVED, 0, true, 0);
         channels[id] = chan;
     }
 
@@ -86,10 +87,11 @@ contract MultiChannelContract {
         require(channels[_id].flag == Flag.RESOLVED);
         channels[_id].flag = Flag.CHALLENGE;
         channels[_id].challengeExpiry = block.number + challengePeriod;
+        channels[_id].disputeCounter += 1;
 
         // Format: MSG TYPE, TIMESTAMP, CHALLENGE PERIOD, Starting Counter
         // MsgType = 0 (Trigger Message)
-        bytes memory encoded = abi.encode(0, block.number, challengePeriod, channels[_id].v);
+        bytes memory encoded = abi.encode(0, block.number, challengePeriod, channels[_id].v, channels[_id].disputeCounter);
         uint datashard;
         uint index;
         (datashard, index) = DataRegistryInterface(dataregistry).setHash(_id, encoded);
@@ -126,11 +128,10 @@ contract MultiChannelContract {
 
         // Store log and resolve challenge
         channels[_id].flag = Flag.RESOLVED;
-        channels[_id].v = channels[_id].v + 1; // Just increments by 1... all commands executed in real-time
 
         // MSGTYPE, TIMESTAMP, V
-        // 1 = resolve, block number, counter from evidence.
-        bytes memory encoded = abi.encode(1, block.number, channels[_id].v);
+        // 1 = resolve, block number, counter from evidence, dispute counter
+        bytes memory encoded = abi.encode(1, block.number, channels[_id].v, channels[_id].disputeCounter);
         uint datashard;
         uint index;
         (datashard, index) = DataRegistryInterface(dataregistry).setHash(_id, encoded);

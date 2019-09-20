@@ -15,7 +15,7 @@
         "start-dev": "ts-node src/startUp.ts",
         "start-evm": "ganache-cli -d -l 15000000 --allowUnlimitedContractSize --defaultBalanceEther 1000000 --mnemonic 'myth like bonus scare over problem client lizard pioneer submit female collect'",
         "submodule": "git submodule init && git submodule update",
-        "test": "npm run test-deps && NODE_ENV=test mocha -r ts-node/register 'test/src/**/*.test.ts' --exit",
+        "test": "NODE_ENV=test mocha -r ts-node/register 'test/src/**/*.test.ts' --exit",
         "test-alpha": "npm run test-deps && mocha -r ts-node/register test/smoke/alpha.test.ts --exit",
         "test-contract": "npm run test-deps && cd sol && truffle test",
         "test-coverage": "npm run test-deps && NODE_ENV=test nyc mocha -r ts-node/register --reporter mocha-junit-reporter --reporter-options mochaFile=coverage/mocha/test-results.xml 'test/src/**/*.test.ts' --exit",

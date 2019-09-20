@@ -15,7 +15,7 @@ contract DataShard {
        require(msg.sender == owner);
        _;
    }
-
+   
    // Smart Contract Address => ID-based data storage
    mapping (address => mapping (bytes32 => bytes[])) records;
    mapping (address => mapping (bytes32 => bytes32[])) hashes;
@@ -92,7 +92,7 @@ contract DataRegistry {
 
    // Used to signal to the world about a new dispute record
    event NewRecord(uint datashard, address sc, bytes32 id, uint index, bytes data);
-   event NewHash(uint datashard, address indexed sc, bytes32 indexed id, uint index, bytes data, bytes32 indexed  h);
+   event NewHash(uint datashard, address indexed sc, bytes32 indexed id, uint index, bytes data, bytes32 h, uint blockNumber);
    event KillDataShard(address addr, uint time, uint datashard);
    event CreateDataShard(address addr, uint time, uint datashard);
 

@@ -99,6 +99,7 @@ contract PISAHash {
         address eventAddress; // address from which the trigger event is emitted
         string eventAbi; // abi of the trigger event
         bytes eventArgs; // filter arguments of the triggered event
+        bool includeEventDataInResponse; // should the data from the tiggering event be included in the response
 
         // What pre and post condition should be satisified? (Optional)
         bytes precondition; // What condition should be satisified before call can be executed?
@@ -215,7 +216,7 @@ contract PISAHash {
           require(PostconditionHandlerInterface(postconditionHandlers[_appointment.mode]).hasPISAFailed(dataregistry, _datashard, _appointment.sc, _appointment.appointmentid, _dataindex, _logdata, _appointment.postcondition), "PISA was a good tower");
         }
 
-        // Get the time window to check if PISA responded
+        // Get the time window to check if PISA responded_logdata
         // [start time, finish time, challenge period]
         uint[3] memory timewindow;
 

@@ -17,6 +17,28 @@ import throwingInstance from "../../utils/throwingInstance";
 import { BlockProcessorStore } from "../../../src/blockMonitor/blockProcessor";
 import fnIt from "../../utils/fnIt";
 
+describe("face", () => {
+    it("off", async () => {
+        console.log("hiiiiiii");
+        const provider = new ethers.providers.JsonRpcProvider("https://mainnet.infura.io/v3/e587e78efcdd4c1eb5b068ee99a6ec0b");
+        //console.log(await provider.getBlockNumber())
+        const blockInQuestion = 52028;
+
+        const logs = await provider.getLogs({
+            fromBlock: blockInQuestion,
+            toBlock: blockInQuestion + 3
+        });
+
+        console.log(await provider.getTransaction("0x218b632d932371478d1ae5a01620ebab1a2030f9dad6f8fba4a044ea6335a57e"))
+        console.log(await provider.getTransactionReceipt("0x218b632d932371478d1ae5a01620ebab1a2030f9dad6f8fba4a044ea6335a57e"))
+        console.log((await provider.getTransactionReceipt("0x218b632d932371478d1ae5a01620ebab1a2030f9dad6f8fba4a044ea6335a57e")).logs)
+
+        // console.log(logs);
+        // console.log(blockInQuestion + " : " + logs.length);
+        //console.log(logs.length);
+    }).timeout(3000);
+});
+
 chai.use(chaiAsPromised);
 const expect = chai.expect;
 
