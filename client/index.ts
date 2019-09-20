@@ -10,8 +10,7 @@ class AppointmentRequest {
     readonly paymentHash: string;
 
     readonly eventAddress: string;
-    readonly eventABI: string;
-    readonly eventArgs: string;
+    readonly topics: string;
 
     readonly contractAddress: string;
     readonly data: string;
@@ -66,8 +65,7 @@ export default class PisaClient {
                     request.gasLimit,
                     request.mode,
                     request.eventAddress,
-                    request.eventABI,
-                    request.eventArgs,
+                    request.topics,
                     request.preCondition,
                     request.postCondition,
                     request.paymentHash
@@ -150,8 +148,7 @@ export default class PisaClient {
      * @param gasLimit
      * @param challengePeriod
      * @param eventAddress
-     * @param eventABI
-     * @param eventArgs
+     * @param topics
      */
     generateRequest(
         signer: (digest: string) => Promise<string>,
@@ -165,8 +162,7 @@ export default class PisaClient {
         gasLimit: number,
         challengePeriod: number,
         eventAddress: string,
-        eventABI: string,
-        eventArgs: string
+        topics: string
     ): Promise<SignedApppointmentRequest>;
     public async generateRequest(
         signer: (digest: string) => Promise<string>,
@@ -180,19 +176,17 @@ export default class PisaClient {
         gasLimit: number,
         challengePeriod: number,
         eventAddress?: string,
-        eventABI?: string,
-        eventArgs?: string
+        topics?: string
     ): Promise<SignedApppointmentRequest> {
         let mode;
         // all of these props must be populated, or none of them
-        if (eventAddress && eventABI && eventArgs) mode = 1;
+        if (eventAddress && topics) mode = 1;
         // if none are populated we generate a relay transaction
-        else if (!eventAddress && !eventABI && !eventArgs) {
+        else if (!eventAddress && !topics) {
             eventAddress = "0x0000000000000000000000000000000000000000";
-            eventABI = "";
-            eventArgs = "0x";
+            topics = "0x";
             mode = 0;
-        } else throw new Error('Either all or none of "eventAddress","eventABI" and "eventArgs" must be populated.');
+        } else throw new Error('Either both or neither of "eventAddress" and "topics" must be populated.');
 
         const request: AppointmentRequest = {
             contractAddress: contractAddress,
@@ -207,8 +201,7 @@ export default class PisaClient {
             gasLimit: gasLimit,
             mode: mode,
             eventAddress: eventAddress,
-            eventABI: eventABI,
-            eventArgs: eventArgs,
+            topics: topics,
             preCondition: "0x",
             postCondition: "0x",
             // pre-configured free hash
@@ -284,8 +277,7 @@ export default class PisaClient {
      * @param gasLimit
      * @param challengePeriod
      * @param eventAddress
-     * @param eventABI
-     * @param eventArgs
+     * @param topics
      */
     generateAndExecuteRequest(
         signer: (digest: string) => Promise<string>,
@@ -299,8 +291,7 @@ export default class PisaClient {
         gasLimit: number,
         challengePeriod: number,
         eventAddress: string,
-        eventABI: string,
-        eventArgs: string
+        topics: string
     ): Promise<AppointmentReceipt>;
     public async generateAndExecuteRequest(
         signer: (digest: string) => Promise<string>,
@@ -314,8 +305,7 @@ export default class PisaClient {
         gasLimit: number,
         challengePeriod: number,
         eventAddress?: string,
-        eventABI?: string,
-        eventArgs?: string
+        topics?: string
     ): Promise<AppointmentReceipt> {
         const request = await this.generateRequest(
             signer,
@@ -332,8 +322,7 @@ export default class PisaClient {
             // this should only be the case if a caller has passed in undefined as one of the event args
             // in which case we can pass it to generateRequest in below where an error will be thrown.
             eventAddress as string,
-            eventABI as string,
-            eventArgs as string
+            topics as string
         );
         return await this.executeRequest(request);
     }

@@ -30,12 +30,10 @@ export class KitsuneTools {
         return v.encode([]);
     }
 
-    public static eventArgs() {
-        // no indexed args specified
-        return ethers.utils.defaultAbiCoder.encode(["uint8[]"], [[]]);
-    }
+    public static eventSignature = "EventDispute(uint256)";
 
-    public static eventABI() {
-        return "event EventDispute(uint256 indexed)";
+    public static topics() {
+        const iFace = new ethers.utils.Interface(this.ContractAbi);
+        return iFace.events["EventDispute"].encodeTopics([]);
     }
 }

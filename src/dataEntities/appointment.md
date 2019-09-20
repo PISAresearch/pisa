@@ -17,8 +17,7 @@ http://pisa.watch/schemas/appointment-request.json
 | [customerAddress](#customeraddress) | `string`  | **Required** | No       | Appointment request schema (this schema) |
 | [data](#data)                       | `string`  | **Required** | No       | Appointment request schema (this schema) |
 | [endBlock](#endblock)               | `integer` | **Required** | No       | Appointment request schema (this schema) |
-| [eventABI](#eventabi)               | `string`  | **Required** | No       | Appointment request schema (this schema) |
-| [eventArgs](#eventargs)             | `string`  | **Required** | No       | Appointment request schema (this schema) |
+| [topics](#topics)                   | `string`  | **Required** | No       | Appointment request schema (this schema) |
 | [gasLimit](#gaslimit)               | `string`  | **Required** | No       | Appointment request schema (this schema) |
 | [id](#id)                           | `number`  | **Required** | No       | Appointment request schema (this schema) |
 | [nonce](#nonce)                     | `integer` | **Required** | No       | Appointment request schema (this schema) |
@@ -144,50 +143,17 @@ The last block in which the appointment is still valid
 6052995
 ```
 
-## eventABI
+## topics
 
-### Event ABI
+### Topics
 
-The human readable ABI (https://blog.ricmoo.com/human-readable-contract-abis-in-ethers-js-141902f4d917) of the event
-that triggers a response
+### topics Type
 
-`eventABI`
+`array`
 
-- is **required**
-- type: `string`
-- defined in this schema
+### topics Example
 
-### eventABI Type
-
-`string`
-
-### eventABI Example
-
-```json
-"event EventDispute(uint256 indexed)"
-```
-
-## eventArgs
-
-### Event arguments
-
-The topic arguments for the address specified in the abi
-
-`eventArgs`
-
-- is **required**
-- type: `string`
-- defined in this schema
-
-### eventArgs Type
-
-`string`
-
-### eventArgs Example
-
-```json
-"0xf778daa96e1bdf7745b02debfd61d9bcc46da294dd059fa3ce13b263d06e389a"
-```
+TODO:340: create an example
 
 ## gasLimit
 

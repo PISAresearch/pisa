@@ -1,7 +1,7 @@
 import { ethers } from "ethers";
 import appointmentRequestSchemaJson from "../public/appointmentRequestSchema.json";
 import Ajv from "ajv";
-import { PublicDataValidationError, PublicInspectionError } from "./errors";
+import { PublicDataValidationError, PublicInspectionError, ArgumentError } from "./errors";
 import logger from "../logger";
 import { BigNumber } from "ethers/utils";
 import { Logger } from "../logger";
@@ -71,14 +71,9 @@ export interface IAppointmentBase {
     readonly eventAddress: string;
 
     /**
-     * A human readable (https://blog.ricmoo.com/human-readable-contract-abis-in-ethers-js-141902f4d917) event abi
+     * Encoded topics for this appointment's trigger event
      */
-    readonly eventABI: string;
-
-    /**
-     * ABI encoded event arguments for the event
-     */
-    readonly eventArgs: string;
+    readonly topics: string;
 
     /**
      * The pre-condition that must be satisfied before PISA can respond
@@ -144,8 +139,7 @@ export class Appointment {
         public readonly gasLimit: number,
         public readonly mode: number,
         public readonly eventAddress: string,
-        public readonly eventABI: string,
-        public readonly eventArgs: string,
+        public readonly topics: string,
         public readonly preCondition: string,
         public readonly postCondition: string,
         public readonly paymentHash: string,
@@ -166,8 +160,7 @@ export class Appointment {
             appointment.gasLimit,
             appointment.mode,
             appointment.eventAddress,
-            appointment.eventABI,
-            appointment.eventArgs,
+            appointment.topics,
             appointment.preCondition,
             appointment.postCondition,
             appointment.paymentHash,
@@ -189,8 +182,7 @@ export class Appointment {
             gasLimit: appointment.gasLimit,
             mode: appointment.mode,
             eventAddress: appointment.eventAddress,
-            eventABI: appointment.eventABI,
-            eventArgs: appointment.eventArgs,
+            topics: appointment.topics,
             preCondition: appointment.preCondition,
             postCondition: appointment.postCondition,
             paymentHash: appointment.paymentHash,
@@ -212,8 +204,7 @@ export class Appointment {
             appointmentRequest.gasLimit,
             appointmentRequest.mode,
             appointmentRequest.eventAddress,
-            appointmentRequest.eventABI,
-            appointmentRequest.eventArgs,
+            appointmentRequest.topics,
             appointmentRequest.preCondition,
             appointmentRequest.postCondition,
             appointmentRequest.paymentHash,
@@ -235,8 +226,7 @@ export class Appointment {
             gasLimit: appointment.gasLimit,
             mode: appointment.mode,
             eventAddress: appointment.eventAddress,
-            eventABI: appointment.eventABI,
-            eventArgs: appointment.eventArgs,
+            topics: appointment.topics,
             preCondition: appointment.preCondition,
             postCondition: appointment.postCondition,
             paymentHash: appointment.paymentHash,
@@ -327,17 +317,10 @@ export class Appointment {
         if (this.postCondition !== "0x") throw new PublicDataValidationError("Post-condition currently not supported. Please set to '0x'"); //prettier-ignore
         
         if (this.mode === AppointmentMode.EventTriggered) {
-            try {
-                this.mEventFilter = this.parseEventArgs();
-            } catch (doh) {
-                if (doh instanceof PublicDataValidationError) throw doh;
-                log.error(doh);
-                throw new PublicDataValidationError("Invalid event arguments for ABI.");
-            }
+            //TODO:340: anything to do here?
         } else if (this.mode === AppointmentMode.Relay){
             if(this.eventAddress !== "0x0000000000000000000000000000000000000000") throw new PublicDataValidationError("Event address must be set to \"0x0000000000000000000000000000000000000000\" for relay transactions.") //prettier-ignore
-            if(this.eventABI !== "") throw new PublicDataValidationError("Event address must be set to \"\" for relay transactions.") //prettier-ignore
-            if(this.eventArgs !== "0x") throw new PublicDataValidationError("Event address must be set to \"0x\" for relay transactions.") //prettier-ignore
+            if(this.topics.length > 0) throw new PublicDataValidationError("Event topics must be set to [] for relay transactions.") //prettier-ignore
         } else {
             throw new PublicDataValidationError("Mode must be set to 0 or 1. 0 for relay appointments, 1 for event triggered appointments."); //prettier-ignore
         }
@@ -396,74 +379,9 @@ export class Appointment {
      * eventABI and the eventArgs
      */
     public get eventFilter() {
-        if (!this.mEventFilter) {
-            this.mEventFilter = this.parseEventArgs();
-        }
-        return this.mEventFilter;
-    }
-    private mEventFilter: ethers.EventFilter;
-    private parseEventArgs(): ethers.EventFilter {
-        // the abi is in human readable format, we can parse it with ethersjs
-        // then check that it's of the right form before separating the name and inputs
-        // to form topics
-
-        const eventInterface = new ethers.utils.Interface([this.eventABI]);
-        if (eventInterface.abi.length !== 1) throw new PublicDataValidationError("Invalid ABI. ABI must specify a single event."); // prettier-ignore
-        const event = eventInterface.abi[0];
-        if (event.type !== "event") throw new PublicDataValidationError("Invalid ABI. ABI must specify an event.");
-
-        const name = eventInterface.abi[0].name;
-        const inputs = eventInterface.abi[0].inputs;
-
-        // we encode within the data which inputs we'll be filtering on
-        // so the first thing encoded is an array of integers representing the
-        // indexes of the arguments that will be used in the filter.
-        // non specified indexes will be null
-
-        let indexes: number[];
-        try {
-            indexes = ethers.utils.defaultAbiCoder.decode(["uint8[]"], this.eventArgs)[0];
-        } catch (doh) {
-            logger.info(doh);
-            throw new PublicDataValidationError("Invalid EventArgs. Incorrect first argument. First argument must be a uint8[] encoded array of the indexes of the event arguments to be filtered on.") // prettier-ignore
-        }
-
-        const maxIndex = indexes.reduce((a, b) => (a > b ? a : b), 0);
-        if (maxIndex > inputs.length - 1)
-            throw new PublicInspectionError(
-                `Invalid EventArgs. Index ${maxIndex} greater than number of arguments in event. Arg length: ${inputs.length -
-                    1}.`
-            );
-
-        const namedInputs = indexes.map(i => inputs[i]);
-
-        // only indexed fields can be included atm
-        namedInputs
-            .filter(i => !i.indexed)
-            .forEach(i => {
-                throw new PublicDataValidationError(`Invalid EventArgs. Only indexed event parameters can be specified as event arguments.  ${i.name ? `Parameter: ${i.name}` : ""}. Specified paramed: ${indexes}`); // prettier-ignore
-            });
-
-        // decode the inputs that have been specified
-        const decodedInputs = ethers.utils.defaultAbiCoder
-            .decode(["uint8[]"].concat(namedInputs.map(i => i.type)), this.eventArgs)
-            .slice(1);
-
-        // add nulls for the topics we that wont be filtered upon
-        let topicInput = inputs.map((input, index) => {
-            const decodedIndex = indexes.indexOf(index);
-            if (decodedIndex === -1) return null;
-            else return decodedInputs[decodedIndex];
-        });
-
-        // map booleans to 0 or 1, the encodeTopics function doesnt seem to be able to handle booleans
-        topicInput = topicInput.map(t => (t === true ? 1 : t === false ? 0 : t));
-
-        // finally encode the topics using the abi
-        const topics = eventInterface.events[name].encodeTopics(topicInput);
         return {
             address: this.eventAddress,
-            topics
+            topics: this.topics
         };
     }
 
@@ -484,16 +402,24 @@ export class Appointment {
             this.gasLimit,
             this.mode,
             this.eventAddress,
-            this.eventABI,
-            this.eventArgs,
+            this.encodeTopics(),
             this.preCondition,
             this.postCondition,
             this.paymentHash
         ];
     }
 
+    /** TODO:340: documentation (or remove if not used) */
+    public encodeTopics(): string {
+        if (this.topics.length > 4) throw new ArgumentError(`There can be at most 4 topics. ${this.topics.length} were given.`)
+
+        const topicsBitmap = [0, 1, 2, 3].map(idx => this.topics.length > idx && this.topics[idx] != null);
+        const topicsFull = [0, 1, 2, 3].map(idx => this.topics.length > idx && this.topics[idx] != null ? this.topics[idx] : "0x");
+        return ethers.utils.defaultAbiCoder.encode(["bool[4]", "bytes32[4]"], [topicsBitmap, topicsFull]);
+    }
+
     public static EncodingTupleDefinition =
-        "tuple(address,address,uint,uint,uint,bytes32,uint,bytes,uint,uint,uint,address,string,bytes,bytes,bytes,bytes32)";
+        "tuple(address,address,uint,uint,uint,bytes32,uint,bytes,uint,uint,uint,address,bytes,bytes,bytes,bytes32)";
 
     /**
      * Encode this appointment as a function call to response

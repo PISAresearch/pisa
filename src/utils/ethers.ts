@@ -1,5 +1,6 @@
 // Utility functions for ethers.js
 import { ethers } from "ethers";
+import { Appointment, ArgumentError } from "../dataEntities";
 
 /**
  *
@@ -47,4 +48,13 @@ export function groupTuples(tupleArray: [string, any][]): [string[], any[]] {
         },
         [[] as string[], [] as any[]]
     );
+}
+
+// TODO:340: documentation
+export function encodeTopicsForPisa(topics: (string | null)[]) {
+    if (topics.length > 4) throw new ArgumentError(`There can be at most 4 topics. ${topics.length} were given.`)
+
+    const topicsBitmap = [0, 1, 2, 3].map(idx => topics.length > idx && topics[idx] != null);
+    const topicsFull = [0, 1, 2, 3].map(idx => topics.length > idx && topics[idx] != null ? topics[idx] : "0x");
+    return ethers.utils.defaultAbiCoder.encode(["bool[4]", "bytes32[4]"], [topicsBitmap, topicsFull]);
 }

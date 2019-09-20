@@ -57,8 +57,7 @@ describe("sos end to end", () => {
             100000,
             100,
             rescueContract.address,
-            SosContract.DISTRESS_EVENT_ABI,
-            SosContract.encodeArgs(helpMessage)
+            SosContract.DISTRESS_EVENT_ABI // TODO:340: this must be changed to the encoded topics
         );
     };
 
@@ -152,8 +151,7 @@ describe("sos end to end", () => {
             100000,
             100,
             rescueContract.address,
-            SosContract.DISTRESS_EVENT_ABI,
-            SosContract.encodeArgs(helpMessage)
+            SosContract.DISTRESS_EVENT_ABI  // TODO:340: this must be changed to the encoded topics
         );
         
 
@@ -171,8 +169,7 @@ describe("sos end to end", () => {
                 appointment.gasLimit,
                 appointment.mode,
                 appointment.eventAddress,
-                appointment.eventABI,
-                appointment.eventArgs,
+                appointment.topics,
                 appointment.preCondition,
                 appointment.postCondition,
                 appointment.paymentHash

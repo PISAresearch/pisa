@@ -48,8 +48,7 @@ describe("alpha", () => {
         contractAddress: string,
         customerAddress: string,
         data: string,
-        eventAbi: string,
-        eventArgs: string,
+        topics: string,
         id: string,
         nonce: number,
         startBlock: number
@@ -61,8 +60,7 @@ describe("alpha", () => {
             data,
             endBlock: startBlock + 130,
             eventAddress: contractAddress,
-            eventABI: eventAbi,
-            eventArgs: eventArgs,
+            topics,
             gasLimit: 100000,
             id,
             nonce: nonce,
@@ -98,8 +96,7 @@ describe("alpha", () => {
             rescueContract.address,
             customer.address,
             SosContract.encodeData("remote"),
-            SosContract.DISTRESS_EVENT_ABI,
-            SosContract.encodeArgs(helpMessage),
+            SosContract.DISTRESS_EVENT_ABI, // TODO:340: change this to the topics parameter
             id,
             nonce,
             startBlock

@@ -97,8 +97,7 @@ contract PISAHash {
 
         // Details of the event that triggers PISA to respond
         address eventAddress; // address from which the trigger event is emitted
-        string eventAbi; // abi of the trigger event
-        bytes eventArgs; // filter arguments of the triggered event
+        bytes topics; // encded topics of the trigger event
 
         // What pre and post condition should be satisified? (Optional)
         bytes precondition; // What condition should be satisified before call can be executed?
