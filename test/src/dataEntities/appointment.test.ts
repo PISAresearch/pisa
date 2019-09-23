@@ -5,7 +5,6 @@ import { Appointment, PublicDataValidationError, IBlockStub } from "../../../src
 import { ethers } from "ethers";
 import chaiAsPromised from "chai-as-promised";
 import { BlockCache } from "../../../src/blockMonitor";
-import { encodeTopicsForPisa } from "../../../src/utils/ethers";
 import { mock, when, instance } from "ts-mockito";
 chai.use(chaiAsPromised);
 
@@ -51,7 +50,7 @@ const testAppointmentRequest = {
         "0x3f5de7ed00000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000001a2092ea24441ee16935c133fe2d1ed0e32943170e152dc2bedb5d2a77329ff9700000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000001e381099b9b03ab851cd7739122f23bff199aa5c8ac0651be34c0d6c764219f053baa2964f68540e9677500a10ca7be151744a3f7c1d28b7b3852f40f19cc39440000000000000000000000000000000000000000000000000000000000000000d40134d0f5e32e54258e608ca434654478612ac7e37b0a8de6cb44d915602be7623a6f44f9d63808cf27fc25f625b61bc99667a62aaef4cf6e934cdf92ee2c0b",
     endBlock: 200,
     eventAddress: "0x254dffcd3277C0b1660F6d42EFbB754edaBAbC2B",
-    topics: encodeTopicsForPisa(topics),
+    topics: topics,
     gasLimit: 100000,
     id: "0x0000000000000000000000000000000000000000000000000000000000000001",
     nonce: 0,
@@ -199,7 +198,7 @@ describe("Appointment", () => {
     fnIt<Appointment>(a => a.validate, "can specify only some of the indexed arguments", async () => {
         const clone = { ...testAppointmentRequest };
         const topics = iFace.events["Face"].encodeTopics([null, null, "0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"]); // topics as array
-        clone.topics = encodeTopicsForPisa(topics);
+        clone.topics = topics;
         const testAppointment = Appointment.parse(clone);
         const signedAppointment = await sign(testAppointment, customerSigner);
 
@@ -209,7 +208,7 @@ describe("Appointment", () => {
     fnIt<Appointment>(a => a.validate, "can specify none of the indexed arguments", async () => {
         const clone = { ...testAppointmentRequest };
         const topics = iFace.events["Face"].encodeTopics([null, null, null]); // topics as array
-        clone.topics = encodeTopicsForPisa(topics);
+        clone.topics = topics;
 
         const testAppointment = Appointment.parse(clone);
         const signedAppointment = await sign(testAppointment, customerSigner);
@@ -278,7 +277,7 @@ describe("Appointment", () => {
         const clone = { ...testAppointmentRequest };
         clone.mode = 0;
         clone.eventAddress = "0x0000000000000000000000000000000000000000";
-        clone.topics = "";
+        clone.topics = [];
         const testAppointment = Appointment.parse(clone);
         const signedAppointment = await sign(testAppointment, customerSigner);
         await signedAppointment.validate(blockCache, pisaContractAddress);

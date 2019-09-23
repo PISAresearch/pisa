@@ -102,7 +102,11 @@
         },
         "topics": {
             "$id": "#/properties/topics",
-            "type": "string"
+            "type": "array",
+            "maxItems": 4,
+            "items": {
+                "type": ["string", "null"]
+            }
         }
     }
 }

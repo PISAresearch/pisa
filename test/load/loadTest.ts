@@ -4,7 +4,6 @@ import { ethers } from "ethers";
 import config from "../../src/dataEntities/config";
 import { getJsonRPCProvider } from "../../src/utils";
 import { Appointment, IAppointmentRequest } from "../../src/dataEntities";
-import { encodeTopicsForPisa } from "../../src/utils/ethers";
 
 let account0: string,
     account1: string,
@@ -62,7 +61,7 @@ let execute = async (timeToWait: number) => {
                 data,
                 endBlock: 22,
                 eventAddress: channelContract.address,
-                topics: encodeTopicsForPisa(KitsuneTools.topics()),
+                topics: KitsuneTools.topics(),
                 gasLimit: 100000,
                 id: "0x0000000000000000000000000000000000000000000000000000000000000001",
                 nonce: 0,

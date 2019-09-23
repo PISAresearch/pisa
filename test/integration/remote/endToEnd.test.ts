@@ -14,7 +14,6 @@ import { ChainData } from "../chainData";
 import { KeyStore } from "../keyStore";
 import { deployPisa } from "../../src/utils/contract";
 import { PisaClient } from "../../../client";
-import { encodeTopicsForPisa } from "../../../src/utils/ethers";
 
 const newId = () => {
     return uuid().substr(0, 8);
@@ -140,7 +139,7 @@ describe("Integration", function() {
             1000000,
             100,
             channelContract.address,
-            encodeTopicsForPisa(KitsuneTools.topics())
+            KitsuneTools.topics()
         );
 
         // now register a callback on the setstate event and trigger a response
@@ -239,7 +238,7 @@ describe("Integration", function() {
                 1000000,
                 100,
                 channelContracts[i].address,
-                encodeTopicsForPisa(KitsuneTools.topics())
+                KitsuneTools.topics()
             );
 
             // now register a callback on the setstate event and trigger a response

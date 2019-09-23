@@ -9,6 +9,7 @@ import betterAjvErrors from "better-ajv-errors";
 import { ReadOnlyBlockCache } from "../blockMonitor/index.js";
 import { IBlockStub } from "./block.js";
 import * as PisaContract from "../../sol/build/contracts/PISAHash.json";
+import { encodeTopicsForPisa } from "../utils/ethers";
 const ABI = PisaContract.abi;
 const ajv = new Ajv({ jsonPointers: true, allErrors: true });
 const appointmentRequestValidation = ajv.compile(appointmentRequestSchemaJson);
@@ -73,7 +74,7 @@ export interface IAppointmentBase {
     /**
      * Encoded topics for this appointment's trigger event
      */
-    readonly topics: string;
+    readonly topics: (string | null)[];
 
     /**
      * The pre-condition that must be satisfied before PISA can respond
@@ -139,7 +140,7 @@ export class Appointment {
         public readonly gasLimit: number,
         public readonly mode: number,
         public readonly eventAddress: string,
-        public readonly topics: string,
+        public readonly topics: (string | null)[],
         public readonly preCondition: string,
         public readonly postCondition: string,
         public readonly paymentHash: string,
@@ -320,7 +321,7 @@ export class Appointment {
             //TODO:340: anything to do here?
         } else if (this.mode === AppointmentMode.Relay){
             if(this.eventAddress !== "0x0000000000000000000000000000000000000000") throw new PublicDataValidationError("Event address must be set to \"0x0000000000000000000000000000000000000000\" for relay transactions.") //prettier-ignore
-            if(this.topics !== "") throw new PublicDataValidationError("Event topics must be set to \"\" for relay transactions.") //prettier-ignore
+            if(this.topics.length !== 0) throw new PublicDataValidationError("Event topics must be set to [] for relay transactions.") //prettier-ignore
         } else {
             throw new PublicDataValidationError("Mode must be set to 0 or 1. 0 for relay appointments, 1 for event triggered appointments."); //prettier-ignore
         }
@@ -376,14 +377,15 @@ export class Appointment {
 
     /**
      * An event filter for this appointment. Created by combining the provided
-     * eventABI and the eventArgs
+     * event address and topics
      */
-    public get eventFilter() {
+    public get eventFilter(): ethers.EventFilter {
         return {
             address: this.eventAddress,
-            topics: this.topics
+            topics: this.topics as string[] // ethers.js declares the type as string[] despite allowing null valuess
         };
     }
+
 
     /**
      * Order the properties of the appointment prior to encoding as a tuple
@@ -402,7 +404,7 @@ export class Appointment {
             this.gasLimit,
             this.mode,
             this.eventAddress,
-            this.topics || "0x", // relay mode has empty string for topics
+            encodeTopicsForPisa(this.topics),
             this.preCondition,
             this.postCondition,
             this.paymentHash

@@ -135,7 +135,7 @@
         },
         "data": {
           "type": "string",
-          "description": "The data is an ABI encoded function and arguments that will be executed at the contract address by PISA. This execution occurs when PISA is triggered by observing the event specified by EventABI and EventArgs.\n\n#### Example of forming data\n```\nconst amount = 10;\nconst functionAbi = [\"function testFunction(uint amount)\"];\nconst abi = new ethers.utils.Interface(functionAbi);\nconst data = abi.functions.testFunction.encode([amount]);\n```\n",
+          "description": "The data is an ABI encoded function and arguments that will be executed at the contract address by PISA. This execution occurs when PISA is triggered by observing the event specified by eventAddress and topics.\n\n#### Example of forming data\n```\nconst amount = 10;\nconst functionAbi = [\"function testFunction(uint amount)\"];\nconst abi = new ethers.utils.Interface(functionAbi);\nconst data = abi.functions.testFunction.encode([amount]);\n```\n",
           "example": "0x28fbdf0d000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000"
         },
         "gasLimit": {

@@ -10,7 +10,7 @@ class AppointmentRequest {
     readonly paymentHash: string;
 
     readonly eventAddress: string;
-    readonly topics: string;
+    readonly topics: (string | null)[];
 
     readonly contractAddress: string;
     readonly data: string;
@@ -32,6 +32,15 @@ interface AppointmentReceipt {
     readonly watcherAddress: string;
 }
 
+// TODO:340: documentation
+export function encodeTopicsForPisa(topics: (string | null)[]) {
+    if (topics.length > 4) throw new Error(`There can be at most 4 topics. ${topics.length} were given.`)
+
+    const topicsBitmap = [0, 1, 2, 3].map(idx => topics.length > idx && topics[idx] != null);
+    const topicsFull = [0, 1, 2, 3].map(idx => topics.length > idx && topics[idx] != null ? topics[idx] : "0x0000000000000000000000000000000000000000000000000000000000000000");
+    return defaultAbiCoder.encode(["bool[4]", "bytes32[4]"], [topicsBitmap, topicsFull]);
+}
+
 export default class PisaClient {
     private static APPOINTMENT_ENDPOINT = "appointment";
 
@@ -47,7 +56,7 @@ export default class PisaClient {
      * @param request
      */
     private encodeAndHash(request: AppointmentRequest): string {
-        const tupleDefinition = "tuple(address,address,uint,uint,uint,bytes32,uint,bytes,uint,uint,uint,address,string,bytes,bytes,bytes,bytes32)";
+        const tupleDefinition = "tuple(address,address,uint,uint,uint,bytes32,uint,bytes,uint,uint,uint,address,bytes,bytes,bytes,bytes32)";
 
         const encoded = defaultAbiCoder.encode(
             [tupleDefinition, "address"],
@@ -65,7 +74,7 @@ export default class PisaClient {
                     request.gasLimit,
                     request.mode,
                     request.eventAddress,
-                    request.topics,
+                    encodeTopicsForPisa(request.topics),
                     request.preCondition,
                     request.postCondition,
                     request.paymentHash
@@ -162,7 +171,7 @@ export default class PisaClient {
         gasLimit: number,
         challengePeriod: number,
         eventAddress: string,
-        topics: string
+        topics: (string | null)[]
     ): Promise<SignedApppointmentRequest>;
     public async generateRequest(
         signer: (digest: string) => Promise<string>,
@@ -176,7 +185,7 @@ export default class PisaClient {
         gasLimit: number,
         challengePeriod: number,
         eventAddress?: string,
-        topics?: string
+        topics?: (string | null)[]
     ): Promise<SignedApppointmentRequest> {
         let mode;
         // all of these props must be populated, or none of them
@@ -184,7 +193,7 @@ export default class PisaClient {
         // if none are populated we generate a relay transaction
         else if (!eventAddress && !topics) {
             eventAddress = "0x0000000000000000000000000000000000000000";
-            topics = "0x";
+            topics = [];
             mode = 0;
         } else throw new Error('Either both or neither of "eventAddress" and "topics" must be populated.');
 
@@ -291,7 +300,7 @@ export default class PisaClient {
         gasLimit: number,
         challengePeriod: number,
         eventAddress: string,
-        topics: string
+        topics: (string | null)[]
     ): Promise<AppointmentReceipt>;
     public async generateAndExecuteRequest(
         signer: (digest: string) => Promise<string>,
@@ -305,7 +314,7 @@ export default class PisaClient {
         gasLimit: number,
         challengePeriod: number,
         eventAddress?: string,
-        topics?: string
+        topics?: (string | null)[]
     ): Promise<AppointmentReceipt> {
         const request = await this.generateRequest(
             signer,
@@ -322,7 +331,7 @@ export default class PisaClient {
             // this should only be the case if a caller has passed in undefined as one of the event args
             // in which case we can pass it to generateRequest in below where an error will be thrown.
             eventAddress as string,
-            topics as string
+            topics as (string | null)[]
         );
         return await this.executeRequest(request);
     }

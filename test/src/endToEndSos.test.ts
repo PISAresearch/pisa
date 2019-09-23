@@ -12,6 +12,7 @@ import { BigNumber, arrayify } from "ethers/utils";
 import { expect } from "chai";
 import { deployPisa } from "./utils/contract";
 import PisaClient from "../../client";
+import { encodeTopicsForPisa } from "../../src/utils/ethers";
 const ganache = Ganache.provider({
     mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect",
     gasLimit: 8000000
@@ -44,6 +45,9 @@ describe("sos end to end", () => {
         const startBlock = await provider.getBlockNumber();
         const nonce = 1;
 
+        const iFace = new ethers.utils.Interface(SosContract.ABI);
+        const topics = iFace.events["Distress"].encodeTopics([helpMessage]);
+
         const pisaClient = new PisaClient(`http://${nextConfig.hostName}:${nextConfig.hostPort}`, pisaContractAddress);
         return await pisaClient.generateAndExecuteRequest(
             digest => user.signMessage(arrayify(digest)),
@@ -57,7 +61,7 @@ describe("sos end to end", () => {
             100000,
             100,
             rescueContract.address,
-            SosContract.DISTRESS_EVENT_ABI // TODO:340: this must be changed to the encoded topics
+            topics
         );
     };
 
@@ -138,6 +142,9 @@ describe("sos end to end", () => {
         const startBlock = await provider.getBlockNumber();
         const nonce = 1;
 
+        const iFace = new ethers.utils.Interface(SosContract.ABI);
+        const topics = iFace.events["Distress"].encodeTopics([helpMessage]);
+
         const pisaClient = new PisaClient(`http://${nextConfig.hostName}:${nextConfig.hostPort}`, pisaContract.address);
         const appointment = await pisaClient.generateRequest(
             (digest: string) => user1.signMessage(arrayify(digest)),
@@ -151,9 +158,8 @@ describe("sos end to end", () => {
             100000,
             100,
             rescueContract.address,
-            SosContract.DISTRESS_EVENT_ABI  // TODO:340: this must be changed to the encoded topics
+            topics
         );
-        
 
         await pisaContract.respond(
             [
@@ -169,7 +175,7 @@ describe("sos end to end", () => {
                 appointment.gasLimit,
                 appointment.mode,
                 appointment.eventAddress,
-                appointment.topics,
+                encodeTopicsForPisa(appointment.topics),
                 appointment.preCondition,
                 appointment.postCondition,
                 appointment.paymentHash
