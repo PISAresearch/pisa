@@ -320,7 +320,7 @@ export class Appointment {
             //TODO:340: anything to do here?
         } else if (this.mode === AppointmentMode.Relay){
             if(this.eventAddress !== "0x0000000000000000000000000000000000000000") throw new PublicDataValidationError("Event address must be set to \"0x0000000000000000000000000000000000000000\" for relay transactions.") //prettier-ignore
-            if(this.topics.length > 0) throw new PublicDataValidationError("Event topics must be set to [] for relay transactions.") //prettier-ignore
+            if(this.topics !== "") throw new PublicDataValidationError("Event topics must be set to \"\" for relay transactions.") //prettier-ignore
         } else {
             throw new PublicDataValidationError("Mode must be set to 0 or 1. 0 for relay appointments, 1 for event triggered appointments."); //prettier-ignore
         }
@@ -402,20 +402,11 @@ export class Appointment {
             this.gasLimit,
             this.mode,
             this.eventAddress,
-            this.encodeTopics(),
+            this.topics || "0x", // relay mode has empty string for topics
             this.preCondition,
             this.postCondition,
             this.paymentHash
         ];
-    }
-
-    /** TODO:340: documentation (or remove if not used) */
-    public encodeTopics(): string {
-        if (this.topics.length > 4) throw new ArgumentError(`There can be at most 4 topics. ${this.topics.length} were given.`)
-
-        const topicsBitmap = [0, 1, 2, 3].map(idx => this.topics.length > idx && this.topics[idx] != null);
-        const topicsFull = [0, 1, 2, 3].map(idx => this.topics.length > idx && this.topics[idx] != null ? this.topics[idx] : "0x");
-        return ethers.utils.defaultAbiCoder.encode(["bool[4]", "bytes32[4]"], [topicsBitmap, topicsFull]);
     }
 
     public static EncodingTupleDefinition =

@@ -5,11 +5,44 @@ import { Appointment, PublicDataValidationError, IBlockStub } from "../../../src
 import { ethers } from "ethers";
 import chaiAsPromised from "chai-as-promised";
 import { BlockCache } from "../../../src/blockMonitor";
+import { encodeTopicsForPisa } from "../../../src/utils/ethers";
 import { mock, when, instance } from "ts-mockito";
 chai.use(chaiAsPromised);
 
 const customerPrivKey = "0xd40be03d93b1ab00d334df3fe683da2d360e95fbfd132178facc3a8f5d9eb620";
 const customerSigner = new ethers.Wallet(customerPrivKey);
+
+const testAppointmentABI = [
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": true,
+				"internalType": "address",
+				"name": "",
+				"type": "address"
+			},
+			{
+				"indexed": false,
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			},
+			{
+				"indexed": true,
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"name": "Face",
+		"type": "event"
+	}
+];
+
+const iFace = new ethers.utils.Interface(testAppointmentABI);
+const topics = iFace.events["Face"].encodeTopics(["0xbbF5029Fd710d227630c8b7d338051B8E76d50B3", null, "0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"]); // topics as array
+
 const testAppointmentRequest = {
     challengePeriod: 100,
     contractAddress: "0x254dffcd3277C0b1660F6d42EFbB754edaBAbC2B",
@@ -18,9 +51,7 @@ const testAppointmentRequest = {
         "0x3f5de7ed00000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000001a2092ea24441ee16935c133fe2d1ed0e32943170e152dc2bedb5d2a77329ff9700000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000001e381099b9b03ab851cd7739122f23bff199aa5c8ac0651be34c0d6c764219f053baa2964f68540e9677500a10ca7be151744a3f7c1d28b7b3852f40f19cc39440000000000000000000000000000000000000000000000000000000000000000d40134d0f5e32e54258e608ca434654478612ac7e37b0a8de6cb44d915602be7623a6f44f9d63808cf27fc25f625b61bc99667a62aaef4cf6e934cdf92ee2c0b",
     endBlock: 200,
     eventAddress: "0x254dffcd3277C0b1660F6d42EFbB754edaBAbC2B",
-    eventABI: "event EventDispute(uint256 indexed)",
-    eventArgs:
-        "0x00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000",
+    topics: encodeTopicsForPisa(topics),
     gasLimit: 100000,
     id: "0x0000000000000000000000000000000000000000000000000000000000000001",
     nonce: 0,
@@ -148,14 +179,7 @@ describe("Appointment", () => {
     };
 
     fnIt<Appointment>(a => a.validate, "passes for correct appointment", async () => {
-        const clone = { ...testAppointmentRequest };
-
-        clone.eventABI = "event Face(address indexed, uint256, uint256 indexed)";
-        clone.eventArgs = ethers.utils.defaultAbiCoder.encode(
-            ["uint8[]", "address", "uint256"],
-            [[0, 2], "0xbbF5029Fd710d227630c8b7d338051B8E76d50B3", 20]
-        );
-        const testAppointment = Appointment.parse(clone);
+        const testAppointment = Appointment.parse(testAppointmentRequest);
         const signedAppointment = await sign(testAppointment, customerSigner);
         await signedAppointment.validate(blockCache, pisaContractAddress);
     });
@@ -172,40 +196,10 @@ describe("Appointment", () => {
         );
     });
 
-    fnIt<Appointment>(a => a.validate, "abi must be an event", async () => {
-        const clone = { ...testAppointmentRequest };
-        clone.eventABI = "function Face(address indexed, uint256, uint256 indexed)";
-        clone.eventArgs = ethers.utils.defaultAbiCoder.encode(
-            ["uint8[]", "address", "uint256"],
-            [[0, 2], "0xbbF5029Fd710d227630c8b7d338051B8E76d50B3", 20]
-        );
-        const testAppointment = Appointment.parse(clone);
-        const signedAppointment = await sign(testAppointment, customerSigner);
-
-        return expect(signedAppointment.validate(blockCache, pisaContractAddress)).to.eventually.be.rejectedWith(
-            PublicDataValidationError
-        );
-    });
-
-    fnIt<Appointment>(a => a.validate, "abi first args must be uint8[]", async () => {
-        const clone = { ...testAppointmentRequest };
-        clone.eventABI = "event Face(address indexed, uint256, uint256 indexed)";
-        clone.eventArgs = ethers.utils.defaultAbiCoder.encode(
-            ["address", "uint256"],
-            ["0xbbF5029Fd710d227630c8b7d338051B8E76d50B3", 20]
-        );
-        const testAppointment = Appointment.parse(clone);
-        const signedAppointment = await sign(testAppointment, customerSigner);
-
-        return expect(signedAppointment.validate(blockCache, pisaContractAddress)).to.eventually.be.rejectedWith(
-            PublicDataValidationError
-        );
-    });
-
     fnIt<Appointment>(a => a.validate, "can specify only some of the indexed arguments", async () => {
         const clone = { ...testAppointmentRequest };
-        clone.eventABI = "event Face(address indexed, uint256, uint256 indexed)";
-        clone.eventArgs = ethers.utils.defaultAbiCoder.encode(["uint8[]", "uint256"], [[2], 20]);
+        const topics = iFace.events["Face"].encodeTopics([null, null, "0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"]); // topics as array
+        clone.topics = encodeTopicsForPisa(topics);
         const testAppointment = Appointment.parse(clone);
         const signedAppointment = await sign(testAppointment, customerSigner);
 
@@ -214,65 +208,13 @@ describe("Appointment", () => {
 
     fnIt<Appointment>(a => a.validate, "can specify none of the indexed arguments", async () => {
         const clone = { ...testAppointmentRequest };
-        clone.eventABI = "event Face(address indexed, uint256, uint256 indexed)";
-        clone.eventArgs = ethers.utils.defaultAbiCoder.encode(["uint8[]"], [[]]);
+        const topics = iFace.events["Face"].encodeTopics([null, null, null]); // topics as array
+        clone.topics = encodeTopicsForPisa(topics);
 
         const testAppointment = Appointment.parse(clone);
         const signedAppointment = await sign(testAppointment, customerSigner);
 
         await signedAppointment.validate(blockCache, pisaContractAddress);
-    });
-
-    fnIt<Appointment>(a => a.validate, "index must be less than number of arguments to event", async () => {
-        const clone = { ...testAppointmentRequest };
-        clone.eventABI = "event Face(address indexed, uint256)";
-        clone.eventArgs = ethers.utils.defaultAbiCoder.encode(
-            ["uint8[]", "address", "uint256"],
-            [[0, 2], "0xbbF5029Fd710d227630c8b7d338051B8E76d50B3", 20]
-        );
-        const testAppointment = Appointment.parse(clone);
-        const signedAppointment = await sign(testAppointment, customerSigner);
-        return expect(signedAppointment.validate(blockCache, pisaContractAddress)).to.eventually.be.rejectedWith(
-            PublicDataValidationError
-        );
-    });
-
-    fnIt<Appointment>(a => a.validate, "can parse booleans", async () => {
-        const clone = { ...testAppointmentRequest };
-        clone.eventABI = "event Face(bool indexed, uint256, uint256 indexed)";
-        clone.eventArgs = ethers.utils.defaultAbiCoder.encode(["uint8[]", "bool", "uint256"], [[0, 2], true, 20]);
-        const testAppointment = Appointment.parse(clone);
-        const signedAppointment = await sign(testAppointment, customerSigner);
-        await signedAppointment.validate(blockCache, pisaContractAddress);
-    });
-
-    fnIt<Appointment>(a => a.validate, "non indexed types cannot be specified", async () => {
-        const clone = { ...testAppointmentRequest };
-        clone.eventABI = "event Face(address indexed, uint256, uint256 indexed)";
-        clone.eventArgs = ethers.utils.defaultAbiCoder.encode(
-            ["uint8[]", "address", "uint256"],
-            [[0, 1], "0xbbF5029Fd710d227630c8b7d338051B8E76d50B3", 20]
-        );
-        const testAppointment = Appointment.parse(clone);
-        const signedAppointment = await sign(testAppointment, customerSigner);
-        return expect(signedAppointment.validate(blockCache, pisaContractAddress)).to.eventually.be.rejectedWith(
-            PublicDataValidationError
-        );
-    });
-
-    fnIt<Appointment>(a => a.validate, "struct types cannot be specified", async () => {
-        const clone = { ...testAppointmentRequest };
-        // try to specify a struct
-        clone.eventABI = "event Face(address indexed, uint256, Off indexed)";
-        clone.eventArgs = ethers.utils.defaultAbiCoder.encode(
-            ["uint8[]", "address", "uint256"],
-            [[0, 2], "0xbbF5029Fd710d227630c8b7d338051B8E76d50B3", 20]
-        );
-        const testAppointment = Appointment.parse(clone);
-        const signedAppointment = await sign(testAppointment, customerSigner);
-        return expect(signedAppointment.validate(blockCache, pisaContractAddress)).to.eventually.be.rejectedWith(
-            PublicDataValidationError
-        );
     });
 
     fnIt<Appointment>(a => a.validate, "throws refund > 0.1 ether", async () => {
@@ -292,14 +234,8 @@ describe("Appointment", () => {
     });
 
     fnIt<Appointment>(a => a.validate, "throws for invalid signature", async () => {
-        const clone = { ...testAppointmentRequest };
+        const testAppointment = Appointment.parse(testAppointmentRequest);
 
-        clone.eventABI = "event Face(address indexed, uint256, uint256 indexed)";
-        clone.eventArgs = ethers.utils.defaultAbiCoder.encode(
-            ["uint8[]", "address", "uint256"],
-            [[0, 2], "0xbbF5029Fd710d227630c8b7d338051B8E76d50B3", 20]
-        );
-        const testAppointment = Appointment.parse(clone);
         const differentSigner = new ethers.Wallet("0x2206ec9b25a3dd5233b78a56a7b03ed424ba3731eaa1d14a5dd8bfa8328e1d1a");
         const signedAppointment = await sign(testAppointment, differentSigner);
         return expect(signedAppointment.validate(blockCache, pisaContractAddress)).to.eventually.be.rejectedWith(
@@ -338,49 +274,19 @@ describe("Appointment", () => {
         );
     });
 
-    fnIt<Appointment>(a => a.validate, "relay mode passes for zero'd event args", async () => {
+    fnIt<Appointment>(a => a.validate, "relay mode passes for zero'd topics", async () => {
         const clone = { ...testAppointmentRequest };
         clone.mode = 0;
         clone.eventAddress = "0x0000000000000000000000000000000000000000";
-        clone.eventABI = "";
-        clone.eventArgs = "0x";
+        clone.topics = "";
         const testAppointment = Appointment.parse(clone);
         const signedAppointment = await sign(testAppointment, customerSigner);
         await signedAppointment.validate(blockCache, pisaContractAddress);
     });
 
-    fnIt<Appointment>(a => a.validate, "relay mode fails for non zero event address", async () => {
+    fnIt<Appointment>(a => a.validate, "relay mode fails for non zero topics", async () => {
         const clone = { ...testAppointmentRequest };
         clone.mode = 0;
-        // clone.eventAddress = "0x0000000000000000000000000000000000000000";
-        clone.eventABI = "";
-        clone.eventArgs = "0x";
-        const testAppointment = Appointment.parse(clone);
-        const signedAppointment = await sign(testAppointment, customerSigner);
-        return expect(signedAppointment.validate(blockCache, pisaContractAddress)).to.eventually.be.rejectedWith(
-            PublicDataValidationError
-        );
-    });
-
-    fnIt<Appointment>(a => a.validate, "relay mode fails for non zero event ABI", async () => {
-        const clone = { ...testAppointmentRequest };
-        clone.mode = 0;
-        clone.eventAddress = "0x0000000000000000000000000000000000000000";
-        // clone.eventABI = "";
-        clone.eventArgs = "0x";
-        const testAppointment = Appointment.parse(clone);
-        const signedAppointment = await sign(testAppointment, customerSigner);
-        return expect(signedAppointment.validate(blockCache, pisaContractAddress)).to.eventually.be.rejectedWith(
-            PublicDataValidationError
-        );
-    });
-
-    fnIt<Appointment>(a => a.validate, "relay mode fails for non zero event args", async () => {
-        const clone = { ...testAppointmentRequest };
-        clone.mode = 0;
-        clone.eventAddress = "0x0000000000000000000000000000000000000000";
-        clone.eventABI = "";
-        // clone.eventArgs = "0x";
         const testAppointment = Appointment.parse(clone);
         const signedAppointment = await sign(testAppointment, customerSigner);
         return expect(signedAppointment.validate(blockCache, pisaContractAddress)).to.eventually.be.rejectedWith(

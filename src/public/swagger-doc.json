@@ -125,7 +125,7 @@
         },
         "topics": {
           "type": "array",
-          "description": "PISA can be triggered by an event with specific arguments. This parameters allows to specify the topics of the log entry that should be matched. This parameter is an array where each element is the exact value of the topic of the log entry, or null if that topic is to be ignored. Note that for contracts generated in Solidity, the first topic is always the hash of the event signature.\n",
+          "description": "TODO:340: outdated. PISA can be triggered by an event with specific arguments. This parameters allows to specify the topics of the log entry that should be matched. This parameter is an array where each element is the exact value of the topic of the log entry, or null if that topic is to be ignored. Note that for contracts generated in Solidity, the first topic is always the hash of the event signature.\n",
           "example": "TODO:340: make an example"
         },
         "contractAddress": {
