@@ -170,10 +170,10 @@ function createAppointment(_sc, _blockNo, _cus, _v, _nonce, _mode, _precondition
   appointment['mode'] = mode;
   appointment['eventAddress'] = _sc;
   const eventSignature = "doEvent(uint,uint,uint)";
-  appointment['topics'] = web3.eth.abi.encodeParameters(["bool[4]", "bytes32[4]"],
+  appointment['topics'] = web3.eth.abi.encodeParameters(["bool[4]", "bytes32[4]"], [
     [true, true, false, false],
-    [web3.eth.abi.keccak256(eventSignature), 2, 0, 0]
-  );
+    [web3.utils.keccak256(eventSignature), "0x0000000000000000000000000000000000000000000000000000000000000002", "0x", "0x"]
+  ]);
   appointment['precondition'] = _precondition;
   appointment['postcondition'] = _postcondition;
   appointment['paymentHash'] = h;
