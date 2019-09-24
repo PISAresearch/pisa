@@ -17,7 +17,7 @@ http://pisa.watch/schemas/appointment-request.json
 | [customerAddress](#customeraddress) | `string`  | **Required** | No       | Appointment request schema (this schema) |
 | [data](#data)                       | `string`  | **Required** | No       | Appointment request schema (this schema) |
 | [endBlock](#endblock)               | `integer` | **Required** | No       | Appointment request schema (this schema) |
-| [topics](#topics)                   | `string`  | **Required** | No       | Appointment request schema (this schema) |
+| [topics](#topics)                   | `array`   | **Required** | No       | Appointment request schema (this schema) |
 | [gasLimit](#gaslimit)               | `string`  | **Required** | No       | Appointment request schema (this schema) |
 | [id](#id)                           | `number`  | **Required** | No       | Appointment request schema (this schema) |
 | [nonce](#nonce)                     | `integer` | **Required** | No       | Appointment request schema (this schema) |
