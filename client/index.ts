@@ -32,8 +32,9 @@ interface AppointmentReceipt {
     readonly watcherAddress: string;
 }
 
-// TODO:340: documentation
-export function encodeTopicsForPisa(topics: (string | null)[]) {
+// Encode the topics in the format expected from Pisa's contract.
+// See the implementation in utils/ethers.ts in the main folder of Pisa for more details.
+function encodeTopicsForPisa(topics: (string | null)[]) {
     if (topics.length > 4) throw new Error(`There can be at most 4 topics. ${topics.length} were given.`)
 
     const topicsBitmap = [0, 1, 2, 3].map(idx => topics.length > idx && topics[idx] != null);
