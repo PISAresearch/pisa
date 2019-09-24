@@ -25,7 +25,7 @@ const challengePeriod = 200;
 
 // event info
 const eventAddress = "0x9e64b53b935602cd0657343C69Fe200fb3cD05c8";
-const topics = "TODO:340: add example of topics";
+const topics = ["0x73ea0ff8e52eea08c37acf9b1de68b2f0039fd344d83d2563e2b266b073a93d4", null, "0x0000000000000000000000000000000000000000000000000000000000000001"];
 
 const pisaClient = new PisaClient("http://alpha.pisa.watch:5487", "0xA02C7260c0020343040A504Ef24252c120be60b9");
 const receipt = await pisaClient.generateAndExecuteRequest(

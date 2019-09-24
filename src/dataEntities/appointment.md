@@ -153,8 +153,9 @@ The last block in which the appointment is still valid
 
 ### topics Example
 
-TODO:340: create an example
-
+```json
+["0x73ea0ff8e52eea08c37acf9b1de68b2f0039fd344d83d2563e2b266b073a93d4", null, "0x0000000000000000000000000000000000000000000000000000000000000001"]
+```
 ## gasLimit
 
 ### Gas limit
