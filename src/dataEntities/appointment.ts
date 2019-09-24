@@ -306,7 +306,7 @@ export class Appointment {
 
         const currentHead = blockCache.head.number;
         // An attacker could fork the network causing a crucial event to occur
-        // before the appointment starts. Therefor a customer would want to hire pisa
+        // before the appointment starts. Therefore a customer would want to hire pisa
         // a small amount in the past to reduce this risk. There is also a margin of error
         // between clients - we may be at different block heights
         if(this.startBlock < (currentHead - Appointment.FORK_LIMIT - Appointment.SYNCHRONISATION_LIMIT)) throw new PublicDataValidationError(`Start block too low. Start block must be within ${Appointment.FORK_LIMIT + Appointment.SYNCHRONISATION_LIMIT} blocks of the current block ${currentHead}.`); // prettier-ignore
@@ -318,10 +318,28 @@ export class Appointment {
         if (this.postCondition !== "0x") throw new PublicDataValidationError("Post-condition currently not supported. Please set to '0x'"); //prettier-ignore
         
         if (this.mode === AppointmentMode.EventTriggered) {
-            //TODO:340: anything to do here?
+            // we test eventAddress and each non-null topic by attempting to encode them
+            try {
+                ethers.utils.defaultAbiCoder.encode(["address"], [this.eventAddress]);
+            } catch (doh) {
+                logger.info(doh);
+                throw new PublicDataValidationError(`Invalid eventAddress: ${this.eventAddress}`); // prettier-ignore
+            }
+
+            if (this.topics.length > 4) throw new PublicDataValidationError(`The topics array must have at most 4 elements; ${this.topics.length} were given`); //prettier-ignore
+            for (const [idx, topic] of this.topics.entries()) {
+                try {
+                    if (topic != null) {
+                        ethers.utils.defaultAbiCoder.encode(["bytes32"], [topic]);
+                    }
+                } catch (doh) {
+                    logger.info(doh);
+                    throw new PublicDataValidationError(`The topic with index ${idx} is invalid: ${topic}`); // prettier-ignore
+                }
+            }
         } else if (this.mode === AppointmentMode.Relay){
-            if(this.eventAddress !== "0x0000000000000000000000000000000000000000") throw new PublicDataValidationError("Event address must be set to \"0x0000000000000000000000000000000000000000\" for relay transactions.") //prettier-ignore
-            if(this.topics.length !== 0) throw new PublicDataValidationError("Event topics must be set to [] for relay transactions.") //prettier-ignore
+            if(this.eventAddress !== "0x0000000000000000000000000000000000000000") throw new PublicDataValidationError("Event address must be set to \"0x0000000000000000000000000000000000000000\" for relay transactions."); //prettier-ignore
+            if(this.topics.length !== 0) throw new PublicDataValidationError("Event topics must be set to [] for relay transactions."); //prettier-ignore
         } else {
             throw new PublicDataValidationError("Mode must be set to 0 or 1. 0 for relay appointments, 1 for event triggered appointments."); //prettier-ignore
         }
