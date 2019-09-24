@@ -320,7 +320,7 @@ export class Appointment {
         if (this.mode === AppointmentMode.EventTriggered) {
             // we test eventAddress and each non-null topic by attempting to encode them
             try {
-                ethers.utils.defaultAbiCoder.encode(["address"], [this.eventAddress]);
+                ethers.utils.getAddress(this.eventAddress);
             } catch (doh) {
                 logger.info(doh);
                 throw new PublicDataValidationError(`Invalid eventAddress: ${this.eventAddress}`); // prettier-ignore
@@ -328,13 +328,8 @@ export class Appointment {
 
             if (this.topics.length > 4) throw new PublicDataValidationError(`The topics array must have at most 4 elements; ${this.topics.length} were given`); //prettier-ignore
             for (const [idx, topic] of this.topics.entries()) {
-                try {
-                    if (topic != null) {
-                        ethers.utils.defaultAbiCoder.encode(["bytes32"], [topic]);
-                    }
-                } catch (doh) {
-                    logger.info(doh);
-                    throw new PublicDataValidationError(`The topic with index ${idx} is invalid: ${topic}`); // prettier-ignore
+                if (topic != null) {
+                    if (topic.length !== 2+2*32 || !ethers.utils.isHexString(topic)) throw new PublicDataValidationError(`The topic with index ${idx} is invalid: ${topic}.`); // prettier-ignore
                 }
             }
         } else if (this.mode === AppointmentMode.Relay){
