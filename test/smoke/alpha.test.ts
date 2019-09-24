@@ -27,8 +27,8 @@ const encode = (request: any) => {
     );
 
     const conditionBytes = ethers.utils.defaultAbiCoder.encode(
-        ["address", "string", "bytes", "bytes", "bytes", "uint"],
-        [request.eventAddress, request.eventABI, request.eventArgs, request.preCondition, request.postCondition, request.mode]
+        ["address", "bytes", "bytes", "bytes", "uint"],
+        [request.eventAddress, request.topics, request.preCondition, request.postCondition, request.mode]
     );
 
     const appointmentBytes = ethers.utils.defaultAbiCoder.encode(
@@ -48,7 +48,7 @@ describe("alpha", () => {
         contractAddress: string,
         customerAddress: string,
         data: string,
-        topics: string,
+        topics: (string | null)[],
         id: string,
         nonce: number,
         startBlock: number
@@ -91,12 +91,14 @@ describe("alpha", () => {
         const id = "0x0000000000000000000000000000000000000000000000000000000000000004";
         const nonce = 1;
 
+        const iFace = new ethers.utils.Interface(SosContract.ABI);
+        const topics = iFace.events["Distress"].encodeTopics([helpMessage]);
         // create an appointment
         const appointmentRequest = createAppointmentRequest(
             rescueContract.address,
             customer.address,
             SosContract.encodeData("remote"),
-            SosContract.DISTRESS_EVENT_ABI, // TODO:340: change this to the topics parameter
+            topics,
             id,
             nonce,
             startBlock
