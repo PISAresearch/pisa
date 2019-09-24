@@ -11,6 +11,6 @@ export class RaidenTools {
     public static eventSignature: "ChannelClosed(uint256, address, uint256)";
 
     public static topics(channelIdentifier: number, closingParticipant: string) {
-        return this.contractInterface.events["EventDispute"].encodeTopics([channelIdentifier, closingParticipant]);
+        return this.contractInterface.events["ChannelClosed"].encodeTopics([channelIdentifier, closingParticipant]);
     }
 }
