@@ -340,6 +340,33 @@ describe("Service end-to-end", () => {
             chai.assert.fail(true, false, "EventDispute not successfully registered.");
         }
     }).timeout(3000);
+
+    it("can get an appointment that was correctly submitted", async () => {
+        const round = 1;
+        const setStateHash = KitsuneTools.hashForSetState(hashState, round, channelContract.address);
+        const sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash));
+        const sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash));
+        const data = KitsuneTools.encodeSetStateData(hashState, round, sig0, sig1);
+        const currentBlockNumber = await provider.getBlockNumber();
+        const { appointment } = await pisaClient.generateAndExecuteRequest(
+            digest => wallet0.signMessage(arrayify(digest)),
+            account0,
+            "0x0000000000000000000000000000000000000000000000000000000000000001",
+            0,
+            currentBlockNumber,
+            1000,
+            channelContract.address,
+            data,
+            1000000,
+            100,
+            channelContract.address,
+            KitsuneTools.eventABI(),
+            KitsuneTools.eventArgs()
+        );
+
+        const res = await pisaClient.getAppointmentsByCustomer(account0);
+        expect(res).to.deep.equal([appointment]);
+    }).timeout(3000);
 });
 
 // assess the value of a predicate every `interval` milliseconds, resolves if predicate evaluates to true; rejects after `repetitions` failed attempts

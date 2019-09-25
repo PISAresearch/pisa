@@ -34,6 +34,7 @@ interface AppointmentReceipt {
 
 export default class PisaClient {
     private static APPOINTMENT_ENDPOINT = "appointment";
+    private static APPOINTMENT_CUSTOMER_GET_ENDPOINT = "appointment/customer";
 
     /**
      *
@@ -336,6 +337,14 @@ export default class PisaClient {
             topics as (string | null)[]
         );
         return await this.executeRequest(request);
+    }
+
+    /** TODO:346: docs */
+    public async getAppointmentsByCustomer(customerAddress: string) {
+        return crossFetch(this.pisaUrl + "/" + PisaClient.APPOINTMENT_CUSTOMER_GET_ENDPOINT + "/" + customerAddress, {
+            method: "GET",
+            headers: { "Content-Type": "application/json" }
+        }).then(res => res.json());
     }
 }
 export { PisaClient };

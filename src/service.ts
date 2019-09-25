@@ -2,7 +2,7 @@ import express, { Response } from "express";
 import httpContext from "express-http-context";
 import { Server } from "http";
 import { ethers } from "ethers";
-import { PublicInspectionError, PublicDataValidationError, ApplicationError, StartStopService } from "./dataEntities";
+import { PublicInspectionError, PublicDataValidationError, ApplicationError, StartStopService, Appointment } from "./dataEntities";
 import { Watcher, AppointmentStore } from "./watcher";
 import { PisaTower } from "./tower";
 import { GasPriceEstimator, MultiResponder, MultiResponderComponent, ResponderStore } from "./responder";
@@ -44,7 +44,7 @@ export class PisaService extends StartStopService {
     private readonly API_DOCS_JSON_ROUTE = "/api-docs.json";
     private readonly API_DOCS_HTML_ROUTE = "/docs.html";
     private readonly APPOINTMENT_ROUTE = "/appointment";
-    private readonly APPOINTMENT_CUSTOMER_GET_ROUTE = "/GET/appointment/customer/:customerAddress";
+    private readonly APPOINTMENT_CUSTOMER_GET_ROUTE = "/appointment/customer/:customerAddress";
 
     /**
      *
@@ -298,13 +298,13 @@ export class PisaService extends StartStopService {
                 let customerAddress: string = req.params.customerAddress;
                 if (!customerAddress) throw new ApplicationError("Missing customerAddress parameter.");
 
-                customerAddress = customerAddress.toLowerCase();
-
-                const appointments = appointmentStore.appointmentsByCustomerAddress.get(customerAddress) || [];
+                const appointments = [...(appointmentStore.appointmentsByCustomerAddress.get(customerAddress) || [])];
 
                 // return the appointments
                 res.status(200);
-                res.send(appointments);
+                res.send(JSON.stringify(
+                    appointments.map(app => Appointment.toIAppointmentRequest(app))
+                ));
             } catch (doh) {
                 if (doh instanceof ApplicationError) this.logAndSend(500, "Internal server error", doh, res, req);
                 else if (doh instanceof Error) this.logAndSend(500, "Internal server error.", doh, res, req);
