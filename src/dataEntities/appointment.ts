@@ -372,7 +372,7 @@ export class Appointment {
      * ids.
      */
     public get locator() {
-        return `${this.customerChosenId}|${this.customerAddress}`;
+        return `${this.customerAddress}|${this.customerChosenId}`;
     }
     /**
      * A unique id for this appointment. Many appointments can have the same locator
