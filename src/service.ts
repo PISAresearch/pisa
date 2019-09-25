@@ -44,6 +44,7 @@ export class PisaService extends StartStopService {
     private readonly API_DOCS_JSON_ROUTE = "/api-docs.json";
     private readonly API_DOCS_HTML_ROUTE = "/docs.html";
     private readonly APPOINTMENT_ROUTE = "/appointment";
+    private readonly APPOINTMENT_CUSTOMER_GET_ROUTE = "/GET/appointment/customer/:customerAddress";
 
     /**
      *
@@ -133,6 +134,7 @@ export class PisaService extends StartStopService {
         app.get(this.JSON_SCHEMA_ROUTE, (req, res) => {
             res.sendFile(path.join(__dirname, "dataEntities/appointmentRequestSchema.json"));
         });
+        app.get(this.APPOINTMENT_CUSTOMER_GET_ROUTE, this.getAllCustomerAppointments(this.appointmentStore));
 
         // set up 404
         app.all("*", function(req, res) {
@@ -274,6 +276,37 @@ export class PisaService extends StartStopService {
                 if (doh instanceof PublicInspectionError) this.logAndSend(400, doh.message, doh, res, req);
                 else if (doh instanceof PublicDataValidationError) this.logAndSend(400, doh.message, doh, res, req);
                 else if (doh instanceof ApplicationError) this.logAndSend(500, "Internal server error", doh, res, req);
+                else if (doh instanceof Error) this.logAndSend(500, "Internal server error.", doh, res, req);
+                else {
+                    req.log.error(doh);
+                    res.status(500);
+                    res.send({ message: "Internal server error." });
+                }
+            }
+        };
+    }
+
+    private getAllCustomerAppointments(appointmentStore: AppointmentStore) {
+        return async (req: requestAndLog, res: express.Response, next: express.NextFunction) => {
+            if (!this.started) {
+                res.status(503);
+                res.send({ message: "Service initialising, please try again later." });
+                return;
+            }
+
+            try {
+                let customerAddress: string = req.params.customerAddress;
+                if (!customerAddress) throw new ApplicationError("Missing customerAddress parameter.");
+
+                customerAddress = customerAddress.toLowerCase();
+
+                const appointments = appointmentStore.appointmentsByCustomerAddress.get(customerAddress) || [];
+
+                // return the appointments
+                res.status(200);
+                res.send(appointments);
+            } catch (doh) {
+                if (doh instanceof ApplicationError) this.logAndSend(500, "Internal server error", doh, res, req);
                 else if (doh instanceof Error) this.logAndSend(500, "Internal server error.", doh, res, req);
                 else {
                     req.log.error(doh);
