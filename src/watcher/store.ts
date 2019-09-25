@@ -1,8 +1,9 @@
-import { StartStopService, IAppointment, ApplicationError } from "../dataEntities";
+import { StartStopService, IAppointment, ApplicationError, ArgumentError } from "../dataEntities";
 import { LevelUp } from "levelup";
 import { LockManager } from "../utils/lock";
 import { Appointment } from "../dataEntities/appointment";
 import EncodingDown from "encoding-down";
+import { MapOfSets } from "../utils/mapSet";
 const sub = require("subleveldown");
 
 /**
@@ -13,7 +14,7 @@ export class AppointmentStore extends StartStopService {
     private readonly subDb: LevelUp<EncodingDown<string, any>>;
     constructor(db: LevelUp<EncodingDown<string, any>>) {
         super("appointment-store");
-        this.subDb = sub(db, `watcher`, { valueEncoding: 'json' });
+        this.subDb = sub(db, `watcher`, { valueEncoding: "json" });
     }
 
     protected async startInternal() {
@@ -23,10 +24,7 @@ export class AppointmentStore extends StartStopService {
             // add to the indexes
             this.mAppointmentsById.set(appointment.id, appointment);
             this.mAppointmentsByLocator.set(appointment.locator, appointment);
-
-            const appsByCustAddr = this.mAppointmentsByCustomerAddress.get(appointment.customerAddress);
-            if (appsByCustAddr == undefined) this.mAppointmentsByCustomerAddress.set(appointment.customerAddress, new Set([appointment]));
-            else appsByCustAddr.add(appointment);
+            this.mAppointmentsByCustomerAddress.addToSet(appointment.customerAddress, appointment);
         }
     }
 
@@ -53,7 +51,7 @@ export class AppointmentStore extends StartStopService {
     public get appointmentsByCustomerAddress(): ReadonlyMap<string, ReadonlySet<Appointment>> {
         return this.mAppointmentsByCustomerAddress;
     }
-    private readonly mAppointmentsByCustomerAddress: Map<string, Set<Appointment>> = new Map();
+    private readonly mAppointmentsByCustomerAddress: MapOfSets<string, Appointment> = new MapOfSets();
 
     // Every time we access the state locator, we need to make sure that this happens atomically.
     // This is not necessary for appointmentId, as they are unique for each appointment and generated internally.
@@ -73,14 +71,10 @@ export class AppointmentStore extends StartStopService {
         return this.stateLocatorLockManager.withLock(appointment.locator, async () => {
             const batch = this.subDb.batch();
 
-            const appsByCustAddr = this.mAppointmentsByCustomerAddress.get(appointment.customerAddress);
-
             const currentAppointment = this.mAppointmentsByLocator.get(appointment.locator);
 
-            // is there a current appointment
+            // is there an existing appointment
             if (currentAppointment) {
-                if (!appsByCustAddr) throw new ApplicationError(`Trying to delete an appointment with locator ${currentAppointment.locator}, but no appointment with that customer address is known. This is a bug.`);
-
                 // make sure that the nonce is larger than the previous one
                 if (appointment.nonce <= currentAppointment.nonce) {
                     throw new ApplicationError(appointment.formatLog(`Nonce ${appointment.nonce} is not larger than current appointment ${currentAppointment.locator} nonce ${currentAppointment.nonce}`)) //prettier-ignore
@@ -94,19 +88,11 @@ export class AppointmentStore extends StartStopService {
             // update the db
             await batch.write();
 
-            if (currentAppointment) {
-                // there was already an appointment with the same locator, replace currentAppointment with appointment
-                appsByCustAddr!.delete(currentAppointment);
-                appsByCustAddr!.add(appointment);
-
-                this.mAppointmentsById.delete(currentAppointment.id);
-            } else {
-                if (appsByCustAddr == undefined) this.mAppointmentsByCustomerAddress.set(appointment.customerAddress, new Set([appointment]));
-                else appsByCustAddr.add(appointment);
-            }
-            // add the new appointment
+            // add the new appointment, and replace an old one
             this.mAppointmentsByLocator.set(appointment.locator, appointment);
             this.mAppointmentsById.set(appointment.id, appointment);
+            if (currentAppointment) this.mAppointmentsByCustomerAddress.deleteFromSet(appointment.customerAddress, currentAppointment);
+            this.mAppointmentsByCustomerAddress.addToSet(appointment.customerAddress, appointment);
         });
     }
 
@@ -132,14 +118,11 @@ export class AppointmentStore extends StartStopService {
                 if (currentAppointment.id === appointmentId) {
                     this.mAppointmentsByLocator.delete(stateLocator);
                 }
-            });
 
-            const appsByCustAddr = this.mAppointmentsByCustomerAddress.get(appointment.customerAddress);
-            if (appsByCustAddr == undefined) throw new ApplicationError(`Missing appointments for customer address ${appointment.customerAddress} for id ${appointmentId}`);
-            else {
-                appsByCustAddr.delete(appointment);
-                if (appsByCustAddr.size == 0) this.mAppointmentsByCustomerAddress.delete(appointment.customerAddress); // delete set if empty
-            }
+                // this can throw an exception if we call delete in the wrong order - so it should go inside this lock
+                // to ensure consisitency
+                this.mAppointmentsByCustomerAddress.deleteFromSet(appointment.customerAddress, appointment)
+            });
 
             // and remove from remote storage
             await this.subDb.del(appointmentId);

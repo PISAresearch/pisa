@@ -112,13 +112,7 @@ export class PisaService extends StartStopService {
         this.blockchainMachine.addComponent(responder);
 
         // tower
-        const tower = new PisaTower(
-            this.appointmentStore,
-            receiptWallet,
-            multiResponder,
-            blockCache,
-            config.pisaContractAddress
-        );
+        const tower = new PisaTower(this.appointmentStore, receiptWallet, multiResponder, blockCache, config.pisaContractAddress);
 
         app.post(this.APPOINTMENT_ROUTE, this.appointment(tower));
 
@@ -256,7 +250,7 @@ export class PisaService extends StartStopService {
         }
     }
 
-    private appointment(tower: PisaTower) {
+    private handlerWrapper(handlerFunction: (req: requestAndLog) => Promise<any>) {
         return async (req: requestAndLog, res: express.Response, next: express.NextFunction) => {
             if (!this.started) {
                 res.status(503);
@@ -265,13 +259,9 @@ export class PisaService extends StartStopService {
             }
 
             try {
-                const signedAppointment = await tower.addAppointment(req.body, req.log);
-
-                // return the appointment
+                const result = await handlerFunction(req);
                 res.status(200);
-
-                // with signature
-                res.send(signedAppointment.serialise());
+                res.send(result);
             } catch (doh) {
                 if (doh instanceof PublicInspectionError) this.logAndSend(400, doh.message, doh, res, req);
                 else if (doh instanceof PublicDataValidationError) this.logAndSend(400, doh.message, doh, res, req);
@@ -286,35 +276,31 @@ export class PisaService extends StartStopService {
         };
     }
 
+    /**
+     * Add an appointment to the tower
+     * @param tower
+     */
+    private appointment(tower: PisaTower) {
+        return this.handlerWrapper(async (req: requestAndLog) => {
+            const signedAppointment = await tower.addAppointment(req.body, req.log);
+            return signedAppointment.serialise();
+        });
+    }
+
+    /**
+     * Get all the appointments for a given customer from the tower
+     * @param appointmentStore
+     */
     private getAllCustomerAppointments(appointmentStore: AppointmentStore) {
-        return async (req: requestAndLog, res: express.Response, next: express.NextFunction) => {
-            if (!this.started) {
-                res.status(503);
-                res.send({ message: "Service initialising, please try again later." });
-                return;
-            }
+        return this.handlerWrapper(async (req: requestAndLog) => {
+            let customerAddress: string = req.params.customerAddress;
+            if (!customerAddress) throw new PublicDataValidationError("Missing customerAddress parameter in url.");
 
-            try {
-                let customerAddress: string = req.params.customerAddress;
-                if (!customerAddress) throw new ApplicationError("Missing customerAddress parameter.");
+            const appointments = [...(appointmentStore.appointmentsByCustomerAddress.get(customerAddress) || [])];
 
-                const appointments = [...(appointmentStore.appointmentsByCustomerAddress.get(customerAddress) || [])];
-
-                // return the appointments
-                res.status(200);
-                res.send(JSON.stringify(
-                    appointments.map(app => Appointment.toIAppointmentRequest(app))
-                ));
-            } catch (doh) {
-                if (doh instanceof ApplicationError) this.logAndSend(500, "Internal server error", doh, res, req);
-                else if (doh instanceof Error) this.logAndSend(500, "Internal server error.", doh, res, req);
-                else {
-                    req.log.error(doh);
-                    res.status(500);
-                    res.send({ message: "Internal server error." });
-                }
-            }
-        };
+            // return the appointments
+            return JSON.stringify(appointments.map(app => Appointment.toIAppointmentRequest(app)));
+        });
     }
 
     private logAndSend(code: number, responseMessage: string, error: Error, res: Response, req: requestAndLog) {
