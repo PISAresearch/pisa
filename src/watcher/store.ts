@@ -76,7 +76,11 @@ export class AppointmentStore extends StartStopService {
             // is there an existing appointment
             if (currentAppointment) {
                 // make sure that the nonce is larger than the previous one
-                if (appointment.nonce <= currentAppointment.nonce) {
+                if (appointment.nonce > currentAppointment.nonce) {
+                    this.mAppointmentsById.delete(currentAppointment.id);	
+                    this.mAppointmentsByCustomerAddress.deleteFromSet(appointment.customerAddress, currentAppointment);
+                }
+                else {
                     throw new ApplicationError(appointment.formatLog(`Nonce ${appointment.nonce} is not larger than current appointment ${currentAppointment.locator} nonce ${currentAppointment.nonce}`)) //prettier-ignore
                 }
 
@@ -91,7 +95,6 @@ export class AppointmentStore extends StartStopService {
             // add the new appointment, and replace an old one
             this.mAppointmentsByLocator.set(appointment.locator, appointment);
             this.mAppointmentsById.set(appointment.id, appointment);
-            if (currentAppointment) this.mAppointmentsByCustomerAddress.deleteFromSet(appointment.customerAddress, currentAppointment);
             this.mAppointmentsByCustomerAddress.addToSet(appointment.customerAddress, appointment);
         });
     }
