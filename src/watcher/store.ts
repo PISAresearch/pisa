@@ -20,9 +20,13 @@ export class AppointmentStore extends StartStopService {
         // access the db and load all state
         for await (const record of this.subDb.createValueStream()) {
             const appointment = Appointment.fromIAppointment((record as any) as IAppointment);
-            // add too the indexes
+            // add to the indexes
             this.mAppointmentsById.set(appointment.id, appointment);
             this.mAppointmentsByLocator.set(appointment.locator, appointment);
+
+            const appsByCustAddr = this.mAppointmentsByCustomerAddress.get(appointment.customerAddress);
+            if (appsByCustAddr == undefined) this.mAppointmentsByCustomerAddress.set(appointment.customerAddress, new Set([appointment]));
+            else appsByCustAddr.add(appointment);
         }
     }
 
@@ -43,6 +47,14 @@ export class AppointmentStore extends StartStopService {
     }
     private readonly mAppointmentsById: Map<string, Appointment> = new Map();
 
+    /**
+     * Accessor to the appointments in this store.
+     */
+    public get appointmentsByCustomerAddress(): ReadonlyMap<string, ReadonlySet<Appointment>> {
+        return this.mAppointmentsByCustomerAddress;
+    }
+    private readonly mAppointmentsByCustomerAddress: Map<string, Set<Appointment>> = new Map();
+
     // Every time we access the state locator, we need to make sure that this happens atomically.
     // This is not necessary for appointmentId, as they are unique for each appointment and generated internally.
     // Instead, multiple appointments can share the same state locator.
@@ -59,20 +71,39 @@ export class AppointmentStore extends StartStopService {
     public addOrUpdateByLocator(appointment: Appointment): Promise<void> {
         // As we are accessing data structures by state locator, we make sure to acquire a lock on it
         return this.stateLocatorLockManager.withLock(appointment.locator, async () => {
+            const batch = this.subDb.batch();
+
+            const appsByCustAddr = this.mAppointmentsByCustomerAddress.get(appointment.customerAddress);
+
             const currentAppointment = this.mAppointmentsByLocator.get(appointment.locator);
+
             // is there a current appointment
             if (currentAppointment) {
-                if (appointment.nonce > currentAppointment.nonce) this.mAppointmentsById.delete(currentAppointment.id);
-                else {
-                    throw new ApplicationError(appointment.formatLog(`Nonce ${appointment.nonce} is lower than current appointment ${currentAppointment.locator} nonce ${currentAppointment.nonce}`)) //prettier-ignore
+                if (!appsByCustAddr) throw new ApplicationError(`Trying to delete an appointment with locator ${currentAppointment.locator}, but no appointment with that customer address is known. This is a bug.`);
+
+                // make sure that the nonce is larger than the previous one
+                if (appointment.nonce <= currentAppointment.nonce) {
+                    throw new ApplicationError(appointment.formatLog(`Nonce ${appointment.nonce} is not larger than current appointment ${currentAppointment.locator} nonce ${currentAppointment.nonce}`)) //prettier-ignore
                 }
+
+                batch.del(currentAppointment.id);
             }
 
-            // update the db
-            const batch = this.subDb.batch().put(appointment.id, Appointment.toIAppointment(appointment));
-            if (currentAppointment) await batch.del(currentAppointment.id).write();
-            else await batch.write();
+            batch.put(appointment.id, Appointment.toIAppointment(appointment));
 
+            // update the db
+            await batch.write();
+
+            if (currentAppointment) {
+                // there was already an appointment with the same locator, replace currentAppointment with appointment
+                appsByCustAddr!.delete(currentAppointment);
+                appsByCustAddr!.add(appointment);
+
+                this.mAppointmentsById.delete(currentAppointment.id);
+            } else {
+                if (appsByCustAddr == undefined) this.mAppointmentsByCustomerAddress.set(appointment.customerAddress, new Set([appointment]));
+                else appsByCustAddr.add(appointment);
+            }
             // add the new appointment
             this.mAppointmentsByLocator.set(appointment.locator, appointment);
             this.mAppointmentsById.set(appointment.id, appointment);
@@ -102,6 +133,13 @@ export class AppointmentStore extends StartStopService {
                     this.mAppointmentsByLocator.delete(stateLocator);
                 }
             });
+
+            const appsByCustAddr = this.mAppointmentsByCustomerAddress.get(appointment.customerAddress);
+            if (appsByCustAddr == undefined) throw new ApplicationError(`Missing appointments for customer address ${appointment.customerAddress} for id ${appointmentId}`);
+            else {
+                appsByCustAddr.delete(appointment);
+                if (appsByCustAddr.size == 0) this.mAppointmentsByCustomerAddress.delete(appointment.customerAddress); // delete set if empty
+            }
 
             // and remove from remote storage
             await this.subDb.del(appointmentId);
