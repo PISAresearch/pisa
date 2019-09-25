@@ -6,6 +6,7 @@ import { JsonRpcProvider } from "ethers/providers";
 import { wait } from "../../src/utils";
 import { keccak256 } from "ethers/utils/solidity";
 import { arrayify } from "ethers/utils";
+import { encodeTopicsForPisa } from "../../src/utils/ethers";
 
 const encode = (request: any) => {
     const basicBytes = ethers.utils.defaultAbiCoder.encode(
@@ -26,9 +27,10 @@ const encode = (request: any) => {
         [request.contractAddress, request.customerAddress, request.gasLimit, request.data]
     );
 
+    const encodedTopics = encodeTopicsForPisa(request.topics);
     const conditionBytes = ethers.utils.defaultAbiCoder.encode(
         ["address", "bytes", "bytes", "bytes", "uint"],
-        [request.eventAddress, request.topics, request.preCondition, request.postCondition, request.mode]
+        [request.eventAddress, encodedTopics, request.preCondition, request.postCondition, request.mode]
     );
 
     const appointmentBytes = ethers.utils.defaultAbiCoder.encode(
