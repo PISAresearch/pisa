@@ -339,7 +339,10 @@ export default class PisaClient {
         return await this.executeRequest(request);
     }
 
-    /** TODO:346: docs */
+    /**
+     * Send a request to the Pisa tower to retrieve all the appointments for the given `customerAddress`.
+     * @param customerAddress
+     */
     public async getAppointmentsByCustomer(customerAddress: string) {
         return crossFetch(this.pisaUrl + "/" + PisaClient.APPOINTMENT_CUSTOMER_GET_ENDPOINT + "/" + customerAddress, {
             method: "GET",
