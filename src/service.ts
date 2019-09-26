@@ -250,7 +250,7 @@ export class PisaService extends StartStopService {
         }
     }
 
-    private handlerWrapper(handlerFunction: (req: requestAndLog) => Promise<any>) {
+    private handlerWrapper<T>(handlerFunction: (req: requestAndLog) => Promise<T>) {
         return async (req: requestAndLog, res: express.Response, next: express.NextFunction) => {
             if (!this.started) {
                 res.status(503);
