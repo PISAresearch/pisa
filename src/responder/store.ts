@@ -29,7 +29,7 @@ export class ResponderStore extends StartStopService {
      */
     constructor(db: LevelUp<EncodingDown<string, any>>, responderAddress: string, seedQueue: GasQueue) {
         super("responder-store");
-        this.subDb = sub(db, `responder:${responderAddress}`, { valueEncoding: 'json' });
+        this.subDb = sub(db, `responder:${responderAddress}`, { valueEncoding: "json" });
         this.mQueue = seedQueue;
         this.queueKey = `${responderAddress}:queue`;
         this.lock = responderAddress;
@@ -39,12 +39,7 @@ export class ResponderStore extends StartStopService {
         // buffer any existing state
         const { queue, respondedTransactions } = await this.getAll();
         if (queue) {
-            this.mQueue = new GasQueue(
-                queue.queueItems,
-                queue.emptyNonce,
-                this.mQueue.replacementRate,
-                this.mQueue.maxQueueDepth
-            );
+            this.mQueue = new GasQueue(queue.queueItems, queue.emptyNonce, this.mQueue.replacementRate, this.mQueue.maxQueueDepth);
         }
 
         for (const [key, value] of respondedTransactions.entries()) {
@@ -58,23 +53,18 @@ export class ResponderStore extends StartStopService {
      * @param queue
      */
     public async updateQueue(queue: GasQueue) {
-        // const replacedQueue = this.zQueue.add(request);
         const difference = queue.difference(this.mQueue);
-        this.mQueue = queue;
 
-        // update these transactions locally and in the db
-        const differenceById = new Map<string, GasQueueItem>();
-        difference.forEach(d => {
-            const id = d.request.id
-            this.mTransactions.set(id, d);
-            differenceById.set(id, d);
-        });
-
+        // DB
         let batch = this.subDb.batch().put(this.queueKey, GasQueue.serialise(queue));
-        for (const [key, value] of differenceById.entries()) {
-            batch = batch.put(key, GasQueueItem.serialise(value));
+        for (const item of difference.values()) {
+            batch = batch.put(item.request.id, GasQueueItem.serialise(item));
         }
         await batch.write();
+
+        // MEMORY
+        difference.forEach(d => this.mTransactions.set(d.request.id, d));
+        this.mQueue = queue;
 
         return difference;
     }
@@ -84,8 +74,11 @@ export class ResponderStore extends StartStopService {
      * @param id
      */
     public async removeResponse(id: string) {
-        this.mTransactions.delete(id);
+        // DB
         await this.subDb.del(id);
+
+        // MEMORY
+        this.mTransactions.delete(id);
     }
 
     /**

@@ -69,18 +69,13 @@ export class AppointmentStore extends StartStopService {
     public addOrUpdateByLocator(appointment: Appointment): Promise<void> {
         // As we are accessing data structures by state locator, we make sure to acquire a lock on it
         return this.stateLocatorLockManager.withLock(appointment.locator, async () => {
-            const batch = this.subDb.batch();
-
             const currentAppointment = this.mAppointmentsByLocator.get(appointment.locator);
 
-            // is there an existing appointment
+            const batch = this.subDb.batch();
+            // CHECKS
             if (currentAppointment) {
                 // make sure that the nonce is larger than the previous one
-                if (appointment.nonce > currentAppointment.nonce) {
-                    this.mAppointmentsById.delete(currentAppointment.id);	
-                    this.mAppointmentsByCustomerAddress.deleteFromSet(appointment.customerAddress, currentAppointment);
-                }
-                else {
+                if (appointment.nonce <= currentAppointment.nonce) {
                     throw new ApplicationError(appointment.formatLog(`Nonce ${appointment.nonce} is not larger than current appointment ${currentAppointment.locator} nonce ${currentAppointment.nonce}`)) //prettier-ignore
                 }
 
@@ -89,10 +84,14 @@ export class AppointmentStore extends StartStopService {
 
             batch.put(appointment.id, Appointment.toIAppointment(appointment));
 
-            // update the db
+            // DB
             await batch.write();
 
-            // add the new appointment, and replace an old one
+            // MEMORY
+            if (currentAppointment) {
+                this.mAppointmentsById.delete(currentAppointment.id);
+                this.mAppointmentsByCustomerAddress.deleteFromSet(appointment.customerAddress, currentAppointment);
+            }
             this.mAppointmentsByLocator.set(appointment.locator, appointment);
             this.mAppointmentsById.set(appointment.id, appointment);
             this.mAppointmentsByCustomerAddress.addToSet(appointment.customerAddress, appointment);
@@ -107,6 +106,10 @@ export class AppointmentStore extends StartStopService {
     public async removeById(appointmentId: string): Promise<boolean> {
         const appointment = this.mAppointmentsById.get(appointmentId);
         if (appointment) {
+            // DB
+            await this.subDb.del(appointmentId);
+
+            // MEMORY
             const stateLocator = appointment.locator;
             // remove the appointment from the id index
             this.mAppointmentsById.delete(appointmentId);
@@ -124,11 +127,9 @@ export class AppointmentStore extends StartStopService {
 
                 // this can throw an exception if we call delete in the wrong order - so it should go inside this lock
                 // to ensure consisitency
-                this.mAppointmentsByCustomerAddress.deleteFromSet(appointment.customerAddress, appointment)
+                this.mAppointmentsByCustomerAddress.deleteFromSet(appointment.customerAddress, appointment);
             });
 
-            // and remove from remote storage
-            await this.subDb.del(appointmentId);
             return true;
         }
         return false;
