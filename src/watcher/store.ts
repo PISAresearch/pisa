@@ -130,7 +130,7 @@ export class AppointmentStore extends StartStopService {
 
                 // this can throw an exception if we call delete in the wrong order - so it should go inside this lock
                 // to ensure consistency
-                this.mAppointmentsByCustomerAddress.deleteFromSet(appointment.customerAddress, appointment)
+                this.mAppointmentsByCustomerAddress.deleteFromSet(appointment.customerAddress, appointment);
             });
 
             return true;
