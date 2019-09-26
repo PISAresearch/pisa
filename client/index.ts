@@ -32,16 +32,6 @@ interface AppointmentReceipt {
     readonly watcherAddress: string;
 }
 
-// Encode the topics in the format expected from Pisa's contract.
-// See the implementation in utils/ethers.ts in the main folder of Pisa for more details.
-function encodeTopicsForPisa(topics: (string | null)[]) {
-    if (topics.length > 4) throw new Error(`There can be at most 4 topics. ${topics.length} were given.`)
-
-    const topicsBitmap = [0, 1, 2, 3].map(idx => topics.length > idx && topics[idx] != null);
-    const topicsFull = [0, 1, 2, 3].map(idx => topics.length > idx && topics[idx] != null ? topics[idx] : "0x0000000000000000000000000000000000000000000000000000000000000000");
-    return defaultAbiCoder.encode(["bool[4]", "bytes32[4]"], [topicsBitmap, topicsFull]);
-}
-
 export default class PisaClient {
     private static APPOINTMENT_ENDPOINT = "appointment";
 
@@ -51,6 +41,17 @@ export default class PisaClient {
      * @param pisaContractAddress The address of the on-chain PISA contract
      */
     public constructor(public readonly pisaUrl: string, public readonly pisaContractAddress: string) {}
+
+
+    // Encode the topics in the format expected from Pisa's contract.
+    // See the implementation in utils/ethers.ts in the main folder of Pisa for more details.
+    private static encodeTopicsForPisa(topics: (string | null)[]) {
+        if (topics.length > 4) throw new Error(`There can be at most 4 topics. ${topics.length} were given.`)
+
+        const topicsBitmap = [0, 1, 2, 3].map(idx => topics.length > idx && topics[idx] != null);
+        const topicsFull = [0, 1, 2, 3].map(idx => topics.length > idx && topics[idx] != null ? topics[idx] : "0x0000000000000000000000000000000000000000000000000000000000000000");
+        return defaultAbiCoder.encode(["bool[4]", "bytes32[4]"], [topicsBitmap, topicsFull]);
+    }
 
     /**
      * Encode the request in the correct format for signature
@@ -75,7 +76,7 @@ export default class PisaClient {
                     request.gasLimit,
                     request.mode,
                     request.eventAddress,
-                    encodeTopicsForPisa(request.topics),
+                    PisaClient.encodeTopicsForPisa(request.topics),
                     request.preCondition,
                     request.postCondition,
                     request.paymentHash
