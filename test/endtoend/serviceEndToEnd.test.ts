@@ -412,6 +412,104 @@ describe("Service end-to-end", () => {
         const res = await pisaClient.getAppointmentsByCustomer(digest => wallet0.signMessage(arrayify(digest)), account0, getBlockNumber);
         expect(res).to.deep.equal([appointment2.appointment, appointment3.appointment]);
     }).timeout(3000);
+
+    it("can backup and restore appointment", async () => {
+        const currentBlockNumber = await provider.getBlockNumber();
+        const data = "0xdada";
+        const id = "0x0000000000000000000000000000000000000000000000000000000000000001";
+        const nonce = 0;
+        await pisaClient.backUp(digest => wallet0.signMessage(arrayify(digest)), account0, data, currentBlockNumber, id, nonce);
+
+        const restore = await pisaClient.restore(account0);
+        expect(restore.length).to.equal(1);
+        expect(restore[0]).to.deep.equal({
+            customerAddress: account0,
+            data: data,
+            id: id,
+            nonce: nonce
+        });
+    }).timeout(3000);
+
+    it("can backup and restore many appointments", async () => {
+        const currentBlockNumber = await provider.getBlockNumber();
+        const data = "0xdada";
+        const data2 = "0xdadadc";
+        const id1 = "0x0000000000000000000000000000000000000000000000000000000000000001";
+        const id2 = "0x0000000000000000000000000000000000000000000000000000000000000002";
+        const nonce = 0;
+        await pisaClient.backUp(digest => wallet0.signMessage(arrayify(digest)), account0, data, currentBlockNumber, id1, nonce);
+        await pisaClient.backUp(digest => wallet0.signMessage(arrayify(digest)), account0, data2, currentBlockNumber, id2, nonce);
+
+        const restore = await pisaClient.restore(account0);
+        expect(restore.length).to.equal(2);
+        expect(restore).to.deep.equal([
+            {
+                customerAddress: account0,
+                data: data,
+                id: id1,
+                nonce: nonce
+            },
+            {
+                customerAddress: account0,
+                data: data2,
+                id: id2,
+                nonce: nonce
+            }
+        ]);
+    }).timeout(3000);
+
+    it("can backup overwrite and restore", async () => {
+        const currentBlockNumber = await provider.getBlockNumber();
+        const data = "0xdada";
+        const data2 = "0xdadadc";
+        const id1 = "0x0000000000000000000000000000000000000000000000000000000000000001";
+        const nonce = 0;
+        const nonce2 = 1;
+        await pisaClient.backUp(digest => wallet0.signMessage(arrayify(digest)), account0, data, currentBlockNumber, id1, nonce);
+        await pisaClient.backUp(digest => wallet0.signMessage(arrayify(digest)), account0, data2, currentBlockNumber, id1, nonce2);
+
+        const restore = await pisaClient.restore(account0);
+        expect(restore.length).to.equal(1);
+        expect(restore).to.deep.equal([
+            {
+                customerAddress: account0,
+                data: data2,
+                id: id1,
+                nonce: nonce2
+            }
+        ]);
+    }).timeout(3000);
+
+    it("restore does not return appointments that are not backups", async () => {
+        const round = 1;
+        const setStateHash = KitsuneTools.hashForSetState(hashState, round, channelContract.address);
+        const sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash));
+        const sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash));
+        const data = KitsuneTools.encodeSetStateData(hashState, round, sig0, sig1);
+        const currentBlockNumber = await provider.getBlockNumber();
+        await pisaClient.generateAndExecuteRequest(
+            digest => wallet0.signMessage(arrayify(digest)),
+            account0,
+            "0x0000000000000000000000000000000000000000000000000000000000000001",
+            0,
+            currentBlockNumber,
+            1000,
+            channelContract.address,
+            data,
+            1000000,
+            100,
+            channelContract.address,
+            KitsuneTools.topics()
+        );
+
+        const restore = await pisaClient.restore(account0);
+        expect(restore.length).to.equal(0);
+    }).timeout(3000);
+
+    it("cannot restore empty appointments", async () => {
+        const restore = await pisaClient.restore(account0);
+        expect(restore.length).to.equal(0);
+    }).timeout(3000);
 });
 
 // assess the value of a predicate every `interval` milliseconds, resolves if predicate evaluates to true; rejects after `repetitions` failed attempts

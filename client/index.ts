@@ -381,7 +381,7 @@ export default class PisaClient {
      * @param id The id for this backup
      * @param nonce The version of this backup. A backup can be replaced by providing the same backup id but a greater nonce.
      */
-    public async backUp(signer: (digest: string) => Promise<string>, data: string, customerAddress: string, startBlock: number, id: string, nonce: number) {
+    public async backUp(signer: (digest: string) => Promise<string>, customerAddress: string, data: string, startBlock: number, id: string, nonce: number) {
         // we identify the backup by setting all addresses to the customer address
         const contractAddress = customerAddress,
             eventAddress = customerAddress;
@@ -398,8 +398,7 @@ export default class PisaClient {
             0,
             200,
             eventAddress,
-            "ABI",
-            "args"
+            []
         );
     }
 
@@ -407,21 +406,22 @@ export default class PisaClient {
      * Fetch all backups for a given user
      * @param customerAddress
      */
-    public async fetchBackups(customerAddress: string): Promise<BackupState[]> {
+    public async restore(customerAddress: string): Promise<BackupState[]> {
         const appointmentRequests = await this.getAppointmentsByCustomer(customerAddress);
-        return (
-            appointmentRequests
-                // we identify a backup as an appointment with dummy addresses
-                .filter(a => a.eventAddress === customerAddress && a.contractAddress)
-                .map(a => {
-                    return {
-                        customerAddress: a.customerAddress,
-                        data: a.data,
-                        id: a.id,
-                        nonce: a.nonce
-                    };
-                })
-        );
+        // TODO: this is not the way to identify backups - in the long term these appointments
+        // will not differ from normal ones, instead we'll just provide a way to filter by address
+        const isBackup = (a: AppointmentRequest) => a.eventAddress === customerAddress && a.contractAddress === a.customerAddress;
+
+        return appointmentRequests
+            .filter(a => isBackup(a))
+            .map(a => {
+                return {
+                    customerAddress: a.customerAddress,
+                    data: a.data,
+                    id: a.id,
+                    nonce: a.nonce
+                };
+            });
     }
 }
 export { PisaClient };
