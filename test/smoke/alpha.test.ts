@@ -4,42 +4,47 @@ import * as SosContract from "./SOSContract";
 import { Wallet, ethers } from "ethers";
 import { JsonRpcProvider } from "ethers/providers";
 import { wait } from "../../src/utils";
-import { keccak256 } from "ethers/utils/solidity";
+import { IAppointmentRequest } from "../../src/dataEntities"
 import { arrayify } from "ethers/utils";
 import { encodeTopicsForPisa } from "../../src/utils/ethers";
 
-const encode = (request: any) => {
-    const basicBytes = ethers.utils.defaultAbiCoder.encode(
-        ["bytes32", "uint", "uint", "uint", "uint", "uint", "bytes32"],
+// Omit introduced in TypeScript 3.5
+type Omit<T, K extends keyof T> = Pick<T, Exclude<keyof T, K>>
+
+/**
+ * Encode the request in the correct format for signature
+ * @param request
+ */
+function encodeAndHash(request: Omit<IAppointmentRequest, "customerSig">, pisaContractAddress: string): string {
+    const tupleDefinition = "tuple(address,address,uint,uint,uint,bytes32,uint,bytes,uint,uint,uint,address,bytes,bytes,bytes,bytes32)";
+
+    const encoded = ethers.utils.defaultAbiCoder.encode(
+        [tupleDefinition, "address"],
         [
-            request.id,
-            request.nonce,
-            request.startBlock,
-            request.endBlock,
-            request.challengePeriod,
-            request.refund,
-            request.paymentHash
+            [
+                request.contractAddress,
+                request.customerAddress,
+                request.startBlock,
+                request.endBlock,
+                request.challengePeriod,
+                request.id,
+                request.nonce,
+                request.data,
+                request.refund,
+                request.gasLimit,
+                request.mode,
+                request.eventAddress,
+                encodeTopicsForPisa(request.topics),
+                request.preCondition,
+                request.postCondition,
+                request.paymentHash
+            ],
+            pisaContractAddress
         ]
     );
 
-    const callBytes = ethers.utils.defaultAbiCoder.encode(
-        ["address", "address", "uint", "bytes"],
-        [request.contractAddress, request.customerAddress, request.gasLimit, request.data]
-    );
-
-    const encodedTopics = encodeTopicsForPisa(request.topics);
-    const conditionBytes = ethers.utils.defaultAbiCoder.encode(
-        ["address", "bytes", "bytes", "bytes", "uint"],
-        [request.eventAddress, encodedTopics, request.preCondition, request.postCondition, request.mode]
-    );
-
-    const appointmentBytes = ethers.utils.defaultAbiCoder.encode(
-        ["bytes", "bytes", "bytes"],
-        [basicBytes, callBytes, conditionBytes]
-    );
-
-    return appointmentBytes;
-};
+    return ethers.utils.keccak256(encoded);
+}
 
 describe("alpha", () => {
     const PISA_URL = "http://18.219.31.158:5487/appointment";
@@ -107,10 +112,7 @@ describe("alpha", () => {
         );
 
         // encode the request and sign it
-        const encoded = encode(appointmentRequest);
-        const hashedWithAddress = ethers.utils.keccak256(
-            ethers.utils.defaultAbiCoder.encode(["bytes", "address"], [encoded, PISA_CONTRACT_ADDRESS])
-        );
+        const hashedWithAddress = encodeAndHash(appointmentRequest, PISA_CONTRACT_ADDRESS);
         const customerSig = await customer.signMessage(arrayify(hashedWithAddress));
 
         const response = await request.post(PISA_URL, {
