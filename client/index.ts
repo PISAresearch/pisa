@@ -32,6 +32,13 @@ interface AppointmentReceipt {
     readonly watcherAddress: string;
 }
 
+interface BackupState {
+    readonly customerAddress: string;
+    readonly data: string;
+    readonly id: string;
+    readonly nonce: number;
+}
+
 export default class PisaClient {
     private static APPOINTMENT_ENDPOINT = "appointment";
     private static APPOINTMENT_CUSTOMER_GET_ENDPOINT = "appointment/customer";
@@ -363,6 +370,58 @@ export default class PisaClient {
         return await this.checkResponse(response)
             .then(res => res.json())
             .then(res => res as AppointmentRequest[]);
+    }
+
+    /**
+     * Backup some data to the PISA server.
+     * @param signer A function sign the PISA appointment
+     * @param data The data to backup
+     * @param customerAddress The customer address backing up the data
+     * @param startBlock The start block from when the backup should begin - should be within 5 blocks of the current block. Backup will be held for 60,000 blocks
+     * @param id The id for this backup
+     * @param nonce The version of this backup. A backup can be replaced by providing the same backup id but a greater nonce.
+     */
+    public async backUp(signer: (digest: string) => Promise<string>, data: string, customerAddress: string, startBlock: number, id: string, nonce: number) {
+        // we identify the backup by setting all addresses to the customer address
+        const contractAddress = customerAddress,
+            eventAddress = customerAddress;
+
+        return await this.generateAndExecuteRequest(
+            signer,
+            customerAddress,
+            id,
+            nonce,
+            startBlock,
+            startBlock + 60000,
+            contractAddress,
+            data,
+            0,
+            200,
+            eventAddress,
+            "ABI",
+            "args"
+        );
+    }
+
+    /**
+     * Fetch all backups for a given user
+     * @param customerAddress
+     */
+    public async fetchBackups(customerAddress: string): Promise<BackupState[]> {
+        const appointmentRequests = await this.getAppointmentsByCustomer(customerAddress);
+        return (
+            appointmentRequests
+                // we identify a backup as an appointment with dummy addresses
+                .filter(a => a.eventAddress === customerAddress && a.contractAddress)
+                .map(a => {
+                    return {
+                        customerAddress: a.customerAddress,
+                        data: a.data,
+                        id: a.id,
+                        nonce: a.nonce
+                    };
+                })
+        );
     }
 }
 export { PisaClient };
