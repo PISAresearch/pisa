@@ -9,7 +9,7 @@ export class MapOfSets<T1, T2> extends Map<T1, Set<T2>> {
      * @param key 
      * @param item 
      */
-    addToSet(key: T1, item: T2) {
+    public addToSet(key: T1, item: T2) {
         const values = this.get(key);
         if (values == undefined) this.set(key, new Set([item]));
         else values.add(item);
@@ -22,7 +22,7 @@ export class MapOfSets<T1, T2> extends Map<T1, Set<T2>> {
      * @param key 
      * @param item 
      */
-    deleteFromSet(key: T1, item: T2) {
+    public deleteFromSet(key: T1, item: T2) {
         const set = this.get(key);
         if (set == undefined) throw new ArgumentError(`No set exists for key ${key}, cannot delete item.`, item);
         const result = set.delete(item);

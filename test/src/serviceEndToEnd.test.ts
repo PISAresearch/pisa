@@ -322,7 +322,7 @@ describe("Service end-to-end", () => {
         expect(res).to.deep.equal([appointment]);
     }).timeout(3000);
 
-    it("can get an multiple appointments", async () => {
+    it("can get a multiple appointments", async () => {
         const round = 1;
         const setStateHash = KitsuneTools.hashForSetState(hashState, round, channelContract.address);
         const sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash));

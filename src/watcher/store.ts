@@ -32,13 +32,16 @@ export class AppointmentStore extends StartStopService {
         // do nothing
     }
 
+    /**
+     * Accessor to the appointments, indexed by locator.
+     */
     public get appointmentsByLocator(): ReadonlyMap<string, Appointment> {
         return this.mAppointmentsByLocator;
     }
     private readonly mAppointmentsByLocator: Map<string, Appointment> = new Map();
 
     /**
-     * Accessor to the appointments in this store.
+     * Accessor to the appointments in this store, indexed by id.
      */
     public get appointmentsById(): ReadonlyMap<string, Appointment> {
         return this.mAppointmentsById;
@@ -46,7 +49,7 @@ export class AppointmentStore extends StartStopService {
     private readonly mAppointmentsById: Map<string, Appointment> = new Map();
 
     /**
-     * Accessor to the appointments in this store.
+     * Accessor to the appointments, indexed by customerAddress.
      */
     public get appointmentsByCustomerAddress(): ReadonlyMap<string, ReadonlySet<Appointment>> {
         return this.mAppointmentsByCustomerAddress;
@@ -123,7 +126,7 @@ export class AppointmentStore extends StartStopService {
                 }
 
                 // this can throw an exception if we call delete in the wrong order - so it should go inside this lock
-                // to ensure consisitency
+                // to ensure consistency
                 this.mAppointmentsByCustomerAddress.deleteFromSet(appointment.customerAddress, appointment)
             });
 

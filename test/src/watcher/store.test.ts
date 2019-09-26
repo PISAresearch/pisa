@@ -147,7 +147,7 @@ describe("Store", () => {
         expectNotFound(() => db.get(subDbString + appointment1.id));
     });
 
-    fnIt<AppointmentStore>(s => s.removeById, "does not remove non-existant appointment", async () => {
+    fnIt<AppointmentStore>(s => s.removeById, "does not remove non-existent appointment", async () => {
         const appointment1 = getAppointment("0x0000000000000000000000000000000000000000000000000000000000000001", 1, 1);
         const appointment2 = getAppointment("0x0000000000000000000000000000000000000000000000000000000000000002", 1, 1);
 

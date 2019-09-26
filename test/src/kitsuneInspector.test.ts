@@ -127,7 +127,7 @@
 //         ).to.be.rejected;
 //     });
 
-//     it("throws for non existant contract", async () => {
+//     it("throws for non existent contract", async () => {
 //         const expiryPeriod = disputePeriod + 1,
 //             round = 1,
 //             setStateHash = KitsuneTools.hashForSetState(hashState, round, channelContract.address),

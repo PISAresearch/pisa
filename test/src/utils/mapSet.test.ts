@@ -38,7 +38,7 @@ describe("MapSet", () => {
         expect(map.get(key1)).to.deep.equal(new Set([val1]));
     });
 
-    fnIt<MapOfSets<any, any>>(map => map.deleteFromSet, "does not delete non existant value", () => {
+    fnIt<MapOfSets<any, any>>(map => map.deleteFromSet, "does not delete non existent value", () => {
         const map = new MapOfSets<string, string>();
         map.set(key1, new Set([val1]));
 
@@ -54,7 +54,7 @@ describe("MapSet", () => {
         expect(map.get(key1)).to.be.undefined
     });
 
-    fnIt<MapOfSets<any, any>>(map => map.deleteFromSet, "throws error for non existant key", () => {
+    fnIt<MapOfSets<any, any>>(map => map.deleteFromSet, "throws error for non existent key", () => {
         const map = new MapOfSets<string, string>();
         map.set(key1, new Set([val1]));
 
