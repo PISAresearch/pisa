@@ -1,8 +1,9 @@
-import { StartStopService, IAppointment, ApplicationError } from "../dataEntities";
+import { StartStopService, IAppointment, ApplicationError, ArgumentError } from "../dataEntities";
 import { LevelUp } from "levelup";
 import { LockManager } from "../utils/lock";
 import { Appointment } from "../dataEntities/appointment";
 import EncodingDown from "encoding-down";
+import { MapOfSets } from "../utils/mapSet";
 const sub = require("subleveldown");
 
 /**
@@ -13,16 +14,17 @@ export class AppointmentStore extends StartStopService {
     private readonly subDb: LevelUp<EncodingDown<string, any>>;
     constructor(db: LevelUp<EncodingDown<string, any>>) {
         super("appointment-store");
-        this.subDb = sub(db, `watcher`, { valueEncoding: 'json' });
+        this.subDb = sub(db, `watcher`, { valueEncoding: "json" });
     }
 
     protected async startInternal() {
         // access the db and load all state
         for await (const record of this.subDb.createValueStream()) {
             const appointment = Appointment.fromIAppointment((record as any) as IAppointment);
-            // add too the indexes
+            // add to the indexes
             this.mAppointmentsById.set(appointment.id, appointment);
             this.mAppointmentsByLocator.set(appointment.locator, appointment);
+            this.mAppointmentsByCustomerAddress.addToSet(appointment.customerAddress, appointment);
         }
     }
 
@@ -30,18 +32,29 @@ export class AppointmentStore extends StartStopService {
         // do nothing
     }
 
+    /**
+     * Accessor to the appointments, indexed by locator.
+     */
     public get appointmentsByLocator(): ReadonlyMap<string, Appointment> {
         return this.mAppointmentsByLocator;
     }
     private readonly mAppointmentsByLocator: Map<string, Appointment> = new Map();
 
     /**
-     * Accessor to the appointments in this store.
+     * Accessor to the appointments in this store, indexed by id.
      */
     public get appointmentsById(): ReadonlyMap<string, Appointment> {
         return this.mAppointmentsById;
     }
     private readonly mAppointmentsById: Map<string, Appointment> = new Map();
+
+    /**
+     * Accessor to the appointments, indexed by customerAddress.
+     */
+    public get appointmentsByCustomerAddress(): ReadonlyMap<string, ReadonlySet<Appointment>> {
+        return this.mAppointmentsByCustomerAddress;
+    }
+    private readonly mAppointmentsByCustomerAddress: MapOfSets<string, Appointment> = new MapOfSets();
 
     // Every time we access the state locator, we need to make sure that this happens atomically.
     // This is not necessary for appointmentId, as they are unique for each appointment and generated internally.
@@ -60,22 +73,31 @@ export class AppointmentStore extends StartStopService {
         // As we are accessing data structures by state locator, we make sure to acquire a lock on it
         return this.stateLocatorLockManager.withLock(appointment.locator, async () => {
             const currentAppointment = this.mAppointmentsByLocator.get(appointment.locator);
-            // is there a current appointment
+
+            const batch = this.subDb.batch();
+            // CHECKS
             if (currentAppointment) {
-                if (appointment.nonce > currentAppointment.nonce) this.mAppointmentsById.delete(currentAppointment.id);
-                else {
-                    throw new ApplicationError(appointment.formatLog(`Nonce ${appointment.nonce} is lower than current appointment ${currentAppointment.locator} nonce ${currentAppointment.nonce}`)) //prettier-ignore
+                // make sure that the nonce is larger than the previous one
+                if (appointment.nonce <= currentAppointment.nonce) {
+                    throw new ApplicationError(appointment.formatLog(`Nonce ${appointment.nonce} is not larger than current appointment ${currentAppointment.locator} nonce ${currentAppointment.nonce}`)) //prettier-ignore
                 }
+
+                batch.del(currentAppointment.id);
             }
 
-            // update the db
-            const batch = this.subDb.batch().put(appointment.id, Appointment.toIAppointment(appointment));
-            if (currentAppointment) await batch.del(currentAppointment.id).write();
-            else await batch.write();
+            batch.put(appointment.id, Appointment.toIAppointment(appointment));
 
-            // add the new appointment
+            // DB
+            await batch.write();
+
+            // MEMORY
+            if (currentAppointment) {
+                this.mAppointmentsById.delete(currentAppointment.id);
+                this.mAppointmentsByCustomerAddress.deleteFromSet(appointment.customerAddress, currentAppointment);
+            }
             this.mAppointmentsByLocator.set(appointment.locator, appointment);
             this.mAppointmentsById.set(appointment.id, appointment);
+            this.mAppointmentsByCustomerAddress.addToSet(appointment.customerAddress, appointment);
         });
     }
 
@@ -87,6 +109,10 @@ export class AppointmentStore extends StartStopService {
     public async removeById(appointmentId: string): Promise<boolean> {
         const appointment = this.mAppointmentsById.get(appointmentId);
         if (appointment) {
+            // DB
+            await this.subDb.del(appointmentId);
+
+            // MEMORY
             const stateLocator = appointment.locator;
             // remove the appointment from the id index
             this.mAppointmentsById.delete(appointmentId);
@@ -101,10 +127,12 @@ export class AppointmentStore extends StartStopService {
                 if (currentAppointment.id === appointmentId) {
                     this.mAppointmentsByLocator.delete(stateLocator);
                 }
+
+                // this can throw an exception if we call delete in the wrong order - so it should go inside this lock
+                // to ensure consistency
+                this.mAppointmentsByCustomerAddress.deleteFromSet(appointment.customerAddress, appointment);
             });
 
-            // and remove from remote storage
-            await this.subDb.del(appointmentId);
             return true;
         }
         return false;

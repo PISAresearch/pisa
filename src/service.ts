@@ -2,7 +2,7 @@ import express, { Response } from "express";
 import httpContext from "express-http-context";
 import { Server } from "http";
 import { ethers } from "ethers";
-import { PublicInspectionError, PublicDataValidationError, ApplicationError, StartStopService } from "./dataEntities";
+import { PublicInspectionError, PublicDataValidationError, ApplicationError, StartStopService, Appointment } from "./dataEntities";
 import { Watcher, AppointmentStore } from "./watcher";
 import { PisaTower } from "./tower";
 import { GasPriceEstimator, MultiResponder, MultiResponderComponent, ResponderStore } from "./responder";
@@ -44,6 +44,7 @@ export class PisaService extends StartStopService {
     private readonly API_DOCS_JSON_ROUTE = "/api-docs.json";
     private readonly API_DOCS_HTML_ROUTE = "/docs.html";
     private readonly APPOINTMENT_ROUTE = "/appointment";
+    private readonly APPOINTMENT_CUSTOMER_GET_ROUTE = "/appointment/customer/:customerAddress";
 
     /**
      *
@@ -111,13 +112,7 @@ export class PisaService extends StartStopService {
         this.blockchainMachine.addComponent(responder);
 
         // tower
-        const tower = new PisaTower(
-            this.appointmentStore,
-            receiptWallet,
-            multiResponder,
-            blockCache,
-            config.pisaContractAddress
-        );
+        const tower = new PisaTower(this.appointmentStore, receiptWallet, multiResponder, blockCache, config.pisaContractAddress);
 
         app.post(this.APPOINTMENT_ROUTE, this.appointment(tower));
 
@@ -133,6 +128,7 @@ export class PisaService extends StartStopService {
         app.get(this.JSON_SCHEMA_ROUTE, (req, res) => {
             res.sendFile(path.join(__dirname, "dataEntities/appointmentRequestSchema.json"));
         });
+        app.get(this.APPOINTMENT_CUSTOMER_GET_ROUTE, this.getAppointmentsByCustomer(this.appointmentStore));
 
         // set up 404
         app.all("*", function(req, res) {
@@ -254,7 +250,7 @@ export class PisaService extends StartStopService {
         }
     }
 
-    private appointment(tower: PisaTower) {
+    private handlerWrapper<T>(handlerFunction: (req: requestAndLog) => Promise<T>) {
         return async (req: requestAndLog, res: express.Response, next: express.NextFunction) => {
             if (!this.started) {
                 res.status(503);
@@ -263,13 +259,9 @@ export class PisaService extends StartStopService {
             }
 
             try {
-                const signedAppointment = await tower.addAppointment(req.body, req.log);
-
-                // return the appointment
+                const result = await handlerFunction(req);
                 res.status(200);
-
-                // with signature
-                res.send(signedAppointment.serialise());
+                res.send(result);
             } catch (doh) {
                 if (doh instanceof PublicInspectionError) this.logAndSend(400, doh.message, doh, res, req);
                 else if (doh instanceof PublicDataValidationError) this.logAndSend(400, doh.message, doh, res, req);
@@ -282,6 +274,33 @@ export class PisaService extends StartStopService {
                 }
             }
         };
+    }
+
+    /**
+     * Add an appointment to the tower
+     * @param tower
+     */
+    private appointment(tower: PisaTower) {
+        return this.handlerWrapper(async (req: requestAndLog) => {
+            const signedAppointment = await tower.addAppointment(req.body, req.log);
+            return signedAppointment.serialise();
+        });
+    }
+
+    /**
+     * Get all the appointments for a given customer from the tower
+     * @param appointmentStore
+     */
+    private getAppointmentsByCustomer(appointmentStore: AppointmentStore) {
+        return this.handlerWrapper(async (req: requestAndLog) => {
+            let customerAddress: string = req.params.customerAddress;
+            if (!customerAddress) throw new PublicDataValidationError("Missing customerAddress parameter in url.");
+
+            const appointments = [...(appointmentStore.appointmentsByCustomerAddress.get(customerAddress) || [])];
+
+            // return the appointments
+            return JSON.stringify(appointments.map(app => Appointment.toIAppointmentRequest(app)));
+        });
     }
 
     private logAndSend(code: number, responseMessage: string, error: Error, res: Response, req: requestAndLog) {

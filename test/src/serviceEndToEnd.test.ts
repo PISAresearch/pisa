@@ -3,15 +3,14 @@ import "mocha";
 import chaiAsPromised from "chai-as-promised";
 import { KitsuneTools } from "../external/kitsune/tools";
 import { ethers } from "ethers";
+import { arrayify } from "ethers/utils";
 import { PisaService } from "../../src/service";
 import config from "../../src/dataEntities/config";
 import Ganache from "ganache-core";
-import { Appointment, IAppointmentRequest } from "../../src/dataEntities";
 import levelup, { LevelUp } from "levelup";
 import MemDown from "memdown";
 import encodingDown from "encoding-down";
 import { deployPisa } from "./utils/contract";
-import { keccak256, arrayify } from "ethers/utils";
 import { wait } from "../../src/utils";
 import PisaClient from "../../client";
 chai.use(chaiAsPromised);
@@ -35,53 +34,10 @@ provider.pollingInterval = 100;
 
 const expect = chai.expect;
 
-const appointmentRequest = async (
-    data: string,
-    contractAddress: string,
-    mode: number,
-    customer: ethers.Signer,
-    customerAddress: string,
-    startBlock: number,
-    pisaContractAddress: string
-): Promise<IAppointmentRequest> => {
-    const bareAppointment = {
-        challengePeriod: 100,
-        contractAddress,
-        customerAddress: customerAddress,
-        data,
-        endBlock: 1000,
-        eventAddress: contractAddress,
-        topics: KitsuneTools.topics(),
-        gasLimit: 1000000,
-        id: "0x0000000000000000000000000000000000000000000000000000000000000001",
-        nonce: 0,
-        mode,
-        preCondition: "0x",
-        postCondition: "0x",
-        refund: "0",
-        startBlock,
-        paymentHash: Appointment.FreeHash,
-        customerSig: "0x"
-    };
-
-    const app = Appointment.parse(bareAppointment);
-    const hashedWithAddress = keccak256(app.encodeForSig(pisaContractAddress));
-
-    const sig = await customer.signMessage(arrayify(hashedWithAddress));
-
-    return {
-        ...Appointment.toIAppointmentRequest(app),
-        customerSig: sig,
-        refund: app.refund.toString(),
-        gasLimit: app.gasLimit
-    };
-};
-
 describe("Service end-to-end", () => {
     let account0: string,
         account1: string,
         wallet0: ethers.Signer,
-        wallet1: ethers.Signer,
         channelContract: ethers.Contract,
         oneWayChannelContract: ethers.Contract,
         hashState: string,
@@ -113,7 +69,6 @@ describe("Service end-to-end", () => {
         const accounts = await provider.listAccounts();
         wallet0 = provider.getSigner(account0);
         account0 = accounts[0];
-        wallet1 = provider.getSigner(account0);
         account1 = accounts[1];
 
         // set the dispute period, greater than the inspector period
@@ -289,7 +244,7 @@ describe("Service end-to-end", () => {
             oneWayChannelContract.address,
             data,
             1000000,
-            100,
+            100
         );
 
         // now register a callback on the setstate event and trigger a response
@@ -321,7 +276,7 @@ describe("Service end-to-end", () => {
             oneWayChannelContract.address,
             data,
             1000000,
-            100,
+            100
         );
 
         // now register a callback on the setstate event and trigger a response
@@ -339,6 +294,86 @@ describe("Service end-to-end", () => {
             // fail if we dont get it
             chai.assert.fail(true, false, "EventDispute not successfully registered.");
         }
+    }).timeout(3000);
+
+    it("can get an appointment that was correctly submitted", async () => {
+        const round = 1;
+        const setStateHash = KitsuneTools.hashForSetState(hashState, round, channelContract.address);
+        const sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash));
+        const sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash));
+        const data = KitsuneTools.encodeSetStateData(hashState, round, sig0, sig1);
+        const currentBlockNumber = await provider.getBlockNumber();
+        const { appointment } = await pisaClient.generateAndExecuteRequest(
+            digest => wallet0.signMessage(arrayify(digest)),
+            account0,
+            "0x0000000000000000000000000000000000000000000000000000000000000001",
+            0,
+            currentBlockNumber,
+            1000,
+            channelContract.address,
+            data,
+            1000000,
+            100,
+            channelContract.address,
+            KitsuneTools.topics()
+        );
+
+        const res = await pisaClient.getAppointmentsByCustomer(account0);
+        expect(res).to.deep.equal([appointment]);
+    }).timeout(3000);
+
+    it("can get a multiple appointments", async () => {
+        const round = 1;
+        const setStateHash = KitsuneTools.hashForSetState(hashState, round, channelContract.address);
+        const sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash));
+        const sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash));
+        const data = KitsuneTools.encodeSetStateData(hashState, round, sig0, sig1);
+        const currentBlockNumber = await provider.getBlockNumber();
+        const appointment1 = await pisaClient.generateAndExecuteRequest(
+            digest => wallet0.signMessage(arrayify(digest)),
+            account0,
+            "0x0000000000000000000000000000000000000000000000000000000000000001",
+            0,
+            currentBlockNumber,
+            1000,
+            channelContract.address,
+            data,
+            1000000,
+            100,
+            channelContract.address,
+            KitsuneTools.topics(),
+        );
+        const appointment2 = await pisaClient.generateAndExecuteRequest(
+            digest => wallet0.signMessage(arrayify(digest)),
+            account0,
+            "0x0000000000000000000000000000000000000000000000000000000000000001",
+            1,
+            currentBlockNumber,
+            1000,
+            channelContract.address,
+            data,
+            1000000,
+            100,
+            channelContract.address,
+            KitsuneTools.topics(),
+        );
+        const appointment3 = await pisaClient.generateAndExecuteRequest(
+            digest => wallet0.signMessage(arrayify(digest)),
+            account0,
+            "0x0000000000000000000000000000000000000000000000000000000000000002",
+            1,
+            currentBlockNumber,
+            1000,
+            channelContract.address,
+            data,
+            1000000,
+            100,
+            channelContract.address,
+            KitsuneTools.topics(),
+        );
+
+        const res = await pisaClient.getAppointmentsByCustomer(account0);
+        expect(res).to.deep.equal([appointment2.appointment, appointment3.appointment]);
     }).timeout(3000);
 });
 
