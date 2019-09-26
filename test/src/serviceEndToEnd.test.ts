@@ -69,6 +69,7 @@ describe("Service end-to-end", () => {
         const accounts = await provider.listAccounts();
         wallet0 = provider.getSigner(account0);
         account0 = accounts[0];
+        account1 = accounts[1];
 
         // set the dispute period, greater than the inspector period
         disputePeriod = 11;
