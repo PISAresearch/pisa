@@ -169,8 +169,11 @@ function createAppointment(_sc, _blockNo, _cus, _v, _nonce, _mode, _precondition
   appointment['gasLimit'] = gas;
   appointment['mode'] = mode;
   appointment['eventAddress'] = _sc;
-  appointment['eventABI'] = "event doEvent(uint indexed, uint indexed, uint)";
-  appointment['eventArgs'] = web3.eth.abi.encodeParameters(['uint[]', 'uint'], [[0], 2]);
+  const eventSignature = "doEvent(uint,uint,uint)";
+  appointment['topics'] = web3.eth.abi.encodeParameters(["bool[4]", "bytes32[4]"], [
+    [true, true, false, false],
+    [web3.utils.keccak256(eventSignature), "0x0000000000000000000000000000000000000000000000000000000000000002", "0x", "0x"]
+  ]);
   appointment['precondition'] = _precondition;
   appointment['postcondition'] = _postcondition;
   appointment['paymentHash'] = h;
@@ -207,8 +210,7 @@ const toTupleAppointment = (app) => {
         app['mode'],
 
         app['eventAddress'],
-        app['eventABI'],
-        app['eventArgs'],
+        app['topics'],
 
         app['precondition'],
         app['postcondition'],
@@ -232,8 +234,7 @@ const appointmentStructDefinition = {
         'mode': 'uint',
 
         'eventAddress': 'address',
-        'eventAbi': 'string',
-        'eventArgs': 'bytes',
+        'topics': 'bytes',
 
         'preCondition': 'bytes',
         'postCondition': 'bytes',
@@ -258,8 +259,7 @@ const appointmentToStructSerialisation = (app) => {
         'mode': app["mode"],
 
         'eventAddress': app["eventAddress"],
-        'eventAbi': app["eventABI"],
-        'eventArgs': app["eventArgs"],
+        'topics': app["topics"],
 
         'preCondition': app["precondition"],
         'postCondition': app["postcondition"],
@@ -344,8 +344,7 @@ contract('PISAHash', (accounts) => {
   //                              "data": appointment['data'],
   //                              "endBlock": appointment['endBlock'],
   //                              "eventAddress": appointment['eventAddress],
-  //                              "eventABI": appointment['eventABI'],
-  //                              "eventArgs": appointment['eventArgs'],
+  //                              "topics": appointment['topics'],
   //                              "gasLimit": appointment['gasLimit'],
   //                              "id": appointment['id'],
   //                              "nonce": appointment['nonce'],

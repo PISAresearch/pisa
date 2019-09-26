@@ -10,8 +10,7 @@ class AppointmentRequest {
     readonly paymentHash: string;
 
     readonly eventAddress: string;
-    readonly eventABI: string;
-    readonly eventArgs: string;
+    readonly topics: (string | null)[];
 
     readonly contractAddress: string;
     readonly data: string;
@@ -43,12 +42,23 @@ export default class PisaClient {
      */
     public constructor(public readonly pisaUrl: string, public readonly pisaContractAddress: string) {}
 
+
+    // Encode the topics in the format expected from Pisa's contract.
+    // See the implementation in utils/ethers.ts in the main folder of Pisa for more details.
+    private static encodeTopicsForPisa(topics: (string | null)[]) {
+        if (topics.length > 4) throw new Error(`There can be at most 4 topics. ${topics.length} were given.`)
+
+        const topicsBitmap = [0, 1, 2, 3].map(idx => topics.length > idx && topics[idx] != null);
+        const topicsFull = [0, 1, 2, 3].map(idx => topics.length > idx && topics[idx] != null ? topics[idx] : "0x0000000000000000000000000000000000000000000000000000000000000000");
+        return defaultAbiCoder.encode(["bool[4]", "bytes32[4]"], [topicsBitmap, topicsFull]);
+    }
+
     /**
      * Encode the request in the correct format for signature
      * @param request
      */
     private encodeAndHash(request: AppointmentRequest): string {
-        const tupleDefinition = "tuple(address,address,uint,uint,uint,bytes32,uint,bytes,uint,uint,uint,address,string,bytes,bytes,bytes,bytes32)";
+        const tupleDefinition = "tuple(address,address,uint,uint,uint,bytes32,uint,bytes,uint,uint,uint,address,bytes,bytes,bytes,bytes32)";
 
         const encoded = defaultAbiCoder.encode(
             [tupleDefinition, "address"],
@@ -66,8 +76,7 @@ export default class PisaClient {
                     request.gasLimit,
                     request.mode,
                     request.eventAddress,
-                    request.eventABI,
-                    request.eventArgs,
+                    PisaClient.encodeTopicsForPisa(request.topics),
                     request.preCondition,
                     request.postCondition,
                     request.paymentHash
@@ -150,8 +159,7 @@ export default class PisaClient {
      * @param gasLimit
      * @param challengePeriod
      * @param eventAddress
-     * @param eventABI
-     * @param eventArgs
+     * @param topics
      */
     generateRequest(
         signer: (digest: string) => Promise<string>,
@@ -165,8 +173,7 @@ export default class PisaClient {
         gasLimit: number,
         challengePeriod: number,
         eventAddress: string,
-        eventABI: string,
-        eventArgs: string
+        topics: (string | null)[]
     ): Promise<SignedApppointmentRequest>;
     public async generateRequest(
         signer: (digest: string) => Promise<string>,
@@ -180,19 +187,17 @@ export default class PisaClient {
         gasLimit: number,
         challengePeriod: number,
         eventAddress?: string,
-        eventABI?: string,
-        eventArgs?: string
+        topics?: (string | null)[]
     ): Promise<SignedApppointmentRequest> {
         let mode;
         // all of these props must be populated, or none of them
-        if (eventAddress && eventABI && eventArgs) mode = 1;
+        if (eventAddress && topics) mode = 1;
         // if none are populated we generate a relay transaction
-        else if (!eventAddress && !eventABI && !eventArgs) {
+        else if (!eventAddress && !topics) {
             eventAddress = "0x0000000000000000000000000000000000000000";
-            eventABI = "";
-            eventArgs = "0x";
+            topics = [];
             mode = 0;
-        } else throw new Error('Either all or none of "eventAddress","eventABI" and "eventArgs" must be populated.');
+        } else throw new Error('Either both or neither of "eventAddress" and "topics" must be populated.');
 
         const request: AppointmentRequest = {
             contractAddress: contractAddress,
@@ -207,8 +212,7 @@ export default class PisaClient {
             gasLimit: gasLimit,
             mode: mode,
             eventAddress: eventAddress,
-            eventABI: eventABI,
-            eventArgs: eventArgs,
+            topics: topics,
             preCondition: "0x",
             postCondition: "0x",
             // pre-configured free hash
@@ -284,8 +288,7 @@ export default class PisaClient {
      * @param gasLimit
      * @param challengePeriod
      * @param eventAddress
-     * @param eventABI
-     * @param eventArgs
+     * @param topics
      */
     generateAndExecuteRequest(
         signer: (digest: string) => Promise<string>,
@@ -299,8 +302,7 @@ export default class PisaClient {
         gasLimit: number,
         challengePeriod: number,
         eventAddress: string,
-        eventABI: string,
-        eventArgs: string
+        topics: (string | null)[]
     ): Promise<AppointmentReceipt>;
     public async generateAndExecuteRequest(
         signer: (digest: string) => Promise<string>,
@@ -314,8 +316,7 @@ export default class PisaClient {
         gasLimit: number,
         challengePeriod: number,
         eventAddress?: string,
-        eventABI?: string,
-        eventArgs?: string
+        topics?: (string | null)[]
     ): Promise<AppointmentReceipt> {
         const request = await this.generateRequest(
             signer,
@@ -332,8 +333,7 @@ export default class PisaClient {
             // this should only be the case if a caller has passed in undefined as one of the event args
             // in which case we can pass it to generateRequest in below where an error will be thrown.
             eventAddress as string,
-            eventABI as string,
-            eventArgs as string
+            topics as (string | null)[]
         );
         return await this.executeRequest(request);
     }

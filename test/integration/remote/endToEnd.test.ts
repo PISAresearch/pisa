@@ -139,8 +139,7 @@ describe("Integration", function() {
             1000000,
             100,
             channelContract.address,
-            KitsuneTools.eventABI(),
-            KitsuneTools.eventArgs()
+            KitsuneTools.topics()
         );
 
         // now register a callback on the setstate event and trigger a response
@@ -239,8 +238,7 @@ describe("Integration", function() {
                 1000000,
                 100,
                 channelContracts[i].address,
-                KitsuneTools.eventABI(),
-                KitsuneTools.eventArgs()
+                KitsuneTools.topics()
             );
 
             // now register a callback on the setstate event and trigger a response

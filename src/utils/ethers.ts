@@ -1,5 +1,6 @@
 // Utility functions for ethers.js
 import { ethers } from "ethers";
+import { ArgumentError } from "../dataEntities";
 
 /**
  *
@@ -47,4 +48,18 @@ export function groupTuples(tupleArray: [string, any][]): [string[], any[]] {
         },
         [[] as string[], [] as any[]]
     );
+}
+
+/**
+ * Encodes an array of topics into the format expected by Pisa's contract. Each element of `topics` is either a string or `null`, and
+ * the length of the array ust be at most 4. The array is encoded as a `bool[4]` followed by a `bytes32[4]`, where the first array contains 
+ * `true` in the positions of the log topics that are filtered upon, and `null` for topics that are ignored.
+ * @param topics An array of up to 4 elements, each one a string representing a bytes32 or null.
+ */
+export function encodeTopicsForPisa(topics: (string | null)[]) {
+    if (topics.length > 4) throw new ArgumentError(`There can be at most 4 topics. ${topics.length} were given.`)
+
+    const topicsBitmap = [0, 1, 2, 3].map(idx => topics.length > idx && topics[idx] != null);
+    const topicsFull = [0, 1, 2, 3].map(idx => topics.length > idx && topics[idx] != null ? topics[idx] : "0x0000000000000000000000000000000000000000000000000000000000000000");
+    return ethers.utils.defaultAbiCoder.encode(["bool[4]", "bytes32[4]"], [topicsBitmap, topicsFull]);
 }

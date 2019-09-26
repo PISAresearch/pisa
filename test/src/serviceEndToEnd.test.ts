@@ -51,8 +51,7 @@ const appointmentRequest = async (
         data,
         endBlock: 1000,
         eventAddress: contractAddress,
-        eventABI: KitsuneTools.eventABI(),
-        eventArgs: KitsuneTools.eventArgs(),
+        topics: KitsuneTools.topics(),
         gasLimit: 1000000,
         id: "0x0000000000000000000000000000000000000000000000000000000000000001",
         nonce: 0,
@@ -175,8 +174,7 @@ describe("Service end-to-end", () => {
                 1000000,
                 100,
                 channelContract.address,
-                KitsuneTools.eventABI(),
-                KitsuneTools.eventArgs()
+                KitsuneTools.topics()
             );
 
             chai.assert.fail();
@@ -207,8 +205,7 @@ describe("Service end-to-end", () => {
             1000000,
             100,
             channelContract.address,
-            KitsuneTools.eventABI(),
-            KitsuneTools.eventArgs()
+            KitsuneTools.topics()
         );
 
         // now register a callback on the setstate event and trigger a response
@@ -252,8 +249,7 @@ describe("Service end-to-end", () => {
             1000000,
             100,
             channelContract.address,
-            KitsuneTools.eventABI(),
-            KitsuneTools.eventArgs()
+            KitsuneTools.topics()
         );
         await pisaClient.executeRequest(req);
         expect(pisaClient.executeRequest(req)).to.eventually.be.rejected;

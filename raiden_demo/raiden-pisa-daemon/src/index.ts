@@ -70,8 +70,7 @@ const run = async (startingRowId: number) => {
                 200000,
                 200,
                 sigGroup.token_network_identifier,
-                RaidenTools.eventABI(),
-                RaidenTools.eventArgs(sigGroup.channel_identifier, bp.sender),
+                RaidenTools.topics(sigGroup.channel_identifier, bp.sender)
             );
             console.log(request);
             await pisaClient.executeRequest(request);
@@ -84,37 +83,6 @@ const run = async (startingRowId: number) => {
     } catch (err) {
         console.error(err);
     }
-};
-
-const encode = (request: any, pisaContractAddress: string) => {
-    return ethers.utils.defaultAbiCoder.encode(
-        [
-            "tuple(address,address,uint,uint,uint,bytes32,uint,bytes,uint,uint,uint,address,string,bytes,bytes,bytes,bytes32)",
-            "address"
-        ],
-        [
-            [
-                request.contractAddress,
-                request.customerAddress,
-                request.startBlock,
-                request.endBlock,
-                request.challengePeriod,
-                request.id,
-                request.nonce,
-                request.data,
-                request.refund,
-                request.gasLimit,
-                request.mode,
-                request.eventAddress,
-                request.eventABI,
-                request.eventArgs,
-                request.preCondition,
-                request.postCondition,
-                request.paymentHash
-            ],
-            pisaContractAddress
-        ]
-    );
 };
 
 run(argv.startId);
