@@ -128,7 +128,7 @@ export class PisaService extends StartStopService {
         app.get(this.JSON_SCHEMA_ROUTE, (req, res) => {
             res.sendFile(path.join(__dirname, "dataEntities/appointmentRequestSchema.json"));
         });
-        app.get(this.APPOINTMENT_CUSTOMER_GET_ROUTE, this.getAllCustomerAppointments(this.appointmentStore));
+        app.get(this.APPOINTMENT_CUSTOMER_GET_ROUTE, this.getAppointmentsByCustomer(this.appointmentStore));
 
         // set up 404
         app.all("*", function(req, res) {
@@ -291,7 +291,7 @@ export class PisaService extends StartStopService {
      * Get all the appointments for a given customer from the tower
      * @param appointmentStore
      */
-    private getAllCustomerAppointments(appointmentStore: AppointmentStore) {
+    private getAppointmentsByCustomer(appointmentStore: AppointmentStore) {
         return this.handlerWrapper(async (req: requestAndLog) => {
             let customerAddress: string = req.params.customerAddress;
             if (!customerAddress) throw new PublicDataValidationError("Missing customerAddress parameter in url.");

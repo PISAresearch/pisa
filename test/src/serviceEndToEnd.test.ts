@@ -243,7 +243,7 @@ describe("Service end-to-end", () => {
             oneWayChannelContract.address,
             data,
             1000000,
-            100,
+            100
         );
 
         // now register a callback on the setstate event and trigger a response
@@ -275,7 +275,7 @@ describe("Service end-to-end", () => {
             oneWayChannelContract.address,
             data,
             1000000,
-            100,
+            100
         );
 
         // now register a callback on the setstate event and trigger a response

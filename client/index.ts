@@ -344,10 +344,14 @@ export default class PisaClient {
      * @param customerAddress
      */
     public async getAppointmentsByCustomer(customerAddress: string) {
-        return crossFetch(this.pisaUrl + "/" + PisaClient.APPOINTMENT_CUSTOMER_GET_ENDPOINT + "/" + customerAddress, {
+        const response = await crossFetch(this.pisaUrl + "/" + PisaClient.APPOINTMENT_CUSTOMER_GET_ENDPOINT + "/" + customerAddress, {
             method: "GET",
             headers: { "Content-Type": "application/json" }
-        }).then(res => res.json());
+        });
+
+        return await this.checkResponse(response)
+            .then(res => res.json())
+            .then(res => res as AppointmentRequest[]);
     }
 }
 export { PisaClient };
