@@ -52,23 +52,30 @@ export class ActionStore extends StartStopService {
         // we forge unique ids for actions to uniquely distinguish them in the db
         const actionsWithId = actions.map(a => ({ id: uuid(), action: a }));
 
-        const componentSet = this.actions.get(componentName);
-        if (componentSet) actionsWithId.forEach(a => componentSet.add(a));
-        else this.actions.set(componentName, new Set(actionsWithId));
-
+        // DB
         let batch = this.subDb.batch();
         actionsWithId.forEach(({ id, action }) => {
             batch = batch.put(componentName + ":" + id, action);
         });
         await batch.write();
+
+        // MEMORY
+        const componentSet = this.actions.get(componentName);
+        if (componentSet) actionsWithId.forEach(a => componentSet.add(a));
+        else this.actions.set(componentName, new Set(actionsWithId));
+
         return actionsWithId;
     }
 
     /** Removes the action contained in `actionAndId`  */
     public async removeAction(componentName: string, actionAndId: ActionAndId) {
+        // DB
+        await this.subDb.del(componentName + ":" + actionAndId.id);
+        
+        // MEMORY
         const actions = this.actions.get(componentName);
         if (!actions) return;
         else actions.delete(actionAndId);
-        await this.subDb.del(componentName + ":" + actionAndId.id);
+        
     }
 }
