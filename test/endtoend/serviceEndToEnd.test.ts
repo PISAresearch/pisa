@@ -420,7 +420,7 @@ describe("Service end-to-end", () => {
         const nonce = 0;
         await pisaClient.backUp(digest => wallet0.signMessage(arrayify(digest)), account0, data, currentBlockNumber, id, nonce);
 
-        const restore = await pisaClient.restore(account0);
+        const restore = await pisaClient.restore(digest => wallet0.signMessage(arrayify(digest)), account0, currentBlockNumber);
         expect(restore.length).to.equal(1);
         expect(restore[0]).to.deep.equal({
             customerAddress: account0,
@@ -440,7 +440,7 @@ describe("Service end-to-end", () => {
         await pisaClient.backUp(digest => wallet0.signMessage(arrayify(digest)), account0, data, currentBlockNumber, id1, nonce);
         await pisaClient.backUp(digest => wallet0.signMessage(arrayify(digest)), account0, data2, currentBlockNumber, id2, nonce);
 
-        const restore = await pisaClient.restore(account0);
+        const restore = await pisaClient.restore(digest => wallet0.signMessage(arrayify(digest)), account0, currentBlockNumber);
         expect(restore.length).to.equal(2);
         expect(restore).to.deep.equal([
             {
@@ -468,7 +468,7 @@ describe("Service end-to-end", () => {
         await pisaClient.backUp(digest => wallet0.signMessage(arrayify(digest)), account0, data, currentBlockNumber, id1, nonce);
         await pisaClient.backUp(digest => wallet0.signMessage(arrayify(digest)), account0, data2, currentBlockNumber, id1, nonce2);
 
-        const restore = await pisaClient.restore(account0);
+        const restore = await pisaClient.restore(digest => wallet0.signMessage(arrayify(digest)), account0, currentBlockNumber);
         expect(restore.length).to.equal(1);
         expect(restore).to.deep.equal([
             {
@@ -502,12 +502,13 @@ describe("Service end-to-end", () => {
             KitsuneTools.topics()
         );
 
-        const restore = await pisaClient.restore(account0);
+        const restore = await pisaClient.restore(digest => wallet0.signMessage(arrayify(digest)), account0, currentBlockNumber);
         expect(restore.length).to.equal(0);
     }).timeout(3000);
 
     it("cannot restore empty appointments", async () => {
-        const restore = await pisaClient.restore(account0);
+        const currentBlockNumber = await provider.getBlockNumber();
+        const restore = await pisaClient.restore(digest => wallet0.signMessage(arrayify(digest)), account0, currentBlockNumber);
         expect(restore.length).to.equal(0);
     }).timeout(3000);
 });
