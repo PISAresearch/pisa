@@ -352,7 +352,7 @@ export default class PisaClient {
 
         const headers = new Headers();
         headers.set("Content-Type", "application/json");
-        headers.set(PisaClient.HEADER_AUTH_BLOCK, currentBlockNumber.toString(16));
+        headers.set(PisaClient.HEADER_AUTH_BLOCK, currentBlockNumber.toString(10));
         headers.set(PisaClient.HEADER_AUTH_SIG, customerSig);
 
         const response = await crossFetch(this.pisaUrl + "/" + PisaClient.APPOINTMENT_CUSTOMER_GET_ENDPOINT + "/" + customerAddress, {
