@@ -64,7 +64,7 @@ export class PisaService extends StartStopService {
         receiptWallet: ethers.Wallet,
         db: LevelUp<encodingDown<string, any>>
     ) {
-        super("pisa");
+        super("service");
         const app = express();
         this.applyMiddlewares(app, config);
 
