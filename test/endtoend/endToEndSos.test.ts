@@ -1,5 +1,5 @@
 import "mocha";
-import * as SosContract from "./../smoke/SOSContract";
+import * as SosContract from "../smoke/SOSContract";
 import { Wallet, ethers } from "ethers";
 import levelup, { LevelUp } from "levelup";
 import MemDown from "memdown";
@@ -10,7 +10,7 @@ import { PisaService } from "../../src/service";
 import { wait } from "../../src/utils";
 import { BigNumber, arrayify } from "ethers/utils";
 import { expect } from "chai";
-import { deployPisa } from "./utils/contract";
+import { deployPisa } from "../src/utils/contract";
 import PisaClient from "../../client";
 import { encodeTopicsForPisa } from "../../src/utils/ethers";
 const ganache = Ganache.provider({
