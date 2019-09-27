@@ -318,7 +318,7 @@ describe("Service end-to-end", () => {
             KitsuneTools.topics()
         );
 
-        const res = await pisaClient.getAppointmentsByCustomer(account0);
+        const res = await pisaClient.getAppointmentsByCustomer(digest => wallet0.signMessage(arrayify(digest)), account0, currentBlockNumber);
         expect(res).to.deep.equal([appointment]);
     }).timeout(3000);
 
@@ -341,7 +341,7 @@ describe("Service end-to-end", () => {
             1000000,
             100,
             channelContract.address,
-            KitsuneTools.topics(),
+            KitsuneTools.topics()
         );
         const appointment2 = await pisaClient.generateAndExecuteRequest(
             digest => wallet0.signMessage(arrayify(digest)),
@@ -355,7 +355,7 @@ describe("Service end-to-end", () => {
             1000000,
             100,
             channelContract.address,
-            KitsuneTools.topics(),
+            KitsuneTools.topics()
         );
         const appointment3 = await pisaClient.generateAndExecuteRequest(
             digest => wallet0.signMessage(arrayify(digest)),
@@ -369,10 +369,10 @@ describe("Service end-to-end", () => {
             1000000,
             100,
             channelContract.address,
-            KitsuneTools.topics(),
+            KitsuneTools.topics()
         );
 
-        const res = await pisaClient.getAppointmentsByCustomer(account0);
+        const res = await pisaClient.getAppointmentsByCustomer(digest => wallet0.signMessage(arrayify(digest)), account0, currentBlockNumber);
         expect(res).to.deep.equal([appointment2.appointment, appointment3.appointment]);
     }).timeout(3000);
 });

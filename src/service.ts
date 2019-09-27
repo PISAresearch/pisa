@@ -7,11 +7,11 @@ import { Watcher, AppointmentStore } from "./watcher";
 import { PisaTower } from "./tower";
 import { GasPriceEstimator, MultiResponder, MultiResponderComponent, ResponderStore } from "./responder";
 import { IArgConfig } from "./dataEntities/config";
-import { BlockProcessor, BlockCache } from "./blockMonitor";
+import { BlockProcessor, BlockCache, ReadOnlyBlockCache } from "./blockMonitor";
 import { LevelUp } from "levelup";
 import encodingDown from "encoding-down";
 import { blockFactory } from "./blockMonitor";
-import { Block, BlockItemStore } from "./dataEntities/block";
+import { Block, BlockItemStore, IBlockStub } from "./dataEntities/block";
 import { BlockchainMachine } from "./blockMonitor/blockchainMachine";
 import { ActionStore } from "./blockMonitor/actionStore";
 import { Logger } from "./logger";
@@ -128,7 +128,7 @@ export class PisaService extends StartStopService {
         app.get(this.JSON_SCHEMA_ROUTE, (req, res) => {
             res.sendFile(path.join(__dirname, "dataEntities/appointmentRequestSchema.json"));
         });
-        app.get(this.APPOINTMENT_CUSTOMER_GET_ROUTE, this.getAppointmentsByCustomer(this.appointmentStore));
+        app.get(this.APPOINTMENT_CUSTOMER_GET_ROUTE, this.getAppointmentsByCustomer(this.appointmentStore, blockCache));
 
         // set up 404
         app.all("*", function(req, res) {
@@ -291,10 +291,15 @@ export class PisaService extends StartStopService {
      * Get all the appointments for a given customer from the tower
      * @param appointmentStore
      */
-    private getAppointmentsByCustomer(appointmentStore: AppointmentStore) {
+    private getAppointmentsByCustomer(appointmentStore: AppointmentStore, blockCache: ReadOnlyBlockCache<IBlockStub>) {
         return this.handlerWrapper(async (req: requestAndLog) => {
-            let customerAddress: string = req.params.customerAddress;
-            if (!customerAddress) throw new PublicDataValidationError("Missing customerAddress parameter in url.");
+            const customerAddress = PisaParameters.customerAddress(req);
+            const authBlock = PisaHeaders.authBlock(req, blockCache);
+            const authSig = PisaHeaders.authSig(req);
+
+            // authenticate
+            const authenticator = new Authenticator(req.log);
+            authenticator.authenticate(authBlock, authSig, customerAddress);
 
             const appointments = [...(appointmentStore.appointmentsByCustomerAddress.get(customerAddress) || [])];
 
@@ -335,5 +340,59 @@ export class PisaService extends StartStopService {
                 <script src="https://cdn.jsdelivr.net/npm/redoc@next/bundles/redoc.standalone.js"> </script>
             </body>
         </html>`;
+    }
+}
+
+class Authenticator {
+    constructor(private readonly logger: Logger) {}
+
+    public authenticate(blockNumber: number, signature: string, customerAddress: string) {
+        let recoveredAddress;
+        try {
+            recoveredAddress = ethers.utils.verifyMessage(ethers.utils.arrayify("0x" + blockNumber.toString(16)), signature);
+        } catch (doh) {
+            this.logger.error(doh);
+            throw new PublicDataValidationError("Invalid x-auth-sig header.");
+        }
+        if (recoveredAddress !== customerAddress) throw new PublicDataValidationError("Signing key does not match customer address.");
+    }
+}
+
+class PisaParameters {
+    public static customerAddress(req: express.Request) {
+        // customer address
+        const customerAddress: string = req.params.customerAddress;
+        if (!customerAddress) throw new PublicDataValidationError("Missing customerAddress parameter in url.");
+        return customerAddress;
+    }
+}
+
+class PisaHeaders {
+    private static HEADER_AUTH_BLOCK = "x-auth-block";
+    private static HEADER_AUTH_SIG = "x-auth-sig";
+
+    public static authBlock(req: requestAndLog, blockCache: ReadOnlyBlockCache<IBlockStub>) {
+        // auth block
+        const authBlockString = req.headers[PisaHeaders.HEADER_AUTH_BLOCK];
+        if (authBlockString == undefined) throw new PublicDataValidationError("Missing header x-auth-block must contain recent block number.");
+
+        let authBlock;
+        try {
+            authBlock = Number.parseInt(authBlockString as string);
+        } catch (doh) {
+            req.log.error(doh);
+            throw new PublicDataValidationError("Header x-auth-block is not an integer.");
+        }
+        if (authBlock > blockCache.head.number + 5) throw new PublicDataValidationError(`Header x-auth-block too high. Must be within 5 blocks of current block ${blockCache.head.number}.`); //prettier-ignore
+        if (authBlock < blockCache.head.number - 5) throw new PublicDataValidationError(`Header x-auth-block too low. Must be within 5 blocks of current block ${blockCache.head.number}.`); //prettier-ignore
+
+        return authBlock;
+    }
+
+    public static authSig(req: requestAndLog) {
+        const sig = req.headers[PisaHeaders.HEADER_AUTH_SIG];
+        if (sig == undefined) throw new PublicDataValidationError("Missing header x-auth-sig must contain authentication signature.");
+        if (Array.isArray(sig)) throw new PublicDataValidationError("Invalid x-auth-sig. Only one header of this name may be supplied.");
+        return sig;
     }
 }
