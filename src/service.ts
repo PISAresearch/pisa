@@ -390,7 +390,11 @@ class PisaHeaderParser {
     }
 
     public static authSig(req: requestAndLog) {
+<<<<<<< HEAD
         const sig = req.headers[PisaHeaderParser.HEADER_AUTH_SIG];
+=======
+        const sig = req.headers[PisaHeaders.HEADER_AUTH_SIG];
+>>>>>>> Added some authentication to PISA get requests
         if (sig == undefined) throw new PublicDataValidationError("Missing header x-auth-sig must contain authentication signature.");
         if (Array.isArray(sig)) throw new PublicDataValidationError("Invalid x-auth-sig. Only one header of this name may be supplied.");
         return sig;
