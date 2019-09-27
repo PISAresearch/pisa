@@ -10,7 +10,7 @@ import Ganache from "ganache-core";
 import levelup, { LevelUp } from "levelup";
 import MemDown from "memdown";
 import encodingDown from "encoding-down";
-import { deployPisa } from "./utils/contract";
+import { deployPisa } from "../src/utils/contract";
 import { wait } from "../../src/utils";
 import PisaClient from "../../client";
 chai.use(chaiAsPromised);
