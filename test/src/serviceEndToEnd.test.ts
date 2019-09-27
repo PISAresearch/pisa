@@ -318,7 +318,8 @@ describe("Service end-to-end", () => {
             KitsuneTools.topics()
         );
 
-        const res = await pisaClient.getAppointmentsByCustomer(digest => wallet0.signMessage(arrayify(digest)), account0, currentBlockNumber);
+        const getRequestBlockNumber = await provider.getBlockNumber();
+        const res = await pisaClient.getAppointmentsByCustomer(digest => wallet0.signMessage(arrayify(digest)), account0, getRequestBlockNumber);
         expect(res).to.deep.equal([appointment]);
     }).timeout(3000);
 
@@ -372,7 +373,8 @@ describe("Service end-to-end", () => {
             KitsuneTools.topics()
         );
 
-        const res = await pisaClient.getAppointmentsByCustomer(digest => wallet0.signMessage(arrayify(digest)), account0, currentBlockNumber);
+        const getBlockNumber = await provider.getBlockNumber();
+        const res = await pisaClient.getAppointmentsByCustomer(digest => wallet0.signMessage(arrayify(digest)), account0, getBlockNumber);
         expect(res).to.deep.equal([appointment2.appointment, appointment3.appointment]);
     }).timeout(3000);
 });
