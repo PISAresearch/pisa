@@ -51,26 +51,28 @@ export class LogLevelInfo {
     }
 }
 
-// Default to log level "info", unless we are running tests, then "debug"
-let currentLogLevelInfo = LogLevelInfo.Info;
-
 // create the log directory if it does not exist
 if (!fs.existsSync("./" + logDir)) {
     fs.mkdirSync("./" + logDir);
 }
 
+let initialisedLogLevelInfo = LogLevelInfo.Info;
+let initialisedInstanceName = "not-set";
+
 // Default logger
-const logger = createNamedLogger(null);
+const logger = createNamedLogger("main", initialisedLogLevelInfo);
 export default logger;
 
+// Default to log level "info", unless we are running tests, then "debug"
+
+
 /**
- * Set the log level for new loggers and for the default logger.
+ * Set the initialisation settings for new loggers and for the default logger.
  * NOTE: make sure to call this before any other logger is created.
- *
- * @throws ApplicationError if the provided `level` is not one of the allowed log levels.
  **/
-export function setLogLevel(level: LogLevelInfo) {
-    currentLogLevelInfo = level;
+export function initialise(level: LogLevelInfo, instanceName: string) {
+    initialisedLogLevelInfo = level;
+    if (instanceName) initialisedInstanceName = instanceName;
 }
 
 function ArgumentErrorSerialiser(err: Error) {
@@ -85,14 +87,13 @@ function ArgumentErrorSerialiser(err: Error) {
 /**
  * Creates a named logger with name `name`. If `name` is given, the logs are saved in a file with the `${name}-` prefix.
  * Otherwise, there will be no prefix.
- * @param name
+ * @param component
  */
-export function createNamedLogger(name: string | null) {
-    name = name || "app";
-    const prefix = name + "-";
+export function createNamedLogger(component: string, logLevel: LogLevelInfo = initialisedLogLevelInfo) {
+    const prefix = component + "-";
 
     const streams: Stream[] = [];
-    for (const levelInfo of currentLogLevelInfo.getLevelsBelow()) {
+    for (const levelInfo of logLevel.getLevelsBelow()) {
         streams.push({ path: path.join(logDir, `${prefix}${levelInfo.logLevel}.log`), level: levelInfo.logLevel });
     }
 
@@ -105,14 +106,16 @@ export function createNamedLogger(name: string | null) {
     }
 
     const newLogger = createLogger({
-        name,
+        name: "pisa-watchtower",
         streams,
         serializers: {
             err: ArgumentErrorSerialiser,
             res: stdSerializers.res,
             req: stdSerializers.req
         }
-    });
+    })
+        .child({ "instance-name": initialisedInstanceName })
+        .child({ component: component });
 
     return newLogger;
 }
