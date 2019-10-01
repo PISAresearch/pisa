@@ -286,7 +286,7 @@ describe("Service end-to-end", () => {
         oneWayChannelContract.once(triggerDisputeEvent, async () => (success = true));
 
         await pisaClient.executeRequest(req);
-        expect(await expectAsync(pisaClient.executeRequest(req))).to.throw;
+        (await expectAsync(pisaClient.executeRequest(req))).to.throw;
 
         try {
             // wait for the success result
