@@ -30,7 +30,7 @@ const nextConfig = {
     watcherResponseConfirmations: 0,
     maximumReorgLimit: 10
 };
-const provider = new ethers.providers.Web3Provider(ganache);
+const provider = new ethers.providers.Web3Provider(ganache as ethers.providers.AsyncSendable);
 provider.pollingInterval = 100;
 
 describe("sos end to end", () => {
@@ -315,9 +315,9 @@ describe("sos end to end", () => {
             "yay1",
             "0x0000000000000000000000000000000000000000000000000000000000000001"
         );
-        const snapshotId: number = await promiseSendAsync(ganache, { method: "evm_snapshot" });
+        const snapshotId: number = await promiseSendAsync(ganache as ethers.providers.AsyncSendable, { method: "evm_snapshot" });
         await callDistressAndWaitForCounter("sos", 1);
-        await promiseSendAsync(ganache, { method: "evm_revert", params: snapshotId });
+        await promiseSendAsync(ganache as ethers.providers.AsyncSendable, { method: "evm_revert", params: snapshotId });
         // ensure that the revert occurred well
         expect((await rescueContract.rescueCount()).toNumber()).to.equal(0);
 
