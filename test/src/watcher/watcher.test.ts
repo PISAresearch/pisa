@@ -10,13 +10,7 @@ import { AppointmentStore } from "../../../src/watcher";
 import { MultiResponder } from "../../../src/responder";
 import { BlockCache } from "../../../src/blockMonitor";
 import { ApplicationError, IBlockStub, Logs, Appointment, BlockItemStore } from "../../../src/dataEntities";
-import {
-    EventFilterStateReducer,
-    WatcherAppointmentState,
-    Watcher,
-    WatcherAppointmentAnchorState,
-    WatcherActionKind
-} from "../../../src/watcher/watcher";
+import { EventFilterStateReducer, WatcherAppointmentState, Watcher, WatcherAppointmentAnchorState, WatcherActionKind } from "../../../src/watcher/watcher";
 import fnIt from "../../utils/fnIt";
 import throwingInstance from "../../utils/throwingInstance";
 
@@ -93,39 +87,27 @@ describe("WatcherAppointmentStateReducer", () => {
         expect(() => new EventFilterStateReducer(blockCache, { address: "address" }, 0)).to.throw(ApplicationError);
     });
 
-    fnIt<EventFilterStateReducer>(
-        w => w.getInitialState,
-        "initializes to WATCHING if event not present in ancestry",
-        () => {
-            const asr = new EventFilterStateReducer(blockCache, observedEventFilter, startBlock);
+    fnIt<EventFilterStateReducer>(w => w.getInitialState, "initializes to WATCHING if event not present in ancestry", () => {
+        const asr = new EventFilterStateReducer(blockCache, observedEventFilter, startBlock);
 
-            expect(asr.getInitialState(blocks[1])).to.deep.equal({ state: WatcherAppointmentState.WATCHING });
-        }
-    );
+        expect(asr.getInitialState(blocks[1])).to.deep.equal({ state: WatcherAppointmentState.WATCHING });
+    });
 
-    fnIt<EventFilterStateReducer>(
-        w => w.getInitialState,
-        "initializes to OBSERVED if event is present in the last block",
-        () => {
-            const asr = new EventFilterStateReducer(blockCache, observedEventFilter, startBlock);
-            expect(asr.getInitialState(blocks[2])).to.deep.equal({
-                state: WatcherAppointmentState.OBSERVED,
-                blockObserved: blocks[2].number
-            });
-        }
-    );
+    fnIt<EventFilterStateReducer>(w => w.getInitialState, "initializes to OBSERVED if event is present in the last block", () => {
+        const asr = new EventFilterStateReducer(blockCache, observedEventFilter, startBlock);
+        expect(asr.getInitialState(blocks[2])).to.deep.equal({
+            state: WatcherAppointmentState.OBSERVED,
+            blockObserved: blocks[2].number
+        });
+    });
 
-    fnIt<EventFilterStateReducer>(
-        w => w.getInitialState,
-        "initializes to OBSERVED if event is present in ancestry, updates blockObserved",
-        () => {
-            const asr = new EventFilterStateReducer(blockCache, observedEventFilter, startBlock);
-            expect(asr.getInitialState(blocks[3])).to.deep.equal({
-                state: WatcherAppointmentState.OBSERVED,
-                blockObserved: blocks[2].number
-            });
-        }
-    );
+    fnIt<EventFilterStateReducer>(w => w.getInitialState, "initializes to OBSERVED if event is present in ancestry, updates blockObserved", () => {
+        const asr = new EventFilterStateReducer(blockCache, observedEventFilter, startBlock);
+        expect(asr.getInitialState(blocks[3])).to.deep.equal({
+            state: WatcherAppointmentState.OBSERVED,
+            blockObserved: blocks[2].number
+        });
+    });
 
     fnIt<EventFilterStateReducer>(w => w.reduce, "does not change state if event is not observed in new block", () => {
         const asr = new EventFilterStateReducer(blockCache, observedEventFilter, startBlock);
@@ -140,30 +122,22 @@ describe("WatcherAppointmentStateReducer", () => {
         expect(result).to.deep.equal({ state: WatcherAppointmentState.WATCHING });
     });
 
-    fnIt<EventFilterStateReducer>(
-        w => w.getInitialState,
-        "does not initialize to OBSERVED if event is present, but deeper than startBlock",
-        () => {
-            // Appointment with same locator, but with startBlock past the event trigger
-            const asr = new EventFilterStateReducer(blockCache, observedEventFilter, 3);
-            expect(asr.getInitialState(blocks[3])).to.deep.equal({
-                state: WatcherAppointmentState.WATCHING
-            });
-        }
-    );
+    fnIt<EventFilterStateReducer>(w => w.getInitialState, "does not initialize to OBSERVED if event is present, but deeper than startBlock", () => {
+        // Appointment with same locator, but with startBlock past the event trigger
+        const asr = new EventFilterStateReducer(blockCache, observedEventFilter, 3);
+        expect(asr.getInitialState(blocks[3])).to.deep.equal({
+            state: WatcherAppointmentState.WATCHING
+        });
+    });
 
-    fnIt<EventFilterStateReducer>(
-        w => w.getInitialState,
-        "does initialize to OBSERVED if event is present exactly at startBlock",
-        () => {
-            // Appointment with same locator, but with startBlock past the event trigger
-            const asr = new EventFilterStateReducer(blockCache, observedEventFilter, 2);
-            expect(asr.getInitialState(blocks[3])).to.deep.equal({
-                state: WatcherAppointmentState.OBSERVED,
-                blockObserved: 2
-            });
-        }
-    );
+    fnIt<EventFilterStateReducer>(w => w.getInitialState, "does initialize to OBSERVED if event is present exactly at startBlock", () => {
+        // Appointment with same locator, but with startBlock past the event trigger
+        const asr = new EventFilterStateReducer(blockCache, observedEventFilter, 2);
+        expect(asr.getInitialState(blocks[3])).to.deep.equal({
+            state: WatcherAppointmentState.OBSERVED,
+            blockObserved: 2
+        });
+    });
 
     fnIt<EventFilterStateReducer>(w => w.reduce, "does change state if event is observed in new block", () => {
         const asr = new EventFilterStateReducer(blockCache, observedEventFilter, startBlock);
@@ -245,8 +219,10 @@ describe("Watcher", () => {
 
         mockedResponder = mock(MultiResponder);
         const pisaContractAddress = "pisa_address";
-        when(mockedResponder.pisaContractAddress).thenReturn(pisaContractAddress)
-        when(mockedResponder.startResponse(pisaContractAddress, appointment.encodeForResponse(), anyNumber(), appointment.id, anything(), anything())).thenResolve();
+        when(mockedResponder.pisaContractAddress).thenReturn(pisaContractAddress);
+        when(
+            mockedResponder.startResponse(pisaContractAddress, appointment.encodeForResponse(), anyNumber(), appointment.id, anything(), anything())
+        ).thenResolve();
         responder = throwingInstance(mockedResponder);
     });
 
@@ -267,11 +243,11 @@ describe("Watcher", () => {
 
         const actions = watcher.detectChanges(
             {
-                items: makeMap(appointment.id, { state: WatcherAppointmentState.OBSERVED, blockObserved: 2 }),
+                items: { [appointment.id]: { state: WatcherAppointmentState.OBSERVED, blockObserved: 2 } },
                 blockNumber: 2 + CONFIRMATIONS_BEFORE_RESPONSE - 2
             },
             {
-                items: makeMap(appointment.id, { state: WatcherAppointmentState.OBSERVED, blockObserved: 2 }),
+                items: { [appointment.id]: { state: WatcherAppointmentState.OBSERVED, blockObserved: 2 } },
                 blockNumber: 2 + CONFIRMATIONS_BEFORE_RESPONSE - 1
             }
         );
@@ -283,11 +259,11 @@ describe("Watcher", () => {
 
         const actions = watcher.detectChanges(
             {
-                items: makeMap(appointment.id, { state: WatcherAppointmentState.OBSERVED, blockObserved: 2 }),
+                items: { [appointment.id]: { state: WatcherAppointmentState.OBSERVED, blockObserved: 2 } },
                 blockNumber: 2 + CONFIRMATIONS_BEFORE_RESPONSE - 3
             },
             {
-                items: makeMap(appointment.id, { state: WatcherAppointmentState.OBSERVED, blockObserved: 2 }),
+                items: { [appointment.id]: { state: WatcherAppointmentState.OBSERVED, blockObserved: 2 } },
                 blockNumber: 2 + CONFIRMATIONS_BEFORE_RESPONSE - 2
             }
         );
@@ -299,11 +275,11 @@ describe("Watcher", () => {
 
         const actions = watcher.detectChanges(
             {
-                items: new Map<string, WatcherAppointmentAnchorState>(),
+                items: {},
                 blockNumber: 0
             },
             {
-                items: makeMap(appointment.id, { state: WatcherAppointmentState.OBSERVED, blockObserved: 2 }),
+                items: { [appointment.id]: { state: WatcherAppointmentState.OBSERVED, blockObserved: 2 } },
                 blockNumber: 2 + CONFIRMATIONS_BEFORE_RESPONSE - 1
             }
         );
@@ -315,11 +291,11 @@ describe("Watcher", () => {
 
         const actions = watcher.detectChanges(
             {
-                items: makeMap(appointment.id, { state: WatcherAppointmentState.OBSERVED, blockObserved: 2 }),
+                items: { [appointment.id]: { state: WatcherAppointmentState.OBSERVED, blockObserved: 2 } },
                 blockNumber: 2 + CONFIRMATIONS_BEFORE_RESPONSE - 1
             },
             {
-                items: makeMap(appointment.id, { state: WatcherAppointmentState.OBSERVED, blockObserved: 2 }),
+                items: { [appointment.id]: { state: WatcherAppointmentState.OBSERVED, blockObserved: 2 } },
                 blockNumber: 2 + CONFIRMATIONS_BEFORE_RESPONSE
             }
         );
@@ -331,11 +307,11 @@ describe("Watcher", () => {
 
         const actions = watcher.detectChanges(
             {
-                items: makeMap(appointment.id, { state: WatcherAppointmentState.OBSERVED, blockObserved: 2 }),
+                items: { [appointment.id]: { state: WatcherAppointmentState.OBSERVED, blockObserved: 2 } },
                 blockNumber: 2 + CONFIRMATIONS_BEFORE_REMOVAL - 2
             },
             {
-                items: makeMap(appointment.id, { state: WatcherAppointmentState.OBSERVED, blockObserved: 2 }),
+                items: { [appointment.id]: { state: WatcherAppointmentState.OBSERVED, blockObserved: 2 } },
                 blockNumber: 2 + CONFIRMATIONS_BEFORE_REMOVAL - 1
             }
         );
@@ -347,11 +323,11 @@ describe("Watcher", () => {
 
         const actions = watcher.detectChanges(
             {
-                items: makeMap(appointment.id, { state: WatcherAppointmentState.OBSERVED, blockObserved: 2 }),
+                items: { [appointment.id]: { state: WatcherAppointmentState.OBSERVED, blockObserved: 2 } },
                 blockNumber: 2 + CONFIRMATIONS_BEFORE_REMOVAL - 3
             },
             {
-                items: makeMap(appointment.id, { state: WatcherAppointmentState.OBSERVED, blockObserved: 2 }),
+                items: { [appointment.id]: { state: WatcherAppointmentState.OBSERVED, blockObserved: 2 } },
                 blockNumber: 2 + CONFIRMATIONS_BEFORE_REMOVAL - 2
             }
         );
@@ -363,11 +339,11 @@ describe("Watcher", () => {
 
         const actions = watcher.detectChanges(
             {
-                items: makeMap(appointment.id, { state: WatcherAppointmentState.WATCHING }),
+                items: { [appointment.id]: { state: WatcherAppointmentState.WATCHING } },
                 blockNumber: 101 + CONFIRMATIONS_BEFORE_REMOVAL - 1
             },
             {
-                items: makeMap(appointment.id, { state: WatcherAppointmentState.WATCHING }),
+                items: { [appointment.id]: { state: WatcherAppointmentState.WATCHING } },
                 blockNumber: 101 + CONFIRMATIONS_BEFORE_REMOVAL
             }
         );
@@ -379,11 +355,11 @@ describe("Watcher", () => {
 
         const actions = watcher.detectChanges(
             {
-                items: makeMap(appointment.id, { state: WatcherAppointmentState.WATCHING }),
+                items: { [appointment.id]: { state: WatcherAppointmentState.WATCHING } },
                 blockNumber: 101 + CONFIRMATIONS_BEFORE_REMOVAL - 2
             },
             {
-                items: makeMap(appointment.id, { state: WatcherAppointmentState.WATCHING }),
+                items: { [appointment.id]: { state: WatcherAppointmentState.WATCHING } },
                 blockNumber: 101 + CONFIRMATIONS_BEFORE_REMOVAL - 1
             }
         );
@@ -395,11 +371,11 @@ describe("Watcher", () => {
 
         const actions = watcher.detectChanges(
             {
-                items: makeMap(appointment.id, { state: WatcherAppointmentState.WATCHING }),
+                items: { [appointment.id]: { state: WatcherAppointmentState.WATCHING } },
                 blockNumber: 101 + CONFIRMATIONS_BEFORE_REMOVAL
             },
             {
-                items: makeMap(appointment.id, { state: WatcherAppointmentState.WATCHING }),
+                items: { [appointment.id]: { state: WatcherAppointmentState.WATCHING } },
                 blockNumber: 101 + CONFIRMATIONS_BEFORE_REMOVAL + 1
             }
         );
