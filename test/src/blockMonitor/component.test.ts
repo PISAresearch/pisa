@@ -85,28 +85,19 @@ describe("MappedStateReducer", () => {
         expect(initialState.someNumber).to.equal(10 + blocks[1].number);
     });
 
-    fnIt<MappedStateReducer<any, any, any, any>>(
-        m => m.getInitialState,
-        "computes initial state on mapped state",
-        () => {
-            const msr = new MappedStateReducer(
-                () => objects,
-                ({ value }) => new TestAnchorStateReducer(value),
-                o => o.id,
-                new NullReducer()
-            );
+    fnIt<MappedStateReducer<any, any, any, any>>(m => m.getInitialState, "computes initial state on mapped state", () => {
+        const msr = new MappedStateReducer(() => objects, ({ value }) => new TestAnchorStateReducer(value), o => o.id, new NullReducer());
 
-            const initialState = msr.getInitialState(blocks[0]);
-            expect(Object.keys(initialState)).to.eql(["items"]);
+        const initialState = msr.getInitialState(blocks[0]);
+        expect(Object.keys(initialState)).to.eql(["items"]);
 
-            const expectedMap = new Map<string, TestAnchorState>();
-            for (const { id, value } of objects) {
-                expectedMap.set(id, { someNumber: value + blocks[0].number });
-            }
-
-            expect(initialState.items).to.deep.equal(expectedMap);
+        const expectedMap: { [index: string]: TestAnchorState } = {};
+        for (const { id, value } of objects) {
+            expectedMap[id] = { someNumber: value + blocks[0].number };
         }
-    );
+
+        expect(initialState.items).to.deep.equal(expectedMap);
+    });
 
     fnIt<MappedStateReducer<any, any, any, any>>(m => m.reduce, "computes reduces state", () => {
         const msr = new MappedStateReducer<TestAnchorState, {}, IBlockStub, { id: string }>(
@@ -123,61 +114,48 @@ describe("MappedStateReducer", () => {
     });
 
     fnIt<MappedStateReducer<any, any, any, any>>(m => m.reduce, "computes state on mapped states", () => {
-        const msr = new MappedStateReducer(
-            () => objects,
-            ({ value }) => new TestAnchorStateReducer(value),
-            o => o.id,
-            new NullReducer()
-        );
+        const msr = new MappedStateReducer(() => objects, ({ value }) => new TestAnchorStateReducer(value), o => o.id, new NullReducer());
 
-        const items = new Map<string, TestAnchorState>();
-        items.set(objects[0].id, { someNumber: objects[0].value });
-        items.set(objects[1].id, { someNumber: objects[1].value });
-        items.set(objects[2].id, { someNumber: objects[2].value });
+        const items: { [index: string]: TestAnchorState } = {};
+        items[objects[0].id] = { someNumber: objects[0].value };
+        items[objects[1].id] = { someNumber: objects[1].value };
+        items[objects[2].id] = { someNumber: objects[2].value };
         const initialState = { items };
 
         const reducedState = msr.reduce(initialState, blocks[1]);
 
         expect(Object.keys(reducedState)).to.eql(["items"]);
 
-        const expectedMap = new Map<string, TestAnchorState>();
+        const expectedItems: { [index: string]: TestAnchorState } = {};
         for (const { id, value } of objects) {
-            expectedMap.set(id, { someNumber: value + blocks[1].number });
+            expectedItems[id] = { someNumber: value + blocks[1].number };
         }
 
-        expect(reducedState.items).to.deep.equal(expectedMap);
+        expect(reducedState.items).to.deep.equal(expectedItems);
     });
 
-    fnIt<MappedStateReducer<any, any, any, any>>(
-        m => m.reduce,
-        "calls getInitialState if a new object id is added to the collection",
-        () => {
-            // start with only two objects
-            const items = new Map<string, TestAnchorState>();
-            items.set(objects[0].id, { someNumber: objects[0].value + blocks[0].number });
-            items.set(objects[1].id, { someNumber: objects[1].value + blocks[0].number });
-            const initialState = { items };
+    fnIt<MappedStateReducer<any, any, any, any>>(m => m.reduce, "calls getInitialState if a new object id is added to the collection", () => {
+        // start with only two objects
+        const items: { [index: string]: TestAnchorState } = {};
+        items[objects[0].id] = { someNumber: objects[0].value + blocks[0].number };
+        items[objects[1].id] = { someNumber: objects[1].value + blocks[0].number };
+        const initialState = { items };
 
-            // now call the reducer with all the three objects
-            const msr = new MappedStateReducer(
-                () => objects,
-                ({ value }) => new TestAnchorStateReducer(value),
-                o => o.id,
-                new NullReducer()
-            );
+        // now call the reducer with all the three objects
+        const msr = new MappedStateReducer(() => objects, ({ value }) => new TestAnchorStateReducer(value), o => o.id, new NullReducer());
 
-            const reducedState = msr.reduce(initialState, blocks[1]);
+        const reducedState = msr.reduce(initialState, blocks[1]);
 
-            expect(Object.keys(reducedState)).to.eql(["items"]);
+        expect(Object.keys(reducedState)).to.eql(["items"]);
 
-            const expectedMap = new Map<string, TestAnchorState>();
-            expectedMap.set(objects[0].id, { someNumber: objects[0].value + blocks[0].number + blocks[1].number });
-            expectedMap.set(objects[1].id, { someNumber: objects[1].value + blocks[0].number + blocks[1].number });
-            expectedMap.set(objects[2].id, { someNumber: objects[2].value + blocks[1].number }); // no block[0]!
+        // const expectedMap = new Map<string, TestAnchorState>();
+        const expectedState: { [index: string]: TestAnchorState } = {};
+        expectedState[objects[0].id] = { someNumber: objects[0].value + blocks[0].number + blocks[1].number };
+        expectedState[objects[1].id] = { someNumber: objects[1].value + blocks[0].number + blocks[1].number };
+        expectedState[objects[2].id] = { someNumber: objects[2].value + blocks[1].number }; // no block[0]!
 
-            expect(reducedState.items).to.deep.equal(expectedMap);
-        }
-    );
+        expect(reducedState.items).to.deep.equal(expectedState);
+    });
 });
 
 describe("BlockNumberReducer", () => {
