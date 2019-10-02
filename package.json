@@ -53,9 +53,11 @@
     },
     "homepage": "https://github.com/PISAresearch/pisa#readme",
     "dependencies": {
+        "@types/cors": "^2.8.6",
         "ajv": "^6.10.2",
         "better-ajv-errors": "^0.6.4",
         "bunyan": "^1.8.12",
+        "cors": "^2.8.5",
         "encoding-down": "^6.0.2",
         "ethers": "^4.0.27",
         "express": "^4.16.4",
