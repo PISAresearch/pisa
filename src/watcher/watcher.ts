@@ -151,8 +151,9 @@ export class Watcher extends Component<WatcherAnchorState, IBlockStub & Logs, Wa
     public detectChanges(prevState: WatcherAnchorState, state: WatcherAnchorState) {
         const actions: WatcherAction[] = [];
 
-        for (const [appointmentId, appointmentState] of state.items.entries()) {
-            const prevWatcherAppointmentState = prevState.items.get(appointmentId);
+        for (const appointmentId of Object.keys(state.items)) {
+            const appointmentState = state.items[appointmentId];
+            const prevWatcherAppointmentState = prevState.items[appointmentId];
 
             // Log if started watching a new appointment
             if (!prevWatcherAppointmentState && appointmentState.state === WatcherAppointmentState.WATCHING) {

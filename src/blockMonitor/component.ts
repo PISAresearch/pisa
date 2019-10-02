@@ -25,7 +25,7 @@ export interface StateReducer<TState extends AnchorState, TBlock extends IBlockS
  * Convenience type for a state derived from mapping strings (typically, an id) to a per-item state.
  */
 export type MappedState<TState extends AnchorState> = {
-    items: Map<string, TState>;
+    items: { [index: string]: TState };
 };
 
 /**
@@ -56,11 +56,11 @@ export class MappedStateReducer<TState extends AnchorState, TMappedState extends
      * @param block
      */
     public getInitialState(block: TBlock): MappedState<TMappedState> & TState {
-        const items: Map<string, TMappedState> = new Map();
+        const items: { [index: string]: TMappedState } = {};
         for (const obj of this.getItems()) {
             const baseReducer = this.getBaseReducer(obj);
             const id = this.idSelector(obj);
-            items.set(id, baseReducer.getInitialState(block));
+            items[id] = baseReducer.getInitialState(block);
         }
         const state = this.reducer.getInitialState(block);
 
@@ -74,17 +74,14 @@ export class MappedStateReducer<TState extends AnchorState, TMappedState extends
      * @param block
      */
     public reduce(prevState: MappedState<TMappedState> & TState, block: TBlock): MappedState<TMappedState> & TState {
-        const items: Map<string, TMappedState> = new Map();
+        const items: { [index: string]: TMappedState } = {};
         for (const obj of this.getItems()) {
             const baseReducer = this.getBaseReducer(obj);
             const id = this.idSelector(obj);
-            const prevObjState = prevState.items.get(id);
-            items.set(
-                id,
-                prevObjState
-                    ? baseReducer.reduce(prevObjState, block) // reduce from previous state
-                    : baseReducer.getInitialState(block) // no previous state
-            );
+            const prevObjState = prevState.items[id];
+            items[id] = prevObjState
+                ? baseReducer.reduce(prevObjState, block) // reduce from previous state
+                : baseReducer.getInitialState(block); // no previous state
         }
         const state = this.reducer.reduce(prevState, block);
         return { items, ...state };

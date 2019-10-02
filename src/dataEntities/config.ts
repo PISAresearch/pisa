@@ -142,6 +142,7 @@ export class ConfigManager {
         const returnConfig = Object.assign(config, fromCommandLine);
         this.checkLogLevel(returnConfig.loglevel);
         this.checkRateLimits(returnConfig);
+        this.checkMandatories(returnConfig);
         return returnConfig;
     }
 
@@ -163,12 +164,16 @@ export class ConfigManager {
             throw new Error("Option 'maximum-reorg-limit' cannot be 0.");
         }
     }
+
+    private checkMandatories(args: IArgConfig) {
+        if (!args.pisaContractAddress) throw new Error("Option 'pisa-contract-address' is mandatory and was not supplied.");
+    }
 }
 
 export class PisaConfigManager {
     public static getConfig() {
         const configManager = new ConfigManager(ConfigManager.PisaConfigProperties);
-        return configManager.getConfig()
+        return configManager.getConfig();
     }
 }
 

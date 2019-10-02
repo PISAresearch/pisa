@@ -2,7 +2,7 @@ import { PisaService } from "./service";
 import { ethers } from "ethers";
 import { PisaConfigManager, IArgConfig } from "./dataEntities/config";
 import { validateProvider, getJsonRPCProvider } from "./utils/ethers";
-import logger, {initialise, LogLevelInfo } from "./logger";
+import { initialise, LogLevelInfo } from "./logger";
 import levelup, { LevelUp } from "levelup";
 import encodingDown from "encoding-down";
 import leveldown from "leveldown";
@@ -49,4 +49,4 @@ async function stop(service: PisaService, db: LevelUp<encodingDown<string, any>>
     process.exit(0);
 }
 
-startUp().catch((doh: Error) => logger.error(doh));
+startUp().catch((doh: Error) => console.error(doh));
