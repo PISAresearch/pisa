@@ -23,6 +23,8 @@ import { BigNumber } from "ethers/utils";
 import swaggerDoc from "./public/swagger-doc.json";
 import favicon from "serve-favicon";
 import { BlockProcessorStore } from "./blockMonitor/blockProcessor";
+import cors from "cors";
+
 
 /**
  * Request object supplemented with a log
@@ -170,6 +172,10 @@ export class PisaService extends StartStopService {
     private applyMiddlewares(app: express.Express, config: IArgConfig) {
         // accept json request bodies
         app.use(express.json());
+
+        // allow cors on all routes
+        app.use(cors());
+        
         // use http context middleware to create a request id available on all requests
         app.use(httpContext.middleware);
         app.use(favicon(path.join(__dirname, "public", "favicon.ico")));
