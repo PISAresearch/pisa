@@ -2,7 +2,7 @@
   "swagger": "2.0",
   "info": {
     "description": "⚠️⚠️⚠️ **This code is in an alpha testing phase, any of it is liable to change at any time.** ⚠️⚠️⚠️\n\nPISA is an accountable watching service. PISA can be hired to watch for on-chain events by requesting an appointment. At its core PISA is a watch and respond service, you can configure PISA to watch for EVM events and provide it with data to respond with if the event occurs.\n\nThe PISA contract is deployed on Ropsten at [0xA02C7260c0020343040A504Ef24252c120be60b9](https://ropsten.etherscan.io/address/0xA02C7260c0020343040A504Ef24252c120be60b9), you will need to include this address when encoding the appointment for signature.",
-    "version": "0.1.2 Alpha",
+    "version": "0.1.4 Alpha",
     "title": "PISA Watchtower",
     "contact": {
       "email": "cpbuckland88@gmail.com"
