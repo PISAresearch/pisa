@@ -408,8 +408,6 @@ export default class PisaClient {
      */
     public async restore(signer: (digest: string) => Promise<string>, customerAddress: string, currentBlockNumber: number): Promise<BackupState[]> {
         const appointmentRequests = await this.getAppointmentsByCustomer(signer, customerAddress, currentBlockNumber);
-        // TODO: this is not the way to identify backups - in the long term these appointments
-        // will not differ from normal ones, instead we'll just provide a way to filter by address
         const isBackup = (a: AppointmentRequest) => a.eventAddress === customerAddress && a.contractAddress === a.customerAddress;
 
         return appointmentRequests
