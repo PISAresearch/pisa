@@ -175,6 +175,7 @@ export class PisaService extends StartStopService {
 
         // allow cors on all routes
         app.use(cors());
+        app.options('*', cors())
         
         // use http context middleware to create a request id available on all requests
         app.use(httpContext.middleware);
