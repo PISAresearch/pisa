@@ -32,7 +32,7 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
             try {
                 await component.applyAction(a.action);
                 await this.actionStore.removeAction(component.name, a);
-            } catch(doh) {
+            } catch (doh) {
                 this.logger.error(doh);
             }
         });
@@ -94,7 +94,7 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
                     prevHeadAnchorState = this.blockItemStore.prevEmittedAnchorState.get(component.name, parentBlock.hash);
 
                     const prevAnchorState =
-                        this.blockItemStore.anchorState.get<AnchorState>(component.name, parentBlock.hash) ||
+                    this.blockItemStore.anchorState.get<AnchorState>(component.name, parentBlock.hash) ||
                         component.reducer.getInitialState(parentBlock); // prettier-ignore
 
                     newState = component.reducer.reduce(prevAnchorState, block);
