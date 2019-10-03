@@ -1,7 +1,7 @@
 import crossFetch, { Headers } from "cross-fetch";
 import { defaultAbiCoder, keccak256, verifyMessage, arrayify } from "ethers/utils";
 
-class AppointmentRequest {
+interface AppointmentRequest {
     readonly customerAddress: string;
     readonly id: string;
     readonly nonce: number;
