@@ -93,7 +93,7 @@ export class ConfigManager {
     }
 }
 
-export class PisaConfigManager {
+export class PisaConfigManager extends ConfigManager {
     public static PisaConfigProperties = [
         new ConfigProperty("json-rpc-url", config => config.jsonRpcUrl, {
             description: "Ethereum blockchain rpc url",
@@ -166,9 +166,8 @@ export class PisaConfigManager {
         })
     ];
 
-    public static getConfig() {
-        const configManager = new ConfigManager(PisaConfigManager.PisaConfigProperties);
-        return configManager.getConfig();
+    constructor() {
+        super(PisaConfigManager.PisaConfigProperties);
     }
 }
 

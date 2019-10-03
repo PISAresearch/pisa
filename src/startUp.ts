@@ -9,7 +9,8 @@ import leveldown from "leveldown";
 
 let config: IArgConfig;
 try {
-    config = PisaConfigManager.getConfig();
+    const pisaConfigManager = new PisaConfigManager()
+    config = pisaConfigManager.getConfig();
 } catch (doh) {
     const err = doh as Error;
     console.error(err.message);

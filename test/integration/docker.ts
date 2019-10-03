@@ -1,6 +1,6 @@
 import DockerClient from "dockerode";
 import logger from "../../src/logger";
-import { IArgConfig, ConfigManager } from "../../src/dataEntities/config";
+import { IArgConfig, PisaConfigManager } from "../../src/dataEntities/config";
 import { FileUtils } from "./fileUtil";
 import path from "path";
 import fs from "fs";
@@ -94,7 +94,7 @@ export class PisaContainer extends DockerContainer {
         hostLogsDir: string,
         network: string
     ) {
-        const configManager = new ConfigManager(ConfigManager.PisaConfigProperties);
+        const configManager = new PisaConfigManager();
         const commandLineArgs = configManager.toCommandLineArgs(config);
         const volumes: string[] = [`${hostLogsDir}:/usr/pisa/logs`];
 
