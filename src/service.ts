@@ -135,7 +135,7 @@ export class PisaService extends StartStopService {
         // set up 404
         app.all("*", function(req, res) {
             res.status(404).json({
-                message: `Route ${req.url} not found, only availale routes are POST at /appointment and GET at /docs.html`
+                message: `Route ${req.url} not found, only available routes are POST at /appointment and GET at /docs.html`
             });
         });
 

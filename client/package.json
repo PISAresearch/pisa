@@ -1,9 +1,9 @@
 {
   "name": "pisa-client",
-  "version": "0.1.4-connext-beta",
+  "version": "0.1.4-connext-beta.1",
   "description": "A client library for the PISA API.",
-  "main": "build/index.js",
-  "types": "build/index.d.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "scripts": {
     "build": "rm -rf dist && tsc",
     "prepublishOnly": "npm run build"
