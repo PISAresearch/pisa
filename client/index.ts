@@ -1,4 +1,4 @@
-import crossFetch from "cross-fetch";
+import crossFetch, { Headers } from "cross-fetch";
 import { defaultAbiCoder, keccak256, verifyMessage, arrayify } from "ethers/utils";
 
 class AppointmentRequest {
@@ -35,6 +35,8 @@ interface AppointmentReceipt {
 export default class PisaClient {
     private static APPOINTMENT_ENDPOINT = "appointment";
     private static APPOINTMENT_CUSTOMER_GET_ENDPOINT = "appointment/customer";
+    private static HEADER_AUTH_BLOCK = "x-auth-block";
+    private static HEADER_AUTH_SIG = "x-auth-sig";
 
     /**
      *
@@ -43,14 +45,15 @@ export default class PisaClient {
      */
     public constructor(public readonly pisaUrl: string, public readonly pisaContractAddress: string) {}
 
-
     // Encode the topics in the format expected from Pisa's contract.
     // See the implementation in utils/ethers.ts in the main folder of Pisa for more details.
     private static encodeTopicsForPisa(topics: (string | null)[]) {
-        if (topics.length > 4) throw new Error(`There can be at most 4 topics. ${topics.length} were given.`)
+        if (topics.length > 4) throw new Error(`There can be at most 4 topics. ${topics.length} were given.`);
 
         const topicsBitmap = [0, 1, 2, 3].map(idx => topics.length > idx && topics[idx] != null);
-        const topicsFull = [0, 1, 2, 3].map(idx => topics.length > idx && topics[idx] != null ? topics[idx] : "0x0000000000000000000000000000000000000000000000000000000000000000");
+        const topicsFull = [0, 1, 2, 3].map(idx =>
+            topics.length > idx && topics[idx] != null ? topics[idx] : "0x0000000000000000000000000000000000000000000000000000000000000000"
+        );
         return defaultAbiCoder.encode(["bool[4]", "bytes32[4]"], [topicsBitmap, topicsFull]);
     }
 
@@ -343,10 +346,18 @@ export default class PisaClient {
      * Send a request to the Pisa tower to retrieve all the appointments for the given `customerAddress`.
      * @param customerAddress
      */
-    public async getAppointmentsByCustomer(customerAddress: string) {
+    public async getAppointmentsByCustomer(signer: (digest: string) => Promise<string>, customerAddress: string, currentBlockNumber: number) {
+        // create a sig over the current block
+        const customerSig = await signer("0x" + currentBlockNumber.toString(16));
+
+        const headers = new Headers();
+        headers.set("Content-Type", "application/json");
+        headers.set(PisaClient.HEADER_AUTH_BLOCK, currentBlockNumber.toString(10));
+        headers.set(PisaClient.HEADER_AUTH_SIG, customerSig);
+
         const response = await crossFetch(this.pisaUrl + "/" + PisaClient.APPOINTMENT_CUSTOMER_GET_ENDPOINT + "/" + customerAddress, {
             method: "GET",
-            headers: { "Content-Type": "application/json" }
+            headers: headers
         });
 
         return await this.checkResponse(response)
