@@ -3,7 +3,7 @@ import "mocha";
 import chaiAsPromised from "chai-as-promised";
 import { KitsuneTools } from "../external/kitsune/tools";
 import { ethers } from "ethers";
-import { arrayify } from "ethers/utils";
+import { arrayify, BigNumber } from "ethers/utils";
 import { PisaService } from "../../src/service";
 import config from "../../src/dataEntities/config";
 import Ganache from "ganache-core";
@@ -324,56 +324,37 @@ describe("Service end-to-end", () => {
     }).timeout(3000);
 
     it("cannot get an appointment in the past", async () => {
-        const round = 1;
-        const setStateHash = KitsuneTools.hashForSetState(hashState, round, channelContract.address);
-        const sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash));
-        const sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash));
-        const data = KitsuneTools.encodeSetStateData(hashState, round, sig0, sig1);
-        const currentBlockNumber = await provider.getBlockNumber();
-        await pisaClient.generateAndExecuteRequest(
-            digest => wallet0.signMessage(arrayify(digest)),
-            account0,
-            "0x0000000000000000000000000000000000000000000000000000000000000001",
-            0,
-            currentBlockNumber,
-            1000,
-            channelContract.address,
-            data,
-            1000000,
-            100,
-            channelContract.address,
-            KitsuneTools.topics()
-        );
-
         const getRequestBlockNumber = await provider.getBlockNumber();
         await mineBlocks(10, wallet0);
-        return expect(pisaClient.getAppointmentsByCustomer(digest => wallet0.signMessage(arrayify(digest)), account0, getRequestBlockNumber)).to.eventually.be.rejected;
+        return expect(pisaClient.getAppointmentsByCustomer(digest => wallet0.signMessage(arrayify(digest)), account0, getRequestBlockNumber)).to.eventually.be
+            .rejected;
     }).timeout(3000);
 
     it("cannot get an appointment in the future", async () => {
-        const round = 1;
-        const setStateHash = KitsuneTools.hashForSetState(hashState, round, channelContract.address);
-        const sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash));
-        const sig1 = await provider.getSigner(account1).signMessage(ethers.utils.arrayify(setStateHash));
-        const data = KitsuneTools.encodeSetStateData(hashState, round, sig0, sig1);
-        const currentBlockNumber = await provider.getBlockNumber();
-        await pisaClient.generateAndExecuteRequest(
-            digest => wallet0.signMessage(arrayify(digest)),
-            account0,
-            "0x0000000000000000000000000000000000000000000000000000000000000001",
-            0,
-            currentBlockNumber,
-            1000,
-            channelContract.address,
-            data,
-            1000000,
-            100,
-            channelContract.address,
-            KitsuneTools.topics()
-        );
-
         const getRequestBlockNumber = await provider.getBlockNumber();
-        return expect(pisaClient.getAppointmentsByCustomer(digest => wallet0.signMessage(arrayify(digest)), account0, getRequestBlockNumber + 10)).to.eventually.be.rejected;
+        return expect(pisaClient.getAppointmentsByCustomer(digest => wallet0.signMessage(arrayify(digest)), account0, getRequestBlockNumber + 10)).to.eventually
+            .be.rejected;
+    }).timeout(3000);
+
+    it("cannot get an appointment with sig from wrong party", async () => {
+        const getRequestBlockNumber = await provider.getBlockNumber();
+        return expect(pisaClient.getAppointmentsByCustomer(digest => wallet0.signMessage(arrayify(digest)), account1, getRequestBlockNumber)).to.eventually.be
+            .rejected;
+    }).timeout(3000);
+
+    it("cannot get an appointment with invalid sig", async () => {
+        const getRequestBlockNumber = await provider.getBlockNumber();
+        return expect(
+            pisaClient.getAppointmentsByCustomer(
+                async digest => {
+                    const sig = await wallet0.signMessage(arrayify(digest));
+                    // add 1 to the hex string to invalidate it
+                    return new BigNumber(sig).add(1).toHexString();
+                },
+                account0,
+                getRequestBlockNumber
+            )
+        ).to.eventually.be.rejected;
     }).timeout(3000);
 
     it("can get a multiple appointments", async () => {
