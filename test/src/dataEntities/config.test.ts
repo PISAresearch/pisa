@@ -1,6 +1,6 @@
 import "mocha";
 import { expect } from "chai";
-import { IArgConfig, ConfigManager } from "../../../src/dataEntities/config";
+import { IArgConfig, ConfigManager, PisaConfigManager } from "../../../src/dataEntities/config";
 
 describe("ConfigManager", () => {
     it("parses and serialises command line args", () => {
@@ -23,7 +23,7 @@ describe("ConfigManager", () => {
             rateLimitUserWindowMs: 60000
         };
 
-        const manager = new ConfigManager(ConfigManager.PisaConfigProperties);
+        const manager = new ConfigManager(PisaConfigManager.PisaConfigProperties);
         const args = manager.toCommandLineArgs(config);
         const parsedConfig = manager.fromCommandLineArgs(args);
         Object.keys(config).forEach(key => {
