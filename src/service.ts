@@ -293,9 +293,9 @@ export class PisaService extends StartStopService {
      */
     private getAppointmentsByCustomer(appointmentStore: AppointmentStore, blockCache: ReadOnlyBlockCache<IBlockStub>) {
         return this.handlerWrapper(async (req: requestAndLog) => {
-            const customerAddress = PisaParameters.customerAddress(req);
-            const authBlock = PisaHeaders.authBlock(req, blockCache);
-            const authSig = PisaHeaders.authSig(req);
+            const customerAddress = PisaParameterParser.customerAddress(req);
+            const authBlock = PisaHeaderParser.authBlock(req, blockCache);
+            const authSig = PisaHeaderParser.authSig(req);
 
             // authenticate
             const authenticator = new Authenticator(req.log);
@@ -358,7 +358,7 @@ class Authenticator {
     }
 }
 
-class PisaParameters {
+class PisaParameterParser {
     public static customerAddress(req: express.Request) {
         // customer address
         const customerAddress: string = req.params.customerAddress;
@@ -367,13 +367,13 @@ class PisaParameters {
     }
 }
 
-class PisaHeaders {
+class PisaHeaderParser {
     private static HEADER_AUTH_BLOCK = "x-auth-block";
     private static HEADER_AUTH_SIG = "x-auth-sig";
 
     public static authBlock(req: requestAndLog, blockCache: ReadOnlyBlockCache<IBlockStub>) {
         // auth block
-        const authBlockString = req.headers[PisaHeaders.HEADER_AUTH_BLOCK];
+        const authBlockString = req.headers[PisaHeaderParser.HEADER_AUTH_BLOCK];
         if (authBlockString == undefined) throw new PublicDataValidationError("Missing header x-auth-block must contain recent block number.");
 
         let authBlock;
@@ -390,7 +390,7 @@ class PisaHeaders {
     }
 
     public static authSig(req: requestAndLog) {
-        const sig = req.headers[PisaHeaders.HEADER_AUTH_SIG];
+        const sig = req.headers[PisaHeaderParser.HEADER_AUTH_SIG];
         if (sig == undefined) throw new PublicDataValidationError("Missing header x-auth-sig must contain authentication signature.");
         if (Array.isArray(sig)) throw new PublicDataValidationError("Invalid x-auth-sig. Only one header of this name may be supplied.");
         return sig;
