@@ -32,7 +32,7 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
             try {
                 await component.applyAction(a.action);
                 await this.actionStore.removeAction(component.name, a);
-            } catch(doh) {
+            } catch (doh) {
                 this.logger.error(doh);
             }
         });

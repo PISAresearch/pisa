@@ -177,13 +177,14 @@ export class MultiResponderComponent extends Component<ResponderAnchorState, Blo
         // every time the we handle a new head event there could potentially have been
         // a reorg, which in turn may have caused some items to be lost from the pending pool.
         // Therefore we check all of the missing items and re-enqueue them if necessary
-        const reEnqueueItems = [...state.items.values()].filter(appState => appState.kind === ResponderStateKind.Pending).map(q => q.appointmentId);
+        const reEnqueueItems = Object.values(state.items).filter(appState => appState.kind === ResponderStateKind.Pending).map(q => q.appointmentId);
         if (reEnqueueItems.length > 0) {
             actions.push({ kind: ResponderActionKind.ReEnqueueMissingItems, appointmentIds: reEnqueueItems });
         }
 
-        for (const [appointmentId, currentItem] of state.items.entries()) {
-            const prevItem = prevState.items.get(appointmentId);
+        for (const appointmentId of Object.keys(state.items)) {
+            const currentItem = state.items[appointmentId];
+            const prevItem = prevState.items[appointmentId];
 
             if (!prevItem && currentItem.kind === ResponderStateKind.Pending) {
                 logger.info({state: currentItem, id: appointmentId, blockNumber: state.blockNumber }, "New pending transaction.") // prettier-ignore

@@ -91,7 +91,7 @@ describe("ResponderAppointmentReducer", () => {
             for (const block of blocks) {
                 await blockCache.addBlock(block);
             }
-        })
+        });
     });
 
     afterEach(async () => {
@@ -202,8 +202,8 @@ const makeMinedAppointmentState = (appointmentId: string, data: string, blockMin
 };
 
 const setupState = (states: ResponderAppointmentAnchorState[], blockNumber: number): ResponderAnchorState => {
-    const items = new Map<string, ResponderAppointmentAnchorState>();
-    states.forEach(s => items.set(s.appointmentId, s));
+    const items: { [index: string]: ResponderAppointmentAnchorState } = {};
+    states.forEach(s => (items[s.appointmentId] = s));
     return {
         blockNumber,
         items

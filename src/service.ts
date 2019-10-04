@@ -23,6 +23,8 @@ import { BigNumber } from "ethers/utils";
 import swaggerDoc from "./public/swagger-doc.json";
 import favicon from "serve-favicon";
 import { BlockProcessorStore } from "./blockMonitor/blockProcessor";
+import cors from "cors";
+
 
 /**
  * Request object supplemented with a log
@@ -125,6 +127,11 @@ export class PisaService extends StartStopService {
             res.setHeader("Content-Type", "text/html");
             res.send(this.redocHtml());
         });
+        // also host the docs at the root
+        app.get("/", (req, res) => {
+            res.setHeader("Content-Type", "text/html");
+            res.send(this.redocHtml());
+        });
         app.get(this.JSON_SCHEMA_ROUTE, (req, res) => {
             res.sendFile(path.join(__dirname, "dataEntities/appointmentRequestSchema.json"));
         });
@@ -133,7 +140,7 @@ export class PisaService extends StartStopService {
         // set up 404
         app.all("*", function(req, res) {
             res.status(404).json({
-                message: `Route ${req.url} not found, only availale routes are POST at /appointment and GET at /docs.html`
+                message: `Route ${req.url} not found, only available routes are POST at /appointment and GET at /docs.html`
             });
         });
 
@@ -170,6 +177,11 @@ export class PisaService extends StartStopService {
     private applyMiddlewares(app: express.Express, config: IArgConfig) {
         // accept json request bodies
         app.use(express.json());
+
+        // allow cors on all routes
+        app.use(cors());
+        app.options('*', cors())
+        
         // use http context middleware to create a request id available on all requests
         app.use(httpContext.middleware);
         app.use(favicon(path.join(__dirname, "public", "favicon.ico")));

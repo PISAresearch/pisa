@@ -1,7 +1,7 @@
 import crossFetch, { Headers } from "cross-fetch";
 import { defaultAbiCoder, keccak256, verifyMessage, arrayify } from "ethers/utils";
 
-class AppointmentRequest {
+interface AppointmentRequest {
     readonly customerAddress: string;
     readonly id: string;
     readonly nonce: number;
@@ -30,6 +30,13 @@ interface AppointmentReceipt {
     readonly appointment: SignedApppointmentRequest;
     readonly watcherSignature: string;
     readonly watcherAddress: string;
+}
+
+interface BackupState {
+    readonly customerAddress: string;
+    readonly data: string;
+    readonly id: string;
+    readonly nonce: number;
 }
 
 export default class PisaClient {
@@ -363,6 +370,56 @@ export default class PisaClient {
         return await this.checkResponse(response)
             .then(res => res.json())
             .then(res => res as AppointmentRequest[]);
+    }
+
+    /**
+     * Backup some data to the PISA server.
+     * @param signer A function sign the PISA appointment
+     * @param data The data to backup
+     * @param customerAddress The customer address backing up the data
+     * @param startBlock The start block from when the backup should begin - should be within 5 blocks of the current block. Backup will be held for 60,000 blocks
+     * @param id The id for this backup
+     * @param nonce The version of this backup. A backup can be replaced by providing the same backup id but a greater nonce.
+     */
+    public async backup(signer: (digest: string) => Promise<string>, customerAddress: string, data: string, startBlock: number, id: string, nonce: number) {
+        // we identify the backup by setting all addresses to the customer address
+        const contractAddress = customerAddress,
+            eventAddress = customerAddress;
+
+        return await this.generateAndExecuteRequest(
+            signer,
+            customerAddress,
+            id,
+            nonce,
+            startBlock,
+            startBlock + 60000,
+            contractAddress,
+            data,
+            0,
+            200,
+            eventAddress,
+            []
+        );
+    }
+
+    /**
+     * Fetch all backups for a given user
+     * @param customerAddress
+     */
+    public async restore(signer: (digest: string) => Promise<string>, customerAddress: string, currentBlockNumber: number): Promise<BackupState[]> {
+        const appointmentRequests = await this.getAppointmentsByCustomer(signer, customerAddress, currentBlockNumber);
+        const isBackup = (a: AppointmentRequest) => a.eventAddress === customerAddress && a.contractAddress === a.customerAddress;
+
+        return appointmentRequests
+            .filter(a => isBackup(a))
+            .map(a => {
+                return {
+                    customerAddress: a.customerAddress,
+                    data: a.data,
+                    id: a.id,
+                    nonce: a.nonce
+                };
+            });
     }
 }
 export { PisaClient };
