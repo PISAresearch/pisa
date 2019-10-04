@@ -19,7 +19,7 @@ chai.use(chaiAsPromised);
 const ganache = Ganache.provider({
     mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect",
     gasLimit: 8000000
-});
+}) as Ganache.Provider & ethers.providers.AsyncSendable;
 const nextConfig = {
     ...config,
     hostName: "localhost",
@@ -30,7 +30,7 @@ const nextConfig = {
     watcherResponseConfirmations: 0
 };
 
-const provider = new ethers.providers.Web3Provider(ganache as ethers.providers.AsyncSendable);
+const provider = new ethers.providers.Web3Provider(ganache);
 provider.pollingInterval = 100;
 
 const expect = chai.expect;

@@ -16,7 +16,7 @@ import { encodeTopicsForPisa } from "../../src/utils/ethers";
 const ganache = Ganache.provider({
     mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect",
     gasLimit: 8000000
-});
+}) as Ganache.Provider & ethers.providers.AsyncSendable;
 const userKey1 = "0x829e924fdf021ba3dbbc4225edfece9aca04b929d6e75613329ca6f1d31c0bb4";
 const userKey2 = "0x67950d009c30c78d1cc65d8427abcdd09195e358810be9ed40512a1e3ec9d83d";
 
@@ -30,7 +30,7 @@ const nextConfig = {
     watcherResponseConfirmations: 0,
     maximumReorgLimit: 10
 };
-const provider = new ethers.providers.Web3Provider(ganache as ethers.providers.AsyncSendable);
+const provider = new ethers.providers.Web3Provider(ganache);
 provider.pollingInterval = 100;
 
 describe("sos end to end", () => {
@@ -315,9 +315,9 @@ describe("sos end to end", () => {
             "yay1",
             "0x0000000000000000000000000000000000000000000000000000000000000001"
         );
-        const snapshotId: number = await promiseSendAsync(ganache as ethers.providers.AsyncSendable, { method: "evm_snapshot" });
+        const snapshotId: number = await promiseSendAsync(ganache, { method: "evm_snapshot" });
         await callDistressAndWaitForCounter("sos", 1);
-        await promiseSendAsync(ganache as ethers.providers.AsyncSendable, { method: "evm_revert", params: snapshotId });
+        await promiseSendAsync(ganache, { method: "evm_revert", params: snapshotId });
         // ensure that the revert occurred well
         expect((await rescueContract.rescueCount()).toNumber()).to.equal(0);
 
