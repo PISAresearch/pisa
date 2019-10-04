@@ -127,6 +127,11 @@ export class PisaService extends StartStopService {
             res.setHeader("Content-Type", "text/html");
             res.send(this.redocHtml());
         });
+        // also host the docs at the root
+        app.get("/", (req, res) => {
+            res.setHeader("Content-Type", "text/html");
+            res.send(this.redocHtml());
+        });
         app.get(this.JSON_SCHEMA_ROUTE, (req, res) => {
             res.sendFile(path.join(__dirname, "dataEntities/appointmentRequestSchema.json"));
         });

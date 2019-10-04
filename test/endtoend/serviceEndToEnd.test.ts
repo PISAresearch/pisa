@@ -418,7 +418,7 @@ describe("Service end-to-end", () => {
         const data = "0xdada";
         const id = "0x0000000000000000000000000000000000000000000000000000000000000001";
         const nonce = 0;
-        await pisaClient.backUp(digest => wallet0.signMessage(arrayify(digest)), account0, data, currentBlockNumber, id, nonce);
+        await pisaClient.backup(digest => wallet0.signMessage(arrayify(digest)), account0, data, currentBlockNumber, id, nonce);
 
         const restore = await pisaClient.restore(digest => wallet0.signMessage(arrayify(digest)), account0, currentBlockNumber);
         expect(restore.length).to.equal(1);
@@ -437,8 +437,8 @@ describe("Service end-to-end", () => {
         const id1 = "0x0000000000000000000000000000000000000000000000000000000000000001";
         const id2 = "0x0000000000000000000000000000000000000000000000000000000000000002";
         const nonce = 0;
-        await pisaClient.backUp(digest => wallet0.signMessage(arrayify(digest)), account0, data, currentBlockNumber, id1, nonce);
-        await pisaClient.backUp(digest => wallet0.signMessage(arrayify(digest)), account0, data2, currentBlockNumber, id2, nonce);
+        await pisaClient.backup(digest => wallet0.signMessage(arrayify(digest)), account0, data, currentBlockNumber, id1, nonce);
+        await pisaClient.backup(digest => wallet0.signMessage(arrayify(digest)), account0, data2, currentBlockNumber, id2, nonce);
 
         const restore = await pisaClient.restore(digest => wallet0.signMessage(arrayify(digest)), account0, currentBlockNumber);
         expect(restore.length).to.equal(2);
@@ -465,8 +465,8 @@ describe("Service end-to-end", () => {
         const id1 = "0x0000000000000000000000000000000000000000000000000000000000000001";
         const nonce = 0;
         const nonce2 = 1;
-        await pisaClient.backUp(digest => wallet0.signMessage(arrayify(digest)), account0, data, currentBlockNumber, id1, nonce);
-        await pisaClient.backUp(digest => wallet0.signMessage(arrayify(digest)), account0, data2, currentBlockNumber, id1, nonce2);
+        await pisaClient.backup(digest => wallet0.signMessage(arrayify(digest)), account0, data, currentBlockNumber, id1, nonce);
+        await pisaClient.backup(digest => wallet0.signMessage(arrayify(digest)), account0, data2, currentBlockNumber, id1, nonce2);
 
         const restore = await pisaClient.restore(digest => wallet0.signMessage(arrayify(digest)), account0, currentBlockNumber);
         expect(restore.length).to.equal(1);

@@ -94,7 +94,7 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
                     prevHeadAnchorState = this.blockItemStore.prevEmittedAnchorState.get(component.name, parentBlock.hash);
 
                     const prevAnchorState =
-                    this.blockItemStore.anchorState.get<AnchorState>(component.name, parentBlock.hash) ||
+                        this.blockItemStore.anchorState.get<AnchorState>(component.name, parentBlock.hash) ||
                         component.reducer.getInitialState(parentBlock); // prettier-ignore
 
                     newState = component.reducer.reduce(prevAnchorState, block);
