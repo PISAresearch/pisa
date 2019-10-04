@@ -1,6 +1,6 @@
 import config from "../config.json";
 import yargs from "yargs";
-import { LogLevel } from "../logger";
+import { LogLevel, LogLevelInfo } from "../logger";
 
 export interface IArgConfig {
     jsonRpcUrl: string;
@@ -13,6 +13,7 @@ export interface IArgConfig {
     watcherResponseConfirmations?: number;
     maximumReorgLimit?: number;
     pisaContractAddress: string;
+    instanceName: string;
 
     rateLimitUserWindowMs?: number;
     rateLimitUserMax?: number;
@@ -23,17 +24,76 @@ export interface IArgConfig {
 }
 
 class ConfigProperty {
-    constructor(
-        public readonly commandLineName: string,
-        public readonly valueGetter: (config: IArgConfig) => any,
-        public readonly yargConfig: any
-    ) {}
+    constructor(public readonly commandLineName: string, public readonly valueGetter: (config: IArgConfig) => any, public readonly yargConfig: any) {}
 }
 
 /**
  * Enables parsing and serialising of config objects
  */
 export class ConfigManager {
+    constructor(private readonly properties: ConfigProperty[]) {}
+
+    public fromCommandLineArgs(argv: string[]) {
+        // initialise the yargs
+        let commandLineConfig = yargs
+            .scriptName("pisa")
+            .usage("$0 [args]")
+            .help();
+
+        // add each of the props
+        this.properties.forEach(p => (commandLineConfig = commandLineConfig.option(p.commandLineName, p.yargConfig)));
+
+        return (commandLineConfig.parse(argv) as any) as IArgConfig;
+    }
+
+    private notEmpty<TValue>(value: TValue | null | undefined): value is TValue {
+        return value !== null && value !== undefined;
+    }
+
+    public toCommandLineArgs(config: IArgConfig): string[] {
+        return this.properties
+            .map(p => {
+                const value = p.valueGetter(config);
+                return value ? [`--${p.commandLineName}`, `${value}`] : null;
+            })
+            .filter(this.notEmpty)
+            .reduce((a, b) => a.concat(b));
+    }
+
+    /**
+     * Gets the current config settings, looking for both a configuration file and command line arguments.
+     * Command line arguments take precedence where present.
+     * Returns an error message of the command line args could not be parsed.
+     */
+    public getConfig() {
+        const fromCommandLine = this.fromCommandLineArgs(process.argv);
+        const returnConfig = Object.assign(config, fromCommandLine);
+        this.checkLogLevel(returnConfig.loglevel);
+        this.checkRateLimits(returnConfig);
+        return returnConfig;
+    }
+
+    private checkLogLevel(logLevel: string) {
+        const logLevelInfo = LogLevelInfo.tryParse(logLevel);
+        if (!logLevelInfo) throw new Error("Option 'loglevel' can only be one of the following: " + Object.values(LogLevel).join(", "));
+    }
+
+    private checkRateLimits(args: IArgConfig) {
+        if ((args.rateLimitUserWindowMs && !args.rateLimitUserMax) || (!args.rateLimitUserWindowMs && args.rateLimitUserMax)) {
+            throw new Error("Options 'rate-limit-user-windowms' and 'rate-limit-user-max' must be provided together.");
+        }
+
+        if ((args.rateLimitGlobalWindowMs && !args.rateLimitGlobalMax) || (!args.rateLimitGlobalWindowMs && args.rateLimitGlobalMax)) {
+            throw new Error("Options 'rate-limit-global-windowms' and 'rate-limit-global-max' must be provided together.");
+        }
+
+        if (args.maximumReorgLimit === 0) {
+            throw new Error("Option 'maximum-reorg-limit' cannot be 0.");
+        }
+    }
+}
+
+export class PisaConfigManager extends ConfigManager {
     public static PisaConfigProperties = [
         new ConfigProperty("json-rpc-url", config => config.jsonRpcUrl, {
             description: "Ethereum blockchain rpc url",
@@ -60,8 +120,7 @@ export class ConfigManager {
             string: true
         }),
         new ConfigProperty("loglevel", config => config.loglevel, {
-            description:
-                "Verbosity of the logs. Accepted values by increasing verbosity: " + Object.values(LogLevel).join(", "),
+            description: "Verbosity of the logs. Accepted values by increasing verbosity: " + Object.values(LogLevel).join(", "),
             string: true
         }),
         new ConfigProperty("maximum-reorg-limit", config => config.maximumReorgLimit, {
@@ -74,6 +133,10 @@ export class ConfigManager {
         }),
         new ConfigProperty("pisa-contract-address", config => config.pisaContractAddress, {
             description: "The on-chain address of the PISA contract.",
+            string: true
+        }),
+        new ConfigProperty("instance-name", config => config.instanceName, {
+            description: "A configurable name for this watchtower instance.",
             string: true
         }),
 
@@ -103,33 +166,8 @@ export class ConfigManager {
         })
     ];
 
-    constructor(private readonly properties: ConfigProperty[]) {}
-
-    public fromCommandLineArgs(argv: string[]) {
-        // initialise the yargs
-        let commandLineConfig = yargs
-            .scriptName("pisa")
-            .usage("$0 [args]")
-            .help();
-
-        // add each of the props
-        this.properties.forEach(p => (commandLineConfig = commandLineConfig.option(p.commandLineName, p.yargConfig)));
-
-        return (commandLineConfig.parse(argv) as any) as IArgConfig;
-    }
-
-    private notEmpty<TValue>(value: TValue | null | undefined): value is TValue {
-        return value !== null && value !== undefined;
-    }
-
-    public toCommandLineArgs(config: IArgConfig): string[] {
-        return this.properties
-            .map(p => {
-                const value = p.valueGetter(config);
-                return value ? [`--${p.commandLineName}`, `${value}`] : null;
-            })
-            .filter(this.notEmpty)
-            .reduce((a, b) => a.concat(b));
+    constructor() {
+        super(PisaConfigManager.PisaConfigProperties);
     }
 }
 

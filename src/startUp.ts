@@ -1,54 +1,24 @@
 import { PisaService } from "./service";
 import { ethers } from "ethers";
-import jsonConfig, { ConfigManager, IArgConfig } from "./dataEntities/config";
+import { PisaConfigManager, IArgConfig } from "./dataEntities/config";
 import { validateProvider, getJsonRPCProvider } from "./utils/ethers";
-import logger, { setLogLevel, LogLevel, LogLevelInfo } from "./logger";
+import logger, {initialise, LogLevelInfo } from "./logger";
 import levelup, { LevelUp } from "levelup";
 import encodingDown from "encoding-down";
 import leveldown from "leveldown";
 
-const configManager = new ConfigManager(ConfigManager.PisaConfigProperties);
-const commandLineConfig = configManager.fromCommandLineArgs(process.argv);
-
-// Validates the 'loglevel' argument and returns the appropriate LogLevelInfo instance
-function checkLogLevel(logLevel: string): LogLevelInfo {
-    const logLevelInfo = LogLevelInfo.tryParse(logLevel);
-    if (!logLevelInfo) {
-        console.error("Option 'loglevel' can only be one of the following: " + Object.values(LogLevel).join(", "));
-        return process.exit(1); // never returns
-    }
-    return logLevelInfo;
-}
-
-function checkArgs(args: IArgConfig) {
-    if (
-        (args.rateLimitUserWindowMs && !args.rateLimitUserMax) ||
-        (!args.rateLimitUserWindowMs && args.rateLimitUserMax)
-    ) {
-        console.error("Options 'rate-limit-user-windowms' and 'rate-limit-user-max' must be provided together.");
-        process.exit(1);
-    }
-
-    if (
-        (commandLineConfig.rateLimitGlobalWindowMs && !commandLineConfig.rateLimitGlobalMax) ||
-        (!commandLineConfig.rateLimitGlobalWindowMs && commandLineConfig.rateLimitGlobalMax)
-    ) {
-        console.error("Options 'rate-limit-global-windowms' and 'rate-limit-global-max' must be provided together.");
-        process.exit(1);
-    }
-
-    if (args.maximumReorgLimit === 0) {
-        console.error("Option 'maximum-reorg-limit' cannot be 0.");
-        process.exit(1);
-    }
+let config: IArgConfig;
+try {
+    const pisaConfigManager = new PisaConfigManager()
+    config = pisaConfigManager.getConfig();
+} catch (doh) {
+    const err = doh as Error;
+    console.error(err.message);
+    process.exit(1);
 }
 
 async function startUp() {
-    checkArgs(commandLineConfig);
-    const config = Object.assign(jsonConfig, commandLineConfig);
-
-    const logLevelInfo = checkLogLevel(config.loglevel);
-    setLogLevel(logLevelInfo);
+    initialise(LogLevelInfo.tryParse(config.loglevel)!, config.instanceName);
 
     const provider = getJsonRPCProvider(config.jsonRpcUrl);
     await validateProvider(provider);
@@ -59,15 +29,7 @@ async function startUp() {
     const nonce = await provider.getTransactionCount(watcherWallet.address, "pending");
 
     // start the pisa service
-    const service = new PisaService(
-        config,
-        provider,
-        watcherWallet,
-        nonce,
-        provider.network.chainId,
-        receiptSigner,
-        db
-    );
+    const service = new PisaService(config, provider, watcherWallet, nonce, provider.network.chainId, receiptSigner, db);
     service.start();
 
     // listen for stop events
