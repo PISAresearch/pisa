@@ -7,6 +7,7 @@ import MemDown from "memdown";
 import encodingDown from "encoding-down";
 import { Appointment, ApplicationError } from "../../../src/dataEntities";
 import fnIt from "../../utils/fnIt";
+import expectAsync from "../../utils/expectAsync";
 chai.use(chaiAsPromised);
 
 const getAppointment = (id: string, endBlock: number, nonce: number) => {
@@ -103,7 +104,7 @@ describe("Store", () => {
         await store.addOrUpdateByLocator(appointment2);
 
         // first is not accepted
-        expect(store.addOrUpdateByLocator(appointment1)).to.eventually.be.rejectedWith(ApplicationError);
+        (await expectAsync(store.addOrUpdateByLocator(appointment1))).to.throw(ApplicationError);
 
         const storedAppointments = [...store.getExpiredSince(appointment2.endBlock + 1)];
         expect(storedAppointments).to.deep.equal([appointment2]);

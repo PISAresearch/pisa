@@ -13,12 +13,13 @@ import encodingDown from "encoding-down";
 import { deployPisa } from "../src/utils/contract";
 import { wait } from "../../src/utils";
 import PisaClient from "../../client";
+import expectAsync from "../utils/expectAsync";
 chai.use(chaiAsPromised);
 
 const ganache = Ganache.provider({
     mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect",
     gasLimit: 8000000
-});
+}) as Ganache.Provider & ethers.providers.AsyncSendable;
 const nextConfig = {
     ...config,
     hostName: "localhost",
@@ -207,7 +208,7 @@ describe("Service end-to-end", () => {
             KitsuneTools.topics()
         );
         await pisaClient.executeRequest(req);
-        expect(pisaClient.executeRequest(req)).to.eventually.be.rejected;
+        (await expectAsync(pisaClient.executeRequest(req))).to.throw;
 
         // now register a callback on the setstate event and trigger a response
         const setStateEvent = "EventEvidence(uint256, bytes32)";
@@ -285,7 +286,7 @@ describe("Service end-to-end", () => {
         oneWayChannelContract.once(triggerDisputeEvent, async () => (success = true));
 
         await pisaClient.executeRequest(req);
-        expect(pisaClient.executeRequest(req)).to.eventually.be.rejected;
+        (await expectAsync(pisaClient.executeRequest(req))).to.throw;
 
         try {
             // wait for the success result
