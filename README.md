@@ -40,3 +40,72 @@ We are currently working on the implementation and a set of standards to minimis
 
 * Data Registry (log events) - https://github.com/ethereum/EIPs/pull/2095 
 * Example of contract logging events (super simple) - https://github.com/PISAresearch/pisa/blob/master/sol/contracts/ChallengeClosureContract.sol 
+
+# Installation
+Clone the repository and install the requirements:
+```
+git clone https://github.com/PISAresearch/pisa.git
+cd pisa
+npm install
+```
+
+## Run tests
+
+```
+npm run test               # run unit and end-to-end tests
+npm run test-unit          # only run unit tests
+npm run test-endtoend      # only run end-to-end tests
+npm run test-integration   # run integration-tests
+npm run test-contract      # run smart contract's unit tests
+```
+
+## Build production instance
+
+```
+npm run build              # build PISA
+npm run build-client       # build the client library
+```
+
+# Hiring Pisa
+
+**Note:** Pisa is alpha stage software and is not yet available on mainnet. Do not use with real funds.
+
+We are running a live instance of Pisa on Ropsten testnet. The API endpoint is https://alpha.pisa.watch, and the contract address is "0xA02C7260c0020343040A504Ef24252c120be60b9".
+
+The easiest way to hire Pisa is by using our client library, which automates some of the tasks that need to be performed to use our API.
+
+At this time, only a client library for JavaScript/TypeScript is available. Please find more details [here](client).
+
+# Run a local Pisa instance
+
+The instructions in this sections explain how to setup and run a Pisa service.
+
+## Deploy Pisa contracts
+
+Deploy the DataRegistry and PisaHash contracts from the `/sol` folder (you can do it via Remix). Take note of the contract addresses.
+
+## Create config file
+
+Create a `config.json` file in the main PISA folder. Here is an example to get started:
+
+```
+{
+    "dbDir": "pisa-db",
+    "hostName": "localhost", // host name of the Pisa server
+    "hostPort": 3000,        // port number of the Pisa server
+    "pisaContractAddress": <pisa contract address>
+    "jsonRpcUrl": <url of your node's rpc>,
+    "responderKey": <private key of the wallet that the Pisa will use to send transactions>,
+    "receiptKey": <private key of the wallet that Pisa will use to sign the appointments>
+}
+```
+
+Run `npm run start -- --help` to see all the available settings. The same settings can also be provided via the command line. Settings provided via the command line override the ones in `config.json`.
+
+## Run a Pisa Tower
+
+Make sure that the relevant ports are open. You can run Pisa with the following command:
+
+```
+npm run start
+```

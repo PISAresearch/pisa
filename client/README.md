@@ -1,6 +1,8 @@
 # PISA API Client
 
-A thin client for the PISA API.
+A thin client for the PISA API running at https://alpha.pisa.watch. 
+
+The PISA contract is currently deployed on Ropsten at 0xA02C7260c0020343040A504Ef24252c120be60b9.
 
 The client library supports **relay** and **event triggered** appointments. If no event information is provided when generating an appointment request then a relay appointment will be created.
 
