@@ -381,7 +381,7 @@ export default class PisaClient {
      * @param id The id for this backup
      * @param nonce The version of this backup. A backup can be replaced by providing the same backup id but a greater nonce.
      */
-    public async backUp(signer: (digest: string) => Promise<string>, customerAddress: string, data: string, startBlock: number, id: string, nonce: number) {
+    public async backup(signer: (digest: string) => Promise<string>, customerAddress: string, data: string, startBlock: number, id: string, nonce: number) {
         // we identify the backup by setting all addresses to the customer address
         const contractAddress = customerAddress,
             eventAddress = customerAddress;
