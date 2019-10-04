@@ -16,7 +16,7 @@ import { encodeTopicsForPisa } from "../../src/utils/ethers";
 const ganache = Ganache.provider({
     mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect",
     gasLimit: 8000000
-});
+}) as Ganache.Provider & ethers.providers.AsyncSendable;
 const userKey1 = "0x829e924fdf021ba3dbbc4225edfece9aca04b929d6e75613329ca6f1d31c0bb4";
 const userKey2 = "0x67950d009c30c78d1cc65d8427abcdd09195e358810be9ed40512a1e3ec9d83d";
 
