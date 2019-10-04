@@ -226,10 +226,6 @@ describe("Watcher", () => {
         responder = throwingInstance(mockedResponder);
     });
 
-    function makeMap(appId: string, appState: WatcherAppointmentAnchorState) {
-        return new Map<string, WatcherAppointmentAnchorState>([[appId, appState]]);
-    }
-
     afterEach(() => {
         resetCalls(mockedResponder);
     });
