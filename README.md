@@ -16,7 +16,7 @@ Relayers are useful when the user lacks access to the native token (i.e. onboard
 
 ## Why does PISA help?
 
-The PISA infrastructure provides a **simple plug & play infura-like API** to handle relaying transactions and watching for on-chain events, so dapp developers don't have too. 
+The PISA infrastructure provides a **simple plug & play infura-like API** to handle relaying transactions and watching for on-chain events, so dapp developers don't have to. 
 
 It may sound like a simple problem to solve, but there are many subtle difficulties: 
 
@@ -27,7 +27,7 @@ It may sound like a simple problem to solve, but there are many subtle difficult
 - Watching for an emitted event, 
 - Fetching emitted event data to use in a response.
 
-In fact, **combining two or more** of the above makes the task non-trivial, hard, and just straight-up tedius. 
+In fact, **combining two or more** of the above makes the task non-trivial, hard, and just straight-up tedious. 
 
 So we have built PISA to help resolve many of the above problems. Dapp developers can just plug us in and we'll handle transaction delivery for them. 
 
@@ -39,7 +39,7 @@ In a nutshell, the PISA service stakes a large security deposit via the PISA con
 
 ## When can I start using PISA? 
 
-If you want to partner with us so you no longer have to deal with relaying transactions or responding to on-chain events, then hire PISA! 
+If you want to partner with us so you no longer have to deal with relaying transactions or responding to on-chain events, then hire PISA!
 
 We can be contacted at paddy@pisa.watch.
 
