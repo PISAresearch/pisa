@@ -45,8 +45,6 @@ generateAndExecuteRequest(
 
 This method creates a requests for an appointment and calls the PISA endpoint. The return value is a Promise that resolves to an `AppointmentReceipt` if the request was successful, or is rejected in case of error.
 
-
-
 - `signer`: a callback function that is given a digest of the encoded appointment, and must return the customer's signature.
 - `customerAddress`: the checksummed address of the customer.
 - `id`: a unique id chosen by the customer.
@@ -69,9 +67,34 @@ The `pisaClient` object also exports lower level methods `generateRequest` and `
 
 `generateRequest` has the same parameters as `generateAndExecuteRequest`, but returns a `SignedAppointmentRequest` instead of calling the PISA API. The returned signed appointment request can then be send to PISA by calling `executeRequest` with the signed appointment request.
 
+## getAppointmentsByCustomer
+
+The `getAppointmentsByCustomer` method can be use to query the API in order to retrieve all the appointments for a specific customer.
+
+- `signer`: a callback function that is given the current block number, and must return the customer's signature.
+- `customerAddress`: the checksummed address of the customer.
+- `currentBlockNumber`: the most recent block number.
+
+## backup and restore
+
+The `backup` and `restore` methods allow to hire Pisa to store and retrieve some data.
+
+The `backup` methods has the following parameters:
+- `signer`: a function to sign the PISA appointment.
+- `data`: the data to backup.
+- `customerAddress`: the customer address backing up the data.
+- `startBlock`: the start block from when the backup should begin - should be within 5 blocks of the current block. Backup will be held for 60,000 blocks.
+- `id`: the id for this backup.
+- `nonce`: the version of this backup. A backup can be replaced by providing the same backup id but a greater nonce.
+
+The `restore` method has the following parameters:
+- `signer`: a callback function that is given the current block number, and must return the customer's signature.
+- `customerAddress`: the checksummed address of the customer.
+- `currentBlockNumber`: the most recent block number.
+
 # Simple example with ethers.js
 
-In this example we use an ethers.js wallet to sign the digest.
+In this example we use an ethers.js wallet to sign the digest, and we then use `generateAndExecuteRequest` to hire Pisa.
 
 ```
 const PISA_API_URL = "https://alpha.pisa.watch";
