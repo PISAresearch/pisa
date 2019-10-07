@@ -68,7 +68,7 @@ npm run build-client       # build the client library
 
 # Hiring Pisa
 
-**Note:** Pisa is alpha stage software and is not yet available on mainnet. Do not use with real funds.
+**Note:** Pisa is alpha stage software and is not yet available on mainnet. All specifications and APIs are subject to change at any time. Do not use with real funds.
 
 We are running a live instance of Pisa on Ropsten testnet. The API endpoint is https://alpha.pisa.watch, and the contract address is "0xA02C7260c0020343040A504Ef24252c120be60b9".
 
@@ -104,7 +104,7 @@ Run `npm run start -- --help` to see all the available settings. The same settin
 
 ## Run a Pisa Tower
 
-Make sure that the relevant ports are open. You can run Pisa with the following command:
+Make sure that the PISA "host" port is available and not blocked by a firewall. After you have built it, you can run Pisa with the following command:
 
 ```
 npm run start
