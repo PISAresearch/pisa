@@ -351,7 +351,10 @@ export default class PisaClient {
 
     /**
      * Send a request to the Pisa tower to retrieve all the appointments for the given `customerAddress`.
-     * @param customerAddress
+     * The current block number and a signer must be provided, as only requests signing a recent block number will be accepted by the Pisa API.
+     * @param signer A function to sign the `currentBlockNumber` in the request
+     * @param customerAddress The customer address
+     * @param currentBlockNumber The current block number
      */
     public async getAppointmentsByCustomer(signer: (digest: string) => Promise<string>, customerAddress: string, currentBlockNumber: number) {
         // create a sig over the current block
@@ -374,7 +377,7 @@ export default class PisaClient {
 
     /**
      * Backup some data to the PISA server.
-     * @param signer A function sign the PISA appointment
+     * @param signer A function to sign the PISA appointment
      * @param data The data to backup
      * @param customerAddress The customer address backing up the data
      * @param startBlock The start block from when the backup should begin - should be within 5 blocks of the current block. Backup will be held for 60,000 blocks
@@ -404,7 +407,9 @@ export default class PisaClient {
 
     /**
      * Fetch all backups for a given user
-     * @param customerAddress
+     * @param signer A function to sign the `currentBlockNumber` in the request
+     * @param customerAddress The customer address
+     * @param currentBlockNumber A function to sign the `currentBlockNumber` in the request
      */
     public async restore(signer: (digest: string) => Promise<string>, customerAddress: string, currentBlockNumber: number): Promise<BackupState[]> {
         const appointmentRequests = await this.getAppointmentsByCustomer(signer, customerAddress, currentBlockNumber);
