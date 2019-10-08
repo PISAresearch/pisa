@@ -4,17 +4,14 @@
 
 # PISA - A Financially Accountable Relayer and Responder
 
-There are two special nodes in a third party broadcasting network:
+The goal of a third party broadcasting network is to remove the friction and overhead of dealing with the transaction stack when building dapps. Generally, there are two node-types: 
 
 - **Relayer:** Eventually deliver a transaction to the blockchain,
 - **Responder:** Watch and respond to on-chain events.
 
-## Why the distinct roles?
+**Why the distinct roles?** Relayers help when the user lacks access to the native token (e.g. onboarding, mixing protocols, etc), whereas responders help alleviate the user liveness requirement (e.g. auctions, offchain, CDPs, etc). 
 
-Relayers are useful when the user lacks access to the native token (i.e. onboarding new users, mixing protocols), whereas responders help alleviate the user liveness requirement as the user does not need to remain online to watch and respond to an on-chain event (i.e. auctions, offchain protocols, CDPs, etc). 
-
-
-## Why does PISA help?
+## How does PISA help?
 
 The PISA infrastructure provides a **simple plug & play infura-like API** to handle relaying transactions and watching for on-chain events, so dapp developers don't have to. 
 
@@ -39,9 +36,9 @@ In a nutshell, the PISA service stakes a large security deposit via the PISA con
 
 ## When can I start using PISA? 
 
-If you want to partner with us so you no longer have to deal with relaying transactions or responding to on-chain events, then hire PISA!
+So do you want to outsource the responsibility of dealing with the transaction stack? 
 
-We can be contacted at paddy@pisa.watch.
+*Then contact us at paddy@pisa.watch.* 
 
 As well, check out the following set of standards that we are working on: 
 
