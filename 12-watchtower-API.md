@@ -6,7 +6,7 @@ All off-chain protocols assume the user remains online and synchronised with the
 
 At a high level, the customer fetches the commitment transaction and splits the transaction id into an encryption key and IV. Both are used to encrypt the justice transaction ('encrypted blob'). As well, the customer hashes the transaction id to compute a transaction locator ('txlocator'). The WatchTower is sent both the encrypted justice transaction and txlocator, and in return the customer receives a signed receipt to acknowledge the job was accepted. To find malice disputes, the WatchTower must hash every transaction id in every new block. If it finds the txlocator, then the WatchTower derives the encryption key from the transaction id, decrypts the justice transaction and broadcasts it to the network. 
 
-A WatchTower can only protect the user against crash failure (DDoS), and not if their private signing key is compromised. As well, the watching service does not learn the information about the customer's channel unless there is a malice on-chain dispute (channel-privacy). The WatchTower cannot trigger disputes on the customers behalf and it an only respond to malice disputes. 
+A WatchTower can only protect the user against crash failure (DDoS), and not if their private signing key is compromised. As well, the watching service does not learn the information about the customer's channel unless there is a malice on-chain dispute (channel-privacy). The WatchTower cannot trigger disputes on the customer's behalf and it can only respond to malice disputes. 
 
 Due to replace-by-revocation lightning channels, the customer MUST hire the WatchTower for every new update in their channel (full protection). In return, the customer receives a signed receipt from the WatchTower for every new job. The rationale for the receipt is to build an _accountable_ WatchTower as the customer can later use it as publicly verifiable evidence if the WatchTower fails to protect them.
 
@@ -104,9 +104,9 @@ We can group the data fields into logical groups.
 * **Encrypted transaction**: The ```cipher```,```hash_function```,```encrypted_blog``` states how the WatchTower can later find the dispute transaction and decrypt the justice transaction. 
 * **Customer signature** The ```customer_address``` and ```customer_signature``` provides an explicit message about the job from the customer. 
 
-Generally, this standard is trying to achieve a reputationally accountable watching service. The signed job from the customer provides an explicit acknowledgement of the transaction details that is important for the WatchTower to decide whether they can accept it. If the decrypted justice transaction does not satisfy the signed job (e.g. fee too low), then the WatchTower is not obliged to fulfil it. 
+Generally, this standard is trying to achieve a reputationally accountable watching service. The signed job from the customer provides an explicit acknowledgement of the transaction details that is important for the WatchTower to decide whether they can accept it. If the decrypted justice transaction does not satisfy the signed job (e.g. fee too low), then the WatchTower is not obliged to fulfill it. 
 
-The _explictiness_ of the signed job ensures there is a clear protocol trasncript between the customer and WatchTower. Given the blockchain and decrypted justice transaction, anyone can verify that the WatchTower could have satisified the job. 
+The _explicitness_ of the signed job ensures there is a clear protocol trasncript between the customer and WatchTower. Given the blockchain and decrypted justice transaction, anyone can verify that the WatchTower could have satisified the job. 
 
 ## Signed Receipt Fields
 
@@ -168,11 +168,11 @@ Both micropayments and subscriptions are favourable for a WatchTower.
 
 To offer full protection, a WatchTower requires an encrypted blob for every single update in the channel. This is a symptom of replace-by-revocation channels as there is a single valid state and a set of "revoked" states. Only one of the states can be broadcast and this is up to the counterparty (cheater) to decide. 
 
-All signed receipts only correspond to a single job / justice transaction. Thus the customer should keep a copy of all signed receipts received from the WatchTower. A future BOLT can extend the signed receipt to include a committment to all previous encrypted blobs (merkle tree) to reduce this storage. 
+All signed receipts only correspond to a single job / justice transaction. Thus the customer should keep a copy of all signed receipts received from the WatchTower. A future BOLT can extend the signed receipt to include a committment to all previous encrypted blobs (Merkle tree) to reduce this storage. 
 
 ## No compression of justice transaction 
 
-There are tricks using [hashchains](https://github.com/rustyrussell/ccan/blob/master/ccan/crypto/shachain/design.txt) to reduce the storage requirements for each justice transaction. For this BOLT, we have decided to keep the hiring protocol simpe in order to get WatchTowers up and running. Stroage is relatively cheap and we can revisit this standard if it becomes a problem. 
+There are tricks using [hashchains](https://github.com/rustyrussell/ccan/blob/master/ccan/crypto/shachain/design.txt) to reduce the storage requirements for each justice transaction. For this BOLT, we have decided to keep the hiring protocol simple in order to get WatchTowers up and running. Storage is relatively cheap and we can revisit this standard if it becomes a problem. 
 
 ## Acknowledgments
 
