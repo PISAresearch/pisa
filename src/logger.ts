@@ -91,7 +91,7 @@ export function createNamedLogger(component: string, logLevel: LogLevelInfo = in
 
     const streams: Stream[] = [];
     for (const levelInfo of logLevel.getLevelsBelow()) {
-        // rotate logs once per week and keep them for a year
+        // rotate logs once per month and keep them for a year
         streams.push({
             type: "rotating-file",
             period: "1m",
