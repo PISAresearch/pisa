@@ -22,7 +22,7 @@ jobs:
           command: bash <(curl https://get.parity.io -L) -r stable
       - run:
           name: test unit
-          command: lerna run test-coverage
+          command: npm run test-coverage
       - run:
           name: test externals
           command: npm run test
