@@ -5,6 +5,7 @@
     "description": "Arbitration Outsourcing for State Channels",
     "main": "packages/main/lib/startUp.js",
     "scripts": {
+        "bootstrap": "lerna bootstrap --hoist",
         "build": "lerna run build",
         "build-autominer": "cd build/raiden_demo/autominer && npm install && npm run build",
         "build-client": "cd client && npm install",

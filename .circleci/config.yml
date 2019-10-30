@@ -10,7 +10,7 @@ jobs:
       - checkout
       - run:
           name: install
-          command: npm install
+          command: npm run bootstrap
       - run:
           name: install raiden deps
           command: cd raiden_demo/raiden-pisa-daemon && npm install
