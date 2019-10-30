@@ -15,7 +15,7 @@ import { ethers, Contract } from "ethers";
 
 import { exec, ChildProcess } from "child_process";
 import { BigNumber } from "ethers/utils";
-import { deployPisa } from "../src/utils/contract";
+import { deployPisa } from "../../packages/main/__tests__/utils/contract";
 
 function timeout(ms: number): Promise<any> {
     return new Promise(resolve => setTimeout(resolve, ms));

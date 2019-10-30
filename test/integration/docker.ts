@@ -1,10 +1,10 @@
 import DockerClient from "dockerode";
-import logger from "../../src/logger";
-import { IArgConfig, PisaConfigManager } from "../../src/dataEntities/config";
+import logger from "../../packages/main/src/logger";
+import { IArgConfig, PisaConfigManager } from "../../packages/main/src/dataEntities/config";
 import { FileUtils } from "./fileUtil";
 import path from "path";
 import fs from "fs";
-import { ConfigurationError } from "../../src/dataEntities";
+import { ConfigurationError } from "../../packages/main/src/dataEntities";
 import { Key } from "./keyStore";
 import { ChainData } from "./chainData";
 

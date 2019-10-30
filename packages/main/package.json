@@ -1,28 +1,30 @@
 {
-    "name": "pisa",
-    "private": true,
-    "version": "1.0.0",
+    "name": "@pisa/main",
+    "version": "0.1.6",
     "description": "Arbitration Outsourcing for State Channels",
-    "main": "packages/main/lib/startUp.js",
+    "homepage": "https://github.com/PISAresearch/pisa/tree/master/packages/main#readme",
+    "license": "ISC",
+    "main": "lib/startup.js",
+    "directories": {
+        "lib": "lib",
+        "test": "__tests__"
+    },
+    "files": [
+        "lib"
+    ],
+    "publishConfig": {
+        "access": "public"
+    },
+    "bugs": {
+        "url": "https://github.com/PISAresearch/pisa/issues"
+    },
     "scripts": {
-        "build-autominer": "cd build/raiden_demo/autominer && npm install && npm run build",
-        "build-client": "cd client && npm install",
-        "build-raiden-pisa-daemon": "cd build/raiden_demo/raiden-pisa-daemon && npm install && npm run build",
-        "build-sol": "cd sol && truffle compile",
+        "build": "npx tsc && cp ./src/public/favicon.ico ./lib/public/favicon.ico",
         "lint": "eslint --ext ts .",
-        "start-evm": "ganache-cli -d -l 15000000 --allowUnlimitedContractSize --defaultBalanceEther 1000000 --mnemonic 'myth like bonus scare over problem client lizard pioneer submit female collect'",
-        "submodule": "git submodule init && git submodule update",
-        "test": "npm run test-deps && npm run test-endtoend",
-        "test-alpha": "npm run test-deps && NODE_ENV=test mocha -r ts-node/register test/smoke/alpha.test.ts --exit",
-        "test-contract": "npm run test-deps && cd sol && truffle test",
-        "test-coverage": "npm run test-deps && NODE_ENV=test nyc mocha -r ts-node/register --reporter mocha-junit-reporter --reporter-options mochaFile=coverage/mocha/test-results.xml 'test/src/**/*.test.ts' --exit",
-        "test-deps": "npm run build-sol && npm run build-client",
-        "test-endtoend": "NODE_ENV=test mocha -r ts-node/register test/endtoend/**/*.test.ts --exit",
-        "test-integration": "npm run test-deps && mocha -r ts-node/register 'test/integration/remote/**/*.test.ts' --exit",
-        "test-load": "npm run test-deps && ts-node test/load/loadTest.ts 10 20000",
-        "test-raiden": "npm run test-deps && mocha -r ts-node/register 'test/integration/raiden.test.ts' --exit",
-        "test-run-endtoend": "NODE_ENV=test mocha -r ts-node/register test/endtoend/**/*.test.ts --exit",
-        "test-smoke": "ts-node test/smoke/smokeTests.ts"
+        "start": "node ./lib/startUp.js",
+        "start-dev": "ts-node src/startUp.ts",
+        "test": "NODE_ENV=test mocha -r ts-node/register './__tests__/**/*.test.ts' --exit",
+        "test-coverage": "NODE_ENV=test nyc mocha -r ts-node/register --reporter mocha-junit-reporter --reporter-options mochaFile=coverage/mocha/test-results.xml './__tests__/**/*.test.ts' --exit"
     },
     "nyc": {
         "include": [
@@ -46,11 +48,6 @@
         "url": "git+https://github.com/PISAresearch/pisa.git"
     },
     "author": "PISA Research",
-    "license": "ISC",
-    "bugs": {
-        "url": "https://github.com/PISAresearch/pisa/issues"
-    },
-    "homepage": "https://github.com/PISAresearch/pisa#readme",
     "dependencies": {
         "@types/cors": "^2.8.6",
         "ajv": "^6.10.2",

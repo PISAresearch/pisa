@@ -1,9 +1,9 @@
 import request from "request-promise";
 import { KitsuneTools } from "../external/kitsune/tools";
 import { ethers } from "ethers";
-import config from "../../src/dataEntities/config";
-import { getJsonRPCProvider } from "../../src/utils";
-import { Appointment, IAppointmentRequest } from "../../src/dataEntities";
+import config from "../../packages/main/src/dataEntities/config";
+import { getJsonRPCProvider } from "../../packages/main/src/utils";
+import { Appointment, IAppointmentRequest } from "../../packages/main/src/dataEntities";
 
 let account0: string,
     account1: string,
