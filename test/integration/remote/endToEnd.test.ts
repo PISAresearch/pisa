@@ -1,19 +1,19 @@
 import "mocha";
 import chai from "chai";
 import DockerClient from "dockerode";
-import { IArgConfig } from "../../../src/dataEntities/config";
+import { IArgConfig } from "../../../packages/main/src/dataEntities/config";
 import uuid from "uuid/v4";
 import fs from "fs";
 import path from "path";
 import { ethers } from "ethers";
 import { KitsuneTools } from "../../external/kitsune/tools";
-import { wait } from "../../../src/utils";
+import { wait } from "../../../packages/main/src/utils";
 import { PisaContainer, ParityContainer } from "../docker";
 import { FileUtils } from "../fileUtil";
 import { ChainData } from "../chainData";
 import { KeyStore } from "../keyStore";
-import { deployPisa } from "../../src/utils/contract";
-import { PisaClient } from "../../../client";
+import { deployPisa } from "../../../packages/main/__tests__/utils/contract";
+import { PisaClient } from "../../../packages/client";
 
 const newId = () => {
     return uuid().substr(0, 8);

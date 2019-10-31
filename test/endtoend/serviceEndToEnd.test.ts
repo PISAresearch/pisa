@@ -12,7 +12,7 @@ import MemDown from "memdown";
 import encodingDown from "encoding-down";
 import { deployPisa } from "../../packages/main/__tests__/utils/contract";
 import { wait } from "../../packages/main/src/utils";
-import PisaClient from "../../client";
+import PisaClient from "../../packages/client";
 import expectAsync from "../utils/expectAsync";
 chai.use(chaiAsPromised);
 

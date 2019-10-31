@@ -1,11 +1,11 @@
 {
-  "name": "pisa-client",
-  "version": "0.1.5",
+  "name": "@pisa/client",
+  "version": "0.1.6",
   "description": "A client library for the PISA API.",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
   "scripts": {
-    "build": "rm -rf dist && tsc",
+    "build": "tsc",
     "prepublishOnly": "npm run build"
   },
   "repository": {
@@ -17,7 +17,7 @@
     "ethereum",
     "statechannels"
   ],
-  "author": "Chris Buckland",
+  "author": "PISA Research Ltd",
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/PISAresearch/pisa/issues"
@@ -32,7 +32,7 @@
     "ethers": "^4.0.37"
   },
   "files": [
-    "/dist",
+    "/lib",
     "README.md"
   ]
 }

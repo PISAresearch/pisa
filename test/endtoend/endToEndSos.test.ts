@@ -11,7 +11,7 @@ import { wait } from "../../packages/main/src/utils";
 import { BigNumber, arrayify } from "ethers/utils";
 import { expect } from "chai";
 import { deployPisa } from "../../packages/main/__tests__/utils/contract";
-import PisaClient from "../../client";
+import PisaClient from "../../packages/client";
 import { encodeTopicsForPisa } from "../../packages/main/src/utils/ethers";
 const ganache = Ganache.provider({
     mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect",
