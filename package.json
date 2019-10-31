@@ -17,7 +17,7 @@
         "test-alpha": "npm run test-deps && NODE_ENV=test mocha -r ts-node/register test/smoke/alpha.test.ts --exit",
         "test-contract": "npm run test-deps && cd sol && truffle test",
         "test-coverage": "lerna run test-coverage",
-        "test-deps": "npm run build-sol && npm run build-client",
+        "test-deps": "npm run build && npm run build-client",
         "test-endtoend": "NODE_ENV=test mocha -r ts-node/register test/endtoend/**/*.test.ts --exit",
         "test-integration": "npm run test-deps && mocha -r ts-node/register 'test/integration/remote/**/*.test.ts' --exit",
         "test-load": "npm run test-deps && ts-node test/load/loadTest.ts 10 20000",
