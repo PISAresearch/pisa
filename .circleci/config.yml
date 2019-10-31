@@ -68,7 +68,7 @@ jobs:
       - checkout
       - run: 
           name: build docker
-          command: docker build --target deploy -t pisaresearch/pisa:$CIRCLE_BRANCH -f packages/main/docker/app.Dockerfile .
+          command: docker build --target deploy -t pisaresearch/pisa:$CIRCLE_BRANCH -f docker/app.Dockerfile .
       - run: 
           name: push docker
           command: |
