@@ -58,6 +58,9 @@ jobs:
           name: install packages
           command: npm install
       - run:
+          name: bootstrap
+          command: npm run bootstrap
+      - run:
           name: tests
           command: npm run test-contract
   integration-test:
