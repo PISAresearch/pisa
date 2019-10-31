@@ -1,13 +1,12 @@
 import { ethers } from "ethers";
-import { StartStopService } from "../dataEntities";
+import { StartStopService, Lock } from "@pisa/utils";
 import { ReadOnlyBlockCache, BlockCache, BlockAddResult } from "./blockCache";
-import { IBlockStub } from "../dataEntities";
-import { Block, TransactionHashes, BlockItemStore } from "../dataEntities/block";
-import { BlockFetchingError } from "../dataEntities/errors";
+import { IBlockStub, Block, TransactionHashes } from "./block";
+import {BlockItemStore} from "./blockItemStore";
+import { BlockFetchingError } from "@pisa/errors";
 import { LevelUp } from "levelup";
 import EncodingDown from "encoding-down";
-import { BlockEvent } from "../utils/event";
-import { Lock } from "../utils/lock";
+import { BlockEvent } from "./event";
 const sub = require("subleveldown");
 
 type BlockFactory<TBlock> = (provider: ethers.providers.Provider) => (blockNumberOrHash: number | string) => Promise<TBlock>;

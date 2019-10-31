@@ -1,7 +1,7 @@
 import { createLogger, Stream, stdSerializers } from "bunyan";
 import fs from "fs";
 import path from "path";
-import { ArgumentError } from "./dataEntities";
+import { ArgumentError } from "@pisa/errors";
 import Logger from "bunyan";
 export { Logger };
 
@@ -60,8 +60,7 @@ let initialisedLogLevelInfo = LogLevelInfo.Info;
 let initialisedInstanceName = "not-set";
 
 // Default logger
-const logger: Logger = createNamedLogger("main", initialisedLogLevelInfo);
-export default logger;
+export const logger: Logger = createNamedLogger("main", initialisedLogLevelInfo);
 
 // Default to log level "info", unless we are running tests, then "debug"
 

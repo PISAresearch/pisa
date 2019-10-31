@@ -1,7 +1,8 @@
-import { ApplicationError, ArgumentError } from "../dataEntities";
-import { IBlockStub, TransactionHashes, BlockItemStore } from "../dataEntities/block";
-import { Lock } from "../utils/lock";
-import { BlockEvent } from "../utils/event";
+import { ApplicationError, ArgumentError } from "@pisa/errors";
+import { IBlockStub, TransactionHashes } from "./block";
+import { BlockItemStore} from "./blockItemStore";
+import { Lock } from "@pisa/utils";
+import { BlockEvent } from "./event";
 
 // Possible return values of addBlock
 export enum BlockAddResult {

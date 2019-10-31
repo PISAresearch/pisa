@@ -1,4 +1,4 @@
-import { TimeoutError } from "../dataEntities";
+import { TimeoutError } from "@pisa/errors";
 
 export { validateProvider, getJsonRPCProvider } from "./ethers";
 

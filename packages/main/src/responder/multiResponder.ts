@@ -9,9 +9,8 @@ import { GasPriceEstimator } from "./gasPriceEstimator";
 import { ethers } from "ethers";
 import { BigNumber } from "ethers/utils";
 import { inspect } from "util";
-import logger from "../logger";
-import { QueueConsistencyError, ArgumentError, PublicInspectionError } from "../dataEntities/errors";
-import { LockManager } from "../utils/lock";
+import { logger, LockManager } from "@pisa/utils";
+import { QueueConsistencyError, ArgumentError, PublicInspectionError } from "@pisa/errors";
 import { ResponderStore } from "./store";
 
 export class MultiResponder {

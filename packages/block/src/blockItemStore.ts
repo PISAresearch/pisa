@@ -1,65 +1,10 @@
-import { ethers } from "ethers";
-import { BigNumber } from "ethers/utils";
-import { ArgumentError, ApplicationError } from "./errors";
+import { ApplicationError } from "@pisa/errors";
+import { IBlockStub, BlockAndAttached } from "./block";
 import { LevelUp, LevelUpChain } from "levelup";
 import EncodingDown from "encoding-down";
-import { StartStopService } from "./startStop";
-import { AnchorState } from "../blockMonitor/component";
+import { StartStopService } from "@pisa/utils";
+import { AnchorState } from "./component";
 const sub = require("subleveldown");
-
-export interface IBlockStub {
-    hash: string;
-    number: number;
-    parentHash: string;
-}
-
-export interface Logs {
-    logs: ethers.providers.Log[];
-}
-
-/**
- * Returns true the `block` contains a log that matches `filter`, false otherwise.
- */
-export function hasLogMatchingEventFilter(block: Logs, filter: ethers.EventFilter): boolean {
-    if (!filter.address) throw new ArgumentError("The filter must provide an address");
-    if (!filter.topics) throw new ArgumentError("The filter must provide the topics");
-
-    return block.logs.some(
-        log =>
-            log.address.toLowerCase() === filter.address!.toLowerCase() &&
-            filter.topics!.every((topic, idx) => log.topics[idx].toLowerCase() === topic.toLowerCase())
-    );
-}
-
-export interface TransactionHashes {
-    transactionHashes: string[];
-}
-
-export interface Transactions {
-    transactions: ethers.providers.TransactionResponse[];
-}
-
-export interface TransactionStub {
-    blockNumber?: number;
-    nonce: number;
-    to?: string;
-    from: string;
-    chainId: number;
-    data: string;
-    value: BigNumber;
-    gasLimit: BigNumber;
-}
-
-export interface ResponderBlock extends IBlockStub {
-    transactions: TransactionStub[];
-}
-
-export interface Block extends IBlockStub, Logs, Transactions, TransactionHashes {}
-
-export type BlockAndAttached<TBlock extends IBlockStub> = {
-    block: TBlock;
-    attached: boolean;
-};
 
 /**
  * This store is a support structure for the block cache and all the related components that need to store blocks and other data that

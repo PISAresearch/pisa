@@ -1,13 +1,12 @@
 import { ethers } from "ethers";
 import appointmentRequestSchemaJson from "../public/appointmentRequestSchema.json";
 import Ajv from "ajv";
-import { PublicDataValidationError, PublicInspectionError, ArgumentError } from "./errors";
-import logger from "../logger";
+import { PublicDataValidationError } from "@pisa/errors";
+import { logger } from "@pisa/utils";
 import { BigNumber } from "ethers/utils";
-import { Logger } from "../logger";
+import { Logger } from "@pisa/utils";
 import betterAjvErrors from "better-ajv-errors";
-import { ReadOnlyBlockCache } from "../blockMonitor/index.js";
-import { IBlockStub } from "./block.js";
+import { ReadOnlyBlockCache, IBlockStub } from "@pisa/block";
 import * as PisaContract from "@pisa/contracts/build/contracts/PISAHash.json";
 import { encodeTopicsForPisa } from "../utils/ethers";
 const ABI = PisaContract.abi;
@@ -264,12 +263,7 @@ export class Appointment {
         const valid = appointmentRequestValidation(obj);
 
         if (!valid) {
-            const betterErrors = betterAjvErrors(
-                appointmentRequestSchemaJson,
-                obj,
-                appointmentRequestValidation.errors,
-                { format: "js" }
-            );
+            const betterErrors = betterAjvErrors(appointmentRequestSchemaJson, obj, appointmentRequestValidation.errors, { format: "js" });
             if (betterErrors) {
                 log.info({ results: betterErrors }, "Schema error.");
                 throw new PublicDataValidationError(betterErrors.map(e => e.error).join("\n"));
@@ -297,11 +291,7 @@ export class Appointment {
      * Validate property values on the appointment
      * @param log Logger to be used in case of failures
      */
-    public async validate(
-        blockCache: ReadOnlyBlockCache<IBlockStub>,
-        pisaContractAddress: string,
-        log: Logger = logger
-    ) {
+    public async validate(blockCache: ReadOnlyBlockCache<IBlockStub>, pisaContractAddress: string, log: Logger = logger) {
         if (this.paymentHash.toLowerCase() !== Appointment.FreeHash) throw new PublicDataValidationError("Invalid payment hash."); // prettier-ignore
 
         const currentHead = blockCache.head.number;
@@ -316,7 +306,7 @@ export class Appointment {
 
         if (this.preCondition !== "0x") throw new PublicDataValidationError("Pre-condition currently not supported. Please set to '0x'"); //prettier-ignore
         if (this.postCondition !== "0x") throw new PublicDataValidationError("Post-condition currently not supported. Please set to '0x'"); //prettier-ignore
-        
+
         if (this.mode === AppointmentMode.EventTriggered) {
             // we test eventAddress and each non-null topic by attempting to encode them
             try {
@@ -332,7 +322,7 @@ export class Appointment {
                     if (topic.length !== 2+2*32 || !ethers.utils.isHexString(topic)) throw new PublicDataValidationError(`The topic with index ${idx} is invalid: ${topic}.`); // prettier-ignore
                 }
             }
-        } else if (this.mode === AppointmentMode.Relay){
+        } else if (this.mode === AppointmentMode.Relay) {
             if(this.eventAddress !== "0x0000000000000000000000000000000000000000") throw new PublicDataValidationError("Event address must be set to \"0x0000000000000000000000000000000000000000\" for relay transactions."); //prettier-ignore
             if(this.topics.length !== 0) throw new PublicDataValidationError("Event topics must be set to [] for relay transactions."); //prettier-ignore
         } else {
@@ -360,9 +350,7 @@ export class Appointment {
             throw new PublicDataValidationError("Invalid signature.");
         }
         if (this.customerAddress.toLowerCase() !== recoveredAddress.toLowerCase()) {
-            throw new PublicDataValidationError(
-                `Invalid signature - did not recover customer address ${this.customerAddress}.`
-            );
+            throw new PublicDataValidationError(`Invalid signature - did not recover customer address ${this.customerAddress}.`);
         }
     }
 
@@ -399,7 +387,6 @@ export class Appointment {
         };
     }
 
-
     /**
      * Order the properties of the appointment prior to encoding as a tuple
      */
@@ -424,8 +411,7 @@ export class Appointment {
         ];
     }
 
-    public static EncodingTupleDefinition =
-        "tuple(address,address,uint,uint,uint,bytes32,uint,bytes,uint,uint,uint,address,bytes,bytes,bytes,bytes32)";
+    public static EncodingTupleDefinition = "tuple(address,address,uint,uint,uint,bytes32,uint,bytes,uint,uint,uint,address,bytes,bytes,bytes,bytes32)";
 
     /**
      * Encode this appointment as a function call to response
@@ -442,10 +428,7 @@ export class Appointment {
      * @param pisaContractAddress The appointment is combined with the address of the pisa contract before signature
      */
     public encodeForSig(pisaContractAddress: string) {
-        return ethers.utils.defaultAbiCoder.encode(
-            [Appointment.EncodingTupleDefinition, "address"],
-            [this.orderForEncoding(), pisaContractAddress]
-        );
+        return ethers.utils.defaultAbiCoder.encode([Appointment.EncodingTupleDefinition, "address"], [this.orderForEncoding(), pisaContractAddress]);
     }
 }
 
@@ -453,11 +436,7 @@ export class Appointment {
  * An appointment signed by PISA
  */
 export class SignedAppointment {
-    constructor(
-        public readonly appointment: Appointment,
-        public readonly signerAddress: string,
-        public readonly signature: string
-    ) {}
+    constructor(public readonly appointment: Appointment, public readonly signerAddress: string, public readonly signature: string) {}
     public serialise() {
         const signedAppointment: {
             appointment: IAppointmentRequest;

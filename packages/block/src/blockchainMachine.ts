@@ -1,9 +1,10 @@
 import { BlockProcessor } from "./blockProcessor";
-import { IBlockStub, StartStopService, ApplicationError } from "../dataEntities";
+import { IBlockStub } from "./block";
+import { StartStopService, Lock } from "@pisa/utils";
+import { ApplicationError } from "@pisa/errors";
 import { Component, AnchorState, ComponentAction } from "./component";
 import { ActionStore, ActionAndId } from "./actionStore";
-import { BlockItemStore } from "../dataEntities/block";
-import { Lock } from "../utils/lock";
+import { BlockItemStore } from "./blockItemStore";
 
 /**
  * Generic class to handle the anchor state of a blockchain state machine.

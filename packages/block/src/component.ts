@@ -1,4 +1,4 @@
-import { IBlockStub } from "../dataEntities";
+import { IBlockStub } from "./block";
 
 /**
  * Anchor state is derived from new blocks. If the block an anchor state is associated

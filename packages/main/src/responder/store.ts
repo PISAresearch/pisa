@@ -1,4 +1,4 @@
-import { StartStopService } from "../dataEntities";
+import { StartStopService } from "@pisa/utils";
 import { GasQueueItem, GasQueue } from "./gasQueue";
 import { LevelUp } from "levelup";
 import EncodingDown from "encoding-down";

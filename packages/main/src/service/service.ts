@@ -2,29 +2,34 @@ import express, { Response } from "express";
 import httpContext from "express-http-context";
 import { Server } from "http";
 import { ethers } from "ethers";
-import { PublicInspectionError, PublicDataValidationError, ApplicationError, StartStopService, Appointment } from "./dataEntities";
-import { Watcher, AppointmentStore } from "./watcher";
+import { PublicInspectionError, PublicDataValidationError, ApplicationError } from "@pisa/errors";
+import { Appointment } from "../dataEntities";
+import { Watcher, AppointmentStore } from "../watcher";
 import { PisaTower } from "./tower";
-import { GasPriceEstimator, MultiResponder, MultiResponderComponent, ResponderStore } from "./responder";
-import { IArgConfig } from "./dataEntities/config";
-import { BlockProcessor, BlockCache, ReadOnlyBlockCache } from "./blockMonitor";
+import { GasQueue, GasPriceEstimator, MultiResponder, MultiResponderComponent, ResponderStore } from "../responder";
+import { IArgConfig } from "./config";
+import {
+    BlockProcessorStore,
+    BlockchainMachine,
+    ActionStore,
+    BlockProcessor,
+    BlockCache,
+    ReadOnlyBlockCache,
+    blockFactory,
+    Block,
+    BlockItemStore,
+    IBlockStub
+} from "@pisa/block";
 import { LevelUp } from "levelup";
 import encodingDown from "encoding-down";
-import { blockFactory } from "./blockMonitor";
-import { Block, BlockItemStore, IBlockStub } from "./dataEntities/block";
-import { BlockchainMachine } from "./blockMonitor/blockchainMachine";
-import { ActionStore } from "./blockMonitor/actionStore";
-import { Logger } from "./logger";
+import { Logger, StartStopService } from "@pisa/utils";
 import path from "path";
-import { GasQueue } from "./responder/gasQueue";
 import rateLimit from "express-rate-limit";
 import uuid = require("uuid/v4");
 import { BigNumber } from "ethers/utils";
-import swaggerDoc from "./public/swagger-doc.json";
+import swaggerDoc from "../public/swagger-doc.json";
 import favicon from "serve-favicon";
-import { BlockProcessorStore } from "./blockMonitor/blockProcessor";
 import cors from "cors";
-
 
 /**
  * Request object supplemented with a log
@@ -180,8 +185,8 @@ export class PisaService extends StartStopService {
 
         // allow cors on all routes
         app.use(cors());
-        app.options('*', cors())
-        
+        app.options("*", cors());
+
         // use http context middleware to create a request id available on all requests
         app.use(httpContext.middleware);
         app.use(favicon(path.join(__dirname, "public", "favicon.ico")));

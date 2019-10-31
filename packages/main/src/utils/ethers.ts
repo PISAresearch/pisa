@@ -1,6 +1,6 @@
 // Utility functions for ethers.js
 import { ethers } from "ethers";
-import { ArgumentError } from "../dataEntities";
+import { ArgumentError } from "@pisa/errors";
 
 /**
  *

@@ -1,11 +1,18 @@
 import { PisaTransactionIdentifier } from "./gasQueue";
-import { MappedState, StateReducer, MappedStateReducer, Component, BlockNumberState, BlockNumberReducer } from "../blockMonitor/component";
-import { ReadOnlyBlockCache } from "../blockMonitor";
-import { Block } from "../dataEntities";
+import {
+    ReadOnlyBlockCache,
+    Block,
+    ResponderBlock,
+    MappedState,
+    StateReducer,
+    MappedStateReducer,
+    Component,
+    BlockNumberState,
+    BlockNumberReducer
+} from "@pisa/block";
 import { MultiResponder } from "./multiResponder";
-import { ResponderBlock } from "../dataEntities/block";
-import logger from "../logger";
-import { UnreachableCaseError } from "../dataEntities/errors";
+import { logger } from "@pisa/utils";
+import { UnreachableCaseError } from "@pisa/errors";
 
 export enum ResponderStateKind {
     Pending = 1,
@@ -146,14 +153,7 @@ export class MultiResponderComponent extends Component<ResponderAnchorState, Blo
         super(
             new MappedStateReducer(
                 () => [...responder.transactions.values()],
-                item =>
-                    new ResponderAppointmentReducer(
-                        blockCache,
-                        item.request.identifier,
-                        item.request.id,
-                        item.request.blockObserved,
-                        responder.address
-                    ),
+                item => new ResponderAppointmentReducer(blockCache, item.request.identifier, item.request.id, item.request.blockObserved, responder.address),
                 item => item.request.id,
                 new BlockNumberReducer()
             )
@@ -177,7 +177,9 @@ export class MultiResponderComponent extends Component<ResponderAnchorState, Blo
         // every time the we handle a new head event there could potentially have been
         // a reorg, which in turn may have caused some items to be lost from the pending pool.
         // Therefore we check all of the missing items and re-enqueue them if necessary
-        const reEnqueueItems = Object.values(state.items).filter(appState => appState.kind === ResponderStateKind.Pending).map(q => q.appointmentId);
+        const reEnqueueItems = Object.values(state.items)
+            .filter(appState => appState.kind === ResponderStateKind.Pending)
+            .map(q => q.appointmentId);
         if (reEnqueueItems.length > 0) {
             actions.push({ kind: ResponderActionKind.ReEnqueueMissingItems, appointmentIds: reEnqueueItems });
         }

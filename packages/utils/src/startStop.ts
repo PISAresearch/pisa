@@ -1,5 +1,5 @@
-import { ConfigurationError } from "./errors";
-import { createNamedLogger, Logger } from "../logger";
+import { ConfigurationError } from "@pisa/errors";
+import { createNamedLogger, Logger } from "./logger";
 import { EventEmitter } from "events";
 
 /**

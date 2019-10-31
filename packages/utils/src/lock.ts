@@ -1,4 +1,4 @@
-import { ApplicationError } from "../dataEntities";
+import { ApplicationError } from "@pisa/errors";
 
 /**
  * Simple lock class.

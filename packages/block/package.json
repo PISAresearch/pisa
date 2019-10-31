@@ -1,0 +1,45 @@
+{
+  "name": "@pisa/block",
+  "version": "0.1.6",
+  "description": "Block utilites used in the PISA project",
+  "author": "PISA Research Ltd",
+  "homepage": "https://github.com/PISAresearch/pisa/tree/master/packages/block#readme",
+  "license": "ISC",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "directories": {
+    "lib": "lib",
+    "test": "__tests__"
+  },
+  "files": [
+    "lib"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/PISAresearch/pisa.git"
+  },
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build",
+    "test": "echo \"Error: run tests from root\" && exit 1"
+  },
+  "bugs": {
+    "url": "https://github.com/PISAresearch/pisa/issues"
+  },
+  "dependencies": {
+    "@pisa/errors": "^0.1.6",
+    "@pisa/utils": "^0.1.6",
+    "encoding-down": "^6.0.2",
+    "ethers": "^4.0.37",
+    "levelup": "^4.0.1",
+    "subleveldown": "^4.1.0"
+  },
+  "devDependencies": {
+    "@types/encoding-down": "^5.0.0",
+    "@types/levelup": "^3.1.0",
+    "typescript": "^3.6.3"
+  }
+}

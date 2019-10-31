@@ -1,5 +1,5 @@
-import { Appointment, ArgumentError, IBlockStub } from "../dataEntities";
-import { ReadOnlyBlockCache } from "../blockMonitor";
+import { ArgumentError } from "@pisa/errors"
+import { IBlockStub ,ReadOnlyBlockCache } from "@pisa/block"
 import { BigNumber } from "ethers/utils";
 import { ethers } from "ethers";
 

@@ -1,10 +1,9 @@
 import { Appointment } from "../dataEntities";
-import { ApplicationError, ArgumentError, UnreachableCaseError } from "../dataEntities/errors";
+import { ApplicationError, ArgumentError, UnreachableCaseError } from "@pisa/errors";
 import { AppointmentStore } from "./store";
-import { ReadOnlyBlockCache } from "../blockMonitor";
-import { Logs, IBlockStub, hasLogMatchingEventFilter } from "../dataEntities/block";
-import { StateReducer, MappedStateReducer, MappedState, Component, BlockNumberState, BlockNumberReducer } from "../blockMonitor/component";
-import logger from "../logger";
+import { ReadOnlyBlockCache, IBlockStub, hasLogMatchingEventFilter, Logs } from "@pisa/block";
+import { StateReducer, MappedStateReducer, MappedState, Component, BlockNumberState, BlockNumberReducer } from "@pisa/block";
+import { logger } from "@pisa/utils";
 import { MultiResponder } from "../responder";
 import { EventFilter } from "ethers";
 
@@ -30,19 +29,11 @@ export type WatcherAppointmentAnchorState = WatcherAppointmentAnchorStateWatchin
 type WatcherAnchorState = MappedState<WatcherAppointmentAnchorState> & BlockNumberState;
 
 export class EventFilterStateReducer implements StateReducer<WatcherAppointmentAnchorState, IBlockStub & Logs> {
-    constructor(
-        private cache: ReadOnlyBlockCache<IBlockStub & Logs>,
-        private filter: EventFilter,
-        private startBlock: number
-    ) {
+    constructor(private cache: ReadOnlyBlockCache<IBlockStub & Logs>, private filter: EventFilter, private startBlock: number) {
         if (!filter.topics) throw new ApplicationError(`topics should be defined`);
     }
     public getInitialState(block: IBlockStub & Logs): WatcherAppointmentAnchorState {
-        const eventAncestor = this.cache.findAncestor(
-            block.hash,
-            ancestor => hasLogMatchingEventFilter(ancestor, this.filter),
-            this.startBlock
-        );
+        const eventAncestor = this.cache.findAncestor(block.hash, ancestor => hasLogMatchingEventFilter(ancestor, this.filter), this.startBlock);
 
         if (!eventAncestor) {
             return {

@@ -1,4 +1,4 @@
-import { ArgumentError } from "../dataEntities";
+import { ArgumentError } from "@pisa/errors";
 
 /**
  * A mapping where the value is a set. Adds some useful helper methods for adding/removing items from the value sets

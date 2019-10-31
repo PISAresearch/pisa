@@ -2,7 +2,7 @@
   "name": "@pisa/contracts",
   "version": "0.1.6",
   "description": "PISA contracts",
-  "author": "yahgwai <cpbuckland88@gmail.com>",
+  "author": "PISA Research Ltd",
   "homepage": "https://github.com/PISAresearch/pisa/tree/master/packages/contract#readme",
   "license": "ISC",
   "directories": {

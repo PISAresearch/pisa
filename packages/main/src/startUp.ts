@@ -1,8 +1,8 @@
-import { PisaService } from "./service";
+import { PisaService } from "./service/service";
 import { ethers } from "ethers";
-import { PisaConfigManager, IArgConfig } from "./dataEntities/config";
+import { PisaConfigManager, IArgConfig } from "./service/config";
 import { validateProvider, getJsonRPCProvider } from "./utils/ethers";
-import { initialise, LogLevelInfo } from "./logger";
+import { initialise, LogLevelInfo } from "@pisa/utils";
 import levelup, { LevelUp } from "levelup";
 import encodingDown from "encoding-down";
 import leveldown from "leveldown";

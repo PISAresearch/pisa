@@ -47,9 +47,12 @@
         "type": "git",
         "url": "git+https://github.com/PISAresearch/pisa.git"
     },
-    "author": "PISA Research",
+    "author": "PISA Research Ltd",
     "dependencies": {
         "@pisa/contracts": "^0.1.6",
+        "@pisa/utils": "^0.1.6",
+        "@pisa/errors": "^0.1.6",
+        "@pisa/block": "^0.1.6",
         "@types/cors": "^2.8.6",
         "ajv": "^6.10.2",
         "better-ajv-errors": "^0.6.4",

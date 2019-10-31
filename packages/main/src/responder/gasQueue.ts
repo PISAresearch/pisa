@@ -1,4 +1,4 @@
-import { Appointment, ArgumentError, IAppointment } from "../dataEntities";
+import { ArgumentError } from "@pisa/errors"
 import { BigNumber } from "ethers/utils";
 import { ethers } from "ethers";
 

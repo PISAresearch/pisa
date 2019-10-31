@@ -1,6 +1,6 @@
 import config from "../config.json";
 import yargs from "yargs";
-import { LogLevel, LogLevelInfo } from "../logger";
+import { LogLevel, LogLevelInfo } from "@pisa/utils";
 
 export interface IArgConfig {
     jsonRpcUrl: string;

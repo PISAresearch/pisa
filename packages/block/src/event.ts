@@ -1,4 +1,5 @@
-import { IBlockStub, ApplicationError } from "../dataEntities";
+import { IBlockStub } from "./block";
+import { ApplicationError } from "@pisa/errors";
 
 /**
  * This is a generic class to use as base for concrete classes to manage events and event listeners.
