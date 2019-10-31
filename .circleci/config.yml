@@ -89,8 +89,11 @@ jobs:
             echo 'export NVM_DIR="/opt/circleci/.nvm"' >> $BASH_ENV
             echo "[ -s \"$NVM_DIR/nvm.sh\" ] && . \"$NVM_DIR/nvm.sh\"" >> $BASH_ENV
       - run:
+          name: bootstrap
+          command: npm run bootstrap
+      - run:
           name: install
-          command: npm install
+          command: npm run build
       - run:
           name: test
           command: TAG_NAME=$CIRCLE_BRANCH npm run test-integration
