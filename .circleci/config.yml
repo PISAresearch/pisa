@@ -95,9 +95,6 @@ jobs:
           name: bootstrap
           command: npm run bootstrap
       - run:
-          name: install
-          command: npm run build
-      - run:
           name: test
           command: TAG_NAME=$CIRCLE_BRANCH npm run test-integration
       - store_artifacts:
