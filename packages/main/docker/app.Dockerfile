@@ -8,13 +8,16 @@ WORKDIR /usr/pisa
 COPY package*.json ./
 
 # install packages
-RUN ["npm", "ci"];
+# RUN ["npm", "ci"];
+RUN ["npm", "i", "-D", "lerna@3.18.3"]
 
 # copy the src and the configs
-COPY ./src ./src
+COPY ./packages ./packages
 COPY ./tsconfig.json ./tsconfig.json
+COPY ./lerna.json ./lerna.json
 
 # build
+RUN ["npm", "run", "bootstrap"]
 RUN ["npm", "run", "build"]
 
 ########################################
@@ -26,8 +29,10 @@ WORKDIR /usr/pisa
 
 # copy packages
 COPY package*.json ./
+COPY ./lerna.json ./lerna.json
+RUN ["npm", "i", "-D", "lerna@3.18.3"]
 # install production dependencies
-RUN ["npm", "ci", "--only=prod"];
+RUN ["npm", "run", "bootstrap-ci"];
 
 ######################
 ####### DEPLOY #######
@@ -36,13 +41,13 @@ FROM node:10.14.2 as deploy
 WORKDIR /usr/pisa
 
 # copy packages
-COPY package*.json ./
+COPY packages/main/package*.json ./
 # copy config
 COPY ./configs/pisa.json ./lib/config.json
 # copy only the source code from the builder
-COPY --from=builder /usr/pisa/lib ./lib
+COPY --from=builder /usr/pisa/packages/main/lib ./lib
 # copy node modules from production
-COPY --from=productionPackges /usr/pisa/node_modules ./node_modules
+COPY --from=productionPackges /usr/pisa/packages/main/node_modules ./node_modules
 
 # expose the startup port
 EXPOSE 3000
