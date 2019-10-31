@@ -18,9 +18,6 @@ jobs:
           name: install raiden deps
           command: cd raiden_demo/raiden-pisa-daemon && npm install
       - run:
-          name: build sol
-          command: npm run build-sol
-      - run:
           name: build pisa
           command: npm run build
       - run:
