@@ -24,7 +24,7 @@ RUN ["npm", "run", "build"]
 ####### PRODUCTION PACKAGES ONLY #######
 ########################################
 # start a new stage, we dont need to carry over all the unused precompiled code and dev dependencies
-FROM node:10.14.2 as productionPackges
+FROM node:10.14.2 as productionPackages
 WORKDIR /usr/pisa
 
 # copy packages
@@ -32,6 +32,7 @@ COPY package*.json ./
 COPY ./lerna.json ./lerna.json
 RUN ["npm", "i", "-D", "lerna@3.18.3"]
 # install production dependencies
+COPY ./packages ./packages
 RUN ["npm", "run", "bootstrap-ci"];
 
 ######################
@@ -47,7 +48,7 @@ COPY ./configs/pisa.json ./lib/config.json
 # copy only the source code from the builder
 COPY --from=builder /usr/pisa/packages/main/lib ./lib
 # copy node modules from production
-COPY --from=productionPackges /usr/pisa/packages/main/node_modules ./node_modules
+COPY --from=productionPackages /usr/pisa/packages/main/node_modules ./node_modules
 
 # expose the startup port
 EXPOSE 3000

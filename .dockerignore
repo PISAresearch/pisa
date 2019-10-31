@@ -1,3 +1,4 @@
-# remove node modules
 ./node_modules
-./statechannels/node_modules
+./.git
+./raiden_demo
+./test
