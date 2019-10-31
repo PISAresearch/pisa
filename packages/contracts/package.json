@@ -1,0 +1,32 @@
+{
+  "name": "@pisa/contracts",
+  "version": "0.1.6",
+  "description": "PISA contracts",
+  "author": "yahgwai <cpbuckland88@gmail.com>",
+  "homepage": "https://github.com/PISAresearch/pisa/tree/master/packages/contract#readme",
+  "license": "ISC",
+  "directories": {
+    "lib": "build/contracts",
+    "test": "__tests__"
+  },
+  "files": [
+    "/build/contracts"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/PISAresearch/pisa.git"
+  },
+  "scripts": {
+    "build": "truffle compile",
+    "test": "npm run build && truffle test"
+  },
+  "bugs": {
+    "url": "https://github.com/PISAresearch/pisa/issues"
+  },
+  "devDependencies": {
+    "@types/ganache-core": "^2.1.1",
+    "ganache-core": "^2.8.0",
+    "truffle": "^5.0.34",
+    "truffle-assertions": "^0.9.1"
+  }
+}

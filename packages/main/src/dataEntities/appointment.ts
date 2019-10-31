@@ -8,7 +8,7 @@ import { Logger } from "../logger";
 import betterAjvErrors from "better-ajv-errors";
 import { ReadOnlyBlockCache } from "../blockMonitor/index.js";
 import { IBlockStub } from "./block.js";
-import * as PisaContract from "../../../../sol/build/contracts/PISAHash.json";
+import * as PisaContract from "@pisa/contracts/build/contracts/PISAHash.json";
 import { encodeTopicsForPisa } from "../utils/ethers";
 const ABI = PisaContract.abi;
 const ajv = new Ajv({ jsonPointers: true, allErrors: true });

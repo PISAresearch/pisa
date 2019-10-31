@@ -49,6 +49,7 @@
     },
     "author": "PISA Research",
     "dependencies": {
+        "@pisa/contracts": "^0.1.6",
         "@types/cors": "^2.8.6",
         "ajv": "^6.10.2",
         "better-ajv-errors": "^0.6.4",
