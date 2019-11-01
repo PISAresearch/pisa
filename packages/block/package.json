@@ -1,6 +1,6 @@
 {
   "name": "@pisa/block",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Block utilites used in the PISA project",
   "author": "PISA Research Ltd",
   "homepage": "https://github.com/PISAresearch/pisa/tree/master/packages/block#readme",
@@ -29,17 +29,17 @@
   },
   "nyc": {
     "include": [
-        "src/**/*.ts"
+      "src/**/*.ts"
     ],
     "extension": [
-        ".ts"
+      ".ts"
     ],
     "require": [
-        "ts-node/register"
+      "ts-node/register"
     ],
     "reporter": [
-        "json-summary",
-        "lcovonly"
+      "json-summary",
+      "lcovonly"
     ],
     "sourceMap": true,
     "instrument": true
@@ -48,18 +48,18 @@
     "url": "https://github.com/PISAresearch/pisa/issues"
   },
   "dependencies": {
-    "@pisa/errors": "^0.1.6",
-    "@pisa/utils": "^0.1.6",
+    "@pisa/errors": "^0.1.7",
+    "@pisa/utils": "^0.1.7",
     "encoding-down": "^6.0.2",
     "ethers": "^4.0.37",
     "levelup": "^4.0.1",
     "subleveldown": "^4.1.0"
   },
   "devDependencies": {
-    "@pisa/test-utils": "^0.1.6",
+    "@pisa/test-utils": "^0.1.7",
+    "@types/chai": "^4.1.6",
     "@types/encoding-down": "^5.0.0",
     "@types/levelup": "^3.1.0",
-    "@types/chai": "^4.1.6",
     "@types/mocha": "^5.2.5",
     "chai": "^4.2.0",
     "mocha": "^5.2.0",

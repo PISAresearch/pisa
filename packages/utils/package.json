@@ -1,6 +1,6 @@
 {
   "name": "@pisa/utils",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Misc utilities used in the PISA project",
   "author": "PISA Research Ltd",
   "homepage": "https://github.com/PISAresearch/pisa/tree/master/packages/utils#readme",
@@ -29,17 +29,17 @@
   },
   "nyc": {
     "include": [
-        "src/**/*.ts"
+      "src/**/*.ts"
     ],
     "extension": [
-        ".ts"
+      ".ts"
     ],
     "require": [
-        "ts-node/register"
+      "ts-node/register"
     ],
     "reporter": [
-        "json-summary",
-        "lcovonly"
+      "json-summary",
+      "lcovonly"
     ],
     "sourceMap": true,
     "instrument": true
@@ -48,11 +48,11 @@
     "url": "https://github.com/PISAresearch/pisa/issues"
   },
   "dependencies": {
-      "@pisa/errors": "^0.1.6",
-      "bunyan": "^1.8.12"
+    "@pisa/errors": "^0.1.7",
+    "bunyan": "^1.8.12"
   },
   "devDependencies": {
-    "@pisa/test-utils": "^0.1.6",
+    "@pisa/test-utils": "^0.1.7",
     "@types/bunyan": "^1.8.6",
     "@types/chai": "^4.1.6",
     "@types/chai-as-promised": "^7.1.0",
