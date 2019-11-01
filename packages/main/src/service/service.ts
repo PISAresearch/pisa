@@ -3,7 +3,7 @@ import httpContext from "express-http-context";
 import { Server } from "http";
 import { ethers } from "ethers";
 import { PublicInspectionError, PublicDataValidationError, ApplicationError } from "@pisa/errors";
-import { Appointment } from "../dataEntities";
+import { Appointment } from "../dataEntities/appointment";
 import { Watcher, AppointmentStore } from "../watcher";
 import { PisaTower } from "./tower";
 import { GasQueue, GasPriceEstimator, MultiResponder, MultiResponderComponent, ResponderStore } from "../responder";
@@ -27,7 +27,7 @@ import path from "path";
 import rateLimit from "express-rate-limit";
 import uuid = require("uuid/v4");
 import { BigNumber } from "ethers/utils";
-import swaggerDoc from "../public/swagger-doc.json";
+import swaggerDoc from "./swagger-doc.json";
 import favicon from "serve-favicon";
 import cors from "cors";
 
@@ -189,7 +189,7 @@ export class PisaService extends StartStopService {
 
         // use http context middleware to create a request id available on all requests
         app.use(httpContext.middleware);
-        app.use(favicon(path.join(__dirname, "public", "favicon.ico")));
+        app.use(favicon(path.join(__dirname, "favicon.ico")));
         app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
             (req as any).log = this.logger.child({ requestId: uuid() });
             next();

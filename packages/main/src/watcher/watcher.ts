@@ -1,4 +1,4 @@
-import { Appointment } from "../dataEntities";
+import { Appointment } from "../dataEntities/appointment";
 import { ApplicationError, ArgumentError, UnreachableCaseError } from "@pisa/errors";
 import { AppointmentStore } from "./store";
 import { ReadOnlyBlockCache, IBlockStub, hasLogMatchingEventFilter, Logs } from "@pisa/block";

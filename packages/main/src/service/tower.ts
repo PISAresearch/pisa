@@ -1,7 +1,7 @@
 import { AppointmentStore } from "../watcher";
 import { ethers } from "ethers";
 import { PublicDataValidationError } from "@pisa/errors";
-import { SignedAppointment, AppointmentMode, Appointment } from "../dataEntities";
+import { SignedAppointment, AppointmentMode, Appointment } from "../dataEntities/appointment";
 import { MultiResponder } from "../responder";
 import { Logger } from "@pisa/utils";
 import { ReadOnlyBlockCache, IBlockStub } from "@pisa/block";

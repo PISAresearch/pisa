@@ -19,7 +19,7 @@
         "url": "https://github.com/PISAresearch/pisa/issues"
     },
     "scripts": {
-        "build": "npx tsc && cp ./src/public/favicon.ico ./lib/public/favicon.ico",
+        "build": "npx tsc && cp ./src/service/favicon.ico ./lib/service/favicon.ico",
         "lint": "eslint --ext ts .",
         "start": "node ./lib/startUp.js",
         "start-dev": "ts-node src/startUp.ts",
