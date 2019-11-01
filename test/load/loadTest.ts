@@ -3,7 +3,7 @@ import { KitsuneTools } from "../external/kitsune/tools";
 import { ethers } from "ethers";
 import config from "../../packages/main/src/service/config";
 import { getJsonRPCProvider } from "../../packages/main/src/utils";
-import { Appointment, IAppointmentRequest } from "../../packages/main/src/dataEntities";
+import { Appointment, IAppointmentRequest } from "../../packages/main/src/dataEntities/appointment";
 
 let account0: string,
     account1: string,

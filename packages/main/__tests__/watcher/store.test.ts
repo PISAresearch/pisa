@@ -5,7 +5,7 @@ import { AppointmentStore } from "../../src/watcher";
 import levelup, { LevelUp } from "levelup";
 import MemDown from "memdown";
 import encodingDown from "encoding-down";
-import { Appointment } from "../../src/dataEntities";
+import { Appointment } from "../../src/dataEntities/appointment";
 import { ApplicationError } from "@pisa/errors";
 import { fnIt, expectAsync } from "@pisa/test-utils";
 chai.use(chaiAsPromised);

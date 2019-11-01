@@ -11,7 +11,7 @@ import { AppointmentStore } from "../../src/watcher";
 import { MultiResponder } from "../../src/responder";
 import { BlockCache, BlockItemStore, IBlockStub, Logs } from "@pisa/block";
 import { ApplicationError } from "@pisa/errors";
-import { Appointment } from "../../src/dataEntities";
+import { Appointment } from "../../src/dataEntities/appointment";
 import { EventFilterStateReducer, WatcherAppointmentState, Watcher, WatcherActionKind } from "../../src/watcher/watcher";
 
 const observedEventAddress = "0x1234abcd";

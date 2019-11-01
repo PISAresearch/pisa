@@ -6,7 +6,7 @@ import { fnIt } from "@pisa/test-utils";
 
 import { ethers } from "ethers";
 
-import { Appointment } from "../../src/service/appointment";
+import { Appointment } from "../../src/dataEntities/appointment";
 import { IBlockStub, BlockCache } from "@pisa/block";
 import { PublicDataValidationError } from "@pisa/errors";
 chai.use(chaiAsPromised);
