@@ -28,5 +28,6 @@
     "ganache-core": "^2.8.0",
     "truffle": "^5.0.34",
     "truffle-assertions": "^0.9.1"
-  }
+  },
+  "gitHead": "cf609e0f0c4da6ac0cd53368b192b9b2d31873d1"
 }
