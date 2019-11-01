@@ -1,6 +1,6 @@
 import DockerClient from "dockerode";
 import { logger } from "../../packages/utils/src";
-import { IArgConfig, PisaConfigManager } from "../../packages/main/src/service/config";
+import { IArgConfig, PisaConfigManager } from "../../packages/server/src/service/config";
 import { FileUtils } from "./fileUtil";
 import path from "path";
 import fs from "fs";

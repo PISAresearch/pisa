@@ -1,9 +1,9 @@
 import request from "request-promise";
 import { KitsuneTools } from "../external/kitsune/tools";
 import { ethers } from "ethers";
-import config from "../../packages/main/src/service/config";
-import { getJsonRPCProvider } from "../../packages/main/src/utils";
-import { IAppointmentRequest, Appointment } from "../../packages/main/src/dataEntities/appointment";
+import config from "../../packages/server/src/service/config";
+import { getJsonRPCProvider } from "../../packages/server/src/utils";
+import { IAppointmentRequest, Appointment } from "../../packages/server/src/dataEntities/appointment";
 let account0: string, account1: string, channelContract: ethers.Contract, hashState: string, disputePeriod: number;
 
 const mineBlock = async (wallet: ethers.Signer) => {

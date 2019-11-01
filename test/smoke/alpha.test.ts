@@ -4,9 +4,9 @@ import * as SosContract from "./SOSContract";
 import { Wallet, ethers } from "ethers";
 import { JsonRpcProvider } from "ethers/providers";
 import { wait } from "../../packages/test-utils/src";
-import { IAppointmentRequest } from "../../packages/main/src/dataEntities"
+import { IAppointmentRequest } from "../../packages/server/src/dataEntities/appointment"
 import { arrayify } from "ethers/utils";
-import { encodeTopicsForPisa } from "../../packages/main/src/utils/ethers";
+import { encodeTopicsForPisa } from "../../packages/server/src/utils/ethers";
 
 // Omit introduced in TypeScript 3.5
 type Omit<T, K extends keyof T> = Pick<T, Exclude<keyof T, K>>

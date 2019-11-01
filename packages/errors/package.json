@@ -1,5 +1,5 @@
 {
-  "name": "@pisa/errors",
+  "name": "@pisa-research/errors",
   "version": "0.1.7",
   "description": "Errors used in the PISA project",
   "author": "PISA Research Ltd",

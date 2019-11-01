@@ -42,13 +42,13 @@ FROM node:10.14.2 as deploy
 WORKDIR /usr/pisa
 
 # copy packages
-COPY packages/main/package*.json ./
+COPY packages/server/package*.json ./
 # copy config
 COPY ./configs/pisa.json ./lib/config.json
 # copy only the source code from the builder
-COPY --from=builder /usr/pisa/packages/main/lib ./lib
+COPY --from=builder /usr/pisa/packages/server/lib ./lib
 # copy node modules from production
-COPY --from=productionPackages /usr/pisa/packages/main/node_modules ./node_modules
+COPY --from=productionPackages /usr/pisa/packages/server/node_modules ./node_modules
 
 # expose the startup port
 EXPOSE 3000

@@ -1,5 +1,5 @@
 {
-  "name": "@pisa/test-utils",
+  "name": "@pisa-research/test-utils",
   "version": "0.1.7",
   "description": "Misc test utilities used in the PISA project",
   "author": "PISA Research Ltd",

@@ -1,7 +1,7 @@
 import "mocha";
 import chai from "chai";
 import DockerClient from "dockerode";
-import { IArgConfig } from "../../../packages/main/src/service/config";
+import { IArgConfig } from "../../../packages/server/src/service/config";
 import uuid from "uuid/v4";
 import fs from "fs";
 import path from "path";
@@ -12,7 +12,7 @@ import { PisaContainer, ParityContainer } from "../docker";
 import { FileUtils } from "../fileUtil";
 import { ChainData } from "../chainData";
 import { KeyStore } from "../keyStore";
-import { deployPisa } from "../../../packages/main/__tests__/utils/contract";
+import { deployPisa } from "../../../packages/server/__tests__/utils/contract";
 import { PisaClient } from "../../../packages/client";
 
 const newId = () => {

@@ -4,15 +4,15 @@ import { Wallet, ethers } from "ethers";
 import levelup, { LevelUp } from "levelup";
 import MemDown from "memdown";
 import encodingDown from "encoding-down";
-import config from "../../packages/main/src/service/config";
+import config from "../../packages/server/src/service/config";
 import Ganache from "ganache-core";
-import { PisaService } from "../../packages/main/src/service/service";
+import { PisaService } from "../../packages/server/src/service/service";
 import { wait } from "../../packages/test-utils/src";
 import { BigNumber, arrayify } from "ethers/utils";
 import { expect } from "chai";
-import { deployPisa } from "../../packages/main/__tests__/utils/contract";
+import { deployPisa } from "../../packages/server/__tests__/utils/contract";
 import PisaClient from "../../packages/client";
-import { encodeTopicsForPisa } from "../../packages/main/src/utils/ethers";
+import { encodeTopicsForPisa } from "../../packages/server/src/utils/ethers";
 const ganache = Ganache.provider({
     mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect",
     gasLimit: 8000000
