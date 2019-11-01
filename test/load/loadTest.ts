@@ -1,7 +1,7 @@
 import request from "request-promise";
 import { KitsuneTools } from "../external/kitsune/tools";
 import { ethers } from "ethers";
-import config from "../../packages/main/src/dataEntities/config";
+import config from "../../packages/main/src/service/config";
 import { getJsonRPCProvider } from "../../packages/main/src/utils";
 import { Appointment, IAppointmentRequest } from "../../packages/main/src/dataEntities";
 

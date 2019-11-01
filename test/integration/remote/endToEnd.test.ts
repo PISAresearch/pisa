@@ -1,13 +1,13 @@
 import "mocha";
 import chai from "chai";
 import DockerClient from "dockerode";
-import { IArgConfig } from "../../../packages/main/src/dataEntities/config";
+import { IArgConfig } from "../../../packages/main/src/service/config";
 import uuid from "uuid/v4";
 import fs from "fs";
 import path from "path";
 import { ethers } from "ethers";
 import { KitsuneTools } from "../../external/kitsune/tools";
-import { wait } from "../../../packages/main/src/utils";
+import { wait } from "../../../packages/test-utils/src";
 import { PisaContainer, ParityContainer } from "../docker";
 import { FileUtils } from "../fileUtil";
 import { ChainData } from "../chainData";

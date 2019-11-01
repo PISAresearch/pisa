@@ -4,16 +4,15 @@ import chaiAsPromised from "chai-as-promised";
 import { KitsuneTools } from "../external/kitsune/tools";
 import { ethers } from "ethers";
 import { arrayify, BigNumber } from "ethers/utils";
-import { PisaService } from "../../packages/main/src/service";
-import config from "../../packages/main/src/dataEntities/config";
+import { PisaService } from "../../packages/main/src/service/service";
+import config from "../../packages/main/src/service/config";
 import Ganache from "ganache-core";
 import levelup, { LevelUp } from "levelup";
 import MemDown from "memdown";
 import encodingDown from "encoding-down";
 import { deployPisa } from "../../packages/main/__tests__/utils/contract";
-import { wait } from "../../packages/main/src/utils";
+import { wait, expectAsync } from "../../packages/test-utils/src";
 import PisaClient from "../../packages/client";
-import expectAsync from "../utils/expectAsync";
 chai.use(chaiAsPromised);
 
 const ganache = Ganache.provider({

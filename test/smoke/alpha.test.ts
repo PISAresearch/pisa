@@ -3,7 +3,7 @@ import request from "request-promise";
 import * as SosContract from "./SOSContract";
 import { Wallet, ethers } from "ethers";
 import { JsonRpcProvider } from "ethers/providers";
-import { wait } from "../../packages/main/src/utils";
+import { wait } from "../../packages/test-utils/src";
 import { IAppointmentRequest } from "../../packages/main/src/dataEntities"
 import { arrayify } from "ethers/utils";
 import { encodeTopicsForPisa } from "../../packages/main/src/utils/ethers";
