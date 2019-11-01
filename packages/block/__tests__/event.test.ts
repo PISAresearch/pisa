@@ -1,8 +1,8 @@
 import "mocha";
 import { expect } from "chai";
-import fnIt from "../testUtils/fnIt";
-import { Event, BlockEvent } from "../../src/utils/event";
-import { IBlockStub, ApplicationError } from "../../src/dataEntities";
+import { ApplicationError } from "@pisa/errors";
+import { fnIt } from "@pisa/test-utils";
+import { Event, BlockEvent, IBlockStub } from "../src";
 
 describe("Event", async () => {
     const block: IBlockStub = {

@@ -5,9 +5,9 @@ import { AppointmentStore } from "../../src/watcher";
 import levelup, { LevelUp } from "levelup";
 import MemDown from "memdown";
 import encodingDown from "encoding-down";
-import { Appointment, ApplicationError } from "../../src/dataEntities";
-import fnIt from "../testUtils/fnIt";
-import expectAsync from "../testUtils/expectAsync";
+import { Appointment } from "../../src/dataEntities";
+import { ApplicationError } from "@pisa/errors";
+import { fnIt, expectAsync } from "@pisa/test-utils";
 chai.use(chaiAsPromised);
 
 const getAppointment = (id: string, endBlock: number, nonce: number) => {
@@ -50,7 +50,7 @@ describe("Store", () => {
         await db.close();
     });
 
-    const subDbString = "!watcher!"
+    const subDbString = "!watcher!";
 
     fnIt<AppointmentStore>(s => s.addOrUpdateByLocator, "does add appointment", async () => {
         const appointment1 = getAppointment("0x0000000000000000000000000000000000000000000000000000000000000001", 5, 1);

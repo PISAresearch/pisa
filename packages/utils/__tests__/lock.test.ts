@@ -1,9 +1,10 @@
 import "mocha";
-import { expect } from "chai";
-import { Lock, LockManager } from "../../src/utils/lock";
-import { wait } from "../../src/utils";
-import { ApplicationError } from "../../src/dataEntities";
-import fnIt from "../testUtils/fnIt";
+import { expect, use } from "chai";
+import chaiAsPromised from "chai-as-promised"
+import { Lock, LockManager } from "../src";
+import { wait, fnIt } from "@pisa/test-utils";
+import { ApplicationError } from "@pisa/errors";
+use(chaiAsPromised);
 
 describe("Lock", () => {
     it("updates 'locked' correctly", async () => {
@@ -124,7 +125,7 @@ describe("LockManager", () => {
         const func = () => {
             throw t;
         };
-        expect(lockManager.withLock("key", func)).to.be.rejectedWith(t);
+        return expect(lockManager.withLock("key", func)).to.be.rejectedWith(t);
     });
 
     fnIt<LockManager>(l => l.withLock, "keeps the lock while the passed function's promise is pending", async () => {

@@ -1,13 +1,11 @@
 import "mocha";
 import { expect } from "chai";
-
 import LevelUp from "levelup";
 import EncodingDown from "encoding-down";
 import MemDown from "memdown";
-
-import { hasLogMatchingEventFilter, IBlockStub, Logs, BlockItemStore } from "../../src/dataEntities/block";
-import { ArgumentError, ApplicationError } from "../../src/dataEntities";
-import fnIt from "../testUtils/fnIt";
+import { hasLogMatchingEventFilter, IBlockStub, Logs, BlockItemStore } from "../src";
+import { ArgumentError, ApplicationError } from "@pisa/errors";
+import { fnIt } from "@pisa/test-utils";
 
 describe("hasLogMatchingEventFilter", () => {
     const address = "0x1234abcd";
@@ -81,16 +79,14 @@ describe("BlockItemStore", () => {
     const sampleBlocks: IBlockStub[] = [block10a, block10b, block42];
 
     async function addSampleData(bis: BlockItemStore<IBlockStub>) {
-        await store.withBatch(
-            async () => {
-                bis.putBlockItem(block10a.number, block10a.hash, "block", block10a);
-                bis.putBlockItem(block10a.number, block10a.hash, "attached", true);
-                bis.putBlockItem(block42.number, block42.hash, "block", block42);
-                bis.putBlockItem(block42.number, block42.hash, "attached", true);
-                bis.putBlockItem(block10b.number, block10b.hash, "block", block10b);
-                bis.putBlockItem(block10b.number, block10b.hash, "attached", false);
-           }
-        );
+        await store.withBatch(async () => {
+            bis.putBlockItem(block10a.number, block10a.hash, "block", block10a);
+            bis.putBlockItem(block10a.number, block10a.hash, "attached", true);
+            bis.putBlockItem(block42.number, block42.hash, "block", block42);
+            bis.putBlockItem(block42.number, block42.hash, "attached", true);
+            bis.putBlockItem(block10b.number, block10b.hash, "block", block10b);
+            bis.putBlockItem(block10b.number, block10b.hash, "attached", false);
+        });
     }
 
     beforeEach(async () => {
@@ -104,9 +100,7 @@ describe("BlockItemStore", () => {
     });
 
     it("can store and retrieve an item", async () => {
-        await store.withBatch(
-            async () => store.putBlockItem(sampleBlocks[0].number, sampleBlocks[0].hash, sampleKey, sampleValue)
-        );
+        await store.withBatch(async () => store.putBlockItem(sampleBlocks[0].number, sampleBlocks[0].hash, sampleKey, sampleValue));
 
         const storedItem = store.getItem(sampleBlocks[0].hash, sampleKey);
 
@@ -119,7 +113,11 @@ describe("BlockItemStore", () => {
 
     fnIt<BlockItemStore<any>>(b => b.withBatch, "rejects with the same error if the callback rejects", async () => {
         const doh = new Error("Oh no!");
-        expect(store.withBatch(async () => { throw doh })).to.be.rejectedWith(doh);
+        expect(
+            store.withBatch(async () => {
+                throw doh;
+            })
+        ).to.be.rejectedWith(doh);
     });
 
     fnIt<BlockItemStore<any>>(b => b.withBatch, "rejects with ApplicationError if a batch was already open", async () => {
@@ -127,7 +125,6 @@ describe("BlockItemStore", () => {
             expect(store.withBatch(async () => {})).to.be.rejectedWith(ApplicationError);
         });
     });
-
 
     fnIt<BlockItemStore<any>>(b => b.getBlocksAtHeight, "gets all the blocks at a specific height and correctly reads the `attached` property", async () => {
         await addSampleData(store);

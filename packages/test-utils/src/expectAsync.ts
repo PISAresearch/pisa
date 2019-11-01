@@ -6,7 +6,7 @@ import { expect } from "chai";
  *      `(await expectAsync(somePromise)).to.throw(SomeError)`
  * @param target The promise to be tested.
  */
-const expectAsync = async <TReturn>(target: Promise<TReturn>) => {
+export const expectAsync = async <TReturn>(target: Promise<TReturn>) => {
     try {
         return expect(await target);
     } catch (err) {
@@ -15,5 +15,3 @@ const expectAsync = async <TReturn>(target: Promise<TReturn>) => {
         });
     }
 };
-
-export default expectAsync;

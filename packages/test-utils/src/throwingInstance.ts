@@ -4,7 +4,7 @@ import * as chai from "chai";
 /**
  * Creates an instance of a mocked object. Calls to methods or properties that have not been stubbed will throw errors
  */
-export default function throwingInstance<TMock extends object>(target: TMock) {
+export function throwingInstance<TMock extends object>(target: TMock) {
     const stubbedMethods: Array<string> = Object.keys(
         (target as any)["tsMockitoInstance"]["mocker"]["methodStubCollections"]
     );

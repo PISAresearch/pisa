@@ -6,13 +6,9 @@ import LevelUp from "levelup";
 import EncodingDown from "encoding-down";
 import MemDown from "memdown";
 
-import { BlockProcessor, BlockCache, BlockchainMachine } from "../../src/blockMonitor";
-import { Component } from "../../src/blockMonitor/component";
-import { ActionStore } from "../../src/blockMonitor/actionStore";
-import { IBlockStub, ApplicationError, BlockItemStore } from "../../src/dataEntities";
-import { StateReducer } from "../../src/blockMonitor/component";
-import fnIt from "../testUtils/fnIt";
-import { BlockEvent } from "../../src/utils/event";
+import { BlockEvent, StateReducer, Component, BlockProcessor, BlockCache, BlockchainMachine, ActionStore, IBlockStub, BlockItemStore } from "../src";
+import { ApplicationError } from "@pisa/errors";
+import { fnIt } from "@pisa/test-utils";
 
 const blocks: IBlockStub[] = [
     {
@@ -77,7 +73,7 @@ class ExampleComponentWithSlowAction extends ExampleComponent {
         // promise that never resolves until resolveAction is called
         await new Promise(resolve => {
             this.resolvers.add(resolve);
-        })
+        });
     }
     public resolveActions() {
         // resolve any running action

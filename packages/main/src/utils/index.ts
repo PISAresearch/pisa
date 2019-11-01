@@ -3,14 +3,6 @@ import { TimeoutError } from "@pisa/errors";
 export { validateProvider, getJsonRPCProvider } from "./ethers";
 
 /**
- * Returns a Promise that resolves after waiting `milliseconds`.
- * @param milliseconds
- */
-export const wait = (milliseconds: number) => {
-    return new Promise(resolve => setTimeout(resolve, milliseconds));
-};
-
-/**
  * A promise that can be canceled to release any resource.
  * Instances of this class should guarantee that all resources will eventually be released if `cancel()` is called,
  * regardless of wether the Promise is fulfilled or rejected.

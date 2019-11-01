@@ -1,8 +1,7 @@
 import "mocha";
 import { expect } from "chai";
-import { MappedStateReducer, StateReducer, BlockNumberReducer } from "../../src/blockMonitor/component";
-import { IBlockStub } from "../../src/dataEntities/block";
-import fnIt from "../testUtils/fnIt";
+import { MappedStateReducer, StateReducer, BlockNumberReducer, IBlockStub } from "../src";
+import { fnIt } from "@pisa/test-utils";
 
 const objects = [
     {

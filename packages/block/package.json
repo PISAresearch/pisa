@@ -24,7 +24,8 @@
   "scripts": {
     "build": "tsc",
     "prepublishOnly": "npm run build",
-    "test": "echo \"Error: run tests from root\" && exit 1"
+    "test": "NODE_ENV=test mocha -r ts-node/register './__tests__/**/*.test.ts' --exit",
+    "test-coverage": "NODE_ENV=test nyc mocha -r ts-node/register --reporter mocha-junit-reporter --reporter-options mochaFile=coverage/mocha/test-results.xml './__tests__/**/*.test.ts' --exit"
   },
   "bugs": {
     "url": "https://github.com/PISAresearch/pisa/issues"
@@ -38,8 +39,15 @@
     "subleveldown": "^4.1.0"
   },
   "devDependencies": {
+    "@pisa/test-utils": "^0.1.6",
     "@types/encoding-down": "^5.0.0",
     "@types/levelup": "^3.1.0",
+    "@types/chai": "^4.1.6",
+    "@types/mocha": "^5.2.5",
+    "chai": "^4.2.0",
+    "mocha": "^5.2.0",
+    "mocha-junit-reporter": "^1.22.0",
+    "ts-node": "^8.3.0",
     "typescript": "^3.6.3"
   }
 }

@@ -1,12 +1,11 @@
 import "mocha";
 import { expect } from "chai";
-import { ActionStore } from "../../src/blockMonitor/actionStore";
-
+import { ActionStore } from "../src/actionStore";
 import LevelUp from "levelup";
 import EncodingDown from "encoding-down";
 import MemDown from "memdown";
+import { fnIt } from "@pisa/test-utils";
 
-import fnIt from "../testUtils/fnIt";
 
 describe("ActionStore", () => {
     let actionStore: ActionStore;
@@ -43,7 +42,7 @@ describe("ActionStore", () => {
         const actionsAndIds = await actionStore.storeActions(componentName, testActions);
 
         expect(testActions.length).to.equal(actionsAndIds.length);
-        for(let i = 0; i < testActions.length; i++) {
+        for (let i = 0; i < testActions.length; i++) {
             expect(actionsAndIds[i].action).to.deep.equal(testActions[i]);
         }
     });

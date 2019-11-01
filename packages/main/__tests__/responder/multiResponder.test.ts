@@ -1,17 +1,18 @@
 import "mocha";
-import { MultiResponder, GasPriceEstimator, ResponderStore } from "../../src/responder";
-import { ethers } from "ethers";
 import { mock, when, anything, spy, verify } from "ts-mockito";
-import { BigNumber } from "ethers/utils";
 import chai, { expect } from "chai";
-import { ArgumentError } from "../../src/dataEntities";
-import { PisaTransactionIdentifier, GasQueue } from "../../src/responder/gasQueue";
 import chaiAsPromised from "chai-as-promised";
-import fnIt from "../testUtils/fnIt";
-import throwingInstance from "../testUtils/throwingInstance";
+import { fnIt, throwingInstance } from "@pisa/test-utils";
+
 import LevelUp from "levelup";
 import EncodingDown from "encoding-down";
 import MemDown from "memdown";
+import { ethers } from "ethers";
+import { BigNumber } from "ethers/utils";
+
+import { ArgumentError } from "@pisa/errors";
+import { PisaTransactionIdentifier, GasQueue } from "../../src/responder/gasQueue";
+import { MultiResponder, GasPriceEstimator, ResponderStore } from "../../src/responder";
 
 chai.use(chaiAsPromised);
 
@@ -50,19 +51,11 @@ describe("MultiResponder", () => {
 
         // set up the mocks each time so that we can check the verifies
         decreasingGasEstimatorMock = mock(GasPriceEstimator);
-        when(decreasingGasEstimatorMock.estimate(anything())).thenResolve(
-            new BigNumber(150),
-            new BigNumber(110),
-            new BigNumber(100)
-        );
+        when(decreasingGasEstimatorMock.estimate(anything())).thenResolve(new BigNumber(150), new BigNumber(110), new BigNumber(100));
         decreasingGasPriceEstimator = throwingInstance(decreasingGasEstimatorMock);
 
         increasingGasEstimatorMock = mock(GasPriceEstimator);
-        when(increasingGasEstimatorMock.estimate(anything())).thenResolve(
-            new BigNumber(100),
-            new BigNumber(110),
-            new BigNumber(150)
-        );
+        when(increasingGasEstimatorMock.estimate(anything())).thenResolve(new BigNumber(100), new BigNumber(110), new BigNumber(150));
         increasingGasPriceEstimator = throwingInstance(increasingGasEstimatorMock);
 
         errorGasEstimatorMock = mock(GasPriceEstimator);
@@ -76,15 +69,7 @@ describe("MultiResponder", () => {
     });
 
     const createResponder = (gasPriceEstimator: GasPriceEstimator) => {
-        return new MultiResponder(
-            signer,
-            gasPriceEstimator,
-            chainId,
-            store,
-            signer.address,
-            new BigNumber("500000000000000000"),
-            pisaContractAddress
-        );
+        return new MultiResponder(signer, gasPriceEstimator, chainId, store, signer.address, new BigNumber("500000000000000000"), pisaContractAddress);
     };
 
     fnIt<MultiResponder>(m => m.startResponse, "can issue transaction", async () => {
@@ -96,7 +81,7 @@ describe("MultiResponder", () => {
     });
 
     fnIt<MultiResponder>(m => m.startResponse, "can issue two transactions and replace", async () => {
-        const responder = createResponder(increasingGasPriceEstimator)
+        const responder = createResponder(increasingGasPriceEstimator);
         await responder.startResponse(pisaContractAddress, data1, gasLimit, id1, startBlock, endBlock);
         expect(store.transactions.get(id1)!.request.id).to.deep.equal(id1);
         verify(responderStoreMock.updateQueue(anything())).once();
@@ -130,7 +115,7 @@ describe("MultiResponder", () => {
     });
 
     fnIt<MultiResponder>(m => m.startResponse, "swallows error", async () => {
-        const responder = createResponder(errorGasPriceEstimator)
+        const responder = createResponder(errorGasPriceEstimator);
 
         await responder.startResponse(pisaContractAddress, data1, gasLimit, id1, startBlock, endBlock);
         verify(responderStoreMock.updateQueue(anything())).never();
@@ -234,7 +219,7 @@ describe("MultiResponder", () => {
     });
 
     fnIt<MultiResponder>(m => m.txMined, "does nothing nonce is not front of queue", async () => {
-        const responder = createResponder(increasingGasPriceEstimator)
+        const responder = createResponder(increasingGasPriceEstimator);
         await responder.startResponse(pisaContractAddress, data1, gasLimit, id1, startBlock, endBlock);
         verify(responderStoreMock.updateQueue(anything())).once();
         verify(signerMock.sendTransaction(anything())).once();
@@ -270,7 +255,7 @@ describe("MultiResponder", () => {
 
     fnIt<MultiResponder>(m => m.reEnqueueMissingItems, "does replace transactions", async () => {
         // choose a lower gas fee for the first item - this should cause a double replacement
-        const responder = createResponder(increasingGasPriceEstimator)
+        const responder = createResponder(increasingGasPriceEstimator);
 
         await responder.startResponse(pisaContractAddress, data1, gasLimit, id1, startBlock, endBlock);
         const item = store.transactions.get(id1)!;
@@ -296,13 +281,13 @@ describe("MultiResponder", () => {
     });
 
     fnIt<MultiResponder>(m => m.reEnqueueMissingItems, "throws error for missing transactions", async () => {
-        const responder = createResponder(decreasingGasPriceEstimator)
+        const responder = createResponder(decreasingGasPriceEstimator);
 
         return expect(responder.reEnqueueMissingItems([id1])).to.eventually.be.rejectedWith(ArgumentError);
     });
 
     fnIt<MultiResponder>(m => m.reEnqueueMissingItems, "does nothing for no missing transactions", async () => {
-        const responder = createResponder(decreasingGasPriceEstimator)
+        const responder = createResponder(decreasingGasPriceEstimator);
 
         await responder.startResponse(pisaContractAddress, data1, gasLimit, id1, startBlock, endBlock);
         await responder.startResponse(pisaContractAddress, data2, gasLimit, id2, startBlock, endBlock);
@@ -317,7 +302,7 @@ describe("MultiResponder", () => {
     });
 
     fnIt<MultiResponder>(m => m.endResponse, "removes item from transactions", async () => {
-        const responder = createResponder(decreasingGasPriceEstimator)
+        const responder = createResponder(decreasingGasPriceEstimator);
 
         await responder.startResponse(pisaContractAddress, data1, gasLimit, id1, startBlock, endBlock);
         expect(store.transactions.has(id1)).to.be.true;

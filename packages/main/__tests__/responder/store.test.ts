@@ -1,12 +1,14 @@
 import "mocha";
 import { expect } from "chai";
-import fnIt from "../testUtils/fnIt";
-import { ResponderStore } from "../../src/responder";
+import { fnIt } from "@pisa/test-utils";
+
 import EncodingDown from "encoding-down";
 import levelup, { LevelUp } from "levelup";
 import MemDown from "memdown";
-import { GasQueue, GasQueueItemRequest, PisaTransactionIdentifier } from "../../src/responder/gasQueue";
 import { BigNumber } from "ethers/utils";
+
+import { ResponderStore } from "../../src/responder";
+import { GasQueue, GasQueueItemRequest, PisaTransactionIdentifier } from "../../src/responder/gasQueue";
 
 describe("ResponderStore", () => {
     const responderAddress = "address";

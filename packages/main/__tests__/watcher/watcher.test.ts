@@ -1,6 +1,7 @@
 import "mocha";
 import { expect } from "chai";
 import { mock, when, resetCalls, anything, anyNumber } from "ts-mockito";
+import { fnIt, throwingInstance } from "@pisa/test-utils";
 
 import LevelUp from "levelup";
 import EncodingDown from "encoding-down";
@@ -8,11 +9,10 @@ import MemDown from "memdown";
 
 import { AppointmentStore } from "../../src/watcher";
 import { MultiResponder } from "../../src/responder";
-import { BlockCache } from "../../src/blockMonitor";
-import { ApplicationError, IBlockStub, Logs, Appointment, BlockItemStore } from "../../src/dataEntities";
+import { BlockCache, BlockItemStore, IBlockStub, Logs } from "@pisa/block";
+import { ApplicationError } from "@pisa/errors";
+import { Appointment } from "../../src/dataEntities";
 import { EventFilterStateReducer, WatcherAppointmentState, Watcher, WatcherActionKind } from "../../src/watcher/watcher";
-import fnIt from "../testUtils/fnIt";
-import throwingInstance from "../testUtils/throwingInstance";
 
 const observedEventAddress = "0x1234abcd";
 const observedEventTopics = ["0x1234"];

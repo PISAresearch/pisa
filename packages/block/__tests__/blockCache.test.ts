@@ -1,9 +1,8 @@
 import "mocha";
 import { expect } from "chai";
-import { BlockCache, getConfirmations } from "../../src/blockMonitor";
-import { ArgumentError, IBlockStub, TransactionHashes, ApplicationError, BlockItemStore } from "../../src/dataEntities";
-import fnIt from "../testUtils/fnIt";
-import { BlockAddResult } from "../../src/blockMonitor/blockCache";
+import { BlockAddResult, BlockCache, getConfirmations, IBlockStub, TransactionHashes, BlockItemStore } from "../src";
+import { ArgumentError, ApplicationError } from "@pisa/errors";
+import { fnIt } from "@pisa/test-utils";
 
 import LevelUp from "levelup";
 import EncodingDown from "encoding-down";
@@ -19,14 +18,14 @@ function generateBlocks(
     for (let height = initialHeight; height < initialHeight + nBlocks; height++) {
         const transactions: string[] = [];
         for (let i = 0; i < 5; i++) {
-        transactions.push(`${chain}-block${height}tx${i + 1}`);
+            transactions.push(`${chain}-block${height}tx${i + 1}`);
         }
 
         const block = {
-        number: height,
-        hash: `hash-${chain}-${height}`,
-        parentHash: rootParentHash != null && height === initialHeight ? rootParentHash : `hash-${chain}-${height - 1}`,
-        transactionHashes: transactions
+            number: height,
+            hash: `hash-${chain}-${height}`,
+            parentHash: rootParentHash != null && height === initialHeight ? rootParentHash : `hash-${chain}-${height - 1}`,
+            transactionHashes: transactions
         };
 
         result.push(block as (IBlockStub & TransactionHashes));
@@ -67,9 +66,12 @@ describe("BlockCache", () => {
         bc = new BlockCache(maxDepth, blockStore);
 
         // Create a batch that will be closed in the afterEach block, as the BlockCache assumes the batch is already open
-        blockStore.withBatch(() => new Promise(resolve => {
-        resolveBatch = resolve;
-        }));
+        blockStore.withBatch(
+            () =>
+                new Promise(resolve => {
+                    resolveBatch = resolve;
+                })
+        );
     });
 
     afterEach(async () => {
@@ -252,7 +254,6 @@ describe("BlockCache", () => {
     });
 
     fnIt<BlockCache<any>>(b => b.canAttachBlock, "returns true for blocks whose height is equal to the initial height", async () => {
-
         const blocks = generateBlocks(10, 5, "main");
         const otherBlocks = generateBlocks(10, 5, "other");
 
@@ -263,7 +264,6 @@ describe("BlockCache", () => {
     });
 
     fnIt<BlockCache<any>>(b => b.canAttachBlock, "returns false for blocks whose height is lower than the initial height", async () => {
-
         const blocks = generateBlocks(10, 5, "main");
         const otherBlocks = generateBlocks(10, 5, "other");
 
@@ -464,9 +464,12 @@ describe("getConfirmations", () => {
         bc = new BlockCache(maxDepth, blockStore);
 
         // Create a batch that will be closed in the afterEach block, as the BlockCache assumes the batch is already open
-        blockStore.withBatch(() => new Promise(resolve => {
-            resolveBatch = resolve;
-        }));
+        blockStore.withBatch(
+            () =>
+                new Promise(resolve => {
+                    resolveBatch = resolve;
+                })
+        );
     });
 
     afterEach(async () => {

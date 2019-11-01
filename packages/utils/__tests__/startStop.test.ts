@@ -1,6 +1,6 @@
 import "mocha";
 import { assert, expect } from "chai";
-import { StartStopService } from "../../src/dataEntities";
+import { StartStopService } from "../src";
 import { verify, spy } from "ts-mockito";
 
 class TestStartStop extends StartStopService {

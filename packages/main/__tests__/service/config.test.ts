@@ -1,6 +1,6 @@
 import "mocha";
 import { expect } from "chai";
-import { IArgConfig, ConfigManager, PisaConfigManager } from "../../src/dataEntities/config";
+import { IArgConfig, ConfigManager, PisaConfigManager } from "../../src/service/config";
 
 describe("ConfigManager", () => {
     it("parses and serialises command line args", () => {

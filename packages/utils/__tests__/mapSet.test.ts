@@ -1,8 +1,8 @@
-import fnIt from "../testUtils/fnIt";
-import { MapOfSets } from "../../src/utils/mapSet";
 import "mocha";
 import { expect } from "chai";
-import { ArgumentError } from "../../src/dataEntities";
+import { ArgumentError } from "@pisa/errors";
+import { fnIt } from "@pisa/test-utils";
+import { MapOfSets } from "../src";
 
 describe("MapSet", () => {
     const key1 = "key1";
@@ -34,7 +34,7 @@ describe("MapSet", () => {
         const map = new MapOfSets<string, string>();
         map.set(key1, new Set([val1, val2]));
 
-        expect(map.deleteFromSet(key1, val2)).to.be.true;        
+        expect(map.deleteFromSet(key1, val2)).to.be.true;
         expect(map.get(key1)).to.deep.equal(new Set([val1]));
     });
 
@@ -42,7 +42,7 @@ describe("MapSet", () => {
         const map = new MapOfSets<string, string>();
         map.set(key1, new Set([val1]));
 
-        expect(map.deleteFromSet(key1, val2)).to.be.false;        
+        expect(map.deleteFromSet(key1, val2)).to.be.false;
         expect(map.get(key1)).to.deep.equal(new Set([val1]));
     });
 
@@ -50,15 +50,15 @@ describe("MapSet", () => {
         const map = new MapOfSets<string, string>();
         map.set(key1, new Set([val1]));
 
-        expect(map.deleteFromSet(key1, val1)).to.be.true;        
-        expect(map.get(key1)).to.be.undefined
+        expect(map.deleteFromSet(key1, val1)).to.be.true;
+        expect(map.get(key1)).to.be.undefined;
     });
 
     fnIt<MapOfSets<any, any>>(map => map.deleteFromSet, "throws error for non existent key", () => {
         const map = new MapOfSets<string, string>();
         map.set(key1, new Set([val1]));
 
-        expect(() => map.deleteFromSet(key2, val1)).to.throw(ArgumentError) 
+        expect(() => map.deleteFromSet(key2, val1)).to.throw(ArgumentError);
         expect(map.get(key1)).to.deep.equal(new Set([val1]));
     });
 });

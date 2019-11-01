@@ -17,6 +17,6 @@ there is no need to go back an change all the tests manually in case a function 
  * @param message
  * @param test
  */
-export default function fnIt<T>(fn: (t: T) => (...args: any[]) => any, message: string, test?: () => void) {
+export function fnIt<T>(fn: (t: T) => (...args: any[]) => any, message: string, test?: () => void) {
     return it(getName<T>(fn) + " " + message, test);
 }

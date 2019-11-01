@@ -1,13 +1,13 @@
 import "mocha";
 import { expect } from "chai";
-import { ExponentialCurve, ExponentialGasCurve, GasPriceEstimator } from "../../src/responder/gasPriceEstimator";
-import { ArgumentError, IBlockStub } from "../../src/dataEntities";
-import { BigNumber } from "ethers/utils";
-import { mock, when } from "ts-mockito";
 import { ethers } from "ethers";
-import { BlockCache } from "../../src/blockMonitor";
-import fnIt from "../testUtils/fnIt";
-import throwingInstance from "../testUtils/throwingInstance";
+import { BigNumber } from "ethers/utils";
+import { fnIt, throwingInstance } from "@pisa/test-utils";
+import { mock, when } from "ts-mockito";
+
+import { ExponentialCurve, ExponentialGasCurve, GasPriceEstimator } from "../../src/responder/gasPriceEstimator";
+import { IBlockStub, BlockCache } from "@pisa/block";
+import { ArgumentError } from "@pisa/errors";
 
 describe("ExponentialCurve", () => {
     it("ka constructs for (0, 1), (1, e)", () => {
@@ -97,12 +97,7 @@ describe("ExponentialGasCurve", () => {
     fnIt<ExponentialGasCurve>(e => e.getGasPrice, "returns same as curve with added blocks remaining", () => {
         const y2 = 21000000000;
         const expGasCurve = new ExponentialGasCurve(new BigNumber(y2), 20000);
-        const expCurve = new ExponentialCurve(
-            ExponentialGasCurve.MAX_BLOCKS,
-            ExponentialGasCurve.MAX_GAS_PRICE,
-            20000,
-            y2
-        );
+        const expCurve = new ExponentialCurve(ExponentialGasCurve.MAX_BLOCKS, ExponentialGasCurve.MAX_GAS_PRICE, 20000, y2);
 
         expect(expGasCurve.getGasPrice(ExponentialGasCurve.MAX_BLOCKS + 200).toNumber()).to.equal(
             Math.round(expCurve.getY(ExponentialGasCurve.MAX_BLOCKS + 200))
@@ -112,9 +107,7 @@ describe("ExponentialGasCurve", () => {
     fnIt<ExponentialGasCurve>(e => e.getGasPrice, "returns the max gas price for less blocks than max blocks", () => {
         const y2 = 21000000000;
         const expGasCurve = new ExponentialGasCurve(new BigNumber(y2));
-        expect(expGasCurve.getGasPrice(ExponentialGasCurve.MAX_BLOCKS - 1).toNumber()).to.equal(
-            ExponentialGasCurve.MAX_GAS_PRICE
-        );
+        expect(expGasCurve.getGasPrice(ExponentialGasCurve.MAX_BLOCKS - 1).toNumber()).to.equal(ExponentialGasCurve.MAX_GAS_PRICE);
     });
 
     fnIt<ExponentialGasCurve>(e => e.getGasPrice, "throws for negative blocks", () => {
@@ -140,11 +133,9 @@ describe("GasPriceEstimator", () => {
         const gasPriceEstimator = new GasPriceEstimator(provider, blockCache);
         const endBlock = 2000;
         const estimate = await gasPriceEstimator.estimate(endBlock);
-        const expectedValue = new ExponentialGasCurve(currentGasPrice, endBlock - currentBlock).getGasPrice(
-            endBlock - currentBlock
-        );
+        const expectedValue = new ExponentialGasCurve(currentGasPrice, endBlock - currentBlock).getGasPrice(endBlock - currentBlock);
 
         expect(estimate.toNumber()).to.equal(expectedValue.toNumber());
-        expect(estimate.toNumber()).to.not.be.greaterThan(ExponentialGasCurve.MAX_GAS_PRICE)
+        expect(estimate.toNumber()).to.not.be.greaterThan(ExponentialGasCurve.MAX_GAS_PRICE);
     });
 });
