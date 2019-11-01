@@ -46,7 +46,7 @@
         "url": "git+https://github.com/PISAresearch/pisa.git"
     },
     "author": "PISA Research",
-    "license": "ISC",
+    "license": "MIT",
     "bugs": {
         "url": "https://github.com/PISAresearch/pisa/issues"
     },
