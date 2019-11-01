@@ -1,4 +1,4 @@
-import { ArgumentError } from "@pisa/errors"
+import { ArgumentError } from "@pisa-research/errors"
 import { BigNumber } from "ethers/utils";
 import { ethers } from "ethers";
 

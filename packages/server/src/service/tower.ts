@@ -1,10 +1,10 @@
 import { AppointmentStore } from "../watcher";
 import { ethers } from "ethers";
-import { PublicDataValidationError } from "@pisa/errors";
+import { PublicDataValidationError } from "@pisa-research/errors";
 import { SignedAppointment, AppointmentMode, Appointment } from "../dataEntities/appointment";
 import { MultiResponder } from "../responder";
-import { Logger } from "@pisa/utils";
-import { ReadOnlyBlockCache, IBlockStub } from "@pisa/block";
+import { Logger } from "@pisa-research/utils";
+import { ReadOnlyBlockCache, IBlockStub } from "@pisa-research/block";
 
 /**
  * A PISA tower, configured to watch for specified appointment types

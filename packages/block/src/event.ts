@@ -1,5 +1,5 @@
 import { IBlockStub } from "./block";
-import { ApplicationError } from "@pisa/errors";
+import { ApplicationError } from "@pisa-research/errors";
 
 /**
  * This is a generic class to use as base for concrete classes to manage events and event listeners.

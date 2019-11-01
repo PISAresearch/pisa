@@ -1,7 +1,7 @@
 import { createLogger, Stream, stdSerializers } from "bunyan";
 import fs from "fs";
 import path from "path";
-import { ArgumentError } from "@pisa/errors";
+import { ArgumentError } from "@pisa-research/errors";
 import Logger from "bunyan";
 export { Logger };
 

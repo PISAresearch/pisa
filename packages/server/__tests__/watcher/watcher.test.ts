@@ -1,7 +1,7 @@
 import "mocha";
 import { expect } from "chai";
 import { mock, when, resetCalls, anything, anyNumber } from "ts-mockito";
-import { fnIt, throwingInstance } from "@pisa/test-utils";
+import { fnIt, throwingInstance } from "@pisa-research/test-utils";
 
 import LevelUp from "levelup";
 import EncodingDown from "encoding-down";
@@ -9,8 +9,8 @@ import MemDown from "memdown";
 
 import { AppointmentStore } from "../../src/watcher";
 import { MultiResponder } from "../../src/responder";
-import { BlockCache, BlockItemStore, IBlockStub, Logs } from "@pisa/block";
-import { ApplicationError } from "@pisa/errors";
+import { BlockCache, BlockItemStore, IBlockStub, Logs } from "@pisa-research/block";
+import { ApplicationError } from "@pisa-research/errors";
 import { Appointment } from "../../src/dataEntities/appointment";
 import { EventFilterStateReducer, WatcherAppointmentState, Watcher, WatcherActionKind } from "../../src/watcher/watcher";
 

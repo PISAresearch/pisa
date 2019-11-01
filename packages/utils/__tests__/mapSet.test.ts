@@ -1,7 +1,7 @@
 import "mocha";
 import { expect } from "chai";
-import { ArgumentError } from "@pisa/errors";
-import { fnIt } from "@pisa/test-utils";
+import { ArgumentError } from "@pisa-research/errors";
+import { fnIt } from "@pisa-research/test-utils";
 import { MapOfSets } from "../src";
 
 describe("MapSet", () => {

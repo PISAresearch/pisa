@@ -2,13 +2,13 @@ import "mocha";
 import chai, { expect } from "chai";
 import chaiAsPromised from "chai-as-promised";
 import { mock, when, instance } from "ts-mockito";
-import { fnIt } from "@pisa/test-utils";
+import { fnIt } from "@pisa-research/test-utils";
 
 import { ethers } from "ethers";
 
 import { Appointment } from "../../src/dataEntities/appointment";
-import { IBlockStub, BlockCache } from "@pisa/block";
-import { PublicDataValidationError } from "@pisa/errors";
+import { IBlockStub, BlockCache } from "@pisa-research/block";
+import { PublicDataValidationError } from "@pisa-research/errors";
 chai.use(chaiAsPromised);
 
 const customerPrivKey = "0xd40be03d93b1ab00d334df3fe683da2d360e95fbfd132178facc3a8f5d9eb620";

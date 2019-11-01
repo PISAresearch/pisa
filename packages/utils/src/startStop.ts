@@ -1,4 +1,4 @@
-import { ConfigurationError } from "@pisa/errors";
+import { ConfigurationError } from "@pisa-research/errors";
 import { createNamedLogger, Logger } from "./logger";
 import { EventEmitter } from "events";
 

@@ -1,5 +1,5 @@
-import { ArgumentError } from "@pisa/errors"
-import { IBlockStub ,ReadOnlyBlockCache } from "@pisa/block"
+import { ArgumentError } from "@pisa-research/errors"
+import { IBlockStub ,ReadOnlyBlockCache } from "@pisa-research/block"
 import { BigNumber } from "ethers/utils";
 import { ethers } from "ethers";
 

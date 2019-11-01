@@ -2,8 +2,8 @@ import "mocha";
 import { expect, use } from "chai";
 import chaiAsPromised from "chai-as-promised"
 import { Lock, LockManager } from "../src";
-import { wait, fnIt } from "@pisa/test-utils";
-import { ApplicationError } from "@pisa/errors";
+import { wait, fnIt } from "@pisa-research/test-utils";
+import { ApplicationError } from "@pisa-research/errors";
 use(chaiAsPromised);
 
 describe("Lock", () => {

@@ -48,11 +48,11 @@
     "url": "https://github.com/PISAresearch/pisa/issues"
   },
   "dependencies": {
-    "@pisa/errors": "^0.1.7",
+    "@pisa-research/errors": "^0.1.7",
     "bunyan": "^1.8.12"
   },
   "devDependencies": {
-    "@pisa/test-utils": "^0.1.7",
+    "@pisa-research/test-utils": "^0.1.7",
     "@types/bunyan": "^1.8.6",
     "@types/chai": "^4.1.6",
     "@types/chai-as-promised": "^7.1.0",

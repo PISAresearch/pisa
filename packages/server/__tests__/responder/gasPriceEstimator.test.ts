@@ -2,12 +2,12 @@ import "mocha";
 import { expect } from "chai";
 import { ethers } from "ethers";
 import { BigNumber } from "ethers/utils";
-import { fnIt, throwingInstance } from "@pisa/test-utils";
+import { fnIt, throwingInstance } from "@pisa-research/test-utils";
 import { mock, when } from "ts-mockito";
 
 import { ExponentialCurve, ExponentialGasCurve, GasPriceEstimator } from "../../src/responder/gasPriceEstimator";
-import { IBlockStub, BlockCache } from "@pisa/block";
-import { ArgumentError } from "@pisa/errors";
+import { IBlockStub, BlockCache } from "@pisa-research/block";
+import { ArgumentError } from "@pisa-research/errors";
 
 describe("ExponentialCurve", () => {
     it("ka constructs for (0, 1), (1, e)", () => {

@@ -2,7 +2,7 @@ import "mocha";
 import { mock, when, anything, spy, verify } from "ts-mockito";
 import chai, { expect } from "chai";
 import chaiAsPromised from "chai-as-promised";
-import { fnIt, throwingInstance } from "@pisa/test-utils";
+import { fnIt, throwingInstance } from "@pisa-research/test-utils";
 
 import LevelUp from "levelup";
 import EncodingDown from "encoding-down";
@@ -10,7 +10,7 @@ import MemDown from "memdown";
 import { ethers } from "ethers";
 import { BigNumber } from "ethers/utils";
 
-import { ArgumentError } from "@pisa/errors";
+import { ArgumentError } from "@pisa-research/errors";
 import { PisaTransactionIdentifier, GasQueue } from "../../src/responder/gasQueue";
 import { MultiResponder, GasPriceEstimator, ResponderStore } from "../../src/responder";
 

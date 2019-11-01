@@ -2,7 +2,7 @@ import "mocha";
 import { expect } from "chai";
 import { EventEmitter } from "events";
 import { waitForEvent } from "../../src/utils";
-import { wait } from "@pisa/test-utils";
+import { wait } from "@pisa-research/test-utils";
 
 describe("waitForEvent", async () => {
     it("resolves when the event is fired (but not before)", async () => {

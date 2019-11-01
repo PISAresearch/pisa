@@ -1,4 +1,4 @@
-import { ArgumentError } from "@pisa/errors";
+import { ArgumentError } from "@pisa-research/errors";
 
 /**
  * A mapping where the value is a set. Adds some useful helper methods for adding/removing items from the value sets

@@ -1,4 +1,4 @@
-import { TimeoutError } from "@pisa/errors";
+import { TimeoutError } from "@pisa-research/errors";
 
 export { validateProvider, getJsonRPCProvider } from "./ethers";
 

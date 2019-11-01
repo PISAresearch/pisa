@@ -1,6 +1,6 @@
 import "mocha";
 import { expect } from "chai";
-import { fnIt } from "@pisa/test-utils";
+import { fnIt } from "@pisa-research/test-utils";
 
 import EncodingDown from "encoding-down";
 import levelup, { LevelUp } from "levelup";

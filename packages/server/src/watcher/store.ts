@@ -1,5 +1,5 @@
-import { ApplicationError } from "@pisa/errors";
-import { StartStopService, LockManager, MapOfSets } from "@pisa/utils";
+import { ApplicationError } from "@pisa-research/errors";
+import { StartStopService, LockManager, MapOfSets } from "@pisa-research/utils";
 import { LevelUp } from "levelup";
 import { Appointment, IAppointment } from "../dataEntities/appointment";
 import EncodingDown from "encoding-down";

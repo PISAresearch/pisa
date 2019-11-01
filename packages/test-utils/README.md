@@ -1,11 +1,11 @@
-# `@pisa/test-utils`
+# `@pisa-research/test-utils`
 
 > TODO: description
 
 ## Usage
 
 ```
-const testUtils = require('@pisa/test-utils');
+const testUtils = require('@pisa-research/test-utils');
 
 // TODO: DEMONSTRATE API
 ```

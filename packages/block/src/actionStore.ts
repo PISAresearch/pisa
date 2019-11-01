@@ -3,7 +3,7 @@ import EncodingDown from "encoding-down";
 const sub = require("subleveldown");
 import uuid = require("uuid/v4");
 import { ComponentAction } from "./component";
-import { StartStopService } from "@pisa/utils";
+import { StartStopService } from "@pisa-research/utils";
 
 
 export interface ActionAndId {

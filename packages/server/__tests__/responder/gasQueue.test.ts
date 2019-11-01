@@ -1,10 +1,10 @@
 import "mocha";
 import { expect } from "chai";
 import { BigNumber } from "ethers/utils";
-import { fnIt } from "@pisa/test-utils";
+import { fnIt } from "@pisa-research/test-utils";
 
 import { GasQueue, GasQueueItem, GasQueueItemRequest, PisaTransactionIdentifier } from "../../src/responder/gasQueue";
-import { ArgumentError } from "@pisa/errors";
+import { ArgumentError } from "@pisa-research/errors";
 
 const createIdentifier = (data: string, to: string) => {
     return new PisaTransactionIdentifier(1, data, to, new BigNumber(0), new BigNumber(500));

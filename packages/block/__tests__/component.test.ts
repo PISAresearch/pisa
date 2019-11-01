@@ -1,7 +1,7 @@
 import "mocha";
 import { expect } from "chai";
 import { MappedStateReducer, StateReducer, BlockNumberReducer, IBlockStub } from "../src";
-import { fnIt } from "@pisa/test-utils";
+import { fnIt } from "@pisa-research/test-utils";
 
 const objects = [
     {

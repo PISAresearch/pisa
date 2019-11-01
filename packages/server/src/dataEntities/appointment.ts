@@ -1,13 +1,13 @@
 import { ethers } from "ethers";
 import appointmentRequestSchemaJson from "./appointmentRequestSchema.json";
 import Ajv from "ajv";
-import { PublicDataValidationError } from "@pisa/errors";
-import { logger } from "@pisa/utils";
+import { PublicDataValidationError } from "@pisa-research/errors";
+import { logger } from "@pisa-research/utils";
 import { BigNumber } from "ethers/utils";
-import { Logger } from "@pisa/utils";
+import { Logger } from "@pisa-research/utils";
 import betterAjvErrors from "better-ajv-errors";
-import { ReadOnlyBlockCache, IBlockStub } from "@pisa/block";
-import * as PisaContract from "@pisa/contracts/build/contracts/PISAHash.json";
+import { ReadOnlyBlockCache, IBlockStub } from "@pisa-research/block";
+import * as PisaContract from "@pisa-research/contracts/build/contracts/PISAHash.json";
 import { encodeTopicsForPisa } from "../utils/ethers";
 const ABI = PisaContract.abi;
 const ajv = new Ajv({ jsonPointers: true, allErrors: true });

@@ -4,8 +4,8 @@ import LevelUp from "levelup";
 import EncodingDown from "encoding-down";
 import MemDown from "memdown";
 import { hasLogMatchingEventFilter, IBlockStub, Logs, BlockItemStore } from "../src";
-import { ArgumentError, ApplicationError } from "@pisa/errors";
-import { fnIt } from "@pisa/test-utils";
+import { ArgumentError, ApplicationError } from "@pisa-research/errors";
+import { fnIt } from "@pisa-research/test-utils";
 
 describe("hasLogMatchingEventFilter", () => {
     const address = "0x1234abcd";

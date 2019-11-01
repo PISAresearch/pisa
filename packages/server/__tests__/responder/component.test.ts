@@ -2,7 +2,7 @@ import "mocha";
 import { mock, anything, when } from "ts-mockito";
 import { expect } from "chai";
 import { BigNumber } from "ethers/utils";
-import { fnIt, throwingInstance } from "@pisa/test-utils";
+import { fnIt, throwingInstance } from "@pisa-research/test-utils";
 
 import LevelUp from "levelup";
 import EncodingDown from "encoding-down";
@@ -18,7 +18,7 @@ import {
     MinedResponseState,
     ResponderActionKind
 } from "../../src/responder/component";
-import { BlockCache, ResponderBlock, TransactionStub, Block, BlockItemStore } from "@pisa/block";
+import { BlockCache, ResponderBlock, TransactionStub, Block, BlockItemStore } from "@pisa-research/block";
 import { PisaTransactionIdentifier } from "../../src/responder/gasQueue";
 import { MultiResponder } from "../../src/responder";
 

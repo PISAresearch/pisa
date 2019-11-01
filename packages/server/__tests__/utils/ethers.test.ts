@@ -4,7 +4,7 @@ import { expect } from "chai";
 import { defaultAbiCoder } from "ethers/utils";
 
 import { encodeTopicsForPisa } from "../../src/utils/ethers";
-import { ApplicationError } from "@pisa/errors";
+import { ApplicationError } from "@pisa-research/errors";
 
 describe("encodeTopicsForPisa", () => {
     const zero        = "0x0000000000000000000000000000000000000000000000000000000000000000"

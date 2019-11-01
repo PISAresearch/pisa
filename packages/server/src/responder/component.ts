@@ -9,10 +9,10 @@ import {
     Component,
     BlockNumberState,
     BlockNumberReducer
-} from "@pisa/block";
+} from "@pisa-research/block";
 import { MultiResponder } from "./multiResponder";
-import { logger } from "@pisa/utils";
-import { UnreachableCaseError } from "@pisa/errors";
+import { logger } from "@pisa-research/utils";
+import { UnreachableCaseError } from "@pisa-research/errors";
 
 export enum ResponderStateKind {
     Pending = 1,

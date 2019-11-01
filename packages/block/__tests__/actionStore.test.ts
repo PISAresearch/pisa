@@ -4,7 +4,7 @@ import { ActionStore } from "../src/actionStore";
 import LevelUp from "levelup";
 import EncodingDown from "encoding-down";
 import MemDown from "memdown";
-import { fnIt } from "@pisa/test-utils";
+import { fnIt } from "@pisa-research/test-utils";
 
 
 describe("ActionStore", () => {

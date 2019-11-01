@@ -1,7 +1,7 @@
-import { ApplicationError, ArgumentError } from "@pisa/errors";
+import { ApplicationError, ArgumentError } from "@pisa-research/errors";
 import { IBlockStub, TransactionHashes } from "./block";
 import { BlockItemStore} from "./blockItemStore";
-import { Lock } from "@pisa/utils";
+import { Lock } from "@pisa-research/utils";
 import { BlockEvent } from "./event";
 
 // Possible return values of addBlock

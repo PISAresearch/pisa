@@ -10,7 +10,7 @@ import { ethers } from "ethers";
 import { mock, when, anything } from "ts-mockito";
 import { EventEmitter } from "events";
 import { BlockProcessor, BlockCache, blockStubAndTxHashFactory, BlockProcessorStore, IBlockStub, BlockItemStore } from "../src";
-import { wait, throwingInstance, fnIt } from "@pisa/test-utils";
+import { wait, throwingInstance, fnIt } from "@pisa-research/test-utils";
 
 chai.use(chaiAsPromised);
 const expect = chai.expect;

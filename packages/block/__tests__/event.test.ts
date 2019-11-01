@@ -1,7 +1,7 @@
 import "mocha";
 import { expect } from "chai";
-import { ApplicationError } from "@pisa/errors";
-import { fnIt } from "@pisa/test-utils";
+import { ApplicationError } from "@pisa-research/errors";
+import { fnIt } from "@pisa-research/test-utils";
 import { Event, BlockEvent, IBlockStub } from "../src";
 
 describe("Event", async () => {

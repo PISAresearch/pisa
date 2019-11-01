@@ -1,8 +1,8 @@
 import "mocha";
 import { expect } from "chai";
 import { BlockAddResult, BlockCache, getConfirmations, IBlockStub, TransactionHashes, BlockItemStore } from "../src";
-import { ArgumentError, ApplicationError } from "@pisa/errors";
-import { fnIt } from "@pisa/test-utils";
+import { ArgumentError, ApplicationError } from "@pisa-research/errors";
+import { fnIt } from "@pisa-research/test-utils";
 
 import LevelUp from "levelup";
 import EncodingDown from "encoding-down";

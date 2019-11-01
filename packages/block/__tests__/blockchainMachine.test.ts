@@ -7,8 +7,8 @@ import EncodingDown from "encoding-down";
 import MemDown from "memdown";
 
 import { BlockEvent, StateReducer, Component, BlockProcessor, BlockCache, BlockchainMachine, ActionStore, IBlockStub, BlockItemStore } from "../src";
-import { ApplicationError } from "@pisa/errors";
-import { fnIt } from "@pisa/test-utils";
+import { ApplicationError } from "@pisa-research/errors";
+import { fnIt } from "@pisa-research/test-utils";
 
 const blocks: IBlockStub[] = [
     {

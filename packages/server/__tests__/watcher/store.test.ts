@@ -6,8 +6,8 @@ import levelup, { LevelUp } from "levelup";
 import MemDown from "memdown";
 import encodingDown from "encoding-down";
 import { Appointment } from "../../src/dataEntities/appointment";
-import { ApplicationError } from "@pisa/errors";
-import { fnIt, expectAsync } from "@pisa/test-utils";
+import { ApplicationError } from "@pisa-research/errors";
+import { fnIt, expectAsync } from "@pisa-research/test-utils";
 chai.use(chaiAsPromised);
 
 const getAppointment = (id: string, endBlock: number, nonce: number) => {

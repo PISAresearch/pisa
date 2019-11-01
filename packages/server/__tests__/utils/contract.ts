@@ -1,6 +1,6 @@
 import { ethers } from "ethers";
-import * as PisaContract from "@pisa/contracts/build/contracts/PISAHash.json";
-import * as DataRegistryContract from "@pisa/contracts/build/contracts/DataRegistry.json";
+import * as PisaContract from "@pisa-research/contracts/build/contracts/PISAHash.json";
+import * as DataRegistryContract from "@pisa-research/contracts/build/contracts/DataRegistry.json";
 
 export const deployPisa = async (watcherWallet: ethers.Wallet): Promise<ethers.Contract> => {
     const drContractFactory = new ethers.ContractFactory(

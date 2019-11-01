@@ -1,7 +1,7 @@
 import { BlockProcessor } from "./blockProcessor";
 import { IBlockStub } from "./block";
-import { StartStopService, Lock } from "@pisa/utils";
-import { ApplicationError } from "@pisa/errors";
+import { StartStopService, Lock } from "@pisa-research/utils";
+import { ApplicationError } from "@pisa-research/errors";
 import { Component, AnchorState, ComponentAction } from "./component";
 import { ActionStore, ActionAndId } from "./actionStore";
 import { BlockItemStore } from "./blockItemStore";

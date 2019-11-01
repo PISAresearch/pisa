@@ -1,4 +1,4 @@
-import { ApplicationError } from "@pisa/errors";
+import { ApplicationError } from "@pisa-research/errors";
 
 /**
  * Simple lock class.

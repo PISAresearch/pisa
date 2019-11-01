@@ -1,9 +1,9 @@
 import { ethers } from "ethers";
-import { StartStopService, Lock } from "@pisa/utils";
+import { StartStopService, Lock } from "@pisa-research/utils";
 import { ReadOnlyBlockCache, BlockCache, BlockAddResult } from "./blockCache";
 import { IBlockStub, Block, TransactionHashes } from "./block";
 import {BlockItemStore} from "./blockItemStore";
-import { BlockFetchingError } from "@pisa/errors";
+import { BlockFetchingError } from "@pisa-research/errors";
 import { LevelUp } from "levelup";
 import EncodingDown from "encoding-down";
 import { BlockEvent } from "./event";
