@@ -11,7 +11,7 @@ cd pisa/raiden_demo
 ./raiden --gas-price fast --accept-disclaimer --keystore-path ${PWD}/docker/test-accounts --datadir ${PWD}/.raiden --network-id ropsten --eth-rpc-endpoint http://localhost:8545 --address 0xdddEC4D561eE68F37855fa3245Cb878b10Eb1fA0 --api-address http://0.0.0.0:6663 --password-file ${PWD}/docker/test-accounts/password--dddec4d561ee68f37855fa3245cb878b10eb1fa0.txt  --no-sync-check --disable-debug-logfile --tokennetwork-registry-contract-address 0xCa70BfDEa6BD82e45d4fD26Dd9f36DB9fad61796 --secret-registry-contract-address 0xaFa1F14fe33940b22D7f9F9bf0d707860C9233e2 --endpoint-registry-contract-address 0xa4f842B60C8a21c54b16E7940aA16Dda80301d13
 
 ## start pisa
-docker run -it -p 3000:3000 --network docker_raidendemo --network-alias pisa -v ${PWD}/../configs/parity.json:/usr/pisa/build/src/config.json pisaresearch/pisa:0.1
+docker run -it -p 3000:3000 --network docker_raidendemo --network-alias pisa -v ${PWD}/../configs/parity.json:/usr/pisa/server/lib/config.json pisaresearch/pisa:0.1
 
 ## start the raiden-pisa-daemon for alice
 docker run -it -v ${PWD}/docker/test-accounts/password--ccca21b97b27defc210f01a7e64119a784424d26.txt:/home/password.txt -v ${PWD}/docker/test-accounts/UTC--2019-03-22T10-39-56.702Z--0xccca21b97b27defc210f01a7e64119a784424d26:/.ethereum/keystore/UTC--2019-03-22T10-39-56.702Z--0xccca21b97b27defc210f01a7e64119a784424d26 -v ${PWD}/.raiden/node_ccca21b9/netid_3/network_ca70bfde/v16_log.db:/home/db --network docker_raidendemo --entrypoint "npm" pisaresearch/raiden-pisa-daemon:0.1 run start -- --pisa=pisa:3000 --keyfile=/.ethereum/keystore/UTC--2019-03-22T10-39-56.702Z--0xccca21b97b27defc210f01a7e64119a784424d26  --password-file=/home/password.txt --db=/home/db
