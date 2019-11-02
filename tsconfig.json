@@ -11,5 +11,5 @@
         "esModuleInterop": true /* Enables emit interoperability between CommonJS and ES Modules via creation of namespace objects for all imports. Implies 'allowSyntheticDefaultImports'. */,
         "declaration": true
     },
-    "exclude": ["node_modules", "statechannels", "docker", "raiden_demo", "build", "client", "test"]
+    "exclude": ["node_modules", "docker", "raiden_demo", "build", "test"]
 }

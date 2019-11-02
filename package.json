@@ -26,7 +26,8 @@
         "test-run-endtoend": "NODE_ENV=test mocha -r ts-node/register test/endtoend/**/*.test.ts --exit",
         "test-smoke": "ts-node test/smoke/smokeTests.ts",
         "version-3": "lerna clean --yes && lerna bootstrap --ignore-scripts -- --package-lock-only --no-audit && git add packages/*/package-lock.json",
-        "version-2": "lerna clean --yes && lerna exec \"npm install --ignore-scripts --package-lock-only --no-audit\" && git add packages/*/package-lock.json"
+        "version-2": "lerna clean --yes && lerna exec \"npm install --ignore-scripts --package-lock-only --no-audit\" && git add packages/*/package-lock.json",
+        "version-4": "lerna exec \"npm i --package-lock-only\""
     },
     "nyc": {
         "include": [
