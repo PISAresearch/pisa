@@ -19,12 +19,13 @@
         "url": "https://github.com/PISAresearch/pisa/issues"
     },
     "scripts": {
-        "build": "npx tsc && cp ./src/service/favicon.ico ./lib/service/favicon.ico",
+        "build": "tsc && cp ./src/service/favicon.ico ./lib/service/favicon.ico",
         "lint": "eslint --ext ts .",
         "start": "node ./server/lib/startUp.js",
         "start-dev": "ts-node src/startUp.ts",
         "test": "NODE_ENV=test mocha -r ts-node/register './__tests__/**/*.test.ts' --exit",
-        "test-coverage": "NODE_ENV=test nyc mocha -r ts-node/register --reporter mocha-junit-reporter --reporter-options mochaFile=coverage/mocha/test-results.xml './__tests__/**/*.test.ts' --exit"
+        "test-coverage": "NODE_ENV=test nyc mocha -r ts-node/register --reporter mocha-junit-reporter --reporter-options mochaFile=coverage/mocha/test-results.xml './__tests__/**/*.test.ts' --exit",
+        "prepublishOnly": "npm run build"
     },
     "nyc": {
         "include": [
@@ -126,5 +127,5 @@
         "typescript": "^3.6.3",
         "wait-port": "^0.2.2"
     },
-    "gitHead": "b9db75de2d578fc2e7d07ff8fb7554885dad2331"
+    "gitHead": "759f35845fd75f30571bae757c871483e16bc121"
 }

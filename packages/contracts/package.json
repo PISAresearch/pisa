@@ -12,13 +12,17 @@
   "files": [
     "/build/contracts"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/PISAresearch/pisa.git"
   },
   "scripts": {
     "build": "truffle compile",
-    "test": "npm run build && truffle test"
+    "test": "npm run build && truffle test",
+    "prepublishOnly": "npm run build"
   },
   "bugs": {
     "url": "https://github.com/PISAresearch/pisa/issues"
@@ -29,5 +33,5 @@
     "truffle": "^5.0.34",
     "truffle-assertions": "^0.9.1"
   },
-  "gitHead": "b9db75de2d578fc2e7d07ff8fb7554885dad2331"
+  "gitHead": "759f35845fd75f30571bae757c871483e16bc121"
 }
