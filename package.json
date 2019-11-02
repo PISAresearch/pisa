@@ -6,7 +6,8 @@
     "main": "packages/server/lib/startUp.js",
     "scripts": {
         "bootstrap": "lerna bootstrap --hoist",
-        "bootstrap-ci": "lerna bootstrap --ci -- --only=prod",
+        "bootstrap-ci": "lerna bootstrap --ci",
+        "bootstrap-ci-prod": "lerna bootstrap --ci -- --only=prod",
         "build": "lerna run build",
         "build-autominer": "cd build/raiden_demo/autominer && npm install && npm run build",
         "build-raiden-pisa-daemon": "cd build/raiden_demo/raiden-pisa-daemon && npm install && npm run build",
@@ -23,7 +24,8 @@
         "test-raiden": "npm run build && mocha -r ts-node/register 'test/integration/raiden.test.ts' --exit",
         "test-run-endtoend": "NODE_ENV=test mocha -r ts-node/register test/endtoend/**/*.test.ts --exit",
         "test-smoke": "ts-node test/smoke/smokeTests.ts",
-        "version": "lerna clean --yes && lerna bootstrap --ignore-scripts -- --package-lock-only --no-audit && git add packages/*/package-lock.json"
+        "version": "lerna clean --yes && lerna bootstrap --ignore-scripts -- --package-lock-only --no-audit && git add packages/*/package-lock.json",
+        "version-2": "lerna clean --yes && lerna exec \"npm install --ignore-scripts --package-lock-only --no-audit\" && git add packages/*/package-lock.json"
     },
     "nyc": {
         "include": [
