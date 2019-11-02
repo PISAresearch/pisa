@@ -8,6 +8,9 @@
     "build": "tsc",
     "prepublishOnly": "npm run build"
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/PISAresearch/pisa"
@@ -35,5 +38,5 @@
     "/lib",
     "README.md"
   ],
-  "gitHead": "40d22fbcc8ebc57cac32a2d8fe2798d416ff6bc9"
+  "gitHead": "b9db75de2d578fc2e7d07ff8fb7554885dad2331"
 }

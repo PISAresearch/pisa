@@ -109,7 +109,7 @@ jobs:
       - checkout
       - run: 
           name: build docker
-          command: docker build --target deploy -t pisaresearch/pisa:$CIRCLE_TAG -f docker/app.Dockerfile .
+          command: docker build --target deploy -t pisaresearch/pisa:$CIRCLE_TAG -f docker/tag.Dockerfile .
       - run: 
           name: push docker
           command: |
