@@ -21,7 +21,7 @@
     "scripts": {
         "build": "npx tsc && cp ./src/service/favicon.ico ./lib/service/favicon.ico",
         "lint": "eslint --ext ts .",
-        "start": "node ./lib/startUp.js",
+        "start": "node ./server/lib/startUp.js",
         "start-dev": "ts-node src/startUp.ts",
         "test": "NODE_ENV=test mocha -r ts-node/register './__tests__/**/*.test.ts' --exit",
         "test-coverage": "NODE_ENV=test nyc mocha -r ts-node/register --reporter mocha-junit-reporter --reporter-options mochaFile=coverage/mocha/test-results.xml './__tests__/**/*.test.ts' --exit"

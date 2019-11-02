@@ -95,7 +95,7 @@ export class PisaContainer extends DockerContainer {
             dockerClient,
             name,
             DockerImageLib.PISA_IMAGE,
-            ["node", "./lib/startUp.js", ...commandLineArgs],
+            ["node", "./server/lib/startUp.js", ...commandLineArgs],
             volumes,
             [{ Host: `${hostPort}`, Container: `${hostPort}/tcp` }],
             network
