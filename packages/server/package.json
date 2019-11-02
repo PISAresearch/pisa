@@ -1,6 +1,6 @@
 {
     "name": "@pisa-research/server",
-    "version": "0.1.8-alpha.18",
+    "version": "0.1.8-alpha.19",
     "description": "Arbitration Outsourcing for State Channels",
     "homepage": "https://github.com/PISAresearch/pisa/tree/master/packages/server#readme",
     "license": "ISC",
@@ -50,10 +50,10 @@
     },
     "author": "PISA Research Ltd",
     "dependencies": {
-        "@pisa-research/block": "^0.1.8-alpha.17",
+        "@pisa-research/block": "^0.1.8-alpha.19",
         "@pisa-research/contracts": "^0.1.8-alpha.10",
-        "@pisa-research/errors": "^0.1.8-alpha.10",
-        "@pisa-research/utils": "^0.1.8-alpha.15",
+        "@pisa-research/errors": "^0.1.8-alpha.19",
+        "@pisa-research/utils": "^0.1.8-alpha.19",
         "@types/cors": "^2.8.6",
         "ajv": "^6.10.2",
         "better-ajv-errors": "^0.6.4",
