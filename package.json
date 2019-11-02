@@ -22,7 +22,8 @@
         "test-load": "npm run build && ts-node test/load/loadTest.ts 10 20000",
         "test-raiden": "npm run build && mocha -r ts-node/register 'test/integration/raiden.test.ts' --exit",
         "test-run-endtoend": "NODE_ENV=test mocha -r ts-node/register test/endtoend/**/*.test.ts --exit",
-        "test-smoke": "ts-node test/smoke/smokeTests.ts"
+        "test-smoke": "ts-node test/smoke/smokeTests.ts",
+        "version": "lerna clean --yes && lerna exec \"npm install --ignore-scripts --package-lock-only --no-audit\" && git add packages/*/package-lock.json"
     },
     "nyc": {
         "include": [
