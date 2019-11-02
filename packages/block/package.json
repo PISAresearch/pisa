@@ -56,7 +56,7 @@
     "subleveldown": "^4.1.0"
   },
   "devDependencies": {
-    "@pisa-research/test-utils": "^0.1.8-alpha.11",
+    "@pisa-research/test-utils": "^0.1.8-alpha.10",
     "@types/chai": "^4.1.6",
     "@types/encoding-down": "^5.0.0",
     "@types/levelup": "^3.1.0",
