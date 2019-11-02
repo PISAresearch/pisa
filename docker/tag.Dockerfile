@@ -97,8 +97,12 @@ FROM node:10.14.2 as builder
 WORKDIR /usr/pisa
 
 # copy the package files
+COPY package*.json ./
 COPY ./packages ./packages
 COPY ./tsconfig.json ./tsconfig.json
+COPY ./lerna.json ./lerna.json
+RUN ["npm", "i", "-g", "lerna"]
+RUN ["npm", "run", "bootstrap"]
 
 # install and build
 WORKDIR /usr/pisa/packages/server
@@ -123,8 +127,8 @@ RUN ["npm", "ci", "--only=prod"]
 FROM node:10.14.2 as deploy
 WORKDIR /usr/pisa
 
-COPY --from=builder /usr/pisa/packages/server/lib ./server/
-COPY --from=productionPackages /usr/pisa/node_modules ./
+COPY --from=builder /usr/pisa/packages/server/lib ./server/lib
+COPY --from=productionPackages /usr/pisa/node_modules ./node_modules
 
 # expose the startup port
 EXPOSE 3000
