@@ -48,7 +48,7 @@ export class Lock {
 }
 
 /**
- * Represents a number of locks indexed by a string `key`.
+ * Manages a number of locks indexed by a string `key`.
  * Locks are deleted once they are released, thus the memory occupation is always proportional to the
  * number of currently locked locks.
  */

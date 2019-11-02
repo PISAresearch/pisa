@@ -12,6 +12,7 @@
         "build-autominer": "cd build/raiden_demo/autominer && npm install && npm run build",
         "build-raiden-pisa-daemon": "cd build/raiden_demo/raiden-pisa-daemon && npm install && npm run build",
         "lint": "eslint --ext ts .",
+        "publish-dev": "lerna publish --dist-tag dev",
         "start-evm": "ganache-cli -d -l 15000000 --allowUnlimitedContractSize --defaultBalanceEther 1000000 --mnemonic 'myth like bonus scare over problem client lizard pioneer submit female collect'",
         "submodule": "git submodule init && git submodule update",
         "test": "npm run build && npm run test-endtoend",
