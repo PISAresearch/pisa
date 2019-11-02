@@ -1,7 +1,7 @@
 /**
  * Base class for errors thrown by the application.
- * If a `nestedError` is given, it customizes the stacktrace in order to also show
- * the full stack trace of the originating error.
+ * If a `nestedError` is given, it customizes the stacktrace in order to also
+ * show the full stack trace of the originating error.
  */
 export class ApplicationError extends Error {
     /**

@@ -1,6 +1,6 @@
 import { ethers } from "ethers";
 import { BigNumber } from "ethers/utils";
-import { ArgumentError} from "@pisa-research/errors";
+import { ArgumentError } from "@pisa-research/errors";
 
 export interface IBlockStub {
     hash: string;

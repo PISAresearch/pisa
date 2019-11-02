@@ -8,10 +8,8 @@ interface AppointmentRequest {
     readonly startBlock: number;
     readonly endBlock: number;
     readonly paymentHash: string;
-
     readonly eventAddress: string;
     readonly topics: (string | null)[];
-
     readonly contractAddress: string;
     readonly data: string;
     readonly gasLimit: number;
