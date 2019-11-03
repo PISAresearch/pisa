@@ -6,7 +6,6 @@ const MockAuction = artifacts.require("MockAuction");
 const MockAuctionHandler = artifacts.require("MockAuctionHandler");
 const assert = require("chai").assert;
 const truffleAssert = require('truffle-assertions');
-
 var XMLHttpRequest = require("xmlhttprequest").XMLHttpRequest;
 
 web3.providers.HttpProvider.prototype.sendAsync = web3.providers.HttpProvider.prototype.send;
