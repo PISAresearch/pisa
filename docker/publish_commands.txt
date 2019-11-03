@@ -1,6 +1,7 @@
 0. Still need to check all the correct packages imports, and do a proper hoist
 
 1. lerna version --no-git-tag-version
+1. 0 git commit -m "Version bump"
 2. lerna publish from-package --dist-tag dev
 3. lerna exec \"npm i --package-lock-only"
 4. git tag
