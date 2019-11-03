@@ -1,6 +1,6 @@
 {
   "name": "@pisa-research/utils",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "Misc utilities used in the PISA project",
   "author": "PISA Research Ltd",
   "homepage": "https://github.com/PISAresearch/pisa/tree/master/packages/utils#readme",
@@ -48,11 +48,11 @@
     "url": "https://github.com/PISAresearch/pisa/issues"
   },
   "dependencies": {
-    "@pisa-research/errors": "^0.1.8",
+    "@pisa-research/errors": "^0.1.9",
     "bunyan": "^1.8.12"
   },
   "devDependencies": {
-    "@pisa-research/test-utils": "^0.1.8",
+    "@pisa-research/test-utils": "^0.1.9",
     "@types/bunyan": "^1.8.6",
     "@types/chai": "^4.1.6",
     "@types/chai-as-promised": "^7.1.0",
