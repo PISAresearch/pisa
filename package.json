@@ -11,7 +11,12 @@
         "build": "lerna run build",
         "build-autominer": "cd build/raiden_demo/autominer && npm install && npm run build",
         "build-raiden-pisa-daemon": "cd build/raiden_demo/raiden-pisa-daemon && npm install && npm run build",
+        "clean": "lerna clean && rm -rf node_modules",
         "lint": "eslint --ext ts .",
+        "package-postpublish": "lerna exec \"npm i --package-lock-only\"",
+        "package-publish": "lerna publish from-package",
+        "package-publish-dev": "lerna publish from-package --dist-tag dev",
+        "package-version": "lerna version --no-git-tag-version",
         "publish-dev": "lerna publish --dist-tag dev",
         "start-evm": "ganache-cli -d -l 15000000 --allowUnlimitedContractSize --defaultBalanceEther 1000000 --mnemonic 'myth like bonus scare over problem client lizard pioneer submit female collect'",
         "submodule": "git submodule init && git submodule update",
@@ -24,10 +29,7 @@
         "test-load": "npm run build && ts-node test/load/loadTest.ts 10 20000",
         "test-raiden": "npm run build && mocha -r ts-node/register 'test/integration/raiden.test.ts' --exit",
         "test-run-endtoend": "NODE_ENV=test mocha -r ts-node/register test/endtoend/**/*.test.ts --exit",
-        "test-smoke": "ts-node test/smoke/smokeTests.ts",
-        "version-3": "lerna clean --yes && lerna bootstrap --ignore-scripts -- --package-lock-only --no-audit && git add packages/*/package-lock.json",
-        "version-2": "lerna clean --yes && lerna exec \"npm install --ignore-scripts --package-lock-only --no-audit\" && git add packages/*/package-lock.json",
-        "postpublish": "lerna exec \"npm i --package-lock-only\""
+        "test-smoke": "ts-node test/smoke/smokeTests.ts"
     },
     "nyc": {
         "include": [
