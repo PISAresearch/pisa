@@ -62,9 +62,6 @@ let initialisedInstanceName = "not-set";
 // Default logger
 export const logger: Bunyan = createNamedLogger("main", initialisedLogLevelInfo);
 
-// Default to log level "info", unless we are running tests, then "debug"
-
-
 /**
  * Set the initialisation settings for new loggers and for the default logger.
  * NOTE: make sure to call this before any other logger is created.
@@ -93,7 +90,14 @@ export function createNamedLogger(component: string, logLevel: LogLevelInfo = in
 
     const streams: Stream[] = [];
     for (const levelInfo of logLevel.getLevelsBelow()) {
-        streams.push({ path: path.join(logDir, `${prefix}${levelInfo.logLevel}.log`), level: levelInfo.logLevel });
+        // rotate logs once per month and keep them for a year
+        streams.push({
+            type: "rotating-file",
+            period: "1m",
+            count: 12,
+            path: path.join(logDir, `${prefix}${levelInfo.logLevel}.log`),
+            level: levelInfo.logLevel
+        });
     }
 
     // console log if we're not in production
