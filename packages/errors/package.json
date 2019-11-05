@@ -5,8 +5,8 @@
   "author": "PISA Research Ltd",
   "homepage": "https://github.com/PISAresearch/pisa/tree/master/packages/errors#readme",
   "license": "ISC",
-  "main": "lib/errors.js",
-  "types": "lib/errors.d.ts",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
   "directories": {
     "lib": "lib",
     "test": "__tests__"
