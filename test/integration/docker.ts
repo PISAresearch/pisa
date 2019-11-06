@@ -1,10 +1,10 @@
 import DockerClient from "dockerode";
-import logger from "../../src/logger";
-import { IArgConfig, PisaConfigManager } from "../../src/dataEntities/config";
+import { logger } from "../../packages/utils/src";
+import { IArgConfig, PisaConfigManager } from "../../packages/server/src/service/config";
 import { FileUtils } from "./fileUtil";
 import path from "path";
 import fs from "fs";
-import { ConfigurationError } from "../../src/dataEntities";
+import { ConfigurationError } from "../../packages/errors/src/errors";
 import { Key } from "./keyStore";
 import { ChainData } from "./chainData";
 
@@ -86,14 +86,7 @@ abstract class DockerContainer {
 }
 
 export class PisaContainer extends DockerContainer {
-    constructor(
-        dockerClient: DockerClient,
-        name: string,
-        config: IArgConfig,
-        hostPort: number,
-        hostLogsDir: string,
-        network: string
-    ) {
+    constructor(dockerClient: DockerClient, name: string, config: IArgConfig, hostPort: number, hostLogsDir: string, network: string) {
         const configManager = new PisaConfigManager();
         const commandLineArgs = configManager.toCommandLineArgs(config);
         const volumes: string[] = [`${hostLogsDir}:/usr/pisa/logs`];
@@ -102,7 +95,7 @@ export class PisaContainer extends DockerContainer {
             dockerClient,
             name,
             DockerImageLib.PISA_IMAGE,
-            ["node", "./build/src/startUp.js", ...commandLineArgs],
+            ["node", "./server/lib/startUp.js", ...commandLineArgs],
             volumes,
             [{ Host: `${hostPort}`, Container: `${hostPort}/tcp` }],
             network
@@ -186,14 +179,6 @@ export class ParityContainer extends DockerContainer {
             `${passwordFile}:/home/parity/pwd`
         ];
 
-        super(
-            dockerClient,
-            name,
-            DockerImageLib.PARITY_IMAGE,
-            parityCommand,
-            volumes,
-            [{ Host: `${hostPort}`, Container: `${jsonRpcPort}/tcp` }],
-            network
-        );
+        super(dockerClient, name, DockerImageLib.PARITY_IMAGE, parityCommand, volumes, [{ Host: `${hostPort}`, Container: `${jsonRpcPort}/tcp` }], network);
     }
 }

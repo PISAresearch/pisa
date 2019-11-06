@@ -3,7 +3,7 @@ services:
   pisatest:
       image: pisaresearch/pisa-test:latest
       volumes:
-        - ${PWD}/configs/test.json:/usr/pisa/build/src/config.json
+        - ${PWD}/configs/test.json:/usr/pisa/server/lib/config.json
       networks:
         pisanet:
           aliases:

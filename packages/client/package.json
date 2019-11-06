@@ -1,0 +1,42 @@
+{
+  "name": "@pisa-research/client",
+  "version": "0.1.9",
+  "description": "A client library for the PISA API.",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/PISAresearch/pisa"
+  },
+  "keywords": [
+    "pisa",
+    "ethereum",
+    "statechannels"
+  ],
+  "author": "PISA Research Ltd",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/PISAresearch/pisa/issues"
+  },
+  "homepage": "https://github.com/PISAresearch/pisa#readme",
+  "devDependencies": {
+    "ts-node": "^8.3.0",
+    "typescript": "^3.6.3"
+  },
+  "dependencies": {
+    "cross-fetch": "^3.0.4",
+    "ethers": "^4.0.37"
+  },
+  "files": [
+    "/lib",
+    "README.md"
+  ],
+  "gitHead": "29ffe15d987791c7297845edc99b5a4abbb56ce1"
+}

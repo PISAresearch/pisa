@@ -15,7 +15,7 @@ import { ethers, Contract } from "ethers";
 
 import { exec, ChildProcess } from "child_process";
 import { BigNumber } from "ethers/utils";
-import { deployPisa } from "../src/utils/contract";
+import { deployPisa } from "../../packages/server/__tests__/utils/contract";
 
 function timeout(ms: number): Promise<any> {
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -188,7 +188,7 @@ describe("Raiden end-to-end tests for scenario 2 (with Pisa)", function() {
 
         // Start Pisa
         console.log("Starting Pisa");
-        pisa = exec(`ts-node ${pisaRoot}/src/startUp.ts --db-dir=${demoDir}/${pisaDbDir} --json-rpc-url=http://localhost:8545 --host-name=0.0.0.0 --host-port:3000 --responder-key=${responderKey} --pisa-contract-address=${pisaContract.address} --instance-name=pisa-raiden`); //prettier-ignore
+        pisa = exec(`ts-node ${pisaRoot}/packages/server/src/startUp.ts --db-dir=${demoDir}/${pisaDbDir} --json-rpc-url=http://localhost:8545 --host-name=0.0.0.0 --host-port:3000 --responder-key=${responderKey} --pisa-contract-address=${pisaContract.address} --instance-name=pisa-raiden`); //prettier-ignore
         subprocesses.push(pisa);
         const pisaLogStream = await fse.createWriteStream(`${pisaRoot}/logs/pisa.test.log`, { flags: "a" });
         pisa.stdout!.pipe(pisaLogStream);

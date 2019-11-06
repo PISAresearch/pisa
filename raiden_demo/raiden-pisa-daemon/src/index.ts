@@ -5,8 +5,7 @@ import { BalanceProofSigGroup, IRawBalanceProof } from "./balanceProof";
 import { getWallet } from "./wallet";
 import { RaidenTools } from "./tools";
 import { ethers } from "ethers";
-import { keccak256 } from "ethers/utils";
-import PisaClient from "../../../client";
+import PisaClient from "../../../packages/client";
 
 
 const argv = require("yargs")

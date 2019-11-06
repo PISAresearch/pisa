@@ -1,5 +1,4 @@
 import { ethers } from "ethers";
-import wordlistEn from "ethers/wordlists/lang-en";
 
 export class Key {
     public wallet: ethers.Wallet;
