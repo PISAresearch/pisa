@@ -9,10 +9,8 @@ const getName = <T>(fn: (arg: T) => (...args: any[]) => any) => {
     return fn(dummySpy).name;
 };
 
-/* fnIt can be used to retrieve function names rather than writing them manually. This will be useful when refactoring
-there is no need to go back an change all the tests manually in case a function name has been changed. */
 /**
- *
+ * Retrieves a function name from the supplied fn and forms a test name from the name of that function.
  * @param fn
  * @param message
  * @param test
