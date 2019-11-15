@@ -1,23 +1,25 @@
-# BOLT #12: An External Accountable WatchTower API (DRAFT)
+# WatchTower protocol specification (BOLT DRAFT)
 
 ## Overview
 
-All off-chain protocols assume the user remains online and synchronised with the network. To alleviate this assumption, customers can hire a third party watching service ('WatchTower') to watch the blockchain and respond to malice disputes on their behalf. 
+All off-chain protocols assume the user remains online and synchronised with the network. To alleviate this assumption, customers can hire a third party watching service (a.k.a Watchtower) to watch the blockchain and respond to channel breaches on their behalf. 
 
-At a high level, the customer fetches the commitment transaction and splits the transaction id into an encryption key and IV. Both are used to encrypt the justice transaction ('encrypted blob'). As well, the customer hashes the transaction id to compute a transaction locator ('txlocator'). The WatchTower is sent both the encrypted justice transaction and txlocator, and in return the customer receives a signed receipt to acknowledge the job was accepted. To find malice disputes, the WatchTower must hash every transaction id in every new block. If it finds the txlocator, then the WatchTower derives the encryption key from the transaction id, decrypts the justice transaction and broadcasts it to the network. 
+At a high level, the client sends an encrypted justice transaction alongside a transaction locator to the WatchTower. Both the encryption key and the transaction locator are derived from the breach transaction id, meaning that the WatchTower will be able to decrypt the justice transaction only after the corresponding breach is seen in the blockchain. Therefore, the WatchTower does not learn any information about the client's channel unless there is a channel breach (channel-privacy).
 
-A WatchTower can only protect the user against crash failure (DDoS), and not if their private signing key is compromised. As well, the watching service does not learn the information about the customer's channel unless there is a malice on-chain dispute (channel-privacy). The WatchTower cannot trigger disputes on the customers behalf and it an only respond to malice disputes. 
+Due to replace-by-revocation lightning channels, the client should send data to the WatchTower for every new update in the channel, otherwise the WatchTower may not be able to respond to specific breaches. 
 
-Due to replace-by-revocation lightning channels, the customer MUST hire the WatchTower for every new update in their channel (full protection). In return, the customer receives a signed receipt from the WatchTower for every new job. The rationale for the receipt is to build an _accountable_ WatchTower as the customer can later use it as publicly verifiable evidence if the WatchTower fails to protect them.
+Finally, optional QoS can be offered by the WatchTower to provide stronger guarantees to the client, such as a signed receipt for every new job. The rationale for the receipt is to build an _accountable_ WatchTower as the customer can later use it as publicly verifiable evidence if the WatchTower fails to protect them.
 
-The scope of this bolt includes: 
-- A standard API for wallet software to implement, 
-- How to prepare the encrypted justice transaction for the WatchTower, 
+The scope of this document includes: 
+
+- A protocol for client/server comunication.
+- How to build appointments for the WatchTower, inluding key/locator derivation and data encryption.
 - A format for the signed receipt. 
 
 The scope of this bolt does not include: 
+
  - A payment protocol between the customer and WatchTower. 
- - How the wallet software finds the WatchTower to hire. 
+ - WatchTower server discovery.
  
 
 ## Table of Contents
@@ -32,65 +34,81 @@ The scope of this bolt does not include:
 
 ## Transaction Locator and Encryption Key
 
-Implementations MUST compute the transaction locator (```tx_locator```), the encryption key (```encryption_key```) and the encryption iv (```encryption_iv```) from the commitment transaction as defined below: 
+Implementations MUST compute the `tx_locator`, `encryption_key` and `encryption_iv` from the commitment transaction as defined below: 
 
-- ```encryption_key```: (0,16] bytes of the transaction id (txid)
-- ```encryption_iv```: (16,32] of the transaction id (txid)
-- ```tx_locator```: SHA256(txid || txid), where || denonates concatenation. 
+- `tx_locator`: first half of the breach transaction id (`breach_txid(0,16]`)
+- `master_key`: Hash of the second half of the breach transaction id (`H(breach_txid(16,32])`) 
+- `encryption_key`: first half of the master key (`master_key(0,16]`)
+- `encryption_iv`: second half of the master key (`master_key(16,32]`)
 
-The reader (WatchTower) relies on both the encryption key and iv to decrypt the justice transaction. As well, the transaction locator helps the WatchTower identify a malice dispute on the blockchain. 
+
+The reader (WatchTower) relies on both the encryption key and iv to decrypt the justice transaction. As well, the transaction locator helps the WatchTower identify a breach transaction on the blockchain. 
 
 ## Encryption Algorithms and Parameters
 
 All writers and readers MUST use one of the following encryption algorithms: 
 
 - ChaCha20 (https://tools.ietf.org/html/rfc7539)
-- AES_GCM (https://tools.ietf.org/html/rfc5288)
+- AES-GCM-256 (https://tools.ietf.org/html/rfc5288)
 
-Sample code (python) for the writer (wallet software) to prepare the encrypted blob: 
+Sample code (python) for the writer (client) to prepare the encrypted blob: 
 
-    def encrypt(tx, tx_id):
-        # master_key = H(tx_id | tx_id)
-        master_key = sha256(tx_id + tx_id).digest()
-
-        # The 16 MSB of the master key will serve as the AES GCM 128 secret key. The 16 LSB will serve as the IV.
-        sk = master_key[:16]
-        nonce = master_key[16:]
-
-        # Encrypt the data
-        aesgcm = AESGCM(sk)
-        encrypted_blob = aesgcm.encrypt(nonce=nonce, data=tx, associated_data=None)
-        encrypted_blob = hexlify(encrypted_blob).decode()
-
-        return encrypted_blob
+	from hashlib import sha256
+	from binascii import hexlify
+	
+	def encrypt(justice_tx, breach_txid):
+	    # master_key = H(breach_txid(16, 32])
+	    master_key = sha256(breach_txid[16:]).digest()
+	
+	    # The 16 MSB of the master key will serve as the AES-GCM-256 secret key. The 16 LSB will serve as the IV.
+	    sk = master_key[:16]
+	    nonce = master_key[16:]
+	
+	    # Encrypt the data
+	    aesgcm = AESGCM(sk)
+	    encrypted_blob = aesgcm.encrypt(nonce=iv, data=tx, associated_data=None)
+	    encrypted_blob = hexlify(encrypted_blob).decode()
+	
+	    return encrypted_blob
     
 
 ## WatchTower API
 
 The following format MUST be required for ALL hiring requests: 
+
 ```
-{"txlocator": string, 
-"start_time": uint, 
-"end_time": uint,
+{
+"txlocator": string,
+"start_block": uint, 
+"end_block": uint,
 "dispute_delta": uint, 
-"transaction_size": uint,
-"transaction_fee": uint,
 "encrypted_blob": string,
 "cipher": string, 
-"hash_function": string,
+"hash_function": string
+}
+```
+
+Furthermore, the following fields COULD be added for QoS:
+
+```
+{
+"transaction_size": uint,
+"transaction_fee": uint,
 "customer_address": string,
 "customer_signature_algorithm": string,
-"customer_signature": string}
+"customer_signature": string
+}
 ```
+
 
 ### Range of values 
 
-- ```start_time```: (Absolute) Block number 
-- ```end_time```: (Absolute) Block number
+- ```start_block```: (Absolute) Block number 
+- ```end_block```: (Absolute) Block number
 - ```dispute_delta```: (Relative) Block number
 - ```transaction_size```: Measured in Bytes (e.g. 200) 
 - ```transaction_fee```: Measured in sats (e.g. 2000)
-- ```cipher```: AESGCM, CHACHA20
+- ```cipher```: AESGCM256, CHACHA20
 - ```hash_function```: SHA256
 - ```customer_signature_algorithm```: ECDSA, SCHNORR
 
@@ -99,12 +117,12 @@ The following format MUST be required for ALL hiring requests:
 
 We can group the data fields into logical groups. 
 
-* **Appointment information**: The appointment time is defined using the ```start_time``` and```end_time```. WatchTower will delete the job when the appointment has expired. We recommend only using block numbers as that is the natural clock for Bitcoin. 
+* **Appointment information**: The appointment time is defined using the ```start_block``` and```end_block```. WatchTower will delete the job when the appointment has expired. We recommend only using block numbers as that is the natural clock for Bitcoin. 
 * **Explicit acknowledgement of transaction details**: The ```dispute_delta```, ```transaction_size```, and ```transaction_fee``` let the WatchTower confirm the transaction is "reasonable" and it can be accepted into the blockchain (especially if there is congestion in the future). 
-* **Encrypted transaction**: The ```cipher```,```hash_function```,```encrypted_blog``` states how the WatchTower can later find the dispute transaction and decrypt the justice transaction. 
+* **Encrypted transaction**: The ```cipher```,```hash_function```,```encrypted_blob``` states how the WatchTower can later find the dispute transaction and decrypt the justice transaction. 
 * **Customer signature** The ```customer_address``` and ```customer_signature``` provides an explicit message about the job from the customer. 
 
-Generally, this standard is trying to achieve a reputationally accountable watching service. The signed job from the customer provides an explicit acknowledgement of the transaction details that is important for the WatchTower to decide whether they can accept it. If the decrypted justice transaction does not satisfy the signed job (e.g. fee too low), then the WatchTower is not obliged to fulfil it. 
+Generally, this standard is trying to allow a reputationally accountable watching service. The signed job from the customer provides an explicit acknowledgement of the transaction details that is important for the WatchTower to decide whether they can accept it. If the decrypted justice transaction does not satisfy the signed job (e.g. fee too low), then the WatchTower is not obliged to fulfil it. 
 
 The _explictiness_ of the signed job ensures there is a clear protocol trasncript between the customer and WatchTower. Given the blockchain and decrypted justice transaction, anyone can verify that the WatchTower could have satisified the job. 
 
@@ -137,6 +155,8 @@ The writer (WatchTower) MUST respond to the customer using the following format:
 ```
 
 The reader (customer's wallet software) MUST verify the WatchTower's signature before assuming the job was accepted. 
+
+[ FIXME: define signature serialization formats]
 
 ### Range of values 
 
