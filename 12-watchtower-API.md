@@ -127,11 +127,11 @@ This message contains all the information regarding the appointment that the cli
 
 The sending node:
 
-* MUST set the `locator` as specified in [transaction locator and encryption key](## Transaction Locator and Encryption Key).
+* MUST set the `locator` as specified in [Transaction Locator and Encryption Key](#transaction-locator-and-encryption-key).
 * MUST set the `start_block` to the block at which he requests the server to start watching for braches.
 * MUST set the `end_block` to the block at which he requests the server to stop watching for braches.
 * MUST set `dispute_delta` to the CLTV value specified in the braach transaction.
-* MUST set `encrypted_blob` to the encryption of the `justice_transaction` as specified in [transaction locator and encryption key](## Transaction Locator and Encryption Key).
+* MUST set `encrypted_blob` to the encryption of the `justice_transaction` as specified in [Transaction Locator and Encryption Key](#transaction-locator-and-encryption-key).
 * MUST set the `cipher` to the cipher used to create the `encrypted_blob`.
 * if `qos` was agreed on `wt_init`:
 	* MUST set the `op_customer_signature_algorithm` to one of the signature algorithms agreed on `wt_init`.
