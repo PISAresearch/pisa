@@ -22,15 +22,17 @@ The scope of this bolt does not include:
  - WatchTower server discovery.
  
 
-## Table of Contents
-
-  * [Transaction Locator and Encryption Key](#transaction-locator-and-encryption-key)
-  * [Encryption Algorithms and Parameters](#encryption-algorithms-and-parameters)
-  * [WatchTower API](#WatchTower-api)
-  * [Signed Receipt Fields](#signed-receipt-fields)
-  * [Payment Modes](#payment-modes)
-  * [Number of updates](#number-of-updates)
-  * [No compression of justice transaction](#no-compression-of-justice-transaction)
+## Table of Contents 
+* [Connection establishment](#connection-establishment)
+	* [The `wt_init` message](#the-wt_init-message)
+* [Sending and receiving appointments](#sending-and-receiving-appointments)
+ 	* [The `appointment` message](#the-appointment-message)
+* [Transaction Locator and Encryption Key](#transaction-locator-and-encryption-key)
+* [Encryption Algorithms and Parameters](#encryption-algorithms-and-parameters)
+* [Signed Receipt Fields](#signed-receipt-fields)
+* [Payment Modes](#payment-modes)
+* [Number of updates](#number-of-updates)
+* [No compression of justice transaction](#no-compression-of-justice-transaction)
 
 ## Connection establishment
 Connections between the client and the server can be long-lived or restarted for every single appointment.
@@ -94,7 +96,7 @@ QoS is an optional field. Including the field in the `wt_init` message signals t
 
 The transport protocol to be used is purposely ommited. Piggybacking on top of the Lightning transport protocol as well other approaches such as interfaces over HTTP can be used to establish the connection.
 
-## Sending / receiving appointments
+## Sending and receiving appointments
 
 Once both client and server have agreed on common modes of operation, the client can start sending appointments to the server.
 
@@ -303,6 +305,8 @@ The reader (customer's wallet software) MUST verify the WatchTower's signature b
 [ FIXME: define signature serialization formats]
 
 ### Range of values 
+
+[ FIXME: fix this section. Add it to previous or rename]
 
 The ```watchtower_signature_algorithm``` can be ECDSA or SCHNORR. The other new fields are self-explanatory. 
 
