@@ -148,30 +148,31 @@ The receiving node:
 
 The receiving node MUST reject the appointment if:
 
-* The received locator` is not a `16-byte` value.
-* The received `start_block` is not an integer.
-* The received `start_block` is behind the current chain tip.
-* The received `end_block` is not an integer.
-* The received `end_block` is behind the current chain tip.
-* The received `dispute_delta` is not an integer.
-* The received `encrypted_blob` has non-feasible size.
-* The received `cipher` is not among the one he implements.
-* The received `transaction_size` is non-feasible.
+* `locator` is not a `16-byte` value.
+* `start_block` is not an integer.
+* `start_block` is behind the current chain tip.
+* `end_block` is not an integer.
+* `end_block` is behind the current chain tip.
+* `dispute_delta` is not an integer.
+* `encrypted_blob` has non-feasible size.
+* `cipher` is not among the one he implements.
+* `transaction_size` is non-feasible.
 
 The receiving node SHOULD reject the appointment if:
 
-* The received `start_block` is too close to the current chain tip.
-* The received `start_block` is too far away in the future.
-* The received `end_block` is too far away in the future.* The received `dispute_delta` is too small.
-* The `fee_rate` is too low.
+* `start_block` is too close to the current chain tip.
+* `start_block` is too far away in the future.
+* `end_block` is too far away in the future.
+* `dispute_delta` is too small.
+* `fee_rate` is too low.
 
 * if `qos` was agreed on `wt_init`:
 	The receiving node MUST also reject the appointment if:
-	* The `op_customer_signature_algorithm` is missing.
-	* The received `op_customer_signature_algorithm` does not match with one of the supported signing algorithms.
-	* The `op_customer_signature` is missing.
-	* The `op_customer_public_key` is missing.
-	* The received `op_customer_signature` cannot be verified using `op_customer_public_key`.
+	* `op_customer_signature_algorithm` is missing.
+	* `op_customer_signature_algorithm` does not match with one of the supported signing algorithms.
+	* `op_customer_signature` is missing.
+	* `op_customer_public_key` is missing.
+	* `op_customer_signature` cannot be verified using `op_customer_public_key`.
 
 * if `qos` was NOT agreed on `wt_init`:
 	* The receiving node SHOULD also reject the appointment if:
@@ -249,17 +250,17 @@ The sending node:
 The receiving node:
 
 * MUST fail the connection if:
-	* The received `locator` does not match any of the previously sent to the WatchTower.
+	* `locator` does not match any of the previously sent to the WatchTower.
 
 * if `qos` was agreed on `wt_init`:
 The receiving node MUST also reject the appointment if:
-	* The received `op_receipt` does not matches the format specified at 	[Signed-Receipt](#signed-receipt)
-	* The `op_receipt` fields do not match the ones sent in the `appointment` message.
-	* The `op_wt_signature_algorithm` is missing.
-	* The received `op_wt_signature_algorithm` does not match with one of the supported signing algorithms.
-	* The `op_wt_signature` is missing.
-	* The `op_wt_public_key` is missing.
-	* The received `op_wt_signature` cannot be verified using `op_wt_public_key`.
+	* `op_receipt` does not matches the format specified at 	[Signed-Receipt](#signed-receipt)
+	* `op_receipt` fields do not match the ones sent in the `appointment` message.
+	* `op_wt_signature_algorithm` is missing.
+	* `op_wt_signature_algorithm` does not match with one of the supported signing algorithms.
+	* `op_wt_signature` is missing.
+	* `op_wt_public_key` is missing.
+	* `op_wt_signature` cannot be verified using `op_wt_public_key`.
 
 ### The `appointment_rejected` message
 
