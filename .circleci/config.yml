@@ -22,7 +22,7 @@ jobs:
           command: npm run build
       - run:
           name: install parity
-          command: bash <(curl https://get.parity.io -L) -r stable
+          command: bash <(curl https://get.parity.io -L) -r 2.5.10
       - run:
           name: test unit
           command: npm run test-coverage
