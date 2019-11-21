@@ -34,8 +34,8 @@ jobs:
           command: npm run test-raiden
       # - store_test_results:
       #     path: coverage
-      # - store_artifacts:
-      #     path: ./logs/
+      - store_artifacts:
+          path: ./logs/
       # - store_artifacts:
       #     path: coverage/lcov.info
       # - store_artifacts:
