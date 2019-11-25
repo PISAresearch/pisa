@@ -6,8 +6,6 @@
     "main": "packages/server/lib/startUp.js",
     "scripts": {
         "bootstrap": "lerna bootstrap --hoist",
-        "bootstrap-ci": "lerna bootstrap --ci",
-        "bootstrap-ci-prod": "lerna bootstrap --ci -- --only=prod",
         "build": "lerna run build",
         "build-autominer": "cd build/raiden_demo/autominer && npm install && npm run build",
         "build-raiden-pisa-daemon": "cd build/raiden_demo/raiden-pisa-daemon && npm install && npm run build",
