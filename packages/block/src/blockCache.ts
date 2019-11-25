@@ -22,7 +22,6 @@ export type NewBlockListener<TBlock> = (block: TBlock) => Promise<void>;
  * This interface represents the read-only view of a BlockCache.
  */
 export interface ReadOnlyBlockCache<TBlock extends IBlockStub> {
-    newBlock: BlockEvent<TBlock>;
     readonly maxDepth: number;
     readonly maxHeight: number;
     readonly minHeight: number;
@@ -45,7 +44,7 @@ export interface ReadOnlyBlockCache<TBlock extends IBlockStub> {
  *    with respect to the highest block number of an attached block.
  * 2) No block is retained if its height is smaller than the first block ever added.
  * 3) All added blocks are never pruned if their depth is less then `maxDepth`.
- **/
+ */
 export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache<TBlock> {
     // Next height to be pruned; the cache will not store a block with height strictly smaller than pruneHeight
     private pruneHeight: number;
@@ -55,6 +54,9 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
     // As the BlockCache has an on-disk store, a lock is used to serialize parallel write accesses
     private lock = new Lock();
 
+    /**
+     * An event that is generated every time a new block is added to the cache, or a previously unattached block becomes attached.
+     */
     public newBlock = new BlockEvent<TBlock>();
 
     /** True before the first block ever is added */

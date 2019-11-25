@@ -83,6 +83,7 @@ class ExampleComponentWithSlowAction extends ExampleComponent {
 }
 
 class MockBlockProcessor {
+    public newBlock = new BlockEvent<IBlockStub>();
     public newHead = new BlockEvent<IBlockStub>();
 }
 

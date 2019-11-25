@@ -96,11 +96,11 @@ describe("BlockProcessor", () => {
                     } else {
                         resolve({ number: block.number, hash: block.hash });
                     }
-                    bp.blockCache.newBlock.removeListener(newBlockHandler);
+                    bp.newBlock.removeListener(newBlockHandler);
                 }
             };
 
-            bp.blockCache.newBlock.addListener(newBlockHandler);
+            bp.newBlock.addListener(newBlockHandler);
         });
     };
 
@@ -212,9 +212,9 @@ describe("BlockProcessor", () => {
                 // New head should be the last emitted event
                 newHeadCalledBeforeNewBlock = true;
             }
-            blockCache.newBlock.removeListener(newBlockListener);
+            blockProcessor.newBlock.removeListener(newBlockListener);
         };
-        blockCache.newBlock.addListener(newBlockListener);
+        blockProcessor.newBlock.addListener(newBlockListener);
 
         emitBlockHash("a5");
 
@@ -229,7 +229,7 @@ describe("BlockProcessor", () => {
         blockProcessor = new BlockProcessor(provider, blockStubAndTxHashFactory, blockCache, blockStore, blockProcessorStore);
 
         const subscribers = [];
-        for (let i = 1; i <= 5; i++) {
+        for (let i = 2; i <= 5; i++) { // first block is before the start, so not emitted as new block
             subscribers.push(createNewBlockSubscriber(blockProcessor, blockCache, `a${i}`));
         }
 
@@ -240,8 +240,8 @@ describe("BlockProcessor", () => {
         emitBlockHash("a5");
 
         const results = await Promise.all(subscribers);
-        for (let i = 1; i <= 5; i++) {
-            expect(results[i - 1]).to.deep.equal({
+        for (let i = 2; i <= 5; i++) {
+            expect(results[i - 2]).to.deep.equal({
                 number: i,
                 hash: `a${i}`
             });
@@ -252,7 +252,7 @@ describe("BlockProcessor", () => {
         blockProcessor = new BlockProcessor(provider, blockStubAndTxHashFactory, blockCache, blockStore, blockProcessorStore);
 
         const subscribersA = [];
-        for (let i = 1; i <= 6; i++) {
+        for (let i = 2; i <= 6; i++) {
             subscribersA.push(createNewBlockSubscriber(blockProcessor, blockCache, `a${i}`));
         }
         const subscribersB = [];
@@ -267,8 +267,8 @@ describe("BlockProcessor", () => {
         emitBlockHash("a6");
 
         const resultsA = await Promise.all(subscribersA);
-        for (let i = 1; i <= 6; i++) {
-            expect(resultsA[i - 1]).to.deep.equal({
+        for (let i = 2; i <= 6; i++) {
+            expect(resultsA[i - 2]).to.deep.equal({
                 number: i,
                 hash: `a${i}`
             });
