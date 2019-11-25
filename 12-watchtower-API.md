@@ -4,7 +4,7 @@
 
 All off-chain protocols assume the user remains online and synchronised with the network. To alleviate this assumption, customers can hire a third party watching service (a.k.a Watchtower) to watch the blockchain and respond to channel breaches on their behalf. 
 
-At a high level, the client sends an encrypted justice transaction alongside a transaction locator to the WatchTower. Both the encryption key and the transaction locator are derived from the breach transaction id, meaning that the WatchTower will be able to decrypt the justice transaction only after the corresponding breach is seen in the blockchain. Therefore, the WatchTower does not learn any information about the client's channel unless there is a channel breach (channel-privacy).
+At a high level, the client sends an encrypted justice transaction alongside a transaction locator to the WatchTower. Both the encryption key and the transaction locator are derived from the breach transaction id, meaning that the WatchTower will be able to decrypt the justice transaction only after the corresponding breach is seen on the blockchain. Therefore, the WatchTower does not learn any information about the client's channel unless there is a channel breach (channel-privacy).
 
 Due to replace-by-revocation lightning channels, the client should send data to the WatchTower for every new update in the channel, otherwise the WatchTower may not be able to respond to specific breaches. 
 
@@ -23,8 +23,9 @@ The scope of this bolt does not include:
  
 
 ## Table of Contents 
-* [Connection establishment](#connection-establishment)
-	* [The `wt_init` message](#the-wt_init-message)
+* [WatchTower discovery](#watchtower-discovery)
+* [WatchTower services](#watchtower-discovery)
+	* [`accountability`](#accountability)
 * [Sending and receiving appointments](#sending-and-receiving-appointments)
  	* [The `appointment` message](#the-appointment-message)
 * [Transaction Locator and Encryption Key](#transaction-locator-and-encryption-key)
@@ -34,71 +35,30 @@ The scope of this bolt does not include:
 * [Number of updates](#number-of-updates)
 * [No compression of justice transaction](#no-compression-of-justice-transaction)
 
-## Connection establishment
-Connections between the client and the server can be long-lived or restarted for every single appointment.
+## WatchTower discovery
+At this point we're leaving the client/server connection to be protocol agnostic. How the lightning client finds the WatchTower or how the WatchTower announces their presence and services provided is not specified.
 
-		+-------+                      +-------+
-		|   A   |--(1)--- wt_init ---->|   B   |
-		|       |<-(2)--- wt_init -----|       |
-		+-------+                      +-------+
-		
-		- where node A is 'client' and node B is 'server'
+Therefore, we are assuming that the client and server are connected and that the client have learnt what Quality of Service (`qos`) the tower is offering.
 
-### The `wt_init` message
+[FIXME: define a proper tower discovery]
 
-This message contains the information about a node and the type of appointments he is willing to create / accept.
+## WatchTower services
 
-1. type: ? (`wt_init`)
-2. data:
-   * [`u16`:`aclen`]
-   * [`aclen*bytes`:`accepted_ciphers`]
-   * [`u16`:`modlen`]
-   * [`modlen*bytes`:`modes`]
-   * [`u16`:`qoslen`]
-	* [`qoslen*bytes`:`qos`]	
+### Basic Service
+The basic service provided by a WatchTower refers to providing justice transaction relay upon seeing a breach on the blockchain with no finality guarantees (i.e. the transaction inclusion is not guaranteed).
 
-`accepted_ciphers` define the ciphers that the sender implements and that he can use to encrypt / decrypt data. Accepted cyphers include `chacha20` and `aes-gcm-256`.
+### Quality of Service (`qos`)
+Quality of service builds on top of the basic service provided by a tower and it's optionally provided. Different kinds of QoS can be offered by the tower.
 
-`modes` define the operation mode requested / accepted. Modes include `altruistic` and `non-altruistic`.
+For now we are defining a single type of QoS: `accountability`.
 
-`qos` defines whether the sender is requesting / accepting Quality of Service for his appointments. The only QoS offered at the moment is `accountability`.
+#### `accountability`
 
-#### Requirements
-The sending node: 
-
-* MUST send `wt_init` as the first message.
-* MUST set `accepted_ciphers` to the list of ciphers he implements.
-* MUST set `modes` to the list of modes that he is willing to accept.
-* SHOULD set `qos` to the the quality of service he is requesting / offering. 
-* upon receiving `wt_init` from a node he has not started a handshake with:
-	* MUST fail the connection
-
-The requesting node: 
-
-* MUST receive `wt_init` before sending any other message.
-* MUST respond with its own `wt_init` message.
-* upon receiving an `accepted_ciphers` that does not contain any of its own accepted ciphers:
-	* MUST fail the connection
-* upon receiving a `modes` that does not contain any of its own accepted modes:
-	* MUST fail the connection
-* upon receiving a `qos` that does not contain any of its own accepted QoS:
-	* MUST fail the connection
-
-#### Rationale
-
-The client is always the one in charge of establishing the connection. A client that receives a `wt_init` from a random node must assume that the node tries to use him as a server, therefore fail. 
-
-The client's `wt_init` message informs the server of what type of service he is requesting. The server should agree with the client if the implement the same methods. Otherwise the connection should be failed.
-
-QoS is an optional field. Including the field in the `wt_init` message signals that the sender is requiring that specific QoS. As for accountability, it aims for giving non-repudiable proof of the agreement to both the client and the server.
-
-The transport protocol to be used is purposely omitted. Piggybacking on top of the Lightning transport protocol as well other approaches such as interfaces over HTTP can be used to establish the connection.
-
-[FIXME: The connection establishment and wt_init can be replaced by a node discovery algorithm that lets the server announce its policy]
+Accountability refers to providing finality guarantees on a justice transaction relay upon seeing a breach on the blockchain. A WatchTower offering accountability must be able to ensure justice transaction inclusion in extreme cases (e.g. high transaction backlog, chain reorgs, tower crashes, data corruption, etc). Otherwise the tower must refund the user.
 
 ## Sending and receiving appointments
 
-Once both client and server have agreed on common modes of operation, the client can start sending appointments to the server.
+Once the client is aware of the services provided by the server, the former can start sending appointments to the later.
 
 		+-------+                                    +-------+
 		|   A   |--(1)---      appointment      ---->|   B   |
@@ -113,17 +73,14 @@ This message contains all the information regarding the appointment that the cli
 
 1. type: ? (`appointment`)
 2. data:
-   * [`16*byte `:`locator`]
+   * [`16*byte`:`locator`]
    * [`u64 `:`start_block`]
    * [`u64 `:`end_block`]
-   * [`u64 `:`dispute_delta`]
-   * [`varsize`:`encrypted_blob`]
-   * [`u64`: `transaction_size`]
-   * [`u64`: `transaction_fee`]
+   * [`u16`: `encrypted_blob_len`
+   * [`encrypted_blob_len*byte`:`encrypted_blob`]
    * [`u16`:`cipher`]
-   * [`u16`: `op_customer_signature_algorithm`]
-   * [`varsize`: `op_customer_signature`]
-   * [`varsize`: `op_customer_public_key`]
+   * [`u16`: `qos_len`]
+   * [`qos_len*byte`: `qos_data`]
 
 #### Requirements
 
@@ -132,84 +89,44 @@ The sending node:
 * MUST set the `locator` as specified in [Transaction Locator and Encryption Key](#transaction-locator-and-encryption-key).
 * MUST set the `start_block` to the block at which he requests the server to start watching for breaches.
 * MUST set the `end_block` to the block at which he requests the server to stop watching for breaches.
-* MUST set `dispute_delta` to the CLTV value specified in the `commitment_transaction`.
 * MUST set `encrypted_blob` to the encryption of the `justice_transaction` as specified in [Transaction Locator and Encryption Key](#transaction-locator-and-encryption-key).
-* MUST set `transaction_size` to the size of the serialized `justice_transaction`, in bytes.
-* MUST set `transaction_fee` to the fee set in the `justice_transaction`.
 * MUST set `cipher` to the cipher used to create the `encrypted_blob`.
-* if `qos` was agreed on `wt_init`:
-	* MUST set the `op_customer_signature_algorithm` to one of the signature algorithms agreed on `wt_init`.
-	* MUST set `op_customer_signature` to the signature of the appointment using `op_customer_signature_algorithm`.
-	* MUST set `op_customer_public_key` to the public key that matches the private key used to create `op_customer_signature`.
+* MAY send an empty `qos_data` field.
+* if `qos_data` is not empty:
+	*  MUST set `qos_data` according to [Quality of Service data](#quality-of-service-data).
+* MUST set `qos_len` equal to the length og `qos_data`.
 
 The receiving node:
-* upon receiving a `transaction_fee`:
-	* MUST compute the `fee_rate` set in the `justice_tx`.
 
 The receiving node MUST reject the appointment if:
 
 * `locator` is not a `16-byte` value.
-* `start_block` is not an integer.
-* `start_block` is behind the current chain tip.
-* `end_block` is not an integer.
-* `end_block` is behind the current chain tip.
-* `dispute_delta` is not an integer.
-* `encrypted_blob` has non-feasible size.
-* `cipher` is not among the one he implements.
-* `transaction_size` is non-feasible.
+* `start_block` is further than one block behind the current chain tip.
+* `start_block` is further than one block ahead the current chain tip.
+* `encrypted_blob` has unreasonable size.
+* `cipher` is not among the ones he implements.
 
 The receiving node SHOULD reject the appointment if:
 
-* `start_block` is too close to the current chain tip.
-* `start_block` is too far away in the future.
 * `end_block` is too far away in the future.
-* `dispute_delta` is too small.
-* `fee_rate` is too low.
 
-* if `qos` was agreed on `wt_init`:
-	The receiving node MUST also reject the appointment if:
-	* `op_customer_signature_algorithm` is missing.
-	* `op_customer_signature_algorithm` does not match with one of the supported signing algorithms.
-	* `op_customer_signature` is missing.
-	* `op_customer_public_key` is missing.
-	* `op_customer_signature` cannot be verified using `op_customer_public_key`.
+The receiving node MUST: 
 
-* if `qos` was NOT agreed on `wt_init`:
-	* The receiving node SHOULD also reject the appointment if:
-	* if `op_customer_signature_algorithm` is present.
-	* if `op_customer_signature` is present.
-	* if `op_customer_public_key` is present.
+* truncate the remainder of the package to `qos_len`.
+* if `qos_len` is not 0:
+	* process `qos_data` according to [Quality of Service data](#quality-of-service-data).
 
 The receiving node MAY accept the appointment otherwise.
 
-#### Range of values 
-
-- `start_block`: Absolute Block number 
-- `end_block`: Absolute Block number
-- `dispute_delta`: Relative Block number
-- `transaction_size`: Measured in Bytes
-- `transaction_fee`: Measured in sats
-- `cipher`: AESGCM256, CHACHA20
-- `customer_signature_algorithm`: ECDSA, SCHNORR
-
 #### Rationale
-
-We can group the data fields into logical groups. 
-
-* **Appointment information**: The appointment time is defined using the `start_block` and `end_block`. WatchTower will delete the job when the appointment has expired. We recommend only using block numbers as that is the natural clock for Bitcoin. 
-* **Explicit acknowledgement of transaction details**: The `dispute_delta`, `transaction_size`, and `transaction_fee` let the WatchTower confirm the transaction is "reasonable" and it can be accepted into the blockchain (especially if there is congestion in the future). 
-* **Encrypted transaction**: The `cipher`,`encrypted_blob` states how the WatchTower can later find the dispute transaction and decrypt the justice transaction. 
-* **Customer signature** The `customer_public_key` and `customer_signature` provides an explicit message about the job from the customer.  The `customer_public_key` can also be used for refunds if applicable.
 
 The transaction `locator` can be deterministically computed by both the client and the server. Locators of wrong size are therefore invalid.
 
-`start_block` and `end_block` too close to the current chain tip may result in the tower missing the trigger and therefore should be avoided.
+`start_block` can be either one block ahead or behind the tower tip due to network delays. A tower must not accept appointments arbitrarily ahead or behind the current tip since it could ease DoS vectors. A `start_block` long behind would force the tower having to keep all the block data in memory and reescan for those appointments instead of watching block by block. On the other hand, a `start_time` long ahead would imply storing information way before it being needed.
 
-Too far away is a subjective concept. Towers accepting jobs that start in the far future or that may last a really long time risk having to store data for long periods of time and should, therefore, by avoided.
+Regarding the `end_block`, too far away is a subjective concept. The further away a tower accepts appointment ends, the higher the potential storage requirements may be, and the easier (and cheaper) would it be to DoS.
 
-The concept of too small for `dispute_delta` is also subjective. The `dispute_delta` defines how many blocks the server will have to respond with the `justice_transaction` after a breach is seen. The smallest the value, the more the server risks to fail the appointment.
-
-The `encrypted_blob` should have been encrypted using `cipher`. Block ciphers have a size multiple of the block length, which depends on the key size. Therefore some incorrect `encrypted_blob` can be spotted checking the `transaction_size`. Moreover, `encrypted_blob` have to be at least as big as:
+The `encrypted_blob` should have been encrypted using `cipher`. Block ciphers have a size multiple of the block length, which depends on the key size. Therefore the `encrypted_blob` have to be at least as big as:
 
 `cipher_block_size * ceil(minimum_viable_transaction_size / cipher_block_size)`
 
@@ -219,65 +136,182 @@ And at most as big as:
 
 `minimum_viable_transaction_size` and `maximum_viable_transaction_size` refer to the minimum/maximum size required to create a valid transaction. Accepting `encrypted_blob` outside those boundaries will ease DoS attacks on the server.
 
-`transaction_size` and `transaction_fee` help the WatchTower to decide on the likelihood of an appointment being fulfilled. Appointments with `fee_rate` too low may be rejected by the WatchTower, specially if `QoS` is required. While a customer can always fake this values, it should break ToS between the client and the server and, therefore, release the WatchTower of any liability.
+A tower must not accept appointments using a cipher it does not implement, otherwise the decryption of the `encrypted_blolb` will not be possible.
 
-A WatchTower can ignored non-agreed `QoS`, but must enforce the agreed ones. Generally, this standard is trying to allow a reputationally accountable watching service. The signed job from the customer provides an explicit acknowledgement of the transaction details that is important for the WatchTower to decide whether they can accept it. If the decrypted justice transaction does not satisfy the signed job (e.g. fee too low), then the WatchTower is not obliged to fulfil it. 
-
-The _explictiness_ of the signed job ensures there is a clear protocol transcript between the customer and WatchTower. Given the blockchain and decrypted justice transaction, anyone can verify that the WatchTower could have satisfied the job. 
-
+`qos` is optional and can include multiple services.
+	
 ### The `appointment_accepted` message
 
-This message contains information about the acceptance of an appointment from the WatchTower.
+This message contains information about the acceptance of an appointment by the WatchTower.
 
 1. type: ? (`appointment_accepted `)
 2. data:
    * [`16*byte `:`locator`]
-   * [`varsize`: `op_receipt`]
-   * [`u16`: `op_wt_signature_algorithm`]
-   * [`varsize`: `op_wt_signature`]
-   * [`varsize`: `op_wt_public_key`]
+   * [`u16`: `qos_len`]
+	* [`qos_len*byte`: `qos_data`]
 
 The sending node:
 
 * MUST receive `appointment` before sending an `appointment_accepted` message.
 * MUST set the `locator` to match the one received in `appointment`.
-* if `qos` was agreed on `wt_init`:
-	* MUST set `op_receipt`] to a receipt build according to 	 [Signed-Receipt](#signed-receipt)
-	* MUST set `op_wt_signature_algorithm` to one of the signature algorithms agreed on `wt_init`.
-	* MUST set `op_wt_signature` to the signature of the appointment using `op_customer_signature_algorithm`.
-	* MUST set `op_wt_public_key` to the public key that matches the private key used to create `op_customer_signature`.
+* if `qos_data` was requested in `appointment`:
+	*  MUST set `qos_data` according to [Quality of Service data](#quality-of-service-data).
+* MUST set `qos_len` equal to the length og `qos_data`.
 
 The receiving node:
 
-* MUST fail the connection if:
-	* `locator` does not match any of the previously sent to the WatchTower.
+* MUST fail the connection  if `locator` does not match any of the previously sent to the WatchTower:
 
-* if `qos` was agreed on `wt_init`:
-The receiving node MUST also reject the appointment if:
-	* `op_receipt` does not matches the format specified at 	[Signed-Receipt](#signed-receipt)
-	* `op_receipt` fields do not match the ones sent in the `appointment` message.
-	* `op_wt_signature_algorithm` is missing.
-	* `op_wt_signature_algorithm` does not match with one of the supported signing algorithms.
-	* `op_wt_signature` is missing.
-	* `op_wt_public_key` is missing.
-	* `op_wt_signature` cannot be verified using `op_wt_public_key`.
+* if `qos` was requested on `appointment`:
+	* MUST fail the connection if `qos_len` is 0.
+	* MUST process `qos_data` according to [Quality of Service data](#quality-of-service-data).
 
 ### The `appointment_rejected` message
 
-This message contains information about the rejection of an appointment from the WatchTower.
+This message contains information about the rejection of an appointment by the WatchTower.
 
 1. type: ? (`appointment_rejected `)
 2. data:
    * [`16*byte `:`locator`]
    * [`u16`: `rcode`]
-   * [`varsize`: `reason`]
+   * [`u16`: `reason_len`
+   * [`data_len*byte`: `reason`]
 
 The sending node:
 
 * MUST receive `appointment` before sending an `appointment_accepted` message.
 * MUST set the `locator` to match the one received in `appointment`.
 * MUST set `rcode` to the rejection code.
-* SHOULD set `reason` to a description of the rejection reason.
+* MAY set and empty `reason` field.
+* MUST set `reason_len` to length of `reason`.
+
+#### Rationale
+
+The `appointment_rejected` message follows the approach taken by the `error` message defined in [bolt#1](https://github.com/lightningnetwork/lightning-rfc/blob/master/01-messaging.md#the-error-message): error codes are mandatory, whereas reasons are optional and implementation dependant.
+
+## Quality of Service data
+
+`qos_data` is a list where each field specifies they type and associated data of the requested `qos`. The format is defined as follows:
+
+* [`u16`: `qos_type`]
+* [`u16`: `message_type`]
+* [`u16`: `data_len`]
+* [`data_len*byte`: `data`]
+
+So far, only `accountability` is defined.
+
+### `accountability`
+
+The accountability `qos` defines a pair `qos_data` blobs, associated to a pair of messaged: The first one is `customer_evidence` and is provided by the `client` in the `appointment` message. The second one is `tower_evidence`, and is provided by the WatchTower in the `appointment_accepted` message.
+
+#### `customer_evidence`
+
+The format for the `customer_evidence` is defined as follows:
+
+1. type: ? (`customer_evidence`)
+2. data:  
+	* [`u64 `:`dispute_delta`]
+	* [`u64`: `transaction_size`]
+	* [`u64`: `transaction_fee`]
+	* [`u16`: `customer_signature_algorithm`]
+	* [`u16`: `customer_signature_len`
+	* [`customer_signature_len*byte`: `customer_signature`]
+	* [`u16`: `customer_public_key_len`]
+	* [`customer_public_key_len*byte`: `customer_public_key`]
+
+If `accountability` is being requested, the sending node:
+	
+* MUST set `dispute_delta` to the CLTV value specified in the `commitment_transaction`.
+* MUST set `transaction_size` to the size of the serialized `justice_transaction`, in bytes.
+* MUST set `transaction_fee` to the fee set in the `justice_transaction`.
+* MUST set the `customer_signature_algorithm` to one of the signature algorithms supported by the tower.
+* MUST set `customer_signature` to the signature of the appointment using `op_customer_signature_algorithm`.
+* MUST set `customer_public_key` to the public key that matches the private key used to create `op_customer_signature`.
+
+If `accountability` is being offered, the receiving node:
+
+* MUST compute the `customer_signature` verification using `customer_public_key`.
+* SHOULD compute the `fee_rate` set in the `justice_tx` using `transaction_size` and `transaction_fee`.
+
+* MUST reject the appointment if:
+	* Any of the fields is missing.
+	* `transaction_size` is unreasonable.
+	* `customer_signature_algorithm` does not match with one of the supported signing algorithms.
+	* `customer_signature` cannot be verified using `customer_public_key`.
+
+* SHOULD reject the appointment if:
+	* `dispute_delta` is too small.
+	* `fee_rate` is too low.
+
+If `accountability` is NOT being offered:
+* The receiving node MUST reject the appointment.
+
+Otherwise:
+* The receiving node SHOULD accept the appointment.
+
+#### Rationale
+
+The concept of too small for `dispute_delta` is subjective. The `dispute_delta` defines how many blocks the server will have to respond with the `justice_transaction` after a breach is seen. The smallest the value, the more the server risks to fail the appointment.
+
+`transaction_size` and `transaction_fee` help the WatchTower to decide on the likelihood of an appointment being fulfilled. Appointments with `fee_rate` too low may be rejected by the WatchTower. While a customer can always fake this values, it should break ToS between the client and the server and, therefore, release the WatchTower of any liability.
+
+If `accountability` is not being offered, it makes not much sense accepting appointment that request it. If the tower accepts an appointment requesting `accountability`, it should be enforced or refunded. Generally, this is trying to allow a reputationally accountable watching service. The signed job from the customer provides an explicit acknowledgement of the transaction details that is important for the WatchTower to decide whether they can accept it. If the decrypted justice transaction does not satisfy the signed job (e.g. fee too low), then the WatchTower is not obliged to fulfil it. 
+
+#### `tower_evidence`
+
+The format for the `tower_evidence` is defined as follows:
+
+1. type: ? (`tower_evidence`)
+2. data:  
+	* [`u16 `:`receipt_length`]
+	* [`receipt_length `: `transaction_size`]
+	* [`u16`: `wt_signature_algorithm`]
+	* [`u16`: `wt_signature_len`
+	* [`wt_signature_len*byte`: `wt_signature`]
+	* [`u16`: `wt_public_key_len`]
+	* [`wt_public_key_len*byte`: `wt_public_key`]
+
+The sending node:
+
+* MUST set `receipt`] to a receipt build according to 	 [Signed-Receipt](#signed-receipt)
+* MUST set `wt_signature_algorithm` to one of the signature algorithms he has announced.
+* MUST set `wt_signature` to the signature of the appointment using `wt_signature_algorithm`.
+* MUST set `wt_public_key` to the public key that matches the private key used to create `wt_signature`.
+
+The receiving node:
+* MUST compute the `wt_signature` verification using `wt_public_key`.
+
+MUST fail the connection if:
+	* Any of the fields is missing.
+	* `receipt` does not matches the format specified at 	[Signed-Receipt](#signed-receipt)
+	* `receipt` fields do not match the ones sent in the `appointment` message.
+	* `wt_signature_algorithm` does not match any of the ones offered by the WatchTower
+	* `wt_signature` cannot be verified using `wt_public_key`.
+
+### Receipt Format 
+
+The server (WatchTower) MUST create the receipt as follows:
+
+	{"txlocator": 16*byte, 
+	"start_block": u64, 
+	"end_block": u64,
+	"dispute_delta": u64, 
+	"encrypted_blob": varsize,
+	"transaction_size": u64,
+	"transaction_fee": u64,
+	"cipher": u16, 
+	"customer_public_key": varsize,
+	"wt_public_key": varsize,
+	"payment_hash": u64
+	"payment_secret:" u64 [optional]}
+
+[ FIXME: define signature serialization format]
+
+#### Rationale
+
+We assume the server has a well-known public key for the WatchTower. It is outside the scope of this BOLT to dictate how the public key is retrieved and associated with the WatchTowers identity. 
+
+- **Conditional transfer**: Both ```payment_hash``` and ```payment_secret``` can be used to provide a fair exchange of the signed receipt and WatchTower payment over the lightning network. If the WatchTower is willing to accept a job without a new payment, then it will return the ```payment_secret``` immediately. 
 
 ## Transaction Locator and Encryption Key
 
@@ -318,39 +352,6 @@ Sample code (python) for the client to prepare the `encrypted_blob`:
 	
 	    return encrypted_blob
 	    
-## Signed Receipt
-
-### Sanity checks
-
-The server (WatchTower) must perform some sanity checks on the job request before sending a signed receipt to the client. The sanity checks are implementation-specific, but we recommend that the WatchTower checks the satoshi per byte (`transaction_fee/transaction_size`) and that the dispute delta satisfies a minimum (i.e. sufficient time to complete the job). 
-
-### Receipt Format 
-
-The server (WatchTower) MUST respond to the client using the following format: 
-
-```
-{"txlocator": 16*byte, 
-"start_time": u64, 
-"end_time": u64,
-"dispute_delta": u64, 
-"encrypted_blob": varsize,
-"transaction_size": u64,
-"transaction_fee": u64,
-"cipher": u16, 
-"customer_public_key": varsize,
-"wt_public_key": varsize,
-"payment_hash": u64
-"payment_secret:" u64 [optional]}
-```
-
-[ FIXME: define signature serialization format]
-
-#### Rationale
-
-We assume the server has a well-known public key for the WatchTower. It is outside the scope of this BOLT to dictate how the public key is retrieved and associated with the WatchTowers identity. 
-
-- **Conditional transfer**: Both ```payment_hash``` and ```payment_secret``` can be used to provide a fair exchange of the signed receipt and WatchTower payment over the lightning network. If the WatchTower is willing to accept a job without a new payment, then it will return the ```payment_secret``` immediately. 
-
 ## Payment modes 
 
 Although this BOLT does not enforce any specific payment method to be adopted, it is worth mentioning the three most common ones:
@@ -380,3 +381,5 @@ Patrick McCorry, Sergi Delgado, PISA Research.
 ![Creative Commons License](https://i.creativecommons.org/l/by/4.0/88x31.png "License CC-BY")
 <br>
 This work is licensed under a [Creative Commons Attribution 4.0 International License](http://creativecommons.org/licenses/by/4.0/).
+
+[FIXME: None of the message types have been defined (they have been left with ?)]
