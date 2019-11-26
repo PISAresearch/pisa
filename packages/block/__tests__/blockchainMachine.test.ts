@@ -83,8 +83,12 @@ class ExampleComponentWithSlowAction extends ExampleComponent {
 }
 
 class MockBlockProcessor {
+    constructor(public readonly blockCache: BlockCache<IBlockStub>) {
+        blockCache.newBlock.addListener(block => this.newBlock.emit(block));
+    }
     public newBlock = new BlockEvent<IBlockStub>();
     public newHead = new BlockEvent<IBlockStub>();
+    public readonly started = true;
 }
 
 describe("BlockchainMachine", () => {
@@ -113,8 +117,7 @@ describe("BlockchainMachine", () => {
         blockCache = new BlockCache<IBlockStub>(100, blockStore);
 
         // Since we only need to process events, we mock the BlockProcessor with an EventEmitter
-        const bp: any = new MockBlockProcessor();
-        bp.blockCache = blockCache;
+        const bp: any = new MockBlockProcessor(blockCache);
         blockProcessor = bp as BlockProcessor<IBlockStub>;
 
         actionStore = new ActionStore(db);
