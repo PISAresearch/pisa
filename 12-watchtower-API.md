@@ -31,8 +31,8 @@ The scope of this bolt does not include:
  	* [The `appointment` message](#the-appointment-message)
  	* [The `appointment_accepted` message](#the-appointment_accepted-message)
  	* [The `appointment_rejected` message](#the-appointment_rejected-message)
-* [Quality of Service data](quality-of-service-data)
-	* [`accountability`](accountability)
+* [Quality of Service data](#quality-of-service-data)
+	* [`accountability`](#accountability)
 * [Transaction Locator and Encryption Key](#transaction-locator-and-encryption-key)
 * [Encryption Algorithms and Parameters](#encryption-algorithms-and-parameters)
 * [Payment Modes](#payment-modes)
@@ -277,7 +277,7 @@ The format for the `tower_evidence` is defined as follows:
 
 The sending node:
 
-* MUST set `receipt` to a receipt built according to 	 [Signed-Receipt](#signed-receipt)
+* MUST set `receipt` to a receipt built according to 	[Receipt-Format](#receipt-format)
 * MUST set `wt_signature_algorithm` to one of the signature algorithms he has announced.
 * MUST set `wt_signature` to the signature of the appointment using `wt_signature_algorithm`.
 * MUST set `wt_public_key` to the public key that matches the private key used to create `wt_signature`.
@@ -288,7 +288,7 @@ The receiving node:
 
 * MUST fail the connection if:
 	* Any of the fields is missing.
-	* `receipt` does not matches the format specified at 	[Signed-Receipt](#signed-receipt)
+	* `receipt` does not matches the format specified at 	[Receipt-Format](#receipt-format)
 	* `receipt` fields do not match the ones sent in the `appointment` message.
 	* `wt_signature_algorithm` does not match any of the ones offered by the WatchTower
 	* `wt_signature` cannot be verified using `wt_public_key`.
