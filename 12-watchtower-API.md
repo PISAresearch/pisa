@@ -190,7 +190,7 @@ The sending node:
 
 #### Rationale
 
-The `appointment_rejected` message follows the approach taken by the `error` message defined in [bolt#1](https://github.com/lightningnetwork/lightning-rfc/blob/master/01-messaging.md#the-error-message): error codes are mandatory, whereas reasons are optional and implementation dependant.
+The `appointment_rejected` message follows the approach taken by the `error` message defined in [BOLT#1](https://github.com/lightningnetwork/lightning-rfc/blob/master/01-messaging.md#the-error-message): error codes are mandatory, whereas reasons are optional and implementation dependant.
 
 ## Quality of Service data
 
