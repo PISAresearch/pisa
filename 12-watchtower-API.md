@@ -41,12 +41,12 @@ The scope of this bolt does not include:
 ## WatchTower discovery
 At this point we're leaving the client/server connection to be protocol agnostic. How the Lightning node finds the WatchTower or how the WatchTower announces their presence and services provided is not specified.
 
-Therefore, we are assuming that the client and server are connected and that the client have learnt what Quality of Service (`qos`) the tower is offering.
+Therefore, we are assuming that the client and server are connected and that the client have learnt what Quality of Service (`qos`) the tower is offering. Moreover, we asume that the client has an authentication token `aut_token` to prove he's entitled to use the service if required.
 
 ## WatchTower services
 
 ### Basic Service
-The basic service provided by a WatchTower refers to providing justice transaction relay upon seeing a breach on the blockchain with no finality guarantees (i.e. the transaction inclusion is not guaranteed).
+The customer can hire the WatchTower to watch for breaches on the blockchain and relay a justice transaction on their behalf. The customer receives an acknowledgement when the WatchTower has accepted the job, but the hiring protocol does guarantee the transaction inclusion.
 
 ### Quality of Service
 Quality of Service (`qos`) builds on top of the basic service provided by a tower and it's optionally provided. Different kinds of QoS can be offered by the tower.
@@ -55,11 +55,11 @@ For now we are defining a single type of `qos`: `accountability`.
 
 #### `accountability`
 
-Accountability refers to providing finality guarantees on a justice transaction relay upon seeing a breach on the blockchain. A WatchTower offering accountability must be able to ensure justice transaction inclusion in extreme cases (e.g. high transaction backlog, chain reorgs, tower crashes, data corruption, etc). Otherwise the tower must refund the user.
+A WatchTower provides a signed receipt to the customer. This is considered reputational accountability as the customer has publicly verifiable cryptographic evidence the WatchTower was hired. The receipt can be used to prove the WatchTower did not relay the justice transaction on their behalf and/or request a refund.
 
 ## Sending and receiving appointments
 
-Once the client is aware of the services provided by the server, the former can start sending appointments to the later.
+Once the client is aware of the services provided by the server, the former can start sending appointments to the latter.
 
 		+-------+                                    +-------+
 		|   A   |--(1)---      appointment      ---->|   B   |
@@ -80,6 +80,8 @@ This message contains all the information regarding the appointment that the cli
    * [`u16`: `encrypted_blob_len`
    * [`encrypted_blob_len*byte`:`encrypted_blob`]
    * [`u16`:`cipher`]
+   * [`u16`: `auth_token_len`]
+   * [`auth_token_len*bytes`: `auth_token`]
    * [`u16`: `qos_len`]
    * [`qos_len*byte`: `qos_data`]
 
@@ -92,15 +94,18 @@ The sending node:
 * MUST set `end_block` to the block height at which he requests the server to stop watching for breaches.
 * MUST set `encrypted_blob` to the encryption of the `justice_transaction` as specified in [Transaction Locator and Encryption Key](#transaction-locator-and-encryption-key).
 * MUST set `cipher` to the cipher used to create the `encrypted_blob`.
+* MAY send an empty `auth_token` field.
+* MUST set `auth_token_len` to the length of `auth_token`
 * MAY send an empty `qos_data` field.
 * if `qos_data` is not empty:
 	*  MUST set `qos_data` according to [Quality of Service data](#quality-of-service-data).
-* MUST set `qos_len` equal to the length og `qos_data`.
+* MUST set `qos_len` equal to the length of `qos_data`.
 
 The receiving node:
 
 The receiving node MUST reject the appointment if:
-
+* Authentication is required and `auth_token` is not provided.
+* Authentication is required and `auth_token` is invalid.
 * `locator` is not a `16-byte` value.
 * `start_block` is further than one block behind the current chain tip.
 * `start_block` is further than one block ahead the current chain tip.
@@ -120,6 +125,8 @@ The receiving node MUST:
 The receiving node MAY accept the appointment otherwise.
 
 #### Rationale
+
+WatchTowers may work in different modes (e.g. altruistic vs non-altruistic). In some of those modes, proof of payment may be required for the WatchTower to perform provide the service. `auth_token` is used to decide wether the user is entitled to use the service or not in the cases it may be required. Notice that the tokens do not need to be linked to any kind of identity but confirm that the payment has been performed.
 
 The transaction `locator` can be deterministically computed by both the client and the server. Locators of wrong size are therefore invalid.
 
@@ -215,11 +222,6 @@ The format for the `customer_evidence` is defined as follows:
 	* [`u64 `:`dispute_delta`]
 	* [`u64`: `transaction_size`]
 	* [`u64`: `transaction_fee`]
-	* [`u16`: `customer_signature_algorithm`]
-	* [`u16`: `customer_signature_len`
-	* [`customer_signature_len*byte`: `customer_signature`]
-	* [`u16`: `customer_public_key_len`]
-	* [`customer_public_key_len*byte`: `customer_public_key`]
 
 If `accountability` is being requested, the sending node:
 	
@@ -295,26 +297,33 @@ The receiving node:
 
 #### Receipt Format 
 
-The server (WatchTower) MUST create the receipt as follows:
+The server (WatchTower) MUST create the receipt as containing the following infiormation:
 
-	{"txlocator": 16*byte, 
-	"start_block": u64, 
-	"end_block": u64,
-	"dispute_delta": u64, 
-	"encrypted_blob": varsize,
-	"transaction_size": u64,
-	"transaction_fee": u64,
-	"cipher": u16, 
-	"customer_public_key": varsize,
-	"wt_public_key": varsize,
-	"payment_hash": u64
-	"payment_secret:" u64 [optional]}
+	txlocator
+	start_block
+	end_block
+	dispute_delta
+	encrypted_blob
+	transaction_size
+	transaction_fee
+	cipher
+	customer_public_key
+	customer_signature
+	wt_public_key
+	
 
 #### Rationale
 
-We assume the server has a well-known public key for the WatchTower. It is outside the scope of this BOLT to dictate how the public key is retrieved and associated with the WatchTowers identity. 
+We assume the server has a well-known public key for the WatchTower. 
 
-- **Conditional transfer**: Both ```payment_hash``` and ```payment_secret``` can be used to provide a fair exchange of the signed receipt and WatchTower payment over the lightning network. If the WatchTower is willing to accept a job without a new payment, then it will return the ```payment_secret``` immediately. 
+The receipt contains, mainly, the information provided by the user. The WatchTower will need to sign the receipt to provide evidence of agreement.
+
+The `customer_signature` is included in the receipt to link both the client request and the server response. Otherwise a client could sign random data and claim to have send it to the tower. In the same way, a signed receipt protects the user from false claims from the tower.
+
+
+#### Receipt serialization and signature
+
+[FIXME: TBD]
 
 ## Transaction Locator and Encryption Key
 
@@ -374,13 +383,10 @@ The storage requirements for a WatchTower can be reduced (linearly) by implement
 ## FIXMES
 
 - Define a proper tower discovery
-
+- Define authentication mechanism (macaroons maybe?)
 - None of the message types have been defined (they have been left with ?)
-
-- Define signature serialization format
-
+- Define receipt serialization format
 - `qos_type` can be defined by ranges, in the same way that error messages are. In that way a range of values can belong to a specific `qos`
-
 - Discuss wether to extend it with shachain
 
 ## Acknowledgments
