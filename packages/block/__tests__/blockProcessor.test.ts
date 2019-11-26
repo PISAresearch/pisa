@@ -188,6 +188,38 @@ describe("BlockProcessor", () => {
         expect(blockProcessor.blockCache.head.hash).to.equal("a1");
     });
 
+    it("does not emit events before the service is started", async () => {
+        let newBlockFired = false;
+        let newHeadFired = false;
+        blockProcessor = new BlockProcessor(provider, blockStubAndTxHashFactory, blockCache, blockStore, blockProcessorStore);
+        blockProcessor.newBlock.addListener(async () => { newBlockFired = true });
+        blockProcessor.newHead.addListener(async () => { newHeadFired = true });
+        emitBlockHash("a1");
+        emitBlockHash("a2");
+        emitBlockHash("a3");
+        await wait(20);
+
+        expect(newBlockFired, "did not fire 'newBlock'").to.be.false;
+        expect(newHeadFired, "did not fire 'newHead'").to.be.false;
+    });
+
+    it("proxies the newBlock events from the blockCache once the service is started", async () => {
+        let newBlockFiredCount = 0;
+        blockProcessor = new BlockProcessor(provider, blockStubAndTxHashFactory, blockCache, blockStore, blockProcessorStore);
+        blockProcessor.newBlock.addListener(async () => { ++newBlockFiredCount });
+
+        emitBlockHash("a1"); // should not fire here
+
+        await blockProcessor.start();
+
+        emitBlockHash("a2"); //should fire from now on
+        emitBlockHash("a3");
+        emitBlockHash("a4");
+        await wait(20);
+
+        expect(newBlockFiredCount).to.equal(3);
+    });
+
     it("adds the first block received to the cache and emits a new head event after the corresponding new block events from the BlockCache", async () => {
         emitBlockHash("a4");
 
