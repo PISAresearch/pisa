@@ -2,7 +2,7 @@
 
 ## Overview
 
-All off-chain protocols assume the user remains online and synchronised with the network. To alleviate this assumption, customers can hire a third party watching service (a.k.a Watchtower) to watch the blockchain and respond to channel breaches on their behalf. 
+All off-chain protocols assume the user remains online and synchronised with the network. To alleviate this assumption, customers can hire a third party watching service (a.k.a WatchTower) to watch the blockchain and respond to channel breaches on their behalf. 
 
 At a high level, the client sends an encrypted justice transaction alongside a transaction locator to the WatchTower. Both the encryption key and the transaction locator are derived from the breach transaction id, meaning that the WatchTower will be able to decrypt the justice transaction only after the corresponding breach is seen on the blockchain. Therefore, the WatchTower does not learn any information about the client's channel unless there is a channel breach (channel-privacy).
 
@@ -47,7 +47,7 @@ Therefore, we are assuming that the client and server are connected and that the
 ## WatchTower services
 
 ### Basic Service
-The customer can hire the WatchTower to watch for breaches on the blockchain and relay a justice transaction on their behalf. The customer receives an acknowledgement when the WatchTower has accepted the job, but the hiring protocol does guarantee the transaction inclusion.
+The customer can hire the WatchTower to watch for breaches on the blockchain and relay a justice transaction on their behalf. The customer receives an acknowledgement when the WatchTower has accepted the job, but the hiring protocol does not guarantee the transaction inclusion.
 
 ### Quality of Service
 Quality of Service (`qos`) builds on top of the basic service provided by a tower and it's optionally provided. Different kinds of QoS can be offered by the tower.
@@ -125,7 +125,7 @@ The server:
 
 We define appointment as the way that the WatchTower is hired / requested by a client to do it's watching services.
 
-WatchTowers may work in different modes (e.g. altruistic vs non-altruistic). In some of those modes, proof of payment may be required for the WatchTower to provide the service. `auth_token` is used to decide whether the user is entitled to use the service or not in the cases it may be required. Notice that the tokens do not need to be linked to any kind of identity, but confirm that the payment has been performed.
+WatchTowers may offer their services for free (`altruistic`) or they may require a payment when accepting the job (`non-altruistic`). We have defined `auth_token` as an authentication mechanism between the client and server, so the client can prove they are entitled to the service. The tokens are not required to be linked to any kind of identity (e.g. blinded tokens), but their sole purpose is to confirm the client has already paid for the service.
 
 The transaction `locator` can be deterministically computed by both the client and the server. Locators of wrong size are therefore invalid.
 
@@ -306,7 +306,6 @@ The server MUST create the receipt containing the following information:
 	transaction_size
 	transaction_fee
 	cipher
-	customer_public_key
 	customer_signature
 	wt_public_key
 	
