@@ -259,7 +259,9 @@ The concept of too small for `dispute_delta` is subjective. The `dispute_delta` 
 
 `transaction_size` and `transaction_fee` help the WatchTower to decide on the likelihood of an appointment being fulfilled. Appointments with `fee_rate` too low may be rejected by the WatchTower. While a customer can always fake this values, it should break ToS between the client and the server and, therefore, release the WatchTower of any liability.
 
-If `accountability` is not being offered, it does not much sense accepting appointments that request it. If the tower accepts an appointment requesting `accountability`, it should be enforced or refunded. Generally, this is trying to allow a reputationally accountable watching service. The signed job from the customer provides an explicit acknowledgement of the transaction details that is important for the WatchTower to decide whether it can accept them. If the decrypted justice transaction does not satisfy the signed job (e.g. fee too low), then the WatchTower is not obliged to fulfill the appointment. 
+By accepting the request, the tower is offering a reputationally accountable watching service. If `accountability` is not offered, then the tower will not accept appointments requesting for it.
+
+As well, the WatchTower must check the transaction details before deciding whether it will accept it. If the decrypted justice transaction does not satisfy the job details (e.g. too low fee), then the tower is not obliged to fulfil the appointment.
 
 #### `tower_evidence`
 
