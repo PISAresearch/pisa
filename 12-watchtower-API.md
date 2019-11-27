@@ -315,8 +315,7 @@ We assume the client has a well-known public key for the WatchTower.
 
 The receipt contains, mainly, the information provided by the user. The WatchTower will need to sign the receipt to provide evidence of agreement.
 
-The `customer_signature` is included in the receipt to link both the client request and the server response. Otherwise a client could sign random data and claim to have send it to the tower. In the same way, a signed receipt protects the user from false claims from the tower.
-
+The `customer_signature` is included in the receipt to link both the client request and the server response. Otherwise, the tower could sign a receipt with different data that the one sent by the user, and the user would have no way to prove whether that's true or not. By signing the customer signature there the tower creates evidence of what the user sent, since the tower cannot forge the client's signature.
 
 #### Receipt serialization and signature
 
@@ -379,12 +378,14 @@ The storage requirements for a WatchTower can be reduced (linearly) by implement
 
 ## FIXMES
 
-- Define a proper tower discovery
-- Define authentication mechanism (macaroons maybe?)
-- None of the message types have been defined (they have been left with ?)
-- Define receipt serialization format
-- `qos_type` can be defined by ranges, in the same way that error messages are. In that way a range of values can belong to a specific `qos`
-- Discuss whether to extend it with shachain
+- Define a proper tower discovery.
+- Define authentication mechanism (macaroons maybe?).
+- None of the message types have been defined (they have been left with ?).
+- Define receipt serialization format.
+- `qos_type` can be defined by ranges, in the same way that error messages are. In that way a range of values can belong to a specific `qos`.
+- Define an optional way of doing batch appointments / appointments in bulk? That would break appointment unlinkability but would ease the data management for the tower.
+- The `customer_signature` could be optional if the client does not care that much about the worst case. Dicuss whether that makes sense.
+- Discuss whether to extend it with shachain.
 
 ## Acknowledgments
 
