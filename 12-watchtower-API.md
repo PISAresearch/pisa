@@ -21,6 +21,7 @@ The scope of this bolt does not include:
  - A payment protocol between the customer and WatchTower. 
  - WatchTower server discovery.
  
+For the rest of this document we will refer to the WatchTower as server, and the user/Ligthning node as client.
 
 ## Table of Contents 
 * [WatchTower discovery](#watchtower-discovery)
@@ -41,7 +42,7 @@ The scope of this bolt does not include:
 ## WatchTower discovery
 At this point we're leaving the client/server connection to be protocol agnostic. How the Lightning node finds the WatchTower or how the WatchTower announces their presence and services provided is not specified.
 
-Therefore, we are assuming that the client and server are connected and that the client have learnt what Quality of Service (`qos`) the tower is offering. Moreover, we assume that the client has an authentication token `aut_token` to prove he's entitled to use the service if required.
+Therefore, we are assuming that the client and server are connected and that the client have learnt what Quality of Service (`qos`) the tower is offering. Moreover, we assume that the client has an authentication token `auth_token` to prove he's entitled to use the service if required.
 
 ## WatchTower services
 
@@ -87,7 +88,7 @@ This message contains all the information regarding the appointment that the cli
 
 #### Requirements
 
-The sending node:
+The client:
 
 * MUST set `locator` as specified in [Transaction Locator and Encryption Key](#transaction-locator-and-encryption-key).
 * MUST set `start_block` to the current chain tip height.
@@ -101,36 +102,34 @@ The sending node:
 	*  MUST set `qos_data` according to [Quality of Service data](#quality-of-service-data).
 * MUST set `qos_len` equal to the length of `qos_data`.
 
-The receiving node:
+The server:
 
-The receiving node MUST reject the appointment if:
-* Authentication is required and `auth_token` is not provided.
-* Authentication is required and `auth_token` is invalid.
-* `locator` is not a `16-byte` value.
-* `start_block` is further than one block behind the current chain tip.
-* `start_block` is further than one block ahead the current chain tip.
-* `encrypted_blob` has unreasonable size.
-* `cipher` is not among the ones he implements.
+* MUST reject the appointment if:
+	* Authentication is required and `auth_token` is not provided.
+	* Authentication is required and `auth_token` is invalid.
+	* `locator` is not a `16-byte` value.
+	* `start_block` is further than one block behind the current chain tip.
+	* `start_block` is further than one block ahead the current chain tip.
+	* `encrypted_blob` has unreasonable size.
+	* `cipher` is not among the ones he implements.
 
-The receiving node SHOULD reject the appointment if:
+* SHOULD reject the appointment if`end_block` is too far away in the future.
 
-* `end_block` is too far away in the future.
+* MUST: 
+	* truncate the remainder of the package to `qos_len`.
+	* process `qos_data` according to [Quality of Service data](#quality-of-service-data) if `qos_len` is not 0.
 
-The receiving node MUST: 
-
-* truncate the remainder of the package to `qos_len`.
-* if `qos_len` is not 0:
-	* process `qos_data` according to [Quality of Service data](#quality-of-service-data).
-
-The receiving node MAY accept the appointment otherwise.
+* MAY accept the appointment otherwise.
 
 #### Rationale
+
+We define appointment as the way that the WatchTower is hired / requested by a client to do it's watching services.
 
 WatchTowers may work in different modes (e.g. altruistic vs non-altruistic). In some of those modes, proof of payment may be required for the WatchTower to provide the service. `auth_token` is used to decide whether the user is entitled to use the service or not in the cases it may be required. Notice that the tokens do not need to be linked to any kind of identity, but confirm that the payment has been performed.
 
 The transaction `locator` can be deterministically computed by both the client and the server. Locators of wrong size are therefore invalid.
 
-`start_block` can be either one block ahead or behind the tower tip due to network delays. A tower must not accept appointments arbitrarily ahead or behind the current tip since it could ease DoS vectors. A `start_block` long behind would force the tower to rescan block data for those appointments instead of watching block by block. On the other hand, a `start_time` long ahead would imply storing information way before it being needed.
+`start_block` can be either one block ahead or behind the tower tip due to network delays. A tower must not accept appointments arbitrarily ahead or behind the current tip since it could increase DoS vectors. A `start_block` long behind would force the tower to rescan block data for those appointments instead of watching block by block. On the other hand, a `start_time` long ahead would imply storing information way before it being needed.
 
 Regarding the `end_block`, too far away is a subjective concept. The further away a tower accepts appointment ends, the higher the potential storage requirements may be, and the easier (and cheaper) would it be to DoS.
 
@@ -142,7 +141,7 @@ and at most as big as:
 
 `cipher_block_size * ceil(maximum_viable_transaction_size / cipher_block_size`) 
 
-`minimum_viable_transaction_size` and `maximum_viable_transaction_size` refer to the minimum/maximum size required to create a valid transaction. Accepting `encrypted_blob` outside those boundaries will ease DoS attacks on the server.
+`minimum_viable_transaction_size` and `maximum_viable_transaction_size` refer to the minimum/maximum size required to create a valid transaction. Accepting `encrypted_blob` outside those boundaries will increase DoS attacks on the server.
 
 The client should have learn about the `ciphers` implemented by the WatchTower and the `qos` that the tower is offering during the peer discovery.
 
@@ -160,7 +159,7 @@ This message contains information about the acceptance of an appointment by the 
    * [`u16`: `qos_len`]
 	* [`qos_len*byte`: `qos_data`]
 
-The sending node:
+The server:
 
 * MUST receive `appointment` before sending an `appointment_accepted` message.
 * MUST set the `locator` to match the one received in `appointment`.
@@ -168,9 +167,9 @@ The sending node:
 	*  MUST set `qos_data` according to [Quality of Service data](#quality-of-service-data).
 * MUST set `qos_len` equal to the length of `qos_data`.
 
-The receiving node:
+The client:
 
-* MUST fail the connection  if `locator` does not match any of locators the previously sent to the WatchTower:
+* MUST fail the connection  if `locator` does not match any of locators the previously sent to the server:
 
 * if `qos` was requested in `appointment`:
 	* MUST fail the connection if `qos_len` is 0.
@@ -187,7 +186,7 @@ This message contains information about the rejection of an appointment by the W
    * [`u16`: `reason_len`
    * [`reason_len*byte`: `reason`]
 
-The sending node:
+The server:
 
 * MUST receive `appointment` before sending an `appointment_rejected` message.
 * MUST set the `locator` to match the one received in `appointment`.
@@ -223,7 +222,7 @@ The format for the `customer_evidence` is defined as follows:
 	* [`u64`: `transaction_size`]
 	* [`u64`: `transaction_fee`]
 
-If `accountability` is being requested, the sending node:
+If `accountability` is being requested, the client:
 	
 * MUST set `dispute_delta` to the CLTV value specified in the `commitment_transaction`.
 * MUST set `transaction_size` to the size of the serialized `justice_transaction`, in bytes.
@@ -232,7 +231,7 @@ If `accountability` is being requested, the sending node:
 * MUST set `customer_signature` to the signature of the appointment using `op_customer_signature_algorithm`.
 * MUST set `customer_public_key` to the public key that matches the private key used to create `op_customer_signature`.
 
-If `accountability` is being offered, the receiving node:
+If `accountability` is being offered, the server:
 
 * MUST compute the `customer_signature` verification using `customer_public_key`.
 * SHOULD compute the `fee_rate` set in the `justice_tx` using `transaction_size` and `transaction_fee`.
@@ -249,11 +248,11 @@ If `accountability` is being offered, the receiving node:
 
 If `accountability` is NOT being offered:
 
-* The receiving node MUST reject the appointment.
+* The server MUST reject the appointment.
 
 Otherwise:
 
-* The receiving node SHOULD accept the appointment.
+* The server SHOULD accept the appointment.
 
 #### Rationale
 
@@ -261,7 +260,7 @@ The concept of too small for `dispute_delta` is subjective. The `dispute_delta` 
 
 `transaction_size` and `transaction_fee` help the WatchTower to decide on the likelihood of an appointment being fulfilled. Appointments with `fee_rate` too low may be rejected by the WatchTower. While a customer can always fake this values, it should break ToS between the client and the server and, therefore, release the WatchTower of any liability.
 
-If `accountability` is not being offered, it makes not much sense accepting appointments that request it. If the tower accepts an appointment requesting `accountability`, it should be enforced or refunded. Generally, this is trying to allow a reputationally accountable watching service. The signed job from the customer provides an explicit acknowledgement of the transaction details that is important for the WatchTower to decide whether it can accept them. If the decrypted justice transaction does not satisfy the signed job (e.g. fee too low), then the WatchTower is not obliged to fulfill the appointment. 
+If `accountability` is not being offered, it does not much sense accepting appointments that request it. If the tower accepts an appointment requesting `accountability`, it should be enforced or refunded. Generally, this is trying to allow a reputationally accountable watching service. The signed job from the customer provides an explicit acknowledgement of the transaction details that is important for the WatchTower to decide whether it can accept them. If the decrypted justice transaction does not satisfy the signed job (e.g. fee too low), then the WatchTower is not obliged to fulfill the appointment. 
 
 #### `tower_evidence`
 
@@ -277,14 +276,14 @@ The format for the `tower_evidence` is defined as follows:
 	* [`u16`: `wt_public_key_len`]
 	* [`wt_public_key_len*byte`: `wt_public_key`]
 
-The sending node:
+The server:
 
 * MUST set `receipt` to a receipt built according to 	[Receipt-Format](#receipt-format).
 * MUST set `wt_signature_algorithm` to one of the signature algorithms he has announced.
 * MUST set `wt_signature` to the signature of the appointment using `wt_signature_algorithm`.
 * MUST set `wt_public_key` to the public key that matches the private key used to create `wt_signature`.
 
-The receiving node:
+The client:
 
 * MUST compute the `wt_signature` verification using `wt_public_key`.
 
@@ -292,12 +291,12 @@ The receiving node:
 	* Any of the fields is missing.
 	* `receipt` does not matches the format specified at 	[Receipt-Format](#receipt-format)
 	* `receipt` fields do not match the ones sent in the `appointment` message.
-	* `wt_signature_algorithm` does not match any of the ones offered by the WatchTower.
+	* `wt_signature_algorithm` does not match any of the ones offered by the server.
 	* `wt_signature` cannot be verified using `wt_public_key`.
 
 #### Receipt Format 
 
-The server (WatchTower) MUST create the receipt containing the following information:
+The server MUST create the receipt containing the following information:
 
 	txlocator
 	start_block
@@ -314,7 +313,7 @@ The server (WatchTower) MUST create the receipt containing the following informa
 
 #### Rationale
 
-We assume the server has a well-known public key for the WatchTower. 
+We assume the client has a well-known public key for the WatchTower. 
 
 The receipt contains, mainly, the information provided by the user. The WatchTower will need to sign the receipt to provide evidence of agreement.
 
@@ -335,7 +334,7 @@ Implementations MUST compute the `locator`, `encryption_key` and `encryption_iv`
 - `encryption_iv`: second half of the master key (`master_key(16,32]`)
 
 
-The server (WatchTower) relies on both the encryption key and iv to decrypt the justice transaction. Furthermore, the transaction locator helps the WatchTower identify a breach transaction on the blockchain. 
+The server relies on both the encryption key and iv to decrypt the justice transaction. Furthermore, the transaction locator helps the WatchTower identify a breach transaction on the blockchain. 
 
 ## Encryption Algorithms and Parameters
 
