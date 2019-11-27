@@ -21,7 +21,7 @@ The scope of this bolt does not include:
  - A payment protocol between the customer and WatchTower. 
  - WatchTower server discovery.
  
-For the rest of this document we will refer to the WatchTower as server, and the user/Ligthning node as client.
+For the rest of this document we will refer to the WatchTower as server, and the user/Lightning node as client.
 
 ## Table of Contents 
 * [WatchTower discovery](#watchtower-discovery)
@@ -40,9 +40,8 @@ For the rest of this document we will refer to the WatchTower as server, and the
 * [No compression of justice transaction](#no-compression-of-justice-transaction)
 
 ## WatchTower discovery
-At this point we're leaving the client/server connection to be protocol agnostic. How the Lightning node finds the WatchTower or how the WatchTower announces their presence and services provided is not specified.
 
-Therefore, we are assuming that the client and server are connected and that the client have learnt what Quality of Service (`qos`) the tower is offering. Moreover, we assume that the client has an authentication token `auth_token` to prove he's entitled to use the service if required.
+We have not defined how a client can find a list of servers to hire yet. We assume the client has found a server and the server is offering a watching service. The service can either be the basic service or an accountable quality of service. To deal with pre-payments (when necessary), the client may have an authentication token that the server can verify when accepting the job (e.g. a blinded token).
 
 ## WatchTower services
 
@@ -131,7 +130,7 @@ The transaction `locator` can be deterministically computed by both the client a
 
 `start_block` can be either one block ahead or behind the tower tip due to network delays. A tower must not accept appointments arbitrarily ahead or behind the current tip since it could increase DoS vectors. A `start_block` long behind would force the tower to rescan block data for those appointments instead of watching block by block. On the other hand, a `start_time` long ahead would imply storing information way before it being needed.
 
-Regarding the `end_block`, too far away is a subjective concept. The further away a tower accepts appointment ends, the higher the potential storage requirements may be, and the easier (and cheaper) would it be to DoS.
+Regarding the `end_block`, too far away is a subjective concept. The further away a tower accepts appointment ends, the higher the potential storage requirements may be, and the easier, and cheaper, it my be to perform DoS.
 
 The `encrypted_blob` should have been encrypted using `cipher`. Block ciphers have a size multiple of the block length, which depends on the key size. Therefore the `encrypted_blob` have to be at least as big as:
 
