@@ -41,7 +41,7 @@ The scope of this bolt does not include:
 ## WatchTower discovery
 At this point we're leaving the client/server connection to be protocol agnostic. How the Lightning node finds the WatchTower or how the WatchTower announces their presence and services provided is not specified.
 
-Therefore, we are assuming that the client and server are connected and that the client have learnt what Quality of Service (`qos`) the tower is offering. Moreover, we asume that the client has an authentication token `aut_token` to prove he's entitled to use the service if required.
+Therefore, we are assuming that the client and server are connected and that the client have learnt what Quality of Service (`qos`) the tower is offering. Moreover, we assume that the client has an authentication token `aut_token` to prove he's entitled to use the service if required.
 
 ## WatchTower services
 
@@ -81,7 +81,7 @@ This message contains all the information regarding the appointment that the cli
    * [`encrypted_blob_len*byte`:`encrypted_blob`]
    * [`u16`:`cipher`]
    * [`u16`: `auth_token_len`]
-   * [`auth_token_len*bytes`: `auth_token`]
+   * [`auth_token_len*byte`: `auth_token`]
    * [`u16`: `qos_len`]
    * [`qos_len*byte`: `qos_data`]
 
@@ -90,12 +90,12 @@ This message contains all the information regarding the appointment that the cli
 The sending node:
 
 * MUST set `locator` as specified in [Transaction Locator and Encryption Key](#transaction-locator-and-encryption-key).
-* MUST set `start_block` the current chain tip height.
+* MUST set `start_block` to the current chain tip height.
 * MUST set `end_block` to the block height at which he requests the server to stop watching for breaches.
 * MUST set `encrypted_blob` to the encryption of the `justice_transaction` as specified in [Transaction Locator and Encryption Key](#transaction-locator-and-encryption-key).
 * MUST set `cipher` to the cipher used to create the `encrypted_blob`.
 * MAY send an empty `auth_token` field.
-* MUST set `auth_token_len` to the length of `auth_token`
+* MUST set `auth_token_len` to the length of `auth_token`.
 * MAY send an empty `qos_data` field.
 * if `qos_data` is not empty:
 	*  MUST set `qos_data` according to [Quality of Service data](#quality-of-service-data).
@@ -126,7 +126,7 @@ The receiving node MAY accept the appointment otherwise.
 
 #### Rationale
 
-WatchTowers may work in different modes (e.g. altruistic vs non-altruistic). In some of those modes, proof of payment may be required for the WatchTower to perform provide the service. `auth_token` is used to decide wether the user is entitled to use the service or not in the cases it may be required. Notice that the tokens do not need to be linked to any kind of identity but confirm that the payment has been performed.
+WatchTowers may work in different modes (e.g. altruistic vs non-altruistic). In some of those modes, proof of payment may be required for the WatchTower to provide the service. `auth_token` is used to decide whether the user is entitled to use the service or not in the cases it may be required. Notice that the tokens do not need to be linked to any kind of identity, but confirm that the payment has been performed.
 
 The transaction `locator` can be deterministically computed by both the client and the server. Locators of wrong size are therefore invalid.
 
@@ -138,7 +138,7 @@ The `encrypted_blob` should have been encrypted using `cipher`. Block ciphers ha
 
 `cipher_block_size * ceil(minimum_viable_transaction_size / cipher_block_size)`
 
-And at most as big as:
+and at most as big as:
 
 `cipher_block_size * ceil(maximum_viable_transaction_size / cipher_block_size`) 
 
@@ -146,7 +146,7 @@ And at most as big as:
 
 The client should have learn about the `ciphers` implemented by the WatchTower and the `qos` that the tower is offering during the peer discovery.
 
-A tower must not accept appointments using a cipher it does not implement, otherwise the decryption of the `encrypted_blolb` will not be possible.
+A tower must not accept appointments using a cipher it does not implement, otherwise the decryption of the `encrypted_blob` will not be possible.
 
 `qos` is optional and can include multiple services.
 	
@@ -170,7 +170,7 @@ The sending node:
 
 The receiving node:
 
-* MUST fail the connection  if `locator` does not match any of the previously sent to the WatchTower:
+* MUST fail the connection  if `locator` does not match any of locators the previously sent to the WatchTower:
 
 * if `qos` was requested in `appointment`:
 	* MUST fail the connection if `qos_len` is 0.
@@ -211,7 +211,7 @@ So far, only `accountability` is defined.
 
 ### `accountability`
 
-The accountability `qos` defines a pair `qos_data` blobs, associated to a pair of messages: The first one is `customer_evidence` and it is provided by the `client` in the `appointment` message. The second one it is `tower_evidence`, and is provided by the WatchTower in the `appointment_accepted` message.
+The accountability `qos` defines a pair `qos_data` blobs, associated to a pair of messages: The first one is `customer_evidence` and it is provided by the `client` in the `appointment` message. The second one is `tower_evidence`, and is provided by the WatchTower in the `appointment_accepted` message.
 
 #### `customer_evidence`
 
@@ -257,11 +257,11 @@ Otherwise:
 
 #### Rationale
 
-The concept of too small for `dispute_delta` is subjective. The `dispute_delta` defines the time (in blocks) that the tower has to respond after a breach is seen. The smallest the value, the more the server risks to fail the appointment.
+The concept of too small for `dispute_delta` is subjective. The `dispute_delta` defines the time (in blocks) that the tower has in order to respond after a breach is seen. The smaller the value, the more the server risks to fail the appointment.
 
 `transaction_size` and `transaction_fee` help the WatchTower to decide on the likelihood of an appointment being fulfilled. Appointments with `fee_rate` too low may be rejected by the WatchTower. While a customer can always fake this values, it should break ToS between the client and the server and, therefore, release the WatchTower of any liability.
 
-If `accountability` is not being offered, it makes not much sense accepting appointments that request it. If the tower accepts an appointment requesting `accountability`, it should be enforced or refunded. Generally, this is trying to allow a reputationally accountable watching service. The signed job from the customer provides an explicit acknowledgement of the transaction details that is important for the WatchTower to decide whether it can accept them. If the decrypted justice transaction does not satisfy the signed job (e.g. fee too low), then the WatchTower is not obliged to fulfil the appointment. 
+If `accountability` is not being offered, it makes not much sense accepting appointments that request it. If the tower accepts an appointment requesting `accountability`, it should be enforced or refunded. Generally, this is trying to allow a reputationally accountable watching service. The signed job from the customer provides an explicit acknowledgement of the transaction details that is important for the WatchTower to decide whether it can accept them. If the decrypted justice transaction does not satisfy the signed job (e.g. fee too low), then the WatchTower is not obliged to fulfill the appointment. 
 
 #### `tower_evidence`
 
@@ -269,8 +269,8 @@ The format for the `tower_evidence` is defined as follows:
 
 1. type: ? (`tower_evidence`)
 2. data:  
-	* [`u16 `:`receipt_length`]
-	* [`receipt_length `: `receipt`]
+	* [`u16 `:`receipt_len`]
+	* [`receipt_len*byte `: `receipt`]
 	* [`u16`: `wt_signature_algorithm`]
 	* [`u16`: `wt_signature_len`
 	* [`wt_signature_len*byte`: `wt_signature`]
@@ -279,7 +279,7 @@ The format for the `tower_evidence` is defined as follows:
 
 The sending node:
 
-* MUST set `receipt` to a receipt built according to 	[Receipt-Format](#receipt-format)
+* MUST set `receipt` to a receipt built according to 	[Receipt-Format](#receipt-format).
 * MUST set `wt_signature_algorithm` to one of the signature algorithms he has announced.
 * MUST set `wt_signature` to the signature of the appointment using `wt_signature_algorithm`.
 * MUST set `wt_public_key` to the public key that matches the private key used to create `wt_signature`.
@@ -292,12 +292,12 @@ The receiving node:
 	* Any of the fields is missing.
 	* `receipt` does not matches the format specified at 	[Receipt-Format](#receipt-format)
 	* `receipt` fields do not match the ones sent in the `appointment` message.
-	* `wt_signature_algorithm` does not match any of the ones offered by the WatchTower
+	* `wt_signature_algorithm` does not match any of the ones offered by the WatchTower.
 	* `wt_signature` cannot be verified using `wt_public_key`.
 
 #### Receipt Format 
 
-The server (WatchTower) MUST create the receipt as containing the following infiormation:
+The server (WatchTower) MUST create the receipt containing the following information:
 
 	txlocator
 	start_block
@@ -329,8 +329,8 @@ The `customer_signature` is included in the receipt to link both the client requ
 
 Implementations MUST compute the `locator`, `encryption_key` and `encryption_iv` from the commitment transaction as defined below: 
 
-- `locator`: first half of the commitment transaction id (`commintment_txid(0,16]`)
-- `master_key`: Hash of the second half of the commitment transaction id (`SHA256(commintment_txid(16,32])`) 
+- `locator`: first half of the commitment transaction id (`commitment_txid(0,16]`)
+- `master_key`: Hash of the second half of the commitment transaction id (`SHA256(commitment_txid(16,32])`) 
 - `encryption_key`: first half of the master key (`master_key(0,16]`)
 - `encryption_iv`: second half of the master key (`master_key(16,32]`)
 
@@ -374,7 +374,7 @@ Although this BOLT does not enforce any specific payment method to be adopted, i
 
 **Subscription**. WatchTower is periodically rewarded / paid for their service to the customer. (e.g. over the lightning network or fiat subscription). 
 
-Both micropayments and subscriptions are favourable for a WatchTower. The on-chain bounty approach is not ideal for a watching network, it lets the customer hire N WatchTowers (O(N) storage for each tower) and only one WatchTower will be rewarded upon collecting the bounty. On top of that, the onchain bounty allows a network-wise DoS attack for free.
+Both micropayments and subscriptions are favourable for a WatchTower. The on-chain bounty approach is not ideal for a watching network, it lets the customer hire many WatchTowers (O(N) storage for each tower) and only one WatchTower will be rewarded upon collecting the bounty. On top of that, the onchain bounty allows a network-wise DoS attack for free.
 
 ## No compression of justice transaction 
 
@@ -387,7 +387,7 @@ The storage requirements for a WatchTower can be reduced (linearly) by implement
 - None of the message types have been defined (they have been left with ?)
 - Define receipt serialization format
 - `qos_type` can be defined by ranges, in the same way that error messages are. In that way a range of values can belong to a specific `qos`
-- Discuss wether to extend it with shachain
+- Discuss whether to extend it with shachain
 
 ## Acknowledgments
 
