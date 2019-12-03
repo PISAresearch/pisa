@@ -7,12 +7,16 @@ import MemDown from "memdown";
 import { fnIt } from "@pisa-research/test-utils";
 
 
+type TestAction = {
+    name: string;
+}
+
 describe("ActionStore", () => {
-    let actionStore: ActionStore;
+    let actionStore: ActionStore<TestAction>;
     let db: any;
 
-    const componentName = "awesome-component";
-    const testActions = [
+    const key = "awesome-component";
+    const testActions: TestAction[] = [
         {
             name: "action1"
         },
@@ -23,7 +27,7 @@ describe("ActionStore", () => {
 
     beforeEach(async () => {
         db = LevelUp(EncodingDown<string, any>(MemDown(), { valueEncoding: "json" }));
-        actionStore = new ActionStore(db);
+        actionStore = new ActionStore(db, "prefix");
         await actionStore.start();
     });
 
@@ -32,14 +36,14 @@ describe("ActionStore", () => {
     });
 
     it("can store an retrieve some actions", async () => {
-        await actionStore.storeActions(componentName, testActions);
+        await actionStore.storeActions(key, testActions);
 
-        const retrievedActions = [...actionStore.getActions(componentName)].map(a => a.action);
+        const retrievedActions = [...actionStore.getActions(key)].map(a => a.action);
         expect(retrievedActions).to.deep.equal(testActions);
     });
 
-    fnIt<ActionStore>(a => a.storeActions, "returns wrapped all the wrapped actions and ids", async () => {
-        const actionsAndIds = await actionStore.storeActions(componentName, testActions);
+    fnIt<ActionStore<object>>(a => a.storeActions, "returns wrapped all the wrapped actions and ids", async () => {
+        const actionsAndIds = await actionStore.storeActions(key, testActions);
 
         expect(testActions.length).to.equal(actionsAndIds.length);
         for (let i = 0; i < testActions.length; i++) {
@@ -47,25 +51,25 @@ describe("ActionStore", () => {
         }
     });
 
-    fnIt<ActionStore>(a => a.removeAction, "removes an action", async () => {
-        await actionStore.storeActions(componentName, testActions);
+    fnIt<ActionStore<object>>(a => a.removeAction, "removes an action", async () => {
+        await actionStore.storeActions(key, testActions);
 
-        const retrievedActionsAndId = [...actionStore.getActions(componentName)];
+        const retrievedActionsAndId = [...actionStore.getActions(key)];
 
-        await actionStore.removeAction(componentName, retrievedActionsAndId[0]); // delete the first action
+        await actionStore.removeAction(key, retrievedActionsAndId[0]); // delete the first action
 
-        const retrievedActionsAfter = [...actionStore.getActions(componentName)].map(a => a.action);
+        const retrievedActionsAfter = [...actionStore.getActions(key)].map(a => a.action);
         expect(retrievedActionsAfter).to.deep.equal([testActions[1]]); // should only contain the second action
     });
 
     it("reloads actions from the db on startup", async () => {
-        await actionStore.storeActions(componentName, testActions);
+        await actionStore.storeActions(key, testActions);
         await actionStore.stop();
 
-        const newActionStore = new ActionStore(db); // a new ActionStore on the same db
+        const newActionStore = new ActionStore(db, "prefix"); // a new ActionStore on the same db
         await newActionStore.start();
 
-        const retrievedActions = [...newActionStore.getActions(componentName)]
+        const retrievedActions = [...newActionStore.getActions(key)]
             .map(a => a.action) // prettier-ignore
             .sort((a, b) => ((a as any).name < (b as any).name ? -1 : 1)); // make sure they are checked in the same order
 
@@ -74,20 +78,20 @@ describe("ActionStore", () => {
         expect(retrievedActions).to.deep.equal(testActions);
     });
 
-    fnIt<ActionStore>(a => a.removeAction, "removes an action also removes a function from the db", async () => {
+    fnIt<ActionStore<object>>(a => a.removeAction, "removes an action also removes a function from the db", async () => {
         // make sure that deleted functions are also deleted from the db, and not just locally
 
-        await actionStore.storeActions(componentName, testActions);
-        const retrievedActionsAndId = [...actionStore.getActions(componentName)];
+        await actionStore.storeActions(key, testActions);
+        const retrievedActionsAndId = [...actionStore.getActions(key)];
 
-        await actionStore.removeAction(componentName, retrievedActionsAndId[0]); // delete the first action
+        await actionStore.removeAction(key, retrievedActionsAndId[0]); // delete the first action
 
         await actionStore.stop();
 
-        const newActionStore = new ActionStore(db); // a new ActionStore on the same db
+        const newActionStore = new ActionStore(db, "prefix"); // a new ActionStore on the same db
         await newActionStore.start();
 
-        const retrievedActionsAfter = [...newActionStore.getActions(componentName)].map(a => a.action);
+        const retrievedActionsAfter = [...newActionStore.getActions(key)].map(a => a.action);
         await newActionStore.stop();
         expect(retrievedActionsAfter).to.deep.equal([testActions[1]]); // should only contain the second action
     });

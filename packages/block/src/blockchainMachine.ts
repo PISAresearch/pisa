@@ -26,7 +26,7 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
      * Runs all the actions in `actionAndIds` for `component`. Actions are all executed in parallel, and each action is removed
      * from the ActionStore upon completion.s
      */
-    private runActionsForComponent(component: Component<AnchorState, IBlockStub, ComponentAction>, actionAndIds: Iterable<ActionAndId>) {
+    private runActionsForComponent(component: Component<AnchorState, IBlockStub, ComponentAction>, actionAndIds: Iterable<ActionAndId<ComponentAction>>) {
         // Side effects must be thread safe, so we can execute them concurrently
         // Note that actions are executed in background and not awaited for in here.
         [...actionAndIds].forEach(async a => {
@@ -59,7 +59,7 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
         this.blockProcessor.newBlock.removeListener(this.processNewBlock);
     }
 
-    constructor(private blockProcessor: BlockProcessor<TBlock>, private actionStore: ActionStore, private blockItemStore: BlockItemStore<TBlock>) {
+    constructor(private blockProcessor: BlockProcessor<TBlock>, private actionStore: ActionStore<ComponentAction>, private blockItemStore: BlockItemStore<TBlock>) {
         super("blockchain-machine");
         this.processNewHead = this.processNewHead.bind(this);
         this.processNewBlock = this.processNewBlock.bind(this);

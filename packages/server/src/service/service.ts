@@ -18,7 +18,8 @@ import {
     blockFactory,
     Block,
     BlockItemStore,
-    IBlockStub
+    IBlockStub,
+    ComponentAction
 } from "@pisa-research/block";
 import { LevelUp } from "levelup";
 import encodingDown from "encoding-down";
@@ -45,7 +46,7 @@ export class PisaService extends StartStopService {
     private readonly blockProcessor: BlockProcessor<Block>;
     private readonly responderStore: ResponderStore;
     private readonly appointmentStore: AppointmentStore;
-    private readonly actionStore: ActionStore;
+    private readonly actionStore: ActionStore<ComponentAction>;
     private readonly blockchainMachine: BlockchainMachine<Block>;
     private readonly JSON_SCHEMA_ROUTE = "/schemas/appointmentRequest.json";
     private readonly API_DOCS_JSON_ROUTE = "/api-docs.json";
@@ -112,7 +113,7 @@ export class PisaService extends StartStopService {
             config.maximumReorgLimit == undefined ? 100 : config.maximumReorgLimit
         );
 
-        this.actionStore = new ActionStore(db);
+        this.actionStore = new ActionStore<ComponentAction>(db, "blockchain-machine");
 
         this.blockchainMachine = new BlockchainMachine<Block>(this.blockProcessor, this.actionStore, this.blockItemStore);
         this.blockchainMachine.addComponent(watcher);
