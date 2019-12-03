@@ -11,7 +11,7 @@ import { IArgConfig } from "./config";
 import {
     BlockProcessorStore,
     BlockchainMachine,
-    ActionStore,
+    CachedKeyValueStore,
     BlockProcessor,
     BlockCache,
     ReadOnlyBlockCache,
@@ -46,7 +46,7 @@ export class PisaService extends StartStopService {
     private readonly blockProcessor: BlockProcessor<Block>;
     private readonly responderStore: ResponderStore;
     private readonly appointmentStore: AppointmentStore;
-    private readonly actionStore: ActionStore<ComponentAction>;
+    private readonly actionStore: CachedKeyValueStore<ComponentAction>;
     private readonly blockchainMachine: BlockchainMachine<Block>;
     private readonly JSON_SCHEMA_ROUTE = "/schemas/appointmentRequest.json";
     private readonly API_DOCS_JSON_ROUTE = "/api-docs.json";
@@ -113,7 +113,7 @@ export class PisaService extends StartStopService {
             config.maximumReorgLimit == undefined ? 100 : config.maximumReorgLimit
         );
 
-        this.actionStore = new ActionStore<ComponentAction>(db, "blockchain-machine");
+        this.actionStore = new CachedKeyValueStore<ComponentAction>(db, "blockchain-machine");
 
         this.blockchainMachine = new BlockchainMachine<Block>(this.blockProcessor, this.actionStore, this.blockItemStore);
         this.blockchainMachine.addComponent(watcher);

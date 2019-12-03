@@ -6,7 +6,7 @@ import LevelUp from "levelup";
 import EncodingDown from "encoding-down";
 import MemDown from "memdown";
 
-import { BlockEvent, StateReducer, Component, BlockProcessor, BlockCache, BlockchainMachine, ActionStore, IBlockStub, BlockItemStore, ComponentAction } from "../src";
+import { BlockEvent, StateReducer, Component, BlockProcessor, BlockCache, BlockchainMachine, CachedKeyValueStore, IBlockStub, BlockItemStore, ComponentAction } from "../src";
 import { ApplicationError } from "@pisa-research/errors";
 import { fnIt } from "@pisa-research/test-utils";
 
@@ -98,7 +98,7 @@ describe("BlockchainMachine", () => {
     let db: any;
     let blockStore: BlockItemStore<IBlockStub>;
     let blockCache: BlockCache<IBlockStub>;
-    let actionStore: ActionStore<ComponentAction>;
+    let actionStore: CachedKeyValueStore<ComponentAction>;
 
     // Utility function to add a block to the block cache and also emit it as new head in the blockProcessor.
     const addAndEmitBlock = async (block: IBlockStub) => {
@@ -120,7 +120,7 @@ describe("BlockchainMachine", () => {
         const bp: any = new MockBlockProcessor(blockCache);
         blockProcessor = bp as BlockProcessor<IBlockStub>;
 
-        actionStore = new ActionStore<ComponentAction>(db, "blockchain-machine");
+        actionStore = new CachedKeyValueStore<ComponentAction>(db, "blockchain-machine");
         await actionStore.start();
     });
 
