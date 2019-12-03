@@ -3,7 +3,7 @@ import { StartStopService, Lock } from "@pisa-research/utils";
 import { ReadOnlyBlockCache, BlockCache, BlockAddResult } from "./blockCache";
 import { IBlockStub, Block, TransactionHashes } from "./block";
 import {BlockItemStore} from "./blockItemStore";
-import { BlockFetchingError } from "@pisa-research/errors";
+import { BlockFetchingError, ApplicationError } from "@pisa-research/errors";
 import { LevelUp } from "levelup";
 import EncodingDown from "encoding-down";
 import { BlockEvent } from "./event";
@@ -125,7 +125,23 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
 
     private mBlockCache: BlockCache<TBlock>;
 
+    /**
+     * Event generated when a new block is emitted that is currently considered the tip of the blockchain.
+     * It is guaranteed that the `newBlock` for the same block is emitted before the corresponding `newHead` event is,
+     * but it is not guaranteed that any specific block will be emitted in a `newHead` event.
+     * Only emitted after the service is started.
+     */
     public newHead = new BlockEvent<TBlock>();
+
+    /**
+     * Event emitted when a new block is known and added to the BlockCache. It is not guaranteed that the emitted block is the head
+     * of the blockchain, nor that it is part of the current best blockchain. It is guauranteed that blocks are emitted in order (that is,
+     * the parent was always emitted before the current block), except when the `BlockProcessor` is initialized for the first time with a fresh
+     * `BlockProcessorStore`.
+     * Only emitted after the service is started.
+     */
+    public newBlock = new BlockEvent<TBlock>();
+
 
     // Returned in the constructor by blockProvider: obtains the block remotely (or throws an exception on failure)
     private getBlockRemote: (blockNumberOrHash: string | number) => Promise<TBlock>;
@@ -152,6 +168,7 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
         this.mBlockCache = blockCache;
 
         this.processBlockNumber = this.processBlockNumber.bind(this);
+        this.processNewBlock = this.processNewBlock.bind(this);
     }
 
     protected async startInternal(): Promise<void> {
@@ -159,10 +176,21 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
         const currentHead = (await this.store.getLatestHeadNumber()) || (await this.provider.getBlockNumber());
         await this.processBlockNumber(currentHead);
         this.provider.on("block", this.processBlockNumber);
+
+        // After startup, `newBlock` events of the BlockCache are proxied
+        this.mBlockCache.newBlock.addListener(this.processNewBlock);
     }
 
     protected async stopInternal(): Promise<void> {
+        this.mBlockCache.newBlock.removeListener(this.processNewBlock);
         this.provider.removeListener("block", this.processBlockNumber);
+    }
+
+    // proxies the newBlock event from the cache from the moment startup is complete
+    private async processNewBlock(block: TBlock) {
+        if (!this.started) throw new ApplicationError("The BlockProcessor should not receive newBlock events before startup is complete."); // prettier-ignore
+
+        this.newBlock.emit(block);
     }
 
     // emits the appropriate events and updates the new head block in the store

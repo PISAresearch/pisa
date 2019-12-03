@@ -45,7 +45,7 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
         if (!this.blockItemStore.started) this.logger.error("The BlockItemStore should be started before the BlockchainMachine.");
 
         this.blockProcessor.newHead.addListener(this.processNewHead);
-        this.blockProcessor.blockCache.newBlock.addListener(this.processNewBlock);
+        this.blockProcessor.newBlock.addListener(this.processNewBlock);
 
         // For each component, load and start any action that was stored in the ActionStore
         for (const component of this.components) {
@@ -56,7 +56,7 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
 
     protected async stopInternal(): Promise<void> {
         this.blockProcessor.newHead.removeListener(this.processNewHead);
-        this.blockProcessor.blockCache.newBlock.removeListener(this.processNewBlock);
+        this.blockProcessor.newBlock.removeListener(this.processNewBlock);
     }
 
     constructor(private blockProcessor: BlockProcessor<TBlock>, private actionStore: ActionStore, private blockItemStore: BlockItemStore<TBlock>) {

@@ -96,11 +96,11 @@ describe("BlockProcessor", () => {
                     } else {
                         resolve({ number: block.number, hash: block.hash });
                     }
-                    bp.blockCache.newBlock.removeListener(newBlockHandler);
+                    bp.newBlock.removeListener(newBlockHandler);
                 }
             };
 
-            bp.blockCache.newBlock.addListener(newBlockHandler);
+            bp.newBlock.addListener(newBlockHandler);
         });
     };
 
@@ -188,6 +188,38 @@ describe("BlockProcessor", () => {
         expect(blockProcessor.blockCache.head.hash).to.equal("a1");
     });
 
+    it("does not emit events before the service is started", async () => {
+        let newBlockFired = false;
+        let newHeadFired = false;
+        blockProcessor = new BlockProcessor(provider, blockStubAndTxHashFactory, blockCache, blockStore, blockProcessorStore);
+        blockProcessor.newBlock.addListener(async () => { newBlockFired = true });
+        blockProcessor.newHead.addListener(async () => { newHeadFired = true });
+        emitBlockHash("a1");
+        emitBlockHash("a2");
+        emitBlockHash("a3");
+        await wait(20);
+
+        expect(newBlockFired, "did not fire 'newBlock'").to.be.false;
+        expect(newHeadFired, "did not fire 'newHead'").to.be.false;
+    });
+
+    it("proxies the newBlock events from the blockCache once the service is started", async () => {
+        let newBlockFiredCount = 0;
+        blockProcessor = new BlockProcessor(provider, blockStubAndTxHashFactory, blockCache, blockStore, blockProcessorStore);
+        blockProcessor.newBlock.addListener(async () => { ++newBlockFiredCount });
+
+        emitBlockHash("a1"); // should not fire here
+
+        await blockProcessor.start();
+
+        emitBlockHash("a2"); //should fire from now on
+        emitBlockHash("a3");
+        emitBlockHash("a4");
+        await wait(20);
+
+        expect(newBlockFiredCount).to.equal(3);
+    });
+
     it("adds the first block received to the cache and emits a new head event after the corresponding new block events from the BlockCache", async () => {
         emitBlockHash("a4");
 
@@ -212,9 +244,9 @@ describe("BlockProcessor", () => {
                 // New head should be the last emitted event
                 newHeadCalledBeforeNewBlock = true;
             }
-            blockCache.newBlock.removeListener(newBlockListener);
+            blockProcessor.newBlock.removeListener(newBlockListener);
         };
-        blockCache.newBlock.addListener(newBlockListener);
+        blockProcessor.newBlock.addListener(newBlockListener);
 
         emitBlockHash("a5");
 
@@ -229,7 +261,7 @@ describe("BlockProcessor", () => {
         blockProcessor = new BlockProcessor(provider, blockStubAndTxHashFactory, blockCache, blockStore, blockProcessorStore);
 
         const subscribers = [];
-        for (let i = 1; i <= 5; i++) {
+        for (let i = 2; i <= 5; i++) { // first block is before the start, so not emitted as new block
             subscribers.push(createNewBlockSubscriber(blockProcessor, blockCache, `a${i}`));
         }
 
@@ -240,8 +272,8 @@ describe("BlockProcessor", () => {
         emitBlockHash("a5");
 
         const results = await Promise.all(subscribers);
-        for (let i = 1; i <= 5; i++) {
-            expect(results[i - 1]).to.deep.equal({
+        for (let i = 2; i <= 5; i++) {
+            expect(results[i - 2]).to.deep.equal({
                 number: i,
                 hash: `a${i}`
             });
@@ -252,7 +284,7 @@ describe("BlockProcessor", () => {
         blockProcessor = new BlockProcessor(provider, blockStubAndTxHashFactory, blockCache, blockStore, blockProcessorStore);
 
         const subscribersA = [];
-        for (let i = 1; i <= 6; i++) {
+        for (let i = 2; i <= 6; i++) {
             subscribersA.push(createNewBlockSubscriber(blockProcessor, blockCache, `a${i}`));
         }
         const subscribersB = [];
@@ -267,8 +299,8 @@ describe("BlockProcessor", () => {
         emitBlockHash("a6");
 
         const resultsA = await Promise.all(subscribersA);
-        for (let i = 1; i <= 6; i++) {
-            expect(resultsA[i - 1]).to.deep.equal({
+        for (let i = 2; i <= 6; i++) {
+            expect(resultsA[i - 2]).to.deep.equal({
                 number: i,
                 hash: `a${i}`
             });
