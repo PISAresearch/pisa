@@ -24,7 +24,7 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
 
     /**
      * Runs all the actions in `actionAndIds` for `component`. Actions are all executed in parallel, and each action is removed
-     * from the CachedKeyValueStore upon completion.s
+     * from the actionStore upon completion.
      */
     private runActionsForComponent(component: Component<AnchorState, IBlockStub, ComponentAction>, actionAndIds: Iterable<ItemAndId<ComponentAction>>) {
         // Side effects must be thread safe, so we can execute them concurrently
@@ -41,7 +41,7 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
 
     protected async startInternal(): Promise<void> {
         if (!this.blockProcessor.started) this.logger.error("The BlockProcessor should be started before the BlockchainMachine.");
-        if (!this.actionStore.started) this.logger.error("The CachedKeyValueStore should be started before the BlockchainMachine.");
+        if (!this.actionStore.started) this.logger.error("The actionStore should be started before the BlockchainMachine.");
         if (!this.blockItemStore.started) this.logger.error("The BlockItemStore should be started before the BlockchainMachine.");
 
         this.blockProcessor.newHead.addListener(this.processNewHead);

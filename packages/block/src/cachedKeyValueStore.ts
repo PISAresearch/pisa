@@ -10,7 +10,15 @@ export interface ItemAndId<TValue> {
     value: TValue;
 }
 
-/** This class handles a subdatabase and stores entries that are sets of items indexed by a string key. */
+/**
+ * This store handles a subdatabase and stores entries that are sets of items indexed by a string key.
+ *
+ * All the entries are stored in a subdatabase with a prefix specified by the constructor. For each `key` in the store, the class maintains
+ * a set of items of type `TValue`. Items are stored with an individual id that is generated at the time of addition (making each of them unique).
+ *
+ * The store keeps a copy of all the items in memory, and it makes sure that updates on disk are performed after the corresponding successful
+ * update on disk, to ensure that copy stored to disk is in a consistent state if a restart is necessary.
+ **/
 export class CachedKeyValueStore<TValue> extends StartStopService {
     private readonly subDb: LevelUp<EncodingDown<string, any>>;
     private items: Map<string, Set<ItemAndId<TValue>>> = new Map();
