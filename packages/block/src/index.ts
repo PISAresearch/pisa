@@ -1,4 +1,4 @@
-export { ActionAndId, ActionStore } from "./actionStore";
+export { CachedKeyValueStore, ItemAndId } from "./cachedKeyValueStore";
 export {
     Block,
     BlockAndAttached,

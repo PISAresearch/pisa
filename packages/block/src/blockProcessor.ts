@@ -190,7 +190,7 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
     private async processNewBlock(block: TBlock) {
         if (!this.started) throw new ApplicationError("The BlockProcessor should not receive newBlock events before startup is complete."); // prettier-ignore
 
-        this.newBlock.emit(block);
+        await this.newBlock.emit(block);
     }
 
     // emits the appropriate events and updates the new head block in the store

@@ -3,7 +3,7 @@ import { IBlockStub } from "./block";
 import { StartStopService, Lock } from "@pisa-research/utils";
 import { ApplicationError } from "@pisa-research/errors";
 import { Component, AnchorState, ComponentAction } from "./component";
-import { ActionStore, ActionAndId } from "./actionStore";
+import { CachedKeyValueStore, ItemAndId } from "./cachedKeyValueStore";
 import { BlockItemStore } from "./blockItemStore";
 
 /**
@@ -24,15 +24,15 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
 
     /**
      * Runs all the actions in `actionAndIds` for `component`. Actions are all executed in parallel, and each action is removed
-     * from the ActionStore upon completion.s
+     * from the actionStore upon completion.
      */
-    private runActionsForComponent(component: Component<AnchorState, IBlockStub, ComponentAction>, actionAndIds: Iterable<ActionAndId>) {
+    private runActionsForComponent(component: Component<AnchorState, IBlockStub, ComponentAction>, actionAndIds: Iterable<ItemAndId<ComponentAction>>) {
         // Side effects must be thread safe, so we can execute them concurrently
         // Note that actions are executed in background and not awaited for in here.
         [...actionAndIds].forEach(async a => {
             try {
-                await component.applyAction(a.action);
-                await this.actionStore.removeAction(component.name, a);
+                await component.applyAction(a.value);
+                await this.actionStore.removeItem(component.name, a);
             } catch (doh) {
                 this.logger.error(doh);
             }
@@ -41,15 +41,15 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
 
     protected async startInternal(): Promise<void> {
         if (!this.blockProcessor.started) this.logger.error("The BlockProcessor should be started before the BlockchainMachine.");
-        if (!this.actionStore.started) this.logger.error("The ActionStore should be started before the BlockchainMachine.");
+        if (!this.actionStore.started) this.logger.error("The actionStore should be started before the BlockchainMachine.");
         if (!this.blockItemStore.started) this.logger.error("The BlockItemStore should be started before the BlockchainMachine.");
 
         this.blockProcessor.newHead.addListener(this.processNewHead);
         this.blockProcessor.newBlock.addListener(this.processNewBlock);
 
-        // For each component, load and start any action that was stored in the ActionStore
+        // For each component, load and start any action that was stored in the actionStore
         for (const component of this.components) {
-            const actionAndIds = this.actionStore.getActions(component.name);
+            const actionAndIds = this.actionStore.getItems(component.name);
             this.runActionsForComponent(component, actionAndIds);
         }
     }
@@ -59,7 +59,7 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
         this.blockProcessor.newBlock.removeListener(this.processNewBlock);
     }
 
-    constructor(private blockProcessor: BlockProcessor<TBlock>, private actionStore: ActionStore, private blockItemStore: BlockItemStore<TBlock>) {
+    constructor(private blockProcessor: BlockProcessor<TBlock>, private actionStore: CachedKeyValueStore<ComponentAction>, private blockItemStore: BlockItemStore<TBlock>) {
         super("blockchain-machine");
         this.processNewHead = this.processNewHead.bind(this);
         this.processNewBlock = this.processNewBlock.bind(this);
@@ -138,7 +138,7 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
                     // save actions in the store
                     const newActions = component.detectChanges(prevEmittedState, state);
                     if (newActions.length > 0) {
-                        const actionAndIds = await this.actionStore.storeActions(component.name, newActions);
+                        const actionAndIds = await this.actionStore.storeItems(component.name, newActions);
                         this.runActionsForComponent(component, actionAndIds);
                     }
                 }
