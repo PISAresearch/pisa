@@ -112,6 +112,7 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
     };
 
     // Type safe methods to store the latest emitted anchor state for each block, indexed by component (used in the BlockchainMachine)
+    // PISA:380: remove these - no longer used
     public prevEmittedAnchorState = {
         get: <TAnchorState>(componentName: string, blockHash: string): TAnchorState =>
             this.getItem(blockHash, `${componentName}:${BlockItemStore.KEY_PREV_EMITTED_STATE}`), // prettier-ignore
