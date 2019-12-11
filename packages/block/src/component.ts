@@ -17,8 +17,8 @@ export interface StateReducer<TState extends AnchorState, TBlock extends IBlockS
      *
      * @param block
      */
-    getInitialState(block: TBlock): TState;
-    reduce(prevState: TState, block: TBlock): TState;
+    getInitialState(block: TBlock): Promise<TState> | TState;
+    reduce(prevState: TState, block: TBlock): Promise<TState> | TState;
 }
 
 /**
@@ -55,14 +55,14 @@ export class MappedStateReducer<TState extends AnchorState, TMappedState extends
      * Computes the initial state, by using the `getInitialState` function on each base reducer.
      * @param block
      */
-    public getInitialState(block: TBlock): MappedState<TMappedState> & TState {
+    public async getInitialState(block: TBlock): Promise<MappedState<TMappedState> & TState> {
         const items: { [index: string]: TMappedState } = {};
         for (const obj of this.getItems()) {
             const baseReducer = this.getBaseReducer(obj);
             const id = this.idSelector(obj);
-            items[id] = baseReducer.getInitialState(block);
+            items[id] = await baseReducer.getInitialState(block);
         }
-        const state = this.reducer.getInitialState(block);
+        const state = await this.reducer.getInitialState(block);
 
         return { items, ...state };
     }
@@ -73,17 +73,17 @@ export class MappedStateReducer<TState extends AnchorState, TMappedState extends
      * @param prevState
      * @param block
      */
-    public reduce(prevState: MappedState<TMappedState> & TState, block: TBlock): MappedState<TMappedState> & TState {
+    public async reduce(prevState: MappedState<TMappedState> & TState, block: TBlock): Promise<MappedState<TMappedState> & TState> {
         const items: { [index: string]: TMappedState } = {};
         for (const obj of this.getItems()) {
             const baseReducer = this.getBaseReducer(obj);
             const id = this.idSelector(obj);
             const prevObjState = prevState.items[id];
             items[id] = prevObjState
-                ? baseReducer.reduce(prevObjState, block) // reduce from previous state
-                : baseReducer.getInitialState(block); // no previous state
+                ? await baseReducer.reduce(prevObjState, block) // reduce from previous state
+                : await baseReducer.getInitialState(block); // no previous state
         }
-        const state = this.reducer.reduce(prevState, block);
+        const state = await this.reducer.reduce(prevState, block);
         return { items, ...state };
     }
 }
