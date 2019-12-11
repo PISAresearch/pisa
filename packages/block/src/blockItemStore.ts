@@ -111,15 +111,6 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
             this.putBlockItem(blockHeight, blockHash, `${componentName}:${BlockItemStore.KEY_STATE}`, newState)
     };
 
-    // Type safe methods to store the latest emitted anchor state for each block, indexed by component (used in the BlockchainMachine)
-    // PISA:380: remove these - no longer used
-    public prevEmittedAnchorState = {
-        get: <TAnchorState>(componentName: string, blockHash: string): TAnchorState =>
-            this.getItem(blockHash, `${componentName}:${BlockItemStore.KEY_PREV_EMITTED_STATE}`), // prettier-ignore
-        set: (componentName: string, blockHeight: number, blockHash: string, newPrevEmittedState: AnchorState) =>
-            this.putBlockItem(blockHeight, blockHash, `${componentName}:${BlockItemStore.KEY_PREV_EMITTED_STATE}`, newPrevEmittedState)
-    };
-
     /**
      * Returns the blocks for the specific height, and whether they are attached or not.
      * Blocks are stored under the key `BlockItemStore.KEY_BLOCK`, and wether they are attached is in `BlockItemStore.KEY_ATTACHED`.
