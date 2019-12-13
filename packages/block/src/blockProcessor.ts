@@ -245,7 +245,7 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
     // It is called for each new block received, but also at startup (during startInternal).
     private async processBlockNumber(observedBlockNumber: number) {
         try {
-            let setHead = false; // whether to process a new head
+            let shouldProcessHead = false; // whether to process a new head
             let processingBlockNumber: number; // the block processed in this batch; will be equal to blockNumber on the last batch
             let processingBlock: TBlock; // the block the provider returned for height processingBlockNumber
             do {
@@ -270,31 +270,31 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
 
                     switch (addResult) {
                         case BlockAddResult.Added: {
-                            // added a block to the cache, this means it's parent must exist
+                            // added a block to the cache, this means its parent must exist
                             // in the cache. Adding a block here means that we need to emit a new
                             // head.
-                            setHead = true;
+                            shouldProcessHead = true;
                             continueBlockFetching = false;
                             break;
                         }
                         case BlockAddResult.AddedDetached: {
                             // added, but we havent reached the bottom of the stack
                             // keep looking for more
-                            setHead = false;
+                            shouldProcessHead = false;
                             continueBlockFetching = true;
                             break;
                         }
                         case BlockAddResult.NotAddedAlreadyExisted: {
                             // the block already existed, we dont need to look for
                             // new blocks, but we also dont need to set a new head
-                            setHead = false;
+                            shouldProcessHead = false;
                             continueBlockFetching = false;
                             break;
                         }
                         case BlockAddResult.NotAddedAlreadyExistedDetached: {
                             // the block already existed in a detached state
                             // lets keep looking until we can attach lower blocks
-                            setHead = false;
+                            shouldProcessHead = false;
                             continueBlockFetching = true;
                             break;
                         }
@@ -302,7 +302,7 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
                             // we couldnt add because the block was out of the bounds
                             // of the cache, we cant looking below this, but we also
                             // cant set a new head
-                            setHead = false;
+                            shouldProcessHead = false;
                             continueBlockFetching = false;
                             break;
                         }
@@ -318,7 +318,7 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
 
             // is the observed block still the last block received (or the first block, during startup)?
             // and was the block added to the cache?
-            if (setHead && this.lastBlockHashReceived === processingBlock.hash) {
+            if (shouldProcessHead && this.lastBlockHashReceived === processingBlock.hash) {
                 await this.processNewHead(processingBlock);
             }
         } catch (doh) {
