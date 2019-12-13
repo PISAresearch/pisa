@@ -9,7 +9,7 @@
         "build": "lerna run build",
         "build-autominer": "cd build/raiden_demo/autominer && npm install && npm run build",
         "build-raiden-pisa-daemon": "cd build/raiden_demo/raiden-pisa-daemon && npm install && npm run build",
-        "clean": "lerna clean && rm -rf node_modules",
+        "clean": "lerna clean && rm -rf node_modules && rm -rf packages/*/lib && rm -rf packages/contracts/build",
         "lint": "eslint --ext ts .",
         "package-postpublish": "lerna exec \"npm i --package-lock-only\"",
         "package-publish": "lerna publish from-package",
