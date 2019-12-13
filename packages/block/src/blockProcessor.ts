@@ -2,8 +2,8 @@ import { ethers } from "ethers";
 import { StartStopService, Lock } from "@pisa-research/utils";
 import { ReadOnlyBlockCache, BlockCache, BlockAddResult } from "./blockCache";
 import { IBlockStub, Block, TransactionHashes } from "./block";
-import {BlockItemStore} from "./blockItemStore";
-import { BlockFetchingError, ApplicationError } from "@pisa-research/errors";
+import { BlockItemStore } from "./blockItemStore";
+import { BlockFetchingError, ApplicationError, UnreachableCaseError } from "@pisa-research/errors";
 import { LevelUp } from "levelup";
 import EncodingDown from "encoding-down";
 import { BlockEvent } from "./event";
@@ -24,11 +24,7 @@ export type NewHeadListener<TBlock> = (head: Readonly<TBlock>) => Promise<void>;
 // This function throws BlockFetchingError for errors that are known to happen and considered not serious
 // (that is, the correct recovery for the BlockProcessor is to give up and try again on the next block).
 // Any other unexpected error is not handled here.
-async function getBlockFromProvider(
-    provider: ethers.providers.Provider,
-    blockNumberOrHash: string | number,
-    includeTransactions: boolean = false
-) {
+async function getBlockFromProvider(provider: ethers.providers.Provider, blockNumberOrHash: string | number, includeTransactions: boolean = false) {
     const block = await provider.getBlock(blockNumberOrHash, includeTransactions);
 
     if (!block) throw new BlockFetchingError(`The provider returned null for block ${blockNumberOrHash}.`);
@@ -49,9 +45,7 @@ export const blockStubAndTxHashFactory = (provider: ethers.providers.Provider) =
     };
 };
 
-export const blockFactory = (provider: ethers.providers.Provider) => async (
-    blockNumberOrHash: string | number
-): Promise<Block> => {
+export const blockFactory = (provider: ethers.providers.Provider) => async (blockNumberOrHash: string | number): Promise<Block> => {
     try {
         const block = await getBlockFromProvider(provider, blockNumberOrHash, true);
 
@@ -73,9 +67,7 @@ export const blockFactory = (provider: ethers.providers.Provider) => async (
             number: block.number,
             parentHash: block.parentHash,
             transactions: transactions,
-            transactionHashes: ((block.transactions as any) as ethers.providers.TransactionResponse[]).map(
-                t => t.hash!
-            ),
+            transactionHashes: ((block.transactions as any) as ethers.providers.TransactionResponse[]).map(t => t.hash!),
             logs
         };
     } catch (doh) {
@@ -141,7 +133,6 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
      * Only emitted after the service is started.
      */
     public newBlock = new BlockEvent<TBlock>();
-
 
     // Returned in the constructor by blockProvider: obtains the block remotely (or throws an exception on failure)
     private getBlockRemote: (blockNumberOrHash: string | number) => Promise<TBlock>;
@@ -232,12 +223,31 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
         }
     }
 
+    private async addBlockToCache(block: TBlock) {
+        try {
+            await this.blockItemStoreLock.acquire();
+            return await this.blockItemStore.withBatch(async () => {
+                // We execute all the writes in the BlockCache and everything that listens to new blocks and writes to
+                // the BlockItemStore, like the BlockchainMachine) in the same batch. Thus, they either all succeed or
+                // they are not written to disk.
+                // Note that adding a block might cause some other blocks that were detached in the BlockCache
+                // to become attached, and a "new block" event will be emitted for each of them.
+                // Not batching these writes could cause partial updates to be saved to storage, like blocks staying
+                // detached in the BlockCache even if they should become attached, or blocks already emitted in the
+                // BlockCache while some consequences of the same events are lost.
+                return await this.mBlockCache.addBlock(block);
+            });
+        } finally {
+            this.blockItemStoreLock.release();
+        }
+    }
     // Processes a new block, adding it to the cache and emitting the appropriate events
     // It is called for each new block received, but also at startup (during startInternal).
-    private async processBlockNumber(blockNumber: number) {
+    private async processBlockNumber(observedBlockNumber: number) {
         try {
+            let shouldProcessHead = false; // whether to process a new head
             let processingBlockNumber: number; // the block processed in this batch; will be equal to blockNumber on the last batch
-            let observedBlock: TBlock; // the block the provider returned for height processingBlockNumber
+            let processingBlock: TBlock; // the block the provider returned for height processingBlockNumber
             do {
                 // As the block hash we receive when we query the provider by block number is not guaranteed to be the same on multiple calls
                 // (as there could have been a reorg, or the query might be processed by a different node), we only do this query once to get a block hash,
@@ -246,45 +256,70 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
                 // It should be only one batch under normal circumstances, but we might fall behing more, for example, if Pisa crashed and there was some downtime.
 
                 processingBlockNumber = this.mBlockCache.isEmpty
-                    ? blockNumber // if cache is empty, process just the current block
-                    : Math.min(blockNumber, this.blockCache.head.number + this.blockCache.maxDepth); // otherwise, download a batch of blocks (up to blockNumber)
+                    ? observedBlockNumber // if cache is empty, process just the current block
+                    : Math.min(observedBlockNumber, this.blockCache.head.number + this.blockCache.maxDepth); // otherwise, download a batch of blocks (up to blockNumber)
 
-                observedBlock = await this.getBlockRemote(processingBlockNumber);
-                if (processingBlockNumber === blockNumber) this.lastBlockHashReceived = observedBlock.hash;
+                processingBlock = await this.getBlockRemote(processingBlockNumber);
+                if (processingBlockNumber === observedBlockNumber) this.lastBlockHashReceived = processingBlock.hash;
 
                 // starting from observedBlock, add to the cache and download the parent, until the return value signals that block is attached
-                let curBlock = observedBlock;
+                let curBlock = processingBlock;
                 while (true) {
-                    let addResult: BlockAddResult | null = null;
+                    const addResult = await this.addBlockToCache(curBlock);
+                    let continueBlockFetching = false;
 
-                    try {
-                        await this.blockItemStoreLock.acquire();
-                        await this.blockItemStore.withBatch(async () => {
-                            // We execute all the writes in the BlockCache and everything that listens to new blocks and writes to
-                            // the BlockItemStore, like the BlockchainMachine) in the same batch. Thus, they either all succeed or
-                            // they are not written to disk.
-                            // Note that adding a block might cause some other blocks that were detached in the BlockCache
-                            // to become attached, and a "new block" event will be emitted for each of them.
-                            // Not batching these writes could cause partial updates to be saved to storage, like blocks staying
-                            // detached in the BlockCache even if they should become attached, or blocks already emitted in the
-                            // BlockCache while some consequences of the same events are lost.
-                            addResult = await this.mBlockCache.addBlock(curBlock);
-                        });
-                    } finally {
-                        this.blockItemStoreLock.release();
+                    switch (addResult) {
+                        case BlockAddResult.Added: {
+                            // added a block to the cache, this means its parent must exist
+                            // in the cache. Adding a block here means that we need to emit a new
+                            // head.
+                            shouldProcessHead = true;
+                            continueBlockFetching = false;
+                            break;
+                        }
+                        case BlockAddResult.AddedDetached: {
+                            // added, but we havent reached the bottom of the stack
+                            // keep looking for more
+                            shouldProcessHead = false;
+                            continueBlockFetching = true;
+                            break;
+                        }
+                        case BlockAddResult.NotAddedAlreadyExisted: {
+                            // the block already existed, we dont need to look for
+                            // new blocks, but we also dont need to set a new head
+                            shouldProcessHead = false;
+                            continueBlockFetching = false;
+                            break;
+                        }
+                        case BlockAddResult.NotAddedAlreadyExistedDetached: {
+                            // the block already existed in a detached state
+                            // lets keep looking until we can attach lower blocks
+                            shouldProcessHead = false;
+                            continueBlockFetching = true;
+                            break;
+                        }
+                        case BlockAddResult.NotAddedBlockNumberTooLow: {
+                            // we couldnt add because the block was out of the bounds
+                            // of the cache, we cant looking below this, but we also
+                            // cant set a new head
+                            shouldProcessHead = false;
+                            continueBlockFetching = false;
+                            break;
+                        }
+                        default:
+                            throw new UnreachableCaseError(addResult, "Missing case for addResult.");
                     }
 
-                    if (addResult !== BlockAddResult.AddedDetached && addResult !== BlockAddResult.NotAddedAlreadyExistedDetached)
-                        break;
+                    if(!continueBlockFetching) break;
 
                     curBlock = await this.getBlock(curBlock.parentHash);
                 }
-            } while (processingBlockNumber !== blockNumber);
+            } while (processingBlockNumber !== observedBlockNumber);
 
             // is the observed block still the last block received (or the first block, during startup)?
             // and was the block added to the cache?
-            if (this.lastBlockHashReceived === observedBlock.hash) {
-                await this.processNewHead(observedBlock);
+            if (shouldProcessHead && this.lastBlockHashReceived === processingBlock.hash) {
+                await this.processNewHead(processingBlock);
             }
         } catch (doh) {
             if (doh instanceof BlockFetchingError) this.logger.info(doh);

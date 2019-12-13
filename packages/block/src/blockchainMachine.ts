@@ -89,9 +89,9 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
                         // If the parent is available and its anchor state is known, the state can be computed with the reducer.
                         this.blockItemStore.anchorState.get<AnchorState>(component.name, block.parentHash) ||
                         // If the parent is available but its anchor state is not known, first compute its parent's initial state, then apply the reducer.
-                        component.reducer.getInitialState(this.blockProcessor.blockCache.getBlock(block.parentHash));
+                        await component.reducer.getInitialState(this.blockProcessor.blockCache.getBlock(block.parentHash));
 
-                    const newAnchorState = component.reducer.reduce(prevAnchorState, block);
+                    const newAnchorState = await component.reducer.reduce(prevAnchorState, block);
                     this.blockItemStore.anchorState.set(component.name, block.number, block.hash, newAnchorState);
 
                     // having computed a new state we can detect changes and run actions 
@@ -104,7 +104,7 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
                 }
                 // Finally, if the parent is not available at all in the block cache, compute the initial state based on the current block.
                 else {
-                    const newAnchorState = component.reducer.getInitialState(block);
+                    const newAnchorState = await component.reducer.getInitialState(block);
                     this.blockItemStore.anchorState.set(component.name, block.number, block.hash, newAnchorState);
                 }
             }

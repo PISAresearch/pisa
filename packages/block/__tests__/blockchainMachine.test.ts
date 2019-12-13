@@ -42,10 +42,10 @@ const initialState = {
 };
 
 class ExampleReducer implements StateReducer<ExampleState, IBlockStub> {
-    getInitialState(block: IBlockStub) {
+    async getInitialState(block: IBlockStub) {
         return initialState;
     }
-    reduce(prevState: ExampleState, block: IBlockStub) {
+    async reduce(prevState: ExampleState, block: IBlockStub) {
         return {
             someNumber: prevState.someNumber + block.number
         };

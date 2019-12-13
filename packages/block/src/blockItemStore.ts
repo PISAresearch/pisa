@@ -157,7 +157,7 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
      *
      * @throws ApplicationError if there is already an open batch that did not yet close.
      */
-    public async withBatch(callback: () => Promise<any>) {
+    public async withBatch<TReturn>(callback: () => Promise<TReturn>) {
         if (this.mBatch) {
             throw new ApplicationError("There is already an open batch.");
         }
@@ -165,9 +165,11 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
         try {
             this.mBatch = this.subDb.batch();
 
-            await callback();
+            const callBackResult = await callback();
 
             await this.mBatch.write();
+
+            return callBackResult;
         } finally {
             this.mBatch = null;
         }
