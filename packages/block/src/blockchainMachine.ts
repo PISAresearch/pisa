@@ -44,7 +44,6 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
         if (!this.actionStore.started) this.logger.error("The actionStore should be started before the BlockchainMachine.");
         if (!this.blockItemStore.started) this.logger.error("The BlockItemStore should be started before the BlockchainMachine.");
 
-        this.blockProcessor.newHead.addListener(this.processNewHead);
         this.blockProcessor.newBlock.addListener(this.processNewBlock);
 
         // For each component, load and start any action that was stored in the actionStore
@@ -55,13 +54,15 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
     }
 
     protected async stopInternal(): Promise<void> {
-        this.blockProcessor.newHead.removeListener(this.processNewHead);
         this.blockProcessor.newBlock.removeListener(this.processNewBlock);
     }
 
-    constructor(private blockProcessor: BlockProcessor<TBlock>, private actionStore: CachedKeyValueStore<ComponentAction>, private blockItemStore: BlockItemStore<TBlock>) {
+    constructor(
+        private blockProcessor: BlockProcessor<TBlock>,
+        private actionStore: CachedKeyValueStore<ComponentAction>,
+        private blockItemStore: BlockItemStore<TBlock>
+    ) {
         super("blockchain-machine");
-        this.processNewHead = this.processNewHead.bind(this);
         this.processNewBlock = this.processNewBlock.bind(this);
     }
 
@@ -83,68 +84,29 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
 
             // Every time a new block is received we calculate the anchor state for that block and store it
             for (const component of this.components) {
-                // If the parent is available and its anchor state is known, the state can be computed with the reducer.
-                // If the parent is available but its anchor state is not known, first compute its parent's initial state, then apply the reducer.
-                // Finally, if the parent is not available at all in the block cache, compute the initial state based on the current block.
-
-                let newState: AnchorState;
-                let prevHeadAnchorState: AnchorState | null = null;
                 if (this.blockProcessor.blockCache.hasBlock(block.parentHash)) {
-                    const parentBlock = this.blockProcessor.blockCache.getBlock(block.parentHash);
-
-                    prevHeadAnchorState = this.blockItemStore.prevEmittedAnchorState.get(component.name, parentBlock.hash);
-
                     const prevAnchorState =
-                        this.blockItemStore.anchorState.get<AnchorState>(component.name, parentBlock.hash) ||
-                        component.reducer.getInitialState(parentBlock); // prettier-ignore
+                        // If the parent is available and its anchor state is known, the state can be computed with the reducer.
+                        this.blockItemStore.anchorState.get<AnchorState>(component.name, block.parentHash) ||
+                        // If the parent is available but its anchor state is not known, first compute its parent's initial state, then apply the reducer.
+                        await component.reducer.getInitialState(this.blockProcessor.blockCache.getBlock(block.parentHash));
 
-                    newState = component.reducer.reduce(prevAnchorState, block);
-                } else {
-                    newState = component.reducer.getInitialState(block);
-                }
+                    const newAnchorState = await component.reducer.reduce(prevAnchorState, block);
+                    this.blockItemStore.anchorState.set(component.name, block.number, block.hash, newAnchorState);
 
-                this.blockItemStore.anchorState.set(component.name, block.number, block.hash, newState);
-                if (prevHeadAnchorState) {
-                    // copy prevEmittedAnchorState from the previous block
-                    this.blockItemStore.prevEmittedAnchorState.set(component.name, block.number, block.hash, prevHeadAnchorState);
-                }
-            }
-        } finally {
-            this.lock.release();
-        }
-    }
-
-    private async processNewHead(head: Readonly<TBlock>) {
-        try {
-            await this.lock.acquire();
-
-            // The components can specify some behaviour that is computed as a diff
-            // between the old head and the head. We compute this now for each of the
-            // components
-
-            for (const component of this.components) {
-                const state: AnchorState = this.blockItemStore.anchorState.get(component.name, head.hash);
-                if (state == undefined) {
-                    // Since processNewBlock is always called before processNewHead, this should never happen
-                    this.logger.error(
-                        `State for component ${component.constructor.name} for block ${head.hash} (number ${head.number}) was not set, but it should have been.`
-                    );
-                    return;
-                }
-
-                const prevEmittedState: AnchorState | null = this.blockItemStore.prevEmittedAnchorState.get(component.name, head.hash);
-
-                if (prevEmittedState) {
-                    // save actions in the store
-                    const newActions = component.detectChanges(prevEmittedState, state);
+                    // having computed a new state we can detect changes and run actions 
+                    // for the difference between then and now
+                    const newActions = component.detectChanges(prevAnchorState, newAnchorState);
                     if (newActions.length > 0) {
                         const actionAndIds = await this.actionStore.storeItems(component.name, newActions);
                         this.runActionsForComponent(component, actionAndIds);
                     }
                 }
-
-                // this is now the latest anchor stated for an emitted head block; update the store accordingly
-                this.blockItemStore.prevEmittedAnchorState.set(component.name, head.number, head.hash, state);
+                // Finally, if the parent is not available at all in the block cache, compute the initial state based on the current block.
+                else {
+                    const newAnchorState = await component.reducer.getInitialState(block);
+                    this.blockItemStore.anchorState.set(component.name, block.number, block.hash, newAnchorState);
+                }
             }
         } finally {
             this.lock.release();

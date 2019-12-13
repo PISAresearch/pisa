@@ -72,7 +72,7 @@ describe("MappedStateReducer", () => {
         }
     });
 
-    fnIt<MappedStateReducer<any, any, any, any>>(m => m.getInitialState, "computes initial state", () => {
+    fnIt<MappedStateReducer<any, any, any, any>>(m => m.getInitialState, "computes initial state", async () => {
         const msr = new MappedStateReducer<TestAnchorState, {}, IBlockStub, { id: string }>(
             () => [],
             () => new NullReducer(),
@@ -80,14 +80,14 @@ describe("MappedStateReducer", () => {
             new TestAnchorStateReducer(10)
         );
 
-        const initialState = msr.getInitialState(blocks[1]);
+        const initialState = await msr.getInitialState(blocks[1]);
         expect(initialState.someNumber).to.equal(10 + blocks[1].number);
     });
 
-    fnIt<MappedStateReducer<any, any, any, any>>(m => m.getInitialState, "computes initial state on mapped state", () => {
+    fnIt<MappedStateReducer<any, any, any, any>>(m => m.getInitialState, "computes initial state on mapped state", async () => {
         const msr = new MappedStateReducer(() => objects, ({ value }) => new TestAnchorStateReducer(value), o => o.id, new NullReducer());
 
-        const initialState = msr.getInitialState(blocks[0]);
+        const initialState = await msr.getInitialState(blocks[0]);
         expect(Object.keys(initialState)).to.eql(["items"]);
 
         const expectedMap: { [index: string]: TestAnchorState } = {};
@@ -98,7 +98,7 @@ describe("MappedStateReducer", () => {
         expect(initialState.items).to.deep.equal(expectedMap);
     });
 
-    fnIt<MappedStateReducer<any, any, any, any>>(m => m.reduce, "computes reduces state", () => {
+    fnIt<MappedStateReducer<any, any, any, any>>(m => m.reduce, "computes reduces state", async () => {
         const msr = new MappedStateReducer<TestAnchorState, {}, IBlockStub, { id: string }>(
             () => [],
             () => new NullReducer(),
@@ -106,13 +106,13 @@ describe("MappedStateReducer", () => {
             new TestAnchorStateReducer(10)
         );
 
-        const initialState = msr.getInitialState(blocks[1]);
-        const reducedState = msr.reduce(initialState, blocks[2]);
+        const initialState = await msr.getInitialState(blocks[1]);
+        const reducedState = await msr.reduce(initialState, blocks[2]);
 
         expect(reducedState.someNumber).to.equal(10 + blocks[1].number + blocks[2].number);
     });
 
-    fnIt<MappedStateReducer<any, any, any, any>>(m => m.reduce, "computes state on mapped states", () => {
+    fnIt<MappedStateReducer<any, any, any, any>>(m => m.reduce, "computes state on mapped states", async () => {
         const msr = new MappedStateReducer(() => objects, ({ value }) => new TestAnchorStateReducer(value), o => o.id, new NullReducer());
 
         const items: { [index: string]: TestAnchorState } = {};
@@ -121,7 +121,7 @@ describe("MappedStateReducer", () => {
         items[objects[2].id] = { someNumber: objects[2].value };
         const initialState = { items };
 
-        const reducedState = msr.reduce(initialState, blocks[1]);
+        const reducedState = await msr.reduce(initialState, blocks[1]);
 
         expect(Object.keys(reducedState)).to.eql(["items"]);
 
@@ -133,7 +133,7 @@ describe("MappedStateReducer", () => {
         expect(reducedState.items).to.deep.equal(expectedItems);
     });
 
-    fnIt<MappedStateReducer<any, any, any, any>>(m => m.reduce, "calls getInitialState if a new object id is added to the collection", () => {
+    fnIt<MappedStateReducer<any, any, any, any>>(m => m.reduce, "calls getInitialState if a new object id is added to the collection", async () => {
         // start with only two objects
         const items: { [index: string]: TestAnchorState } = {};
         items[objects[0].id] = { someNumber: objects[0].value + blocks[0].number };
@@ -143,7 +143,7 @@ describe("MappedStateReducer", () => {
         // now call the reducer with all the three objects
         const msr = new MappedStateReducer(() => objects, ({ value }) => new TestAnchorStateReducer(value), o => o.id, new NullReducer());
 
-        const reducedState = msr.reduce(initialState, blocks[1]);
+        const reducedState = await msr.reduce(initialState, blocks[1]);
 
         expect(Object.keys(reducedState)).to.eql(["items"]);
 

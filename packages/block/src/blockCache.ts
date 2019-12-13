@@ -173,7 +173,7 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
 
             if (this.isEmpty) {
                 // First block added, store its height, so blocks before this point will not be stored.
-                this.pruneHeight = block.number;
+                this.pruneHeight = block.number //Math.max(block.number - 100, 0);
                 this.mIsEmpty = false;
             }
 
