@@ -10,3 +10,5 @@ Whenever <version number> is mentioned, it is preceeded by a "v": e.g. "v0.1.2"
 8. npm run package-postpublish
 9. git commit -am "Version bump package locks \<insert version here\>"
 10. git tag -a "\<version number here\>" -m "\<Package information message\>"
+11. git push
+12. git push origin "\<version number here\>"
