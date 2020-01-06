@@ -1,6 +1,6 @@
 {
   "name": "@pisa-research/block",
-  "version": "0.1.12-alpha.0",
+  "version": "0.1.12",
   "description": "Block utilites used in the PISA project",
   "author": "PISA Research Ltd",
   "homepage": "https://github.com/PISAresearch/pisa/tree/master/packages/block#readme",
@@ -48,8 +48,8 @@
     "url": "https://github.com/PISAresearch/pisa/issues"
   },
   "dependencies": {
-    "@pisa-research/errors": "^0.1.12-alpha.0",
-    "@pisa-research/utils": "^0.1.12-alpha.0",
+    "@pisa-research/errors": "^0.1.12",
+    "@pisa-research/utils": "^0.1.12",
     "encoding-down": "^6.0.2",
     "ethers": "^4.0.37",
     "levelup": "^4.0.1",
@@ -57,7 +57,7 @@
     "uuid": "^3.3.3"
   },
   "devDependencies": {
-    "@pisa-research/test-utils": "^0.1.12-alpha.0",
+    "@pisa-research/test-utils": "^0.1.12",
     "@types/chai": "^4.1.6",
     "@types/encoding-down": "^5.0.0",
     "@types/levelup": "^3.1.0",
