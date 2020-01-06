@@ -14,7 +14,7 @@
         "package-postpublish": "lerna exec \"npm i --package-lock-only\"",
         "package-publish": "lerna publish from-package",
         "package-publish-dev": "lerna publish from-package --dist-tag dev",
-        "package-version": "lerna version --no-git-tag-version",
+        "package-version": "lerna version --no-git-tag-version --force-publish",
         "publish-dev": "lerna publish --dist-tag dev",
         "start-evm": "ganache-cli -d -l 15000000 --allowUnlimitedContractSize --defaultBalanceEther 1000000 --mnemonic 'myth like bonus scare over problem client lizard pioneer submit female collect'",
         "submodule": "git submodule init && git submodule update",
