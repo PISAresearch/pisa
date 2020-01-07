@@ -12,9 +12,6 @@ jobs:
           name: install
           command: npm install
       - run:
-          name: bootstrap
-          command: npm run bootstrap
-      - run:
           name: install raiden deps
           command: cd raiden_demo/raiden-pisa-daemon && npm install
       - run:
@@ -85,6 +82,9 @@ jobs:
             # Each step uses the same `$BASH_ENV`, so need to modify it
             echo 'export NVM_DIR="/opt/circleci/.nvm"' >> $BASH_ENV
             echo "[ -s \"$NVM_DIR/nvm.sh\" ] && . \"$NVM_DIR/nvm.sh\"" >> $BASH_ENV
+      - run:
+          name: install
+          command: npm install
       - run:
           name: build
           command: npm run build
