@@ -28,8 +28,5 @@
   "bugs": {
     "url": "https://github.com/PISAresearch/pisa/issues"
   },
-  "devDependencies": {
-    "typescript": "^3.6.3"
-  },
   "gitHead": "29ffe15d987791c7297845edc99b5a4abbb56ce1"
 }

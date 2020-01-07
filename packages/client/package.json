@@ -26,10 +26,6 @@
     "url": "https://github.com/PISAresearch/pisa/issues"
   },
   "homepage": "https://github.com/PISAresearch/pisa#readme",
-  "devDependencies": {
-    "ts-node": "^8.3.0",
-    "typescript": "^3.6.3"
-  },
   "dependencies": {
     "cross-fetch": "^3.0.4",
     "ethers": "^4.0.37"

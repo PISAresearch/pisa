@@ -27,11 +27,5 @@
   "bugs": {
     "url": "https://github.com/PISAresearch/pisa/issues"
   },
-  "devDependencies": {
-    "@types/ganache-core": "^2.1.1",
-    "ganache-core": "^2.8.0",
-    "truffle": "^5.0.34",
-    "truffle-assertions": "^0.9.1"
-  },
   "gitHead": "29ffe15d987791c7297845edc99b5a4abbb56ce1"
 }
