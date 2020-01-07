@@ -6,7 +6,6 @@ import { Component, AnchorState, ComponentAction } from "./component";
 import { CachedKeyValueStore, ItemAndId } from "./cachedKeyValueStore";
 import { BlockItemStore } from "./blockItemStore";
 
-
 /**
  * Blockchain machine functionality
  */
