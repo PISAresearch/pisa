@@ -13,7 +13,6 @@
         "contracts-build": "(cd packages/contracts && npm run build)",
         "contracts-test": "(cd packages/contracts && npm run test)",
         "lint": "eslint --ext ts .",
-        "package-postpublish": "lerna exec \"npm i --package-lock-only\"",
         "package-publish": "lerna publish from-package",
         "package-publish-dev": "lerna publish from-package --dist-tag dev",
         "package-version": "lerna version --no-git-tag-version",
