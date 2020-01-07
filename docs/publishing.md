@@ -12,3 +12,11 @@ Whenever <version number> is mentioned, it is preceeded by a "v": e.g. "v0.1.2"
 10. git tag -a "\<version number here\>" -m "\<Package information message\>"
 11. git push
 12. git push origin "\<version number here\>"
+
+
+1. npm run clean
+2. npm install
+4. npm run build
+5. lerna version
+
+12. git push origin "\<version number here\>"
