@@ -21,8 +21,7 @@
   },
   "scripts": {
     "build": "truffle compile",
-    "test": "npm run build && truffle test",
-    "prepublishOnly": "npm run build"
+    "test": "npm run build && truffle test"
   },
   "bugs": {
     "url": "https://github.com/PISAresearch/pisa/issues"
