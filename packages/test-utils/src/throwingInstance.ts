@@ -6,7 +6,9 @@ import * as chai from "chai";
  */
 export function throwingInstance<TMock extends object>(target: TMock) {
     const stubbedMethods: Array<string> = Object.keys(
-        (target as any)["tsMockitoInstance"]["mocker"]["methodStubCollections"]
+        (target as any)["tsMockitoInstance"]["mocker"]
+            ? (target as any)["tsMockitoInstance"]["mocker"]["methodStubCollections"]
+            : (target as any)["mocker"]()["mocker"]["methodStubCollections"]
     );
 
     const handler = {

@@ -11,7 +11,7 @@ export {
     hasLogMatchingEventFilter
 } from "./block";
 export { ReadOnlyBlockCache, BlockCache, getConfirmations, BlockAddResult, NewBlockListener } from "./blockCache";
-export { BlockchainMachine } from "./blockchainMachine";
+export { BlockchainMachineService } from "./blockchainMachine";
 export { BlockItemStore } from "./blockItemStore";
 export { BlockProcessor, blockStubAndTxHashFactory, blockFactory, BlockProcessorStore, NewHeadListener } from "./blockProcessor";
 export { AnchorState, BlockNumberReducer, BlockNumberState, Component, ComponentAction, MappedState, MappedStateReducer, StateReducer } from "./component";

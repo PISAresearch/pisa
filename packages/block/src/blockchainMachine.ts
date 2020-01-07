@@ -1,26 +1,29 @@
 import { BlockProcessor } from "./blockProcessor";
 import { IBlockStub } from "./block";
-import { StartStopService, Lock } from "@pisa-research/utils";
-import { ApplicationError } from "@pisa-research/errors";
+import { StartStopService, Lock, logger } from "@pisa-research/utils";
+import { ConfigurationError, ArgumentError } from "@pisa-research/errors";
 import { Component, AnchorState, ComponentAction } from "./component";
 import { CachedKeyValueStore, ItemAndId } from "./cachedKeyValueStore";
 import { BlockItemStore } from "./blockItemStore";
 
-/**
- * Generic class to handle the anchor state of a blockchain state machine.
- *
- * For each block that is added to the cache (and for each added component), this will compute the new anchor state for
- * that component. Moreover, every time a "new head" event is emitted, this class will use the component's `detectChanges`
- * function to compute the appropriate actions, by comparing the newly computed anchor state with the anchor state of the
- * closest ancestor that was emitted as "new head". Since the latter might no longer be in the BlockCache, its anchor state
- * is propagated in each subsequent block; thus, every block stores its anchor state, and the "closest emitted ancestor"'s one.
- */
-export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopService {
-    private components: Component<AnchorState, IBlockStub, ComponentAction>[] = [];
-    private componentNames: Set<string> = new Set();
 
+/**
+ * Blockchain machine functionality
+ */
+export class BlockchainMachine<TBlock extends IBlockStub> {
     // lock used to make sure that all events are processed in order
     private lock = new Lock();
+
+    constructor(
+        private readonly actionStore: CachedKeyValueStore<ComponentAction>,
+        public readonly blockItemStore: BlockItemStore<TBlock>,
+        private readonly components: Component<AnchorState, TBlock, ComponentAction>[]
+    ) {
+        const duplicateNames = components.map(c => c.name).filter((n, i) => components.map(c => c.name).lastIndexOf(n) !== i);
+        if (duplicateNames.length !== 0) throw new ArgumentError(`Duplicate component names were supplied.`, duplicateNames[0]);
+
+        this.setStateAndDetectChanges = this.setStateAndDetectChanges.bind(this);
+    }
 
     /**
      * Runs all the actions in `actionAndIds` for `component`. Actions are all executed in parallel, and each action is removed
@@ -34,82 +37,125 @@ export class BlockchainMachine<TBlock extends IBlockStub> extends StartStopServi
                 await component.applyAction(a.value);
                 await this.actionStore.removeItem(component.name, a);
             } catch (doh) {
-                this.logger.error(doh);
+                logger.error(doh);
             }
         });
     }
 
-    protected async startInternal(): Promise<void> {
-        if (!this.blockProcessor.started) this.logger.error("The BlockProcessor should be started before the BlockchainMachine.");
-        if (!this.actionStore.started) this.logger.error("The actionStore should be started before the BlockchainMachine.");
-        if (!this.blockItemStore.started) this.logger.error("The BlockItemStore should be started before the BlockchainMachine.");
-
-        this.blockProcessor.newBlock.addListener(this.processNewBlock);
-
-        // For each component, load and start any action that was stored in the actionStore
+    /**
+     * Finds any existing actions in the store and executes them.
+     */
+    public executeExistingActions() {
         for (const component of this.components) {
             const actionAndIds = this.actionStore.getItems(component.name);
             this.runActionsForComponent(component, actionAndIds);
         }
     }
 
-    protected async stopInternal(): Promise<void> {
-        this.blockProcessor.newBlock.removeListener(this.processNewBlock);
-    }
-
-    constructor(
-        private blockProcessor: BlockProcessor<TBlock>,
-        private actionStore: CachedKeyValueStore<ComponentAction>,
-        private blockItemStore: BlockItemStore<TBlock>
-    ) {
-        super("blockchain-machine");
-        this.processNewBlock = this.processNewBlock.bind(this);
-    }
-
     /**
-     * Add a new `component` to the BlockchainMachine. It must be called before the service is started
-     * @param component
+     * Sets a state for a block whose parent may not already be in the block item store.
+     * If the parent is in the store reduce is used to compute the next state, if it is not the getInitialState is
+     * called on the component reducer.
+     * This function writes to the blockItemStore and MUST be included in a batch to persist beyond memory.
+     * @param block
      */
-    public addComponent(component: Component<AnchorState, TBlock, ComponentAction>): void {
-        if (this.started) throw new ApplicationError("Components must be added before the BlockchainMachine is started.");
-        if (this.componentNames.has(component.name)) throw new ApplicationError(`A Component with the name "${component.name}" was already added.`);
+    public async setInitialState(block: TBlock): Promise<void> {
+        if (!this.actionStore.started) logger.error("The actionStore should be started before the BlockchainMachine.");
+        if (!this.blockItemStore.started) logger.error("The BlockItemStore should be started before the BlockchainMachine.");
 
-        this.components.push(component);
-        this.componentNames.add(component.name);
-    }
-
-    private async processNewBlock(block: TBlock) {
         try {
             await this.lock.acquire();
-
-            // Every time a new block is received we calculate the anchor state for that block and store it
+            // For each component, load and start any action that was stored in the actionStore
             for (const component of this.components) {
-                if (this.blockProcessor.blockCache.hasBlock(block.parentHash)) {
-                    const prevAnchorState =
-                        // If the parent is available and its anchor state is known, the state can be computed with the reducer.
-                        this.blockItemStore.anchorState.get<AnchorState>(component.name, block.parentHash) ||
-                        // If the parent is available but its anchor state is not known, first compute its parent's initial state, then apply the reducer.
-                        await component.reducer.getInitialState(this.blockProcessor.blockCache.getBlock(block.parentHash));
+                // if the current state is not already i n the store we need to compute it and set it there
+                if (!this.blockItemStore.anchorState.get<AnchorState>(component.name, block.hash)) {
+                    const parentAnchorState = this.blockItemStore.anchorState.get<AnchorState>(component.name, block.parentHash);
+                    const newAnchorState = parentAnchorState
+                        ? await component.reducer.reduce(parentAnchorState, block)
+                        : await component.reducer.getInitialState(block);
 
-                    const newAnchorState = await component.reducer.reduce(prevAnchorState, block);
-                    this.blockItemStore.anchorState.set(component.name, block.number, block.hash, newAnchorState);
-
-                    // having computed a new state we can detect changes and run actions 
-                    // for the difference between then and now
-                    const newActions = component.detectChanges(prevAnchorState, newAnchorState);
-                    if (newActions.length > 0) {
-                        const actionAndIds = await this.actionStore.storeItems(component.name, newActions);
-                        this.runActionsForComponent(component, actionAndIds);
-                    }
-                }
-                // Finally, if the parent is not available at all in the block cache, compute the initial state based on the current block.
-                else {
-                    const newAnchorState = await component.reducer.getInitialState(block);
                     this.blockItemStore.anchorState.set(component.name, block.number, block.hash, newAnchorState);
                 }
             }
         } finally {
             this.lock.release();
         }
+    }
+
+    /**
+     * Sets the state for the provided block for all components. The states for the parent blocks must already have been set.
+     * either with setInitialState or with this function.
+     * Once a new state is set changes are detected between this and the parent state, and actions are computed and executed.
+     * This function writes to the blockItemStore and MUST be included in a batch to persist beyond memory.
+     * @param block
+     */
+    public async setStateAndDetectChanges(block: TBlock) {
+        if (!this.actionStore.started) logger.error("The actionStore should be started before the BlockchainMachine.");
+        if (!this.blockItemStore.started) logger.error("The BlockItemStore should be started before the BlockchainMachine.");
+        
+        try {
+            await this.lock.acquire();
+
+            // Every time a new block is received we calculate the anchor state for that block and store it
+            for (const component of this.components) {
+                // get the parent
+                const parentState = this.blockItemStore.anchorState.get<AnchorState>(component.name, block.parentHash);
+                if (!parentState) throw new ConfigurationError(`Parent state not already set for component: ${component.name} block: ${block.number - 1}:${block.parentHash}`); //prettier-ignore
+
+                // reduce the new state
+                const newAnchorState = await component.reducer.reduce(parentState, block);
+                this.blockItemStore.anchorState.set(component.name, block.number, block.hash, newAnchorState);
+
+                // having computed a new state we can detect changes and run actions
+                // for the difference between parent and now
+                const newActions = component.detectChanges(parentState, newAnchorState);
+                if (newActions.length > 0) {
+                    const actionAndIds = await this.actionStore.storeItems(component.name, newActions);
+                    this.runActionsForComponent(component, actionAndIds);
+                }
+            }
+        } finally {
+            this.lock.release();
+        }
+    }
+}
+
+/**
+ * Generic class to handle the anchor state of a blockchain state machine.
+ *
+ * For each block that is added to the cache (and for each added component), this will compute the new anchor state for
+ * that component. This class will also use the component's `detectChanges`
+ * function to compute the appropriate actions, by comparing the newly computed anchor state with the anchor state of the
+ * closest ancestor that was emitted.
+ */
+export class BlockchainMachineService<TBlock extends IBlockStub> extends StartStopService {
+    private readonly machine: BlockchainMachine<TBlock>;
+
+    constructor(
+        private readonly blockProcessor: BlockProcessor<TBlock>,
+        actionStore: CachedKeyValueStore<ComponentAction>,
+        blockItemStore: BlockItemStore<TBlock>,
+        components: Component<AnchorState, TBlock, ComponentAction>[]
+    ) {
+        super("blockchain-machine");
+        this.machine = new BlockchainMachine(actionStore, blockItemStore, components);
+    }
+
+    protected async startInternal(): Promise<void> {
+        if (!this.blockProcessor.started) logger.error("The BlockProcessor should be started before the BlockchainMachineService.");
+
+        this.blockProcessor.newBlock.addListener(this.machine.setStateAndDetectChanges);
+
+        // normally batching is handled in the block processor but not in startup
+        await this.machine.blockItemStore.withBatch(async () => {
+            await this.machine.setInitialState(this.blockProcessor.blockCache.head);
+        });
+
+        // startup any actions that we had not completed
+        this.machine.executeExistingActions();
+    }
+
+    protected async stopInternal(): Promise<void> {
+        this.blockProcessor.newBlock.removeListener(this.machine.setStateAndDetectChanges);
     }
 }
