@@ -14,10 +14,21 @@ export interface AnchorState {
  */
 export interface StateReducer<TState extends AnchorState, TBlock extends IBlockStub> {
     /**
-     *
+     * Populates an initial anchor state. The result returned from here should be
+     * indistinguishable from starting at the genesis block and calling reduce()
+     * until we reach the provided block. Should be called rarely as it is expected that
+     * this function may be expensive.
      * @param block
      */
     getInitialState(block: TBlock): Promise<TState> | TState;
+
+    /**
+     * Computes the next anchor state. Whilst we can compute any anchor state using getInitialState
+     * it is often expensive to do so. Reduce allows to compute the next anchor state given the current block
+     * and the previous anchor state.
+     * @param prevState 
+     * @param block 
+     */
     reduce(prevState: TState, block: TBlock): Promise<TState> | TState;
 }
 

@@ -1,18 +1,14 @@
 import "mocha";
 import chai, { expect } from "chai";
-import { spy, verify, anything, capture, resetCalls, mock, instance, when } from "ts-mockito";
+import { spy, verify, anything, resetCalls, mock, when } from "ts-mockito";
 
 import LevelUp from "levelup";
 import EncodingDown from "encoding-down";
 import MemDown from "memdown";
 
 import {
-    BlockEvent,
     StateReducer,
     Component,
-    BlockProcessor,
-    BlockCache,
-    BlockchainMachineService,
     CachedKeyValueStore,
     IBlockStub,
     BlockItemStore,
@@ -168,9 +164,6 @@ describe("BlockchainMachine", () => {
         ).to.throw(ArgumentError);
     });
 
-    it("setInitialState does enforce that action store has started");
-    it("setState does enforce that action store has started");
-
     fnIt<BlockchainMachine<never>>(b => b.setInitialState, "does compute initial state for parent not in store", async () => {
         const { machine, reducerMock, blockItemStoreAnchorStateSpy, components, reducer } = await setupBM(1);
 
@@ -282,8 +275,4 @@ describe("BlockchainMachine", () => {
         await wait(10);
         verify(actionStoreSpy.removeItem(anything(), anything())).twice();
     });
-
-    // PISA: add commments to the state reducer
-    // PISA: add integration tests just for the blockchain machine
-    // PISA: what if the setinitialstate throws error? retry - add this to the log reducer
 });
