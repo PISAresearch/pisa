@@ -1,6 +1,6 @@
 {
   "name": "@pisa-research/contracts",
-  "version": "0.1.12",
+  "version": "0.1.13-alpha.0",
   "description": "PISA contracts",
   "author": "PISA Research Ltd",
   "homepage": "https://github.com/PISAresearch/pisa/tree/master/packages/contract#readme",
