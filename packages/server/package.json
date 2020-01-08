@@ -4,7 +4,7 @@
     "description": "Arbitration Outsourcing for State Channels",
     "homepage": "https://github.com/PISAresearch/pisa/tree/master/packages/server#readme",
     "license": "ISC",
-    "main": "lib/startUp.js",
+    "main": "lib/index.js",
     "directories": {
         "lib": "lib",
         "test": "__tests__"
@@ -21,8 +21,8 @@
     "scripts": {
         "build": "tsc && cp ./src/service/favicon.ico ./lib/service/favicon.ico",
         "lint": "eslint --ext ts .",
-        "start": "node ./server/lib/startUp.js",
-        "start-dev": "ts-node src/startUp.ts",
+        "start": "node ./server/lib/index.js",
+        "start-dev": "ts-node src/index.ts",
         "test": "NODE_ENV=test mocha -r ts-node/register './__tests__/**/*.test.ts' --exit",
         "test-coverage": "NODE_ENV=test nyc mocha -r ts-node/register --reporter mocha-junit-reporter --reporter-options mochaFile=coverage/mocha/test-results.xml './__tests__/**/*.test.ts' --exit"
     },

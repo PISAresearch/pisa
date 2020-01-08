@@ -42,4 +42,4 @@ EXPOSE 3000
 # start the application
 # we cant use npm run start since it causes problems with graceful exit within docker
 # see https://medium.com/@becintec/building-graceful-node-applications-in-docker-4d2cd4d5d392 for more details
-CMD ["node", "./dist/startUp.js"]
+CMD ["node", "./dist/index.js"]

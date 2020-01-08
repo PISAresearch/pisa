@@ -3,7 +3,7 @@
     "private": true,
     "version": "0.1.9",
     "description": "Arbitration Outsourcing for State Channels",
-    "main": "packages/server/lib/startUp.js",
+    "main": "packages/server/lib/index.js",
     "scripts": {
         "bootstrap": "lerna bootstrap --hoist",
         "build": "lerna run build",
