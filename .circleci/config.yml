@@ -12,9 +12,6 @@ jobs:
           name: install
           command: npm install
       - run:
-          name: bootstrap
-          command: npm run bootstrap
-      - run:
           name: install raiden deps
           command: cd raiden_demo/raiden-pisa-daemon && npm install
       - run:
@@ -25,10 +22,10 @@ jobs:
           command: bash <(curl https://get.parity.io -L) -r v2.5.10
       - run:
           name: test unit
-          command: npm run test-coverage
-      - run:
-          name: test externals
           command: npm run test
+      - run:
+          name: test endtoend
+          command: npm run test-endtoend
       - run:
           name: test raiden integration
           command: npm run test-raiden
@@ -55,11 +52,8 @@ jobs:
           name: install packages
           command: npm install
       - run:
-          name: bootstrap
-          command: npm run bootstrap
-      - run:
           name: tests
-          command: npm run test-contract
+          command: npm run contracts-test
   integration-test:
     working_directory: ~/test
     machine:
@@ -90,10 +84,10 @@ jobs:
             echo "[ -s \"$NVM_DIR/nvm.sh\" ] && . \"$NVM_DIR/nvm.sh\"" >> $BASH_ENV
       - run:
           name: install
-          command: npm i -D lerna@3.18.3
+          command: npm install
       - run:
-          name: bootstrap
-          command: npm run bootstrap
+          name: build
+          command: npm run build
       - run:
           name: test
           command: TAG_NAME=$CIRCLE_BRANCH npm run test-integration

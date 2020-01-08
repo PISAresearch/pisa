@@ -1,6 +1,6 @@
 {
   "name": "@pisa-research/contracts",
-  "version": "0.1.12",
+  "version": "0.1.13-alpha.2",
   "description": "PISA contracts",
   "author": "PISA Research Ltd",
   "homepage": "https://github.com/PISAresearch/pisa/tree/master/packages/contract#readme",
@@ -21,17 +21,10 @@
   },
   "scripts": {
     "build": "truffle compile",
-    "test": "npm run build && truffle test",
-    "prepublishOnly": "npm run build"
+    "test": "npm run build && truffle test"
   },
   "bugs": {
     "url": "https://github.com/PISAresearch/pisa/issues"
-  },
-  "devDependencies": {
-    "@types/ganache-core": "^2.1.1",
-    "ganache-core": "^2.8.0",
-    "truffle": "^5.0.34",
-    "truffle-assertions": "^0.9.1"
   },
   "gitHead": "29ffe15d987791c7297845edc99b5a4abbb56ce1"
 }
