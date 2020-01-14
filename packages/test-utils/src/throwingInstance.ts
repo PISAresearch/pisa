@@ -2,12 +2,15 @@ import { instance } from "ts-mockito";
 import * as chai from "chai";
 
 /**
- * Creates an instance of a mocked object. Calls to methods or properties that have not been stubbed will throw errors
+ * Creates an instance of a mocked object or interface. Calls to methods or properties that have not been stubbed will throw errors
  */
 export function throwingInstance<TMock extends object>(target: TMock) {
     const stubbedMethods: Array<string> = Object.keys(
+        // test to see if this is an object or interface we're mocking
         (target as any)["tsMockitoInstance"]["mocker"]
+            // when mocking a class we find the methods here:
             ? (target as any)["tsMockitoInstance"]["mocker"]["methodStubCollections"]
+            // when mocking an interface we find them here
             : (target as any)["mocker"]()["mocker"]["methodStubCollections"]
     );
 

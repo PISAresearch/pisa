@@ -13,6 +13,12 @@ export class BlockchainMachine<TBlock extends IBlockStub> {
     // lock used to make sure that all events are processed in order
     private lock = new Lock();
 
+    /**
+     * 
+     * @param actionStore 
+     * @param blockItemStore 
+     * @param components We compute an O(n^2) operation on startup, so care should be take if adding a great many components
+     */
     constructor(
         private readonly actionStore: CachedKeyValueStore<ComponentAction>,
         public readonly blockItemStore: BlockItemStore<TBlock>,
@@ -59,14 +65,14 @@ export class BlockchainMachine<TBlock extends IBlockStub> {
      * @param block
      */
     public async setInitialState(block: TBlock): Promise<void> {
-        if (!this.actionStore.started) logger.error("The actionStore should be started before the BlockchainMachine.");
-        if (!this.blockItemStore.started) logger.error("The BlockItemStore should be started before the BlockchainMachine.");
+        if (!this.actionStore.started) logger.error("The actionStore should be started before the BlockchainMachine is used.");
+        if (!this.blockItemStore.started) logger.error("The BlockItemStore should be started before the BlockchainMachine is used.");
 
         try {
             await this.lock.acquire();
             // For each component, load and start any action that was stored in the actionStore
             for (const component of this.components) {
-                // if the current state is not already i n the store we need to compute it and set it there
+                // if the current state is not already in the store we need to compute it and set it there
                 if (!this.blockItemStore.anchorState.get<AnchorState>(component.name, block.hash)) {
                     const parentAnchorState = this.blockItemStore.anchorState.get<AnchorState>(component.name, block.parentHash);
                     const newAnchorState = parentAnchorState
@@ -89,8 +95,8 @@ export class BlockchainMachine<TBlock extends IBlockStub> {
      * @param block
      */
     public async setStateAndDetectChanges(block: TBlock) {
-        if (!this.actionStore.started) logger.error("The actionStore should be started before the BlockchainMachine.");
-        if (!this.blockItemStore.started) logger.error("The BlockItemStore should be started before the BlockchainMachine.");
+        if (!this.actionStore.started) logger.error("The actionStore should be started before the BlockchainMachine is used.");
+        if (!this.blockItemStore.started) logger.error("The BlockItemStore should be started before the BlockchainMachine is used.");
         
         try {
             await this.lock.acquire();
