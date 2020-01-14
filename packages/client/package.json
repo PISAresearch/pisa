@@ -1,12 +1,11 @@
 {
   "name": "@pisa-research/client",
-  "version": "0.1.12",
+  "version": "0.1.13-alpha.2",
   "description": "A client library for the PISA API.",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
   "scripts": {
-    "build": "tsc",
-    "prepublishOnly": "npm run build"
+    "build": "tsc"
   },
   "publishConfig": {
     "access": "public"
@@ -26,10 +25,6 @@
     "url": "https://github.com/PISAresearch/pisa/issues"
   },
   "homepage": "https://github.com/PISAresearch/pisa#readme",
-  "devDependencies": {
-    "ts-node": "^8.3.0",
-    "typescript": "^3.6.3"
-  },
   "dependencies": {
     "cross-fetch": "^3.0.4",
     "ethers": "^4.0.37"

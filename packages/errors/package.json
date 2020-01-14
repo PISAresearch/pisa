@@ -1,6 +1,6 @@
 {
   "name": "@pisa-research/errors",
-  "version": "0.1.12",
+  "version": "0.1.13-alpha.2",
   "description": "Errors used in the PISA project",
   "author": "PISA Research Ltd",
   "homepage": "https://github.com/PISAresearch/pisa/tree/master/packages/errors#readme",
@@ -22,14 +22,10 @@
     "url": "git+https://github.com/PISAresearch/pisa.git"
   },
   "scripts": {
-    "build": "tsc",
-    "prepublishOnly": "npm run build"
+    "build": "tsc"
   },
   "bugs": {
     "url": "https://github.com/PISAresearch/pisa/issues"
-  },
-  "devDependencies": {
-    "typescript": "^3.6.3"
   },
   "gitHead": "29ffe15d987791c7297845edc99b5a4abbb56ce1"
 }
