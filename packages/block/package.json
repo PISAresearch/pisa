@@ -55,8 +55,5 @@
     "subleveldown": "^4.1.0",
     "uuid": "^3.3.3"
   },
-  "devDependencies": {
-    "@pisa-research/test-utils": "file:../test-utils"
-  },
   "gitHead": "29ffe15d987791c7297845edc99b5a4abbb56ce1"
 }

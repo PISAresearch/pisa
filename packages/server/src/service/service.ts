@@ -10,7 +10,7 @@ import { GasQueue, GasPriceEstimator, MultiResponder, MultiResponderComponent, R
 import { IArgConfig } from "./config";
 import {
     BlockProcessorStore,
-    BlockchainMachine,
+    BlockchainMachineService,
     CachedKeyValueStore,
     BlockProcessor,
     BlockCache,
@@ -47,7 +47,7 @@ export class PisaService extends StartStopService {
     private readonly responderStore: ResponderStore;
     private readonly appointmentStore: AppointmentStore;
     private readonly actionStore: CachedKeyValueStore<ComponentAction>;
-    private readonly blockchainMachine: BlockchainMachine<Block>;
+    private readonly blockchainMachine: BlockchainMachineService<Block>;
     private readonly JSON_SCHEMA_ROUTE = "/schemas/appointmentRequest.json";
     private readonly API_DOCS_JSON_ROUTE = "/api-docs.json";
     private readonly API_DOCS_HTML_ROUTE = "/docs.html";
@@ -115,10 +115,7 @@ export class PisaService extends StartStopService {
 
         this.actionStore = new CachedKeyValueStore<ComponentAction>(db, "blockchain-machine");
 
-        this.blockchainMachine = new BlockchainMachine<Block>(this.blockProcessor, this.actionStore, this.blockItemStore);
-        this.blockchainMachine.addComponent(watcher);
-        this.blockchainMachine.addComponent(responder);
-
+        this.blockchainMachine = new BlockchainMachineService<Block>(this.blockProcessor, this.actionStore, this.blockItemStore, [watcher, responder]);
         // tower
         const tower = new PisaTower(this.appointmentStore, receiptWallet, multiResponder, blockCache, config.pisaContractAddress);
 
