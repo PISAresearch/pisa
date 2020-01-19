@@ -1,6 +1,6 @@
 {
   "name": "@pisa-research/block",
-  "version": "0.1.13",
+  "version": "0.1.14",
   "description": "Block utilites used in the PISA project",
   "author": "PISA Research Ltd",
   "homepage": "https://github.com/PISAresearch/pisa/tree/master/packages/block#readme",
