@@ -59,8 +59,12 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
             else this.itemsByHeight.set(height, new Set([memKey]));
             this.items.set(memKey, value);
         }
+
+        this.logger.info({ itemsByHeightCount: this.itemsByHeight.size, itemsCount: this.items.size }, "Store started.");
     }
-    protected async stopInternal() {}
+    protected async stopInternal() {
+        this.logger.info({ itemsByHeightCount: this.itemsByHeight.size, itemsCount: this.items.size }, "Store stopped.");
+    }
 
     /**
      * Should only be used internally, kept public for testing.
@@ -126,8 +130,8 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
             const blockItemSuffix = `:${BlockItemStore.KEY_BLOCK}`;
             if (item.endsWith(blockItemSuffix)) {
                 const blockHash = item.slice(0, -blockItemSuffix.length);
-                const block = this.block.get(blockHash)
-                const attached = this.attached.get(blockHash)
+                const block = this.block.get(blockHash);
+                const attached = this.attached.get(blockHash);
                 blocks.push({ block, attached });
             }
         }

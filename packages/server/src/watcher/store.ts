@@ -25,10 +25,26 @@ export class AppointmentStore extends StartStopService {
             this.mAppointmentsByLocator.set(appointment.locator, appointment);
             this.mAppointmentsByCustomerAddress.addToSet(appointment.customerAddress, appointment);
         }
+
+        this.logger.info(
+            {
+                appointmentsByIdCount: this.appointmentsById.size,
+                appointmentsByLocatorCount: this.appointmentsByLocator.size,
+                appointmentsByCustomerAddress: this.appointmentsByCustomerAddress.size
+            },
+            "Store started."
+        );
     }
 
     protected async stopInternal() {
-        // do nothing
+        this.logger.info(
+            {
+                appointmentsByIdCount: this.appointmentsById.size,
+                appointmentsByLocatorCount: this.appointmentsByLocator.size,
+                appointmentsByCustomerAddress: this.appointmentsByCustomerAddress.size
+            },
+            "Store stopped."
+        );
     }
 
     /**

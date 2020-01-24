@@ -170,6 +170,8 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
 
         // After startup, `newBlock` events of the BlockCache are proxied
         this.mBlockCache.newBlock.addListener(this.processNewBlock);
+
+        this.logger.info({ currentHeadNumber : currentHead }, "Blockprocessor started.")
     }
 
     protected async stopInternal(): Promise<void> {

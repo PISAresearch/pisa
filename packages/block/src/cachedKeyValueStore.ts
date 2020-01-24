@@ -48,8 +48,12 @@ export class CachedKeyValueStore<TValue> extends StartStopService {
             if (keyValues) keyValues.add(itemWithId);
             else this.items.set(key, new Set([itemWithId]));
         }
+
+        this.logger.info({ itemsCount: this.items.size }, "Store stopped.");
     }
-    protected async stopInternal() {}
+    protected async stopInternal() {
+        this.logger.info({ itemsCount: this.items.size }, "Store stopped.");
+    }
 
     /** Returns all the items stored for `key`. */
     public getItems(key: string) {
@@ -83,7 +87,7 @@ export class CachedKeyValueStore<TValue> extends StartStopService {
     public async removeItem(key: string, itemAndId: ItemAndId<TValue>) {
         // DB
         await this.subDb.del(key + ":" + itemAndId.id);
-        
+
         // MEMORY
         const items = this.items.get(key);
         if (!items) return;

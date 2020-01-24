@@ -45,8 +45,18 @@ export class ResponderStore extends StartStopService {
         for (const [key, value] of respondedTransactions.entries()) {
             this.mTransactions.set(key, value);
         }
+
+        this.logger.info(
+            { transactionsCount: this.transactions.size, queueItemsSize: this.queue.queueItems.length, emptyNonce: this.queue.emptyNonce },
+            "Store started."
+        );
     }
-    protected async stopInternal() {}
+    protected async stopInternal() {
+        this.logger.info(
+            { transactionsCount: this.transactions.size, queueItemsSize: this.queue.queueItems.length, emptyNonce: this.queue.emptyNonce },
+            "Store stopped."
+        );
+    }
 
     /**
      * Update the queue. Returns a new transactions that need to be issued as result of the update.
