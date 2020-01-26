@@ -165,13 +165,13 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
     protected async startInternal(): Promise<void> {
         // Make sure the current head block is processed
         const currentHead = (await this.store.getLatestHeadNumber()) || (await this.provider.getBlockNumber());
-        await this.processBlockNumber(currentHead);
+        await this.processBlockNumber(currentHead, true);
         this.provider.on("block", this.processBlockNumber);
 
         // After startup, `newBlock` events of the BlockCache are proxied
         this.mBlockCache.newBlock.addListener(this.processNewBlock);
 
-        this.logger.info({ currentHeadNumber : currentHead }, "Blockprocessor started.")
+        this.logger.info({ currentHeadNumber: currentHead }, "Blockprocessor started.");
     }
 
     protected async stopInternal(): Promise<void> {
@@ -245,9 +245,9 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
     }
     // Processes a new block, adding it to the cache and emitting the appropriate events
     // It is called for each new block received, but also at startup (during startInternal).
-    private async processBlockNumber(observedBlockNumber: number) {
+    private async processBlockNumber(observedBlockNumber: number, initialising?: boolean) {
         try {
-            let shouldProcessHead = false; // whether to process a new head
+            let shouldProcessHead; // whether to process a new head
             let processingBlockNumber: number; // the block processed in this batch; will be equal to blockNumber on the last batch
             let processingBlock: TBlock; // the block the provider returned for height processingBlockNumber
             do {
@@ -257,9 +257,10 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
                 // We split the processing in batches of at most blockCache.maxDepth blocks, in order to avoid keeping a very large number of blocks in memory.
                 // It should be only one batch under normal circumstances, but we might fall behing more, for example, if Pisa crashed and there was some downtime.
 
-                processingBlockNumber = this.mBlockCache.isEmpty
-                    ? observedBlockNumber // if cache is empty, process just the current block
-                    : Math.min(observedBlockNumber, this.blockCache.head.number + this.blockCache.maxDepth); // otherwise, download a batch of blocks (up to blockNumber)
+                processingBlockNumber =
+                    this.mBlockCache.isEmpty || initialising
+                        ? observedBlockNumber // if cache is empty, process just the current block
+                        : Math.min(observedBlockNumber, this.blockCache.head.number + this.blockCache.maxDepth); // otherwise, download a batch of blocks (up to blockNumber)
 
                 processingBlock = await this.getBlockRemote(processingBlockNumber);
                 if (processingBlockNumber === observedBlockNumber) this.lastBlockHashReceived = processingBlock.hash;
@@ -269,6 +270,7 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
                 while (true) {
                     const addResult = await this.addBlockToCache(curBlock);
                     let continueBlockFetching = false;
+                    if (curBlock.number % 100 === 0) this.logger.info({ number: curBlock.number, hash: curBlock.hash }, "Synchronised block.");
 
                     switch (addResult) {
                         case BlockAddResult.Added: {
@@ -312,12 +314,14 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
                             throw new UnreachableCaseError(addResult, "Missing case for addResult.");
                     }
 
-                    if(!continueBlockFetching) break;
+                    if (!continueBlockFetching) break;
 
                     curBlock = await this.getBlock(curBlock.parentHash);
                 }
             } while (processingBlockNumber !== observedBlockNumber);
 
+            // always process the head if we're initialising
+            if (initialising) shouldProcessHead = true;
             // is the observed block still the last block received (or the first block, during startup)?
             // and was the block added to the cache?
             if (shouldProcessHead && this.lastBlockHashReceived === processingBlock.hash) {

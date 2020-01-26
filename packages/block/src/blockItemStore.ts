@@ -86,14 +86,14 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
      * Gets the item with key `itemKey` for block `blockHash`.
      * Returns `undefined` if a key is not present.
      **/
-    public getItem(blockHash: string, itemKey: string) {
+    public getItem(blockHash: string, itemKey: string): any | undefined {
         const key = `${blockHash}:${itemKey}`;
         return this.items.get(key);
     }
 
     // Type safe methods to store blocks
     public block = {
-        get: (blockHash: string): TBlock =>
+        get: (blockHash: string): TBlock | undefined =>
             this.getItem(blockHash, BlockItemStore.KEY_BLOCK), // prettier-ignore
         set: (blockHeight: number, blockHash: string, block: TBlock) =>
             this.putBlockItem(blockHeight, blockHash, BlockItemStore.KEY_BLOCK, block) // prettier-ignore
@@ -101,7 +101,7 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
 
     // Type safe methods to store the "attached" boolean for each block (used in the BlockCache)
     public attached = {
-        get: (blockHash: string): boolean =>
+        get: (blockHash: string): boolean | undefined =>
             this.getItem(blockHash, BlockItemStore.KEY_ATTACHED), // prettier-ignore
         set: (blockHeight: number, blockHash: string, attached: boolean) =>
             this.putBlockItem(blockHeight, blockHash, BlockItemStore.KEY_ATTACHED, attached) // prettier-ignore
@@ -109,7 +109,7 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
 
     // Type safe methods to store the anchor state for each block, indexed by component (used in the BlockchainMachine)
     public anchorState = {
-        get: <TAnchorState>(componentName: string, blockHash: string): TAnchorState =>
+        get: <TAnchorState>(componentName: string, blockHash: string): TAnchorState | undefined =>
             this.getItem(blockHash, `${componentName}:${BlockItemStore.KEY_STATE}`), // prettier-ignore
         set: (componentName: string, blockHeight: number, blockHash: string, newState: AnchorState) =>
             this.putBlockItem(blockHeight, blockHash, `${componentName}:${BlockItemStore.KEY_STATE}`, newState)
@@ -130,8 +130,8 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
             const blockItemSuffix = `:${BlockItemStore.KEY_BLOCK}`;
             if (item.endsWith(blockItemSuffix)) {
                 const blockHash = item.slice(0, -blockItemSuffix.length);
-                const block = this.block.get(blockHash);
-                const attached = this.attached.get(blockHash);
+                const block = this.block.get(blockHash)!;
+                const attached = this.attached.get(blockHash)!;
                 blocks.push({ block, attached });
             }
         }

@@ -149,13 +149,12 @@ export class BlockchainMachineService<TBlock extends IBlockStub> extends StartSt
     protected async startInternal(): Promise<void> {
         if (!this.blockProcessor.started) this.logger.error("The BlockProcessor should be started before the BlockchainMachineService.");
 
-        this.blockProcessor.newBlock.addListener(this.machine.setStateAndDetectChanges);
-
         // normally batching is handled in the block processor but not in startup
         await this.machine.blockItemStore.withBatch(async () => {
             await this.machine.setInitialState(this.blockProcessor.blockCache.head);
         });
-
+        
+        this.blockProcessor.newBlock.addListener(this.machine.setStateAndDetectChanges);
         // startup any actions that we had not completed
         this.machine.executeExistingActions();
     }

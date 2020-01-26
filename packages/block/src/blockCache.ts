@@ -77,11 +77,11 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
      * Returns the minimum height of blocks that can currently be stored.
      *
      * Once at least a block has been added, the minimum height is always guaranteed to be the maximum of:
-     * - the height h of the first block ever added, and
      * - the height of a block at depth `maxDepth` from the highest added block.
+     * - 0
      **/
     public get minHeight() {
-        return Math.max(this.pruneHeight, this.maxHeight - this.maxDepth);
+        return Math.max(0, this.maxHeight - this.maxDepth);
     }
 
     /**
