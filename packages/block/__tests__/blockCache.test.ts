@@ -15,7 +15,7 @@ function generateBlocks(
     rootParentHash?: string | null // if given, the parentHash of the first block in the returned chain
 ): (IBlockStub & TransactionHashes)[] {
     const result: (IBlockStub & TransactionHashes)[] = [];
-    for (let height = initialHeight; height < initialHeight + nBlocks; height++) {
+    for (let height = initialHeight; height <= initialHeight + nBlocks; height++) {
         const transactions: string[] = [];
         for (let i = 0; i < 5; i++) {
             transactions.push(`${chain}-block${height}tx${i + 1}`);
@@ -214,7 +214,7 @@ describe("BlockCache", () => {
         expect(() => bc.getBlock("someNonExistingHash")).to.throw(ApplicationError);
     });
 
-    it("minHeight is equal to the initial block height if less then maxDepth blocks are added", async () => {
+    it("minHeight is equal to maxHeight minus max depth", async () => {
         const initialHeight = 3;
         const blocks = generateBlocks(maxDepth - 1, initialHeight, "main");
 
@@ -222,24 +222,25 @@ describe("BlockCache", () => {
             await bc.addBlock(block);
         }
 
-        expect(bc.minHeight).to.equal(initialHeight);
+        expect(bc.minHeight).to.equal(initialHeight + (blocks.length - 1) - maxDepth);
+        expect(bc.minHeight).to.equal(bc.maxHeight - maxDepth);
     });
 
     it("minHeight is equal to the height of the highest added block minus maxDepth if more than maxDepth blocks are added", async () => {
         const initialHeight = 3;
         const blocksAdded = 2 * maxDepth;
-        const lastBlockAdded = initialHeight + blocksAdded - 1;
         const blocks = generateBlocks(blocksAdded, initialHeight, "main");
         for (const block of blocks) {
             await bc.addBlock(block);
-        }
-        expect(bc.minHeight).to.equal(lastBlockAdded - maxDepth);
+        }       
+        
+        expect(bc.minHeight).to.equal(blocks[blocks.length - 1].number - maxDepth);
     });
 
     it("maxHeight is equal to the height of the highest added block", async () => {
         const initialHeight = 3;
         const blocksAdded = 2 * maxDepth;
-        const lastBlockAdded = initialHeight + blocksAdded - 1;
+        const lastBlockAdded = initialHeight + blocksAdded;
 
         // Add some blocks
         for (const block of generateBlocks(blocksAdded, initialHeight, "main")) {
@@ -253,35 +254,16 @@ describe("BlockCache", () => {
         expect(bc.maxHeight).to.equal(lastBlockAdded);
     });
 
-    fnIt<BlockCache<any>>(b => b.canAttachBlock, "returns true for blocks whose height is equal to the initial height", async () => {
-        const blocks = generateBlocks(10, 5, "main");
-        const otherBlocks = generateBlocks(10, 5, "other");
-
-        await bc.addBlock(blocks[3]);
-
-        expect(bc.canAttachBlock(blocks[3])).to.be.true;
-        expect(bc.canAttachBlock(otherBlocks[3])).to.be.true;
-    });
-
-    fnIt<BlockCache<any>>(b => b.canAttachBlock, "returns false for blocks whose height is lower than the initial height", async () => {
-        const blocks = generateBlocks(10, 5, "main");
-        const otherBlocks = generateBlocks(10, 5, "other");
-
-        await bc.addBlock(blocks[3]);
-
-        expect(bc.canAttachBlock(blocks[2])).to.be.false;
-        expect(bc.canAttachBlock(otherBlocks[2])).to.be.false;
-    });
-
-    fnIt<BlockCache<any>>(b => b.canAttachBlock, "returns true for a block whose height is equal to the maximum depth", async () => {
+    fnIt<BlockCache<any>>(b => b.canAttachBlock, "returns true for a block whose height is equal to the max height - max depth", async () => {
         const initialHeight = 3;
         const blocksAdded = maxDepth + 1;
         const blocks = generateBlocks(blocksAdded, initialHeight, "main");
         for (const block of blocks) {
             await bc.addBlock(block);
         }
-        const otherBlocks = generateBlocks(2, initialHeight - 1, "main");
-
+        const otherBlocks = generateBlocks(2, initialHeight, "main");
+        
+        expect(otherBlocks[1].number).to.eq(bc.maxHeight - bc.maxDepth)
         expect(bc.canAttachBlock(otherBlocks[1])).to.be.true;
     });
 

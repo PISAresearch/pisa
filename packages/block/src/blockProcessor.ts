@@ -1,5 +1,5 @@
 import { ethers } from "ethers";
-import { StartStopService, Lock } from "@pisa-research/utils";
+import { StartStopService } from "@pisa-research/utils";
 import { ReadOnlyBlockCache, BlockCache, BlockAddResult } from "./blockCache";
 import { IBlockStub, Block, TransactionHashes } from "./block";
 import { BlockItemStore } from "./blockItemStore";
@@ -137,8 +137,6 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
     // Returned in the constructor by blockProvider: obtains the block remotely (or throws an exception on failure)
     private getBlockRemote: (blockNumberOrHash: string | number) => Promise<TBlock>;
 
-    private blockItemStoreLock = new Lock();
-
     /**
      * Returns the ReadOnlyBlockCache associated to this BlockProcessor.
      */
@@ -193,18 +191,13 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
 
             // only emit new head events after it is started
             if (this.started) {
-                try {
-                    await this.blockItemStoreLock.acquire();
-                    await this.blockItemStore.withBatch(
-                        // All the writes in the BlockItemStore that happen in any of the components are executed as part of the same batch.
-                        // Thus, they are either all written to the db, or none of them is.
-                        // As other objects (most notably the BlockchainMachine) are listenin to "new head" events and writing to the BlockItemStore,
-                        // we cannot be sure that the intermediate states are consistent without batching all the writes together.
-                        async () => await this.newHead.emit(headBlock)
-                    );
-                } finally {
-                    this.blockItemStoreLock.release();
-                }
+                await this.blockItemStore.withBatch(
+                    // All the writes in the BlockItemStore that happen in any of the components are executed as part of the same batch.
+                    // Thus, they are either all written to the db, or none of them is.
+                    // As other objects (most notably the BlockchainMachine) are listenin to "new head" events and writing to the BlockItemStore,
+                    // we cannot be sure that the intermediate states are consistent without batching all the writes together.
+                    async () => await this.newHead.emit(headBlock)
+                );
             }
 
             // We update the latest head number in the BlockProcessorStore only after successfully updating everything in the components,
@@ -226,22 +219,17 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
     }
 
     private async addBlockToCache(block: TBlock) {
-        try {
-            await this.blockItemStoreLock.acquire();
-            return await this.blockItemStore.withBatch(async () => {
-                // We execute all the writes in the BlockCache and everything that listens to new blocks and writes to
-                // the BlockItemStore, like the BlockchainMachine) in the same batch. Thus, they either all succeed or
-                // they are not written to disk.
-                // Note that adding a block might cause some other blocks that were detached in the BlockCache
-                // to become attached, and a "new block" event will be emitted for each of them.
-                // Not batching these writes could cause partial updates to be saved to storage, like blocks staying
-                // detached in the BlockCache even if they should become attached, or blocks already emitted in the
-                // BlockCache while some consequences of the same events are lost.
-                return await this.mBlockCache.addBlock(block);
-            });
-        } finally {
-            this.blockItemStoreLock.release();
-        }
+        return await this.blockItemStore.withBatch(async () => {
+            // We execute all the writes in the BlockCache and everything that listens to new blocks and writes to
+            // the BlockItemStore, like the BlockchainMachine) in the same batch. Thus, they either all succeed or
+            // they are not written to disk.
+            // Note that adding a block might cause some other blocks that were detached in the BlockCache
+            // to become attached, and a "new block" event will be emitted for each of them.
+            // Not batching these writes could cause partial updates to be saved to storage, like blocks staying
+            // detached in the BlockCache even if they should become attached, or blocks already emitted in the
+            // BlockCache while some consequences of the same events are lost.
+            return await this.mBlockCache.addBlock(block);
+        });
     }
     // Processes a new block, adding it to the cache and emitting the appropriate events
     // It is called for each new block received, but also at startup (during startInternal).

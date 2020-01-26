@@ -1,6 +1,6 @@
 import { ApplicationError, ArgumentError } from "@pisa-research/errors";
 import { IBlockStub, TransactionHashes } from "./block";
-import { BlockItemStore} from "./blockItemStore";
+import { BlockItemStore } from "./blockItemStore";
 import { Lock } from "@pisa-research/utils";
 import { BlockEvent } from "./event";
 
@@ -47,7 +47,7 @@ export interface ReadOnlyBlockCache<TBlock extends IBlockStub> {
  */
 export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache<TBlock> {
     // Next height to be pruned; the cache will not store a block with height strictly smaller than pruneHeight
-    private pruneHeight: number;
+    private pruneHeight: number = 0;
 
     private mIsEmpty = true;
 
@@ -170,13 +170,6 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
             if (attached === false) return BlockAddResult.NotAddedAlreadyExistedDetached; // block already detached
 
             // From now on, we can assume that the block can be added (detached or not)
-
-            if (this.isEmpty) {
-                // First block added, store its height, so blocks before this point will not be stored.
-                this.pruneHeight = block.number //Math.max(block.number - 100, 0);
-                this.mIsEmpty = false;
-            }
-
             if (this.canAttachBlock(block)) {
                 this.blockStore.block.set(block.number, block.hash, block);
                 this.blockStore.attached.set(block.number, block.hash, true);
@@ -191,6 +184,11 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
                 // If the minHeight increased, this could also make some detached blocks ready to be attached
                 // This makes sure that they are attached if necessary
                 await this.processDetachedBlocksAtMinHeight();
+                if (this.mIsEmpty) {
+                    // First block added, store its height, so blocks before this point will not be stored.
+                    this.pruneHeight = block.number;
+                    this.mIsEmpty = false;
+                }
                 return BlockAddResult.Added;
             } else {
                 this.blockStore.block.set(block.number, block.hash, block);

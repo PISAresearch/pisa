@@ -5,7 +5,7 @@ import EncodingDown from "encoding-down";
 import MemDown from "memdown";
 import { hasLogMatchingEventFilter, IBlockStub, Logs, BlockItemStore } from "../src";
 import { ArgumentError, ApplicationError } from "@pisa-research/errors";
-import { fnIt } from "@pisa-research/test-utils";
+import { fnIt, wait } from "@pisa-research/test-utils";
 
 describe("hasLogMatchingEventFilter", () => {
     const address = "0x1234abcd";
@@ -90,7 +90,9 @@ describe("BlockItemStore", () => {
     }
 
     beforeEach(async () => {
-        db = LevelUp(EncodingDown<string, any>(MemDown(), { valueEncoding: "json" }));
+        db = LevelUp(
+            EncodingDown<string, any>(MemDown(), { valueEncoding: "json" })
+        );
         store = new BlockItemStore<IBlockStub>(db);
         await store.start();
     });
@@ -107,51 +109,75 @@ describe("BlockItemStore", () => {
         expect(storedItem).to.deep.equal(sampleValue);
     });
 
-    fnIt<BlockItemStore<any>>(b => b.putBlockItem, "throws ApplicationError if not executed within a withBatch callback", async () => {
-        expect(() => store.putBlockItem(42, "0x424242", "test", {})).to.throw(ApplicationError);
-    });
+    fnIt<BlockItemStore<any>>(
+        b => b.putBlockItem,
+        "throws ApplicationError if not executed within a withBatch callback",
+        async () => {
+            expect(() => store.putBlockItem(42, "0x424242", "test", {})).to.throw(ApplicationError);
+        }
+    );
 
-    fnIt<BlockItemStore<any>>(b => b.withBatch, "rejects with the same error if the callback rejects", async () => {
-        const doh = new Error("Oh no!");
-        expect(
-            store.withBatch(async () => {
-                throw doh;
-            })
-        ).to.be.rejectedWith(doh);
-    });
+    fnIt<BlockItemStore<any>>(
+        b => b.withBatch,
+        "rejects with the same error if the callback rejects",
+        async () => {
+            const doh = new Error("Oh no!");
+            expect(
+                store.withBatch(async () => {
+                    throw doh;
+                })
+            ).to.be.rejectedWith(doh);
+        }
+    );
 
-    fnIt<BlockItemStore<any>>(b => b.withBatch, "rejects with ApplicationError if a batch was already open", async () => {
-        await store.withBatch(async () => {
-            expect(store.withBatch(async () => {})).to.be.rejectedWith(ApplicationError);
-        });
-    });
+    fnIt<BlockItemStore<any>>(
+        b => b.withBatch,
+        "timesout if a batch was already open",
+        async () => {
+            await store.withBatch(async () => {
+                const startTime = Date.now();
+                await Promise.race([store.withBatch(async () => {}), wait(1000)]);
 
-    fnIt<BlockItemStore<any>>(b => b.getBlocksAtHeight, "gets all the blocks at a specific height and correctly reads the `attached` property", async () => {
-        await addSampleData(store);
+                expect(Date.now() - startTime).to.be.greaterThan(1000)
+                expect(Date.now() - startTime).to.be.lessThan(2000)
+            });
+        }
+    );
 
-        // sort the returned elements, as order is not relevant
-        const result = store.getBlocksAtHeight(10).sort((a, b) => (a.block.hash < b.block.hash ? -1 : 1));
+    fnIt<BlockItemStore<any>>(
+        b => b.getBlocksAtHeight,
+        "gets all the blocks at a specific height and correctly reads the `attached` property",
+        async () => {
+            await addSampleData(store);
 
-        expect(result.length, "returns the right number of blocks").to.equal(2);
-        expect(result[0].block).to.deep.equal(block10a);
-        expect(result[0].attached).to.be.true;
-        expect(result[1].block).to.deep.equal(block10b);
-        expect(result[1].attached).to.be.false;
-    });
+            // sort the returned elements, as order is not relevant
+            const result = store.getBlocksAtHeight(10).sort((a, b) => (a.block.hash < b.block.hash ? -1 : 1));
 
-    fnIt<BlockItemStore<any>>(b => b.deleteItemsAtHeight, "deletes all the items at a specific height", async () => {
-        await addSampleData(store);
+            expect(result.length, "returns the right number of blocks").to.equal(2);
+            expect(result[0].block).to.deep.equal(block10a);
+            expect(result[0].attached).to.be.true;
+            expect(result[1].block).to.deep.equal(block10b);
+            expect(result[1].attached).to.be.false;
+        }
+    );
 
-        await store.withBatch(async () => store.deleteItemsAtHeight(10));
+    fnIt<BlockItemStore<any>>(
+        b => b.deleteItemsAtHeight,
+        "deletes all the items at a specific height",
+        async () => {
+            await addSampleData(store);
 
-        // Check that all items at height 10 return undefined, but all the others are not changed
-        expect(store.getItem(block10a.hash, "block")).to.be.undefined;
-        expect(store.getItem(block10a.hash, "attached")).to.be.undefined;
-        expect(store.getItem(block42.hash, "block")).to.deep.include(block42);
-        expect(store.getItem(block42.hash, "attached")).to.be.true;
-        expect(store.getItem(block10b.hash, "block")).to.be.undefined;
-        expect(store.getItem(block10b.hash, "attached")).to.be.undefined;
-    });
+            await store.withBatch(async () => store.deleteItemsAtHeight(10));
+
+            // Check that all items at height 10 return undefined, but all the others are not changed
+            expect(store.getItem(block10a.hash, "block")).to.be.undefined;
+            expect(store.getItem(block10a.hash, "attached")).to.be.undefined;
+            expect(store.getItem(block42.hash, "block")).to.deep.include(block42);
+            expect(store.getItem(block42.hash, "attached")).to.be.true;
+            expect(store.getItem(block10b.hash, "block")).to.be.undefined;
+            expect(store.getItem(block10b.hash, "attached")).to.be.undefined;
+        }
+    );
 
     it("actually persists items into the database", async () => {
         await addSampleData(store);

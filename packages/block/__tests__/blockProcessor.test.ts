@@ -252,7 +252,7 @@ describe("BlockProcessor", () => {
 
         const resNewHead = await newHeadPromise;
 
-        expect(newHeadCalledBeforeNewBlock, "did not emit new head before the BlockCaches's new block event").to.be.false;
+        expect(newHeadCalledBeforeNewBlock, "did emit new head before the BlockCaches's new block event").to.be.false;
 
         return expect(resNewHead).to.deep.equal({ number: 5, hash: "a5" });
     });
