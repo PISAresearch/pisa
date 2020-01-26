@@ -114,8 +114,8 @@ export class PisaService extends StartStopService {
         );
 
         this.actionStore = new CachedKeyValueStore<ComponentAction>(db, "blockchain-machine");
-
         this.blockchainMachine = new BlockchainMachineService<Block>(this.blockProcessor, this.actionStore, this.blockItemStore, [watcher, responder]);
+
         // tower
         const tower = new PisaTower(this.appointmentStore, receiptWallet, multiResponder, blockCache, config.pisaContractAddress);
 

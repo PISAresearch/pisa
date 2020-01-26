@@ -2,7 +2,7 @@ import { ApplicationError } from "@pisa-research/errors";
 import { IBlockStub, BlockAndAttached } from "./block";
 import { LevelUp, LevelUpChain } from "levelup";
 import EncodingDown from "encoding-down";
-import { StartStopService } from "@pisa-research/utils";
+import { StartStopService, Lock } from "@pisa-research/utils";
 import { AnchorState } from "./component";
 const sub = require("subleveldown");
 
@@ -151,6 +151,10 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
         }
     }
 
+    // we should lock during a batch, so that batches being taken out by
+    // different process wait behind each other
+    private batchLock = new Lock();
+
     /**
      * Executes a sequence with write access to the db. All writes are effective in memory immediately, but they are only written to disk
      * atomically at the end of the sequence.
@@ -162,11 +166,13 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
      * @throws ApplicationError if there is already an open batch that did not yet close.
      */
     public async withBatch<TReturn>(callback: () => Promise<TReturn>) {
-        if (this.mBatch) {
-            throw new ApplicationError("There is already an open batch.");
-        }
-
         try {
+            await this.batchLock.acquire()
+
+            if (this.mBatch) {
+                throw new ApplicationError("There is already an open batch.");
+            }
+
             this.mBatch = this.subDb.batch();
 
             const callBackResult = await callback();
@@ -176,6 +182,7 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
             return callBackResult;
         } finally {
             this.mBatch = null;
+            await this.batchLock.release()
         }
     }
 }
