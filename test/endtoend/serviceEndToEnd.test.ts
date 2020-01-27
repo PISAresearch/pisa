@@ -326,6 +326,8 @@ describe("Service end-to-end", () => {
     it("cannot get an appointment in the past", async () => {
         const getRequestBlockNumber = await provider.getBlockNumber();
         await mineBlocks(10, wallet0);
+        const minedBlocks = await provider.getBlockNumber();
+        expect(minedBlocks).to.be.eq(getRequestBlockNumber + 10);
         return expect(pisaClient.getAppointmentsByCustomer(digest => wallet0.signMessage(arrayify(digest)), account0, getRequestBlockNumber)).to.eventually.be
             .rejected;
     }).timeout(3000);
