@@ -76,8 +76,6 @@ describe("Integration", function() {
             dbDir: "db",
             hostName: "0.0.0.0",
             hostPort: pisaPort,
-            loglevel: "info",
-            instanceName: "docker-pisa",
             jsonRpcUrl: `http://${parity.name}:${parityPort}`,
             responderKey: KeyStore.theKeyStore.account1.wallet.privateKey,
             receiptKey: KeyStore.theKeyStore.account1.wallet.privateKey,
