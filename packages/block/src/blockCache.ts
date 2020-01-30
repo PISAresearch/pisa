@@ -175,6 +175,12 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
                 this.blockStore.attached.set(block.number, block.hash, true);
                 await this.newBlock.emit(block);
 
+                if (this.mIsEmpty) {
+                    // First block added, store its height, so blocks before this point will not be stored.
+                    this.pruneHeight = block.number;
+                    this.mIsEmpty = false;
+                }
+
                 // If the maximum block height increased, we might have to prune some old info
                 await this.updateMaxHeightAndPrune(block.number);
 
@@ -184,11 +190,7 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
                 // If the minHeight increased, this could also make some detached blocks ready to be attached
                 // This makes sure that they are attached if necessary
                 await this.processDetachedBlocksAtMinHeight();
-                if (this.mIsEmpty) {
-                    // First block added, store its height, so blocks before this point will not be stored.
-                    this.pruneHeight = block.number;
-                    this.mIsEmpty = false;
-                }
+
                 return BlockAddResult.Added;
             } else {
                 this.blockStore.block.set(block.number, block.hash, block);

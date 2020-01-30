@@ -1,5 +1,5 @@
 import { ethers } from "ethers";
-import { StartStopService } from "@pisa-research/utils";
+import { StartStopService, Lock } from "@pisa-research/utils";
 import { ReadOnlyBlockCache, BlockCache, BlockAddResult } from "./blockCache";
 import { IBlockStub, Block, TransactionHashes } from "./block";
 import { BlockItemStore } from "./blockItemStore";
@@ -112,9 +112,6 @@ export class BlockProcessorStore {
  * and its ancestors before the corresponding "new head" event).
  */
 export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService {
-    // keeps track of the last block hash received, in order to correctly emit NEW_HEAD_EVENT; null on startup
-    private lastBlockHashReceived: string | null;
-
     private mBlockCache: BlockCache<TBlock>;
 
     /**
@@ -163,7 +160,7 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
     protected async startInternal(): Promise<void> {
         // Make sure the current head block is processed
         const currentHead = (await this.store.getLatestHeadNumber()) || (await this.provider.getBlockNumber());
-        await this.processBlockNumber(currentHead, true);
+        await this.processBlockNumber(currentHead);
         this.provider.on("block", this.processBlockNumber);
 
         // After startup, `newBlock` events of the BlockCache are proxied
@@ -231,12 +228,17 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
             return await this.mBlockCache.addBlock(block);
         });
     }
+
+    private processorLock = new Lock();
+
     // Processes a new block, adding it to the cache and emitting the appropriate events
     // It is called for each new block received, but also at startup (during startInternal).
-    private async processBlockNumber(observedBlockNumber: number, initialising?: boolean) {
+    private async processBlockNumber(observedBlockNumber: number) {
         try {
+            await this.processorLock.acquire();
+
             let shouldProcessHead; // whether to process a new head
-            let processingBlockNumber: number; // the block processed in this batch; will be equal to blockNumber on the last batch
+            let processingBlockNumber: number = this.mBlockCache.isEmpty ? observedBlockNumber : this.blockCache.head.number; // initialise the processing number
             let processingBlock: TBlock; // the block the provider returned for height processingBlockNumber
             do {
                 // As the block hash we receive when we query the provider by block number is not guaranteed to be the same on multiple calls
@@ -244,14 +246,10 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
                 // then we proceed backwards using the parentHash to get enough ancestors until we can attach to the BlockCache.
                 // We split the processing in batches of at most blockCache.maxDepth blocks, in order to avoid keeping a very large number of blocks in memory.
                 // It should be only one batch under normal circumstances, but we might fall behing more, for example, if Pisa crashed and there was some downtime.
-
-                processingBlockNumber =
-                    this.mBlockCache.isEmpty || initialising
-                        ? observedBlockNumber // if cache is empty, process just the current block
-                        : Math.min(observedBlockNumber, this.blockCache.head.number + this.blockCache.maxDepth); // otherwise, download a batch of blocks (up to blockNumber)
-
+                
+                // the block processed in this batch; will be equal to blockNumber on the last batch
+                processingBlockNumber = Math.min(processingBlockNumber + this.blockCache.maxDepth, observedBlockNumber);
                 processingBlock = await this.getBlockRemote(processingBlockNumber);
-                if (processingBlockNumber === observedBlockNumber) this.lastBlockHashReceived = processingBlock.hash;
 
                 // starting from observedBlock, add to the cache and download the parent, until the return value signals that block is attached
                 let curBlock = processingBlock;
@@ -308,16 +306,16 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
                 }
             } while (processingBlockNumber !== observedBlockNumber);
 
-            // always process the head if we're initialising
-            if (initialising) shouldProcessHead = true;
             // is the observed block still the last block received (or the first block, during startup)?
             // and was the block added to the cache?
-            if (shouldProcessHead && this.lastBlockHashReceived === processingBlock.hash) {
+            if (shouldProcessHead || this.mBlockCache.isEmpty) {
                 await this.processNewHead(processingBlock);
             }
         } catch (doh) {
             if (doh instanceof BlockFetchingError) this.logger.info(doh);
             else this.logger.error(doh);
+        } finally {
+            await this.processorLock.release();
         }
     }
 }
