@@ -9,11 +9,9 @@ describe("ConfigManager", () => {
             hostName: "0.0.0.0",
             hostPort: 4567,
             jsonRpcUrl: "http://localhost:8545",
-            loglevel: "info",
             responderKey: "0x6370fd033278c143179d81c5526140625662b8daa446c22ee2d73db3707e620c",
             receiptKey: "0x6370fd033278c143179d81c5526140625662b8daa446c22ee2d73db3707e620c",
             pisaContractAddress: "0x3deA9963BF4c1a3716025dE8AE05a5caC66db46E",
-            instanceName: "test-instance",
 
             rateLimitGlobalMax: 100,	
             rateLimitGlobalMessage: "Test global message",	

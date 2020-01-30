@@ -23,7 +23,7 @@ import {
 } from "@pisa-research/block";
 import { LevelUp } from "levelup";
 import encodingDown from "encoding-down";
-import { Logger, StartStopService } from "@pisa-research/utils";
+import { StartStopService, Logger } from "@pisa-research/utils";
 import path from "path";
 import rateLimit from "express-rate-limit";
 import uuid = require("uuid/v4");
@@ -31,6 +31,7 @@ import { BigNumber } from "ethers/utils";
 import swaggerDoc from "./swagger-doc.json";
 import favicon from "serve-favicon";
 import cors from "cors";
+
 
 /**
  * Request object supplemented with a log

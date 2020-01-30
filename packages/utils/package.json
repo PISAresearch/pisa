@@ -48,7 +48,7 @@
   },
   "dependencies": {
     "@pisa-research/errors": "file:../errors",
-    "bunyan": "^1.8.12"
+    "pino": "^5.16.0"
   },
   "gitHead": "29ffe15d987791c7297845edc99b5a4abbb56ce1"
 }

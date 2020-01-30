@@ -1,4 +1,6 @@
 export { Lock, LockManager } from "./lock";
-export { logger, LogLevel, LogLevelInfo, Logger, createNamedLogger, initialise } from "./logger";
+import { logger } from "./logger";
+type Logger = typeof logger;
+export { logger, Logger };
 export { MapOfSets } from "./mapSet";
 export { StartStopService } from "./startStop";

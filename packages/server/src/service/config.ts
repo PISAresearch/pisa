@@ -1,6 +1,5 @@
 import config from "../config.json";
 import yargs from "yargs";
-import { LogLevel, LogLevelInfo } from "@pisa-research/utils";
 
 export interface IArgConfig {
     jsonRpcUrl: string;
@@ -8,12 +7,10 @@ export interface IArgConfig {
     hostPort: number;
     responderKey: string;
     receiptKey: string;
-    loglevel: string;
     dbDir: string;
     watcherResponseConfirmations?: number;
     maximumReorgLimit?: number;
     pisaContractAddress: string;
-    instanceName: string;
 
     rateLimitUserWindowMs?: number;
     rateLimitUserMax?: number;
@@ -38,7 +35,12 @@ export class ConfigManager {
         let commandLineConfig = yargs
             .scriptName("pisa")
             .usage("$0 [args]")
-            .help();
+            .help()
+            .option("name", {
+                description: "Instance name",
+                string: true,
+                default: "not-set"
+            });
 
         // add each of the props
         this.properties.forEach(p => (commandLineConfig = commandLineConfig.option(p.commandLineName, p.yargConfig)));
@@ -68,14 +70,8 @@ export class ConfigManager {
     public getConfig() {
         const fromCommandLine = this.fromCommandLineArgs(process.argv);
         const returnConfig = Object.assign(config, fromCommandLine);
-        this.checkLogLevel(returnConfig.loglevel);
         this.checkRateLimits(returnConfig);
         return returnConfig;
-    }
-
-    private checkLogLevel(logLevel: string) {
-        const logLevelInfo = LogLevelInfo.tryParse(logLevel);
-        if (!logLevelInfo) throw new Error("Option 'loglevel' can only be one of the following: " + Object.values(LogLevel).join(", "));
     }
 
     private checkRateLimits(args: IArgConfig) {
@@ -119,10 +115,6 @@ export class PisaConfigManager extends ConfigManager {
             description: "Database directory",
             string: true
         }),
-        new ConfigProperty("loglevel", config => config.loglevel, {
-            description: "Verbosity of the logs. Accepted values by increasing verbosity: " + Object.values(LogLevel).join(", "),
-            string: true
-        }),
         new ConfigProperty("maximum-reorg-limit", config => config.maximumReorgLimit, {
             description: "The maximum depth of reorg that the application can handle. Eg. 100. Max is 200.",
             number: true
@@ -135,11 +127,6 @@ export class PisaConfigManager extends ConfigManager {
             description: "The on-chain address of the PISA contract.",
             string: true
         }),
-        new ConfigProperty("instance-name", config => config.instanceName, {
-            description: "A configurable name for this watchtower instance.",
-            string: true
-        }),
-
         new ConfigProperty("rate-limit-user-window-ms", config => config.rateLimitUserWindowMs, {
             description: "Size of the per-user rate limit window in milliseconds",
             number: true

@@ -5,13 +5,13 @@
     "description": "Arbitration Outsourcing for State Channels",
     "main": "packages/server/lib/index.js",
     "scripts": {
-        "bootstrap": "lerna bootstrap --hoist",
         "build": "lerna run build",
         "build-autominer": "cd build/raiden_demo/autominer && npm install && npm run build",
         "build-raiden-pisa-daemon": "cd build/raiden_demo/raiden-pisa-daemon && npm install && npm run build",
         "clean": "lerna clean && rm -rf node_modules && rm -rf packages/*/lib && rm -rf packages/contracts/build",
         "contracts-build": "(cd packages/contracts && npm run build)",
         "contracts-test": "(cd packages/contracts && npm run test)",
+        "start": "ts-node ./packages/server/src/index.ts",
         "lint": "eslint --ext ts .",
         "package-publish": "lerna publish from-package",
         "package-publish-dev": "lerna publish from-package --dist-tag dev",
@@ -62,12 +62,12 @@
         "@pisa-research/errors": "file:packages/errors",
         "@pisa-research/server": "file:packages/server",
         "@pisa-research/test-utils": "file:packages/test-utils",
-        "@pisa-research/utils": "file:packages/utils"
+        "@pisa-research/utils": "file:packages/utils",
+        "yargs": "^15.1.0"
     },
     "devDependencies": {
         "@istanbuljs/nyc-config-typescript": "^0.1.3",
         "@types/ajv": "^1.0.0",
-        "@types/bunyan": "^1.8.6",
         "@types/chai": "^4.1.6",
         "@types/chai-as-promised": "^7.1.0",
         "@types/cls-hooked": "^4.3.0",
@@ -83,6 +83,7 @@
         "@types/memdown": "^3.0.0",
         "@types/mocha": "^5.2.5",
         "@types/node": "^12.0.0",
+        "@types/pino": "^5.15.3",
         "@types/request-promise": "^4.1.42",
         "@types/rwlock": "^5.0.2",
         "@types/serve-favicon": "^2.2.31",

@@ -1,6 +1,7 @@
 import { ConfigurationError } from "@pisa-research/errors";
-import { createNamedLogger, Logger } from "./logger";
+import { logger } from "./logger";
 import { EventEmitter } from "events";
+import { Logger } from ".";
 
 /**
  * A service that requires starting and stopping.
@@ -34,12 +35,10 @@ export abstract class StartStopService extends EventEmitter {
         super();
 
         if (!/^[a-z0-9\-]+$/.test(name)) {
-            throw new ConfigurationError(
-                `"${name}" is not a valid service name: it must only contain lowercase letters, numbers and hyphens.`
-            );
+            throw new ConfigurationError(`"${name}" is not a valid service name: it must only contain lowercase letters, numbers and hyphens.`);
         }
 
-        this.logger = createNamedLogger(name);
+        this.logger = logger.child({ component: name });
     }
     private mStarted: boolean = false;
     public get started() {
