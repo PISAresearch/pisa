@@ -240,6 +240,10 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
             let shouldProcessHead; // whether to process a new head
             let processingBlockNumber: number = this.mBlockCache.isEmpty ? observedBlockNumber : this.blockCache.head.number; // initialise the processing number
             const wasEmpty = this.mBlockCache.isEmpty;
+
+            const blockGap = observedBlockNumber - processingBlockNumber;
+            if(blockGap > 100) this.logger.info({ gap: observedBlockNumber - processingBlockNumber, observedBlockNumber, processingBlockNumber }, "Processing large block gap.")
+
             let processingBlock: TBlock; // the block the provider returned for height processingBlockNumber
             do {
                 // As the block hash we receive when we query the provider by block number is not guaranteed to be the same on multiple calls
@@ -312,6 +316,8 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
             if (shouldProcessHead || wasEmpty) {
                 await this.processNewHead(processingBlock);
             }
+
+            if(blockGap > 100) this.logger.info({ gap: observedBlockNumber - processingBlockNumber, observedBlockNumber, processingBlockNumber }, "Finished processing large block gap.")
         } catch (doh) {
             if (doh instanceof BlockFetchingError) this.logger.info(doh);
             else this.logger.error(doh);
