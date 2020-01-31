@@ -239,6 +239,7 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
 
             let shouldProcessHead; // whether to process a new head
             let processingBlockNumber: number = this.mBlockCache.isEmpty ? observedBlockNumber : this.blockCache.head.number; // initialise the processing number
+            const wasEmpty = this.mBlockCache.isEmpty;
             let processingBlock: TBlock; // the block the provider returned for height processingBlockNumber
             do {
                 // As the block hash we receive when we query the provider by block number is not guaranteed to be the same on multiple calls
@@ -307,8 +308,8 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
             } while (processingBlockNumber !== observedBlockNumber);
 
             // is the observed block still the last block received (or the first block, during startup)?
-            // and was the block added to the cache?
-            if (shouldProcessHead || this.mBlockCache.isEmpty) {
+            // and was the block added to the cache? We always process the head if the cache was empty
+            if (shouldProcessHead || wasEmpty) {
                 await this.processNewHead(processingBlock);
             }
         } catch (doh) {
