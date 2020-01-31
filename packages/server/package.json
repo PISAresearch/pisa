@@ -1,6 +1,6 @@
 {
     "name": "@pisa-research/server",
-    "version": "0.1.19",
+    "version": "0.1.20",
     "description": "Arbitration Outsourcing for State Channels",
     "homepage": "https://github.com/PISAresearch/pisa/tree/master/packages/server#readme",
     "license": "ISC",
