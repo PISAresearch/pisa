@@ -49,7 +49,7 @@ export class CachedKeyValueStore<TValue> extends StartStopService {
             else this.items.set(key, new Set([itemWithId]));
         }
 
-        this.logger.info({ itemsCount: this.items.size }, "Store stopped.");
+        this.logger.info({ itemsCount: this.items.size }, "Store started.");
     }
     protected async stopInternal() {
         this.logger.info({ itemsCount: this.items.size }, "Store stopped.");
