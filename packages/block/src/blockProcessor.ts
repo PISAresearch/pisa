@@ -172,6 +172,7 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
     protected async stopInternal(): Promise<void> {
         this.mBlockCache.newBlock.removeListener(this.processNewBlock);
         this.provider.removeListener("block", this.processBlockNumber);
+        this.logger.info({ currentHeadNumber: await this.store.getLatestHeadNumber() }, "Blockprocessor stopped.");
     }
 
     // proxies the newBlock event from the cache from the moment startup is complete
@@ -242,7 +243,7 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
             const wasEmpty = this.mBlockCache.isEmpty;
 
             const blockGap = observedBlockNumber - processingBlockNumber;
-            if(blockGap > 100) this.logger.info({ gap: observedBlockNumber - processingBlockNumber, observedBlockNumber, processingBlockNumber }, "Processing large block gap.")
+            if (blockGap > 100) this.logger.info({ gap: observedBlockNumber - processingBlockNumber, observedBlockNumber, processingBlockNumber }, "Processing large block gap."); //prettier-ignore
 
             let processingBlock: TBlock; // the block the provider returned for height processingBlockNumber
             do {
@@ -251,7 +252,7 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
                 // then we proceed backwards using the parentHash to get enough ancestors until we can attach to the BlockCache.
                 // We split the processing in batches of at most blockCache.maxDepth blocks, in order to avoid keeping a very large number of blocks in memory.
                 // It should be only one batch under normal circumstances, but we might fall behing more, for example, if Pisa crashed and there was some downtime.
-                
+
                 // the block processed in this batch; will be equal to blockNumber on the last batch
                 processingBlockNumber = Math.min(processingBlockNumber + this.blockCache.maxDepth, observedBlockNumber);
                 processingBlock = await this.getBlockRemote(processingBlockNumber);
@@ -317,7 +318,7 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
                 await this.processNewHead(processingBlock);
             }
 
-            if(blockGap > 100) this.logger.info({ gap: observedBlockNumber - processingBlockNumber, observedBlockNumber, processingBlockNumber }, "Finished processing large block gap.")
+            if (blockGap > 100) this.logger.info({ gap: observedBlockNumber - processingBlockNumber, observedBlockNumber, processingBlockNumber }, "Finished processing large block gap."); //prettier-ignore
         } catch (doh) {
             if (doh instanceof BlockFetchingError) this.logger.info(doh);
             else this.logger.error(doh);
