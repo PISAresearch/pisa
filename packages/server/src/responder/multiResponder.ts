@@ -101,7 +101,7 @@ export class MultiResponder {
 
             await Promise.all(replacedTransactions.map(b => this.broadcast(b)));
         } catch (doh) {
-            logger.error(doh);
+            logger.error({ err: doh }, "Error starting response.");
 
             // we rethrow to the public if this item is already enqueued.
             if (doh instanceof GasQueueError && doh.kind === GasQueueErrorKind.AlreadyAdded) {
@@ -170,7 +170,7 @@ export class MultiResponder {
             // we can just assume so may fail in a race condition
             if (replacedTransactions) await Promise.all(replacedTransactions.map(b => this.broadcast(b)));
         } catch (doh) {
-            logger.error(doh);
+            logger.error({ err: doh }, "Error mining tx.");
         }
     }
 
@@ -226,7 +226,7 @@ export class MultiResponder {
             // error. Periodically, we look to see if a transaction has been mined
             // for whatever reason if not then we'll need to re-issue the transaction
             // anyway
-            logger.error(doh);
+            logger.error({ err: doh }, "Error broadcasting tx.");
         }
     }
 

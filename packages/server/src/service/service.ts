@@ -173,7 +173,7 @@ export class PisaService extends StartStopService {
         await this.blockItemStore.stop();
 
         this.server.close(error => {
-            if (error) this.logger.error(error);
+            if (error) this.logger.error({ err: error }, "Error shutting down server.");
             this.logger.info(`Shutdown.`);
         });
     }
@@ -367,7 +367,7 @@ class Authenticator {
         try {
             recoveredAddress = ethers.utils.verifyMessage(ethers.utils.arrayify("0x" + blockNumber.toString(16)), signature);
         } catch (doh) {
-            this.logger.error(doh);
+            this.logger.error({ err: doh }, "Error authenticating.");
             throw new PublicDataValidationError("Invalid x-auth-sig header.");
         }
         if (recoveredAddress !== customerAddress) throw new PublicDataValidationError("Signing key does not match customer address.");

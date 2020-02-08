@@ -43,6 +43,6 @@ export const logger = pino({
         req: stdSerializers.req
     },
     name: args.name,
-    enabled
+    enabled,
 });
 if(!args.help && args.name === "not-set") logger.warn("Instance name not set. Set this via the --name command line argument.")

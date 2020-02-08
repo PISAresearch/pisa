@@ -311,7 +311,7 @@ export class Appointment {
             try {
                 ethers.utils.getAddress(this.eventAddress);
             } catch (doh) {
-                logger.info(doh);
+                logger.info({ err: doh }, "Error parsing address.");
                 throw new PublicDataValidationError(`Invalid eventAddress: ${this.eventAddress}`); // prettier-ignore
             }
 
