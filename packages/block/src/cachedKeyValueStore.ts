@@ -48,22 +48,20 @@ export class CachedKeyValueStore<TValue> extends StartStopService {
             if (keyValues) keyValues.add(itemWithId);
             else this.items.set(key, new Set([itemWithId]));
         }
-
-        const logParams = Array.from(this.items.keys()).map(k => {
-            const values = this.items.get(k);
-            return { key: k, count: values ? values.size : 0 };
-        });
-
-        this.logger.info({ items: logParams }, "Store started.");
+this.logItemStats("Store started.")
     }
-    
-    protected async stopInternal() {
+
+    private logItemStats(message: string) {
         const logParams = Array.from(this.items.keys()).map(k => {
             const values = this.items.get(k);
             return { key: k, count: values ? values.size : 0 };
         });
 
-        this.logger.info({ items: logParams }, "Store stopped.");
+        this.logger.info({ items: logParams }, message);
+    }
+
+    protected async stopInternal() {
+        this.logItemStats("Store stopped.")
     }
 
     /** Returns all the items stored for `key`. */
