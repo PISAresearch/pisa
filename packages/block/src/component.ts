@@ -1,18 +1,16 @@
+import { PlainObject } from "@pisa-research/utils";
 import { IBlockStub } from "./block";
 
 /**
  * Anchor state is derived from new blocks. If the block an anchor state is associated
  * with is reverted, then so is the anchor state
  */
-export interface AnchorState {
-    // although an empty interface provides no type safety, it does help to provide
-    // some semantic meaning when using this type as a generic constraint
-}
+export type AnchorState = PlainObject;
 
 /**
  * A base for object that define the initial anchor state and the changes in state when a new block is processed.
  */
-export interface StateReducer<TState extends AnchorState, TBlock extends IBlockStub> {
+export interface StateReducer<TState extends AnchorState, TBlock extends IBlockStub & PlainObject> {
     /**
      * Populates an initial anchor state. The result returned from here should be
      * indistinguishable from starting at the genesis block and calling reduce()
@@ -20,7 +18,7 @@ export interface StateReducer<TState extends AnchorState, TBlock extends IBlockS
      * this function may be expensive.
      * @param block
      */
-    getInitialState(block: TBlock): Promise<TState> | TState;
+    getInitialState(block: TBlock & PlainObject): Promise<TState>;
 
     /**
      * Computes the next anchor state. Whilst we can compute any anchor state using getInitialState
@@ -29,22 +27,22 @@ export interface StateReducer<TState extends AnchorState, TBlock extends IBlockS
      * @param prevState 
      * @param block 
      */
-    reduce(prevState: TState, block: TBlock): Promise<TState> | TState;
+    reduce(prevState: TState, block: TBlock & PlainObject): Promise<TState>;
 }
 
 /**
  * Convenience type for a state derived from mapping strings (typically, an id) to a per-item state.
  */
 export type MappedState<TState extends AnchorState> = {
-    items: { [index: string]: TState };
-};
+    items: { [key: string]: TState };
+} & PlainObject;
 
 /**
  * A utility class to apply a reducer to each object of a set of objects that contains a string `id` field.
  * Each object is used to generate an individual reducer (here referred as "base reducer"), and this class combines them
  * to obtain a bigger anchor state as a map indexed by the same `id`.
  */
-export class MappedStateReducer<TState extends AnchorState, TMappedState extends AnchorState, TBlock extends IBlockStub, TMappedType extends AnchorState>
+export class MappedStateReducer<TState extends AnchorState, TMappedState extends AnchorState, TBlock extends IBlockStub & PlainObject, TMappedType extends AnchorState>
     implements StateReducer<MappedState<TMappedState>, TBlock> {
     /**
      * Creates a new reducer for the given collection of objects.
@@ -110,7 +108,7 @@ export interface ComponentAction {
 /**
  * A `Component` contains a state reducer and receives and processes the state changes after being added to a `BlockchainMachine`.
  */
-export abstract class Component<TState extends AnchorState, TBlock extends IBlockStub, TAction extends ComponentAction> {
+export abstract class Component<TState extends AnchorState, TBlock extends IBlockStub & PlainObject, TAction extends ComponentAction> {
     constructor(public readonly reducer: StateReducer<TState, TBlock>) {}
     /**
      * Triggers side effects specified by the actions
@@ -132,21 +130,21 @@ export abstract class Component<TState extends AnchorState, TBlock extends IBloc
     public abstract readonly name: string;
 }
 
-export interface BlockNumberState {
+export type BlockNumberState = {
     blockNumber: number;
-}
+};
 
 /**
  * Selects the block number from the provided block
  */
-export class BlockNumberReducer implements StateReducer<BlockNumberState, IBlockStub> {
-    public getInitialState(block: IBlockStub) {
+export class BlockNumberReducer implements StateReducer<BlockNumberState, IBlockStub & PlainObject> {
+    public async getInitialState(block: IBlockStub) {
         return {
             blockNumber: block.number
         };
     }
 
-    public reduce(prevState: BlockNumberState, block: IBlockStub) {
+    public async reduce(prevState: BlockNumberState, block: IBlockStub) {
         return {
             blockNumber: block.number
         };

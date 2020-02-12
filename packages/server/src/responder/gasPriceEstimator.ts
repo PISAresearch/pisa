@@ -1,7 +1,8 @@
-import { ArgumentError } from "@pisa-research/errors"
-import { IBlockStub ,ReadOnlyBlockCache } from "@pisa-research/block"
-import { BigNumber } from "ethers/utils";
 import { ethers } from "ethers";
+import { BigNumber } from "ethers/utils";
+import { PlainObject } from "@pisa-research/utils";
+import { ArgumentError } from "@pisa-research/errors"
+import { IBlockStub, ReadOnlyBlockCache } from "@pisa-research/block"
 
 export class GasPriceEstimator {
     /**
@@ -13,7 +14,7 @@ export class GasPriceEstimator {
      */
     public constructor(
         private readonly provider: ethers.providers.Provider,
-        private readonly blockCache: ReadOnlyBlockCache<IBlockStub>
+        private readonly blockCache: ReadOnlyBlockCache<IBlockStub & PlainObject>
     ) {}
 
     /**

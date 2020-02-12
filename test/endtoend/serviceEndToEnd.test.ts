@@ -1,18 +1,23 @@
 import * as chai from "chai";
 import "mocha";
 import chaiAsPromised from "chai-as-promised";
-import { KitsuneTools } from "../external/kitsune/tools";
-import { ethers } from "ethers";
-import { arrayify, BigNumber } from "ethers/utils";
-import { PisaService } from "../../packages/server/src/service/service";
-import config from "../../packages/server/src/service/config";
-import Ganache from "ganache-core";
 import levelup, { LevelUp } from "levelup";
 import MemDown from "memdown";
 import encodingDown from "encoding-down";
+
+import { ethers } from "ethers";
+import { arrayify, BigNumber } from "ethers/utils";
+import Ganache from "ganache-core";
+
+import { PlainObject } from "@pisa-research/utils";
+
+import { KitsuneTools } from "../external/kitsune/tools";
+import { PisaService } from "../../packages/server/src/service/service";
+import config from "../../packages/server/src/service/config";
 import { deployPisa } from "../../packages/server/__tests__/utils/contract";
 import { wait, expectAsync } from "../../packages/test-utils/src";
 import PisaClient from "../../packages/client";
+
 chai.use(chaiAsPromised);
 
 const ganache = Ganache.provider({
@@ -43,7 +48,7 @@ describe("Service end-to-end", () => {
         hashState: string,
         disputePeriod: number,
         service: PisaService,
-        db: LevelUp<encodingDown<string, any>>,
+        db: LevelUp<encodingDown<string, PlainObject>>,
         pisaContractAddress: string,
         pisaClient: PisaClient;
 
@@ -51,7 +56,7 @@ describe("Service end-to-end", () => {
         const responderWallet = new ethers.Wallet(nextConfig.responderKey, provider);
 
         db = levelup(
-            encodingDown<string, any>(MemDown(), {
+            encodingDown<string, PlainObject>(MemDown(), {
                 valueEncoding: "json"
             })
         );

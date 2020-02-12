@@ -3,7 +3,7 @@ import { ethers } from "ethers";
 import { PublicDataValidationError } from "@pisa-research/errors";
 import { SignedAppointment, AppointmentMode, Appointment } from "../dataEntities/appointment";
 import { MultiResponder } from "../responder";
-import { Logger } from "@pisa-research/utils";
+import { Logger, PlainObject } from "@pisa-research/utils";
 import { ReadOnlyBlockCache, IBlockStub } from "@pisa-research/block";
 
 /**
@@ -14,7 +14,7 @@ export class PisaTower {
         private readonly store: AppointmentStore,
         private readonly appointmentSigner: ethers.Wallet,
         private readonly multiResponder: MultiResponder,
-        private readonly blockCache: ReadOnlyBlockCache<IBlockStub>,
+        private readonly blockCache: ReadOnlyBlockCache<IBlockStub & PlainObject>,
         private readonly pisaContractAddress: string
     ) {}
 

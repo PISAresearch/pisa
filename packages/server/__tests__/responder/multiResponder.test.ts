@@ -13,6 +13,7 @@ import { BigNumber } from "ethers/utils";
 import { ArgumentError } from "@pisa-research/errors";
 import { PisaTransactionIdentifier, GasQueue } from "../../src/responder/gasQueue";
 import { MultiResponder, GasPriceEstimator, ResponderStore } from "../../src/responder";
+import { PlainObject } from "@pisa-research/utils";
 
 chai.use(chaiAsPromised);
 
@@ -62,7 +63,7 @@ describe("MultiResponder", () => {
         when(errorGasEstimatorMock.estimate(anything())).thenThrow(new Error("Gas test error"));
         errorGasPriceEstimator = throwingInstance(errorGasEstimatorMock);
 
-        db = LevelUp(EncodingDown<string, any>(MemDown(), { valueEncoding: "json" }));
+        db = LevelUp(EncodingDown<string, PlainObject>(MemDown(), { valueEncoding: "json" }));
         const seedQueue = new GasQueue([], 0, replacementRate, maxConcurrentResponses);
         store = new ResponderStore(db, "address", seedQueue);
         responderStoreMock = spy(store);

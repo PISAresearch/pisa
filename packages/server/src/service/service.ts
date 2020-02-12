@@ -23,7 +23,7 @@ import {
 } from "@pisa-research/block";
 import { LevelUp } from "levelup";
 import encodingDown from "encoding-down";
-import { StartStopService, Logger } from "@pisa-research/utils";
+import { StartStopService, Logger, PlainObject } from "@pisa-research/utils";
 import path from "path";
 import rateLimit from "express-rate-limit";
 import uuid = require("uuid/v4");
@@ -71,7 +71,7 @@ export class PisaService extends StartStopService {
         walletNonce: number,
         chainId: number,
         receiptWallet: ethers.Wallet,
-        db: LevelUp<encodingDown<string, any>>
+        db: LevelUp<encodingDown<string, PlainObject>>
     ) {
         super("service");
         const app = express();
@@ -307,7 +307,7 @@ export class PisaService extends StartStopService {
      * Get all the appointments for a given customer from the tower
      * @param appointmentStore
      */
-    private getAppointmentsByCustomer(appointmentStore: AppointmentStore, blockCache: ReadOnlyBlockCache<IBlockStub>) {
+    private getAppointmentsByCustomer(appointmentStore: AppointmentStore, blockCache: ReadOnlyBlockCache<IBlockStub & PlainObject>) {
         return this.handlerWrapper(async (req: requestAndLog) => {
             const customerAddress = PisaParameterParser.customerAddress(req);
             const authBlock = PisaHeaderParser.authBlock(req, blockCache);
@@ -387,7 +387,7 @@ class PisaHeaderParser {
     private static HEADER_AUTH_BLOCK = "x-auth-block";
     private static HEADER_AUTH_SIG = "x-auth-sig";
 
-    public static authBlock(req: requestAndLog, blockCache: ReadOnlyBlockCache<IBlockStub>) {
+    public static authBlock(req: requestAndLog, blockCache: ReadOnlyBlockCache<IBlockStub & PlainObject>) {
         // auth block
         const authBlockString = req.headers[PisaHeaderParser.HEADER_AUTH_BLOCK];
         if (authBlockString == undefined) throw new PublicDataValidationError("Missing header x-auth-block must contain recent block number.");

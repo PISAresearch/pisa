@@ -1,11 +1,12 @@
 import { ethers } from "ethers";
-import { StartStopService, Lock } from "@pisa-research/utils";
+import { Log } from "ethers/providers";
+import { LevelUp } from "levelup";
+import EncodingDown from "encoding-down";
+import { BlockFetchingError, ApplicationError, UnreachableCaseError } from "@pisa-research/errors";
+import { StartStopService, Lock, PlainObject } from "@pisa-research/utils";
 import { ReadOnlyBlockCache, BlockCache, BlockAddResult } from "./blockCache";
 import { IBlockStub, Block, TransactionHashes } from "./block";
 import { BlockItemStore } from "./blockItemStore";
-import { BlockFetchingError, ApplicationError, UnreachableCaseError } from "@pisa-research/errors";
-import { LevelUp } from "levelup";
-import EncodingDown from "encoding-down";
 import { BlockEvent } from "./event";
 const sub = require("subleveldown");
 
@@ -34,14 +35,14 @@ async function getBlockFromProvider(provider: ethers.providers.Provider, blockNu
 
 export const blockStubAndTxHashFactory = (provider: ethers.providers.Provider) => async (
     blockNumberOrHash: string | number
-): Promise<IBlockStub & TransactionHashes> => {
+): Promise<IBlockStub & PlainObject & TransactionHashes> => {
     const block = await getBlockFromProvider(provider, blockNumberOrHash);
 
     return {
         hash: block.hash,
         number: block.number,
         parentHash: block.parentHash,
-        transactionHashes: block.transactions
+        transactionHashes: block.transactions as string[]
     };
 };
 
@@ -53,9 +54,9 @@ export const blockFactory = (provider: ethers.providers.Provider) => async (bloc
         // (e.g.: only keep the logs from the DataRegistry).
         const logs = await provider.getLogs({
             blockHash: block.hash
-        });
+        }) as (Log & PlainObject)[];
 
-        const transactions = (block.transactions as any) as ethers.providers.TransactionResponse[];
+        const transactions = (block.transactions as any) as (ethers.providers.TransactionResponse & PlainObject)[];
         for (const tx of transactions) {
             // we should use chain id, but for some reason chain id is not present in transactions from ethersjs
             // therefore we fallback to network id when chain id is not present
@@ -66,7 +67,16 @@ export const blockFactory = (provider: ethers.providers.Provider) => async (bloc
             hash: block.hash,
             number: block.number,
             parentHash: block.parentHash,
-            transactions: transactions,
+            transactions: transactions.map(tx => ({
+                nonce: tx.nonce,
+                blockNumber: tx.blockNumber,
+                to: tx.to,
+                from: tx.from,
+                chainId: tx.chainId,
+                data: tx.data,
+                value: tx.value.toString(),
+                gasLimit: tx.gasLimit.toString()
+            })),
             transactionHashes: ((block.transactions as any) as ethers.providers.TransactionResponse[]).map(t => t.hash!),
             logs
         };
@@ -83,8 +93,8 @@ export const blockFactory = (provider: ethers.providers.Provider) => async (bloc
 };
 
 export class BlockProcessorStore {
-    private readonly subDb: LevelUp<EncodingDown<string, any>>;
-    constructor(db: LevelUp<EncodingDown<string, any>>) {
+    private readonly subDb: LevelUp<EncodingDown<string, PlainObject>>;
+    constructor(db: LevelUp<EncodingDown<string, PlainObject>>) {
         this.subDb = sub(db, `block-processor`, { valueEncoding: "json" });
     }
 
@@ -111,7 +121,7 @@ export class BlockProcessorStore {
  * the `blockCache` with the new block and its ancestors (thus, the BlockCache's "new block" event is always emitted for a block
  * and its ancestors before the corresponding "new head" event).
  */
-export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService {
+export class BlockProcessor<TBlock extends IBlockStub & PlainObject> extends StartStopService {
     private mBlockCache: BlockCache<TBlock>;
 
     /**

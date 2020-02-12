@@ -9,6 +9,7 @@ import { BigNumber } from "ethers/utils";
 
 import { ResponderStore } from "../../src/responder";
 import { GasQueue, GasQueueItemRequest, PisaTransactionIdentifier } from "../../src/responder/gasQueue";
+import { PlainObject } from "@pisa-research/utils";
 
 describe("ResponderStore", () => {
     const responderAddress = "address";
@@ -23,10 +24,10 @@ describe("ResponderStore", () => {
         return new GasQueueItemRequest(createIdentifier(data), idealGas, id, 0);
     };
 
-    let db: LevelUp<EncodingDown<string, any>>;
+    let db: LevelUp<EncodingDown<string, PlainObject>>;
 
     beforeEach(() => {
-        db = levelup(EncodingDown<string, any>(MemDown(), { valueEncoding: "json" }));
+        db = levelup(EncodingDown<string, PlainObject>(MemDown(), { valueEncoding: "json" }));
     });
 
     fnIt<ResponderStore>(r => r.start, "correctly loads old state", async () => {

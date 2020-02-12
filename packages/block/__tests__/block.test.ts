@@ -6,6 +6,7 @@ import MemDown from "memdown";
 import { hasLogMatchingEventFilter, IBlockStub, Logs, BlockItemStore } from "../src";
 import { ArgumentError, ApplicationError } from "@pisa-research/errors";
 import { fnIt, wait } from "@pisa-research/test-utils";
+import { PlainObject } from "@pisa-research/utils";
 
 describe("hasLogMatchingEventFilter", () => {
     const address = "0x1234abcd";
@@ -53,7 +54,7 @@ describe("hasLogMatchingEventFilter", () => {
 
 describe("BlockItemStore", () => {
     let db: any;
-    let store: BlockItemStore<IBlockStub>;
+    let store: BlockItemStore<IBlockStub & PlainObject>;
 
     const sampleKey = "foo";
     const sampleValue = {
@@ -78,7 +79,7 @@ describe("BlockItemStore", () => {
 
     const sampleBlocks: IBlockStub[] = [block10a, block10b, block42];
 
-    async function addSampleData(bis: BlockItemStore<IBlockStub>) {
+    async function addSampleData(bis: BlockItemStore<IBlockStub & PlainObject>) {
         await store.withBatch(async () => {
             bis.putBlockItem(block10a.number, block10a.hash, "block", block10a);
             bis.putBlockItem(block10a.number, block10a.hash, "attached", true);
@@ -91,9 +92,9 @@ describe("BlockItemStore", () => {
 
     beforeEach(async () => {
         db = LevelUp(
-            EncodingDown<string, any>(MemDown(), { valueEncoding: "json" })
+            EncodingDown<string, PlainObject>(MemDown(), { valueEncoding: "json" })
         );
-        store = new BlockItemStore<IBlockStub>(db);
+        store = new BlockItemStore<IBlockStub & PlainObject>(db);
         await store.start();
     });
 
@@ -184,7 +185,7 @@ describe("BlockItemStore", () => {
         await store.stop();
 
         // New store using the same db
-        const newStore = new BlockItemStore<IBlockStub>(db);
+        const newStore = new BlockItemStore<IBlockStub & PlainObject>(db);
         await newStore.start();
 
         // Check that all items still return the correct value for the new store

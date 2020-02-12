@@ -8,6 +8,7 @@ import encodingDown from "encoding-down";
 import { Appointment } from "../../src/dataEntities/appointment";
 import { ApplicationError } from "@pisa-research/errors";
 import { fnIt, expectAsync } from "@pisa-research/test-utils";
+import { PlainObject } from "@pisa-research/utils";
 chai.use(chaiAsPromised);
 
 const getAppointment = (id: string, endBlock: number, nonce: number) => {
@@ -33,11 +34,11 @@ const getAppointment = (id: string, endBlock: number, nonce: number) => {
 };
 
 describe("Store", () => {
-    let db: LevelUp<encodingDown<string, any>>, store: AppointmentStore;
+    let db: LevelUp<encodingDown<string, PlainObject>>, store: AppointmentStore;
 
     beforeEach(async () => {
         db = levelup(
-            encodingDown<string, any>(MemDown(), {
+            encodingDown<string, PlainObject>(MemDown(), {
                 valueEncoding: "json"
             })
         );

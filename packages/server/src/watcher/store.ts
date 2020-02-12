@@ -1,17 +1,19 @@
-import { ApplicationError } from "@pisa-research/errors";
-import { StartStopService, LockManager, MapOfSets } from "@pisa-research/utils";
 import { LevelUp } from "levelup";
-import { Appointment, IAppointment } from "../dataEntities/appointment";
 import EncodingDown from "encoding-down";
 const sub = require("subleveldown");
+
+import { ApplicationError } from "@pisa-research/errors";
+import { StartStopService, LockManager, MapOfSets, PlainObject } from "@pisa-research/utils";
+
+import { Appointment, IAppointment } from "../dataEntities/appointment";
 
 /**
  * Stores all appointments in memory and in the db. Has an inefficient processes for
  * determining expired appointments so this function should not be used in a loop.
  */
 export class AppointmentStore extends StartStopService {
-    private readonly subDb: LevelUp<EncodingDown<string, any>>;
-    constructor(db: LevelUp<EncodingDown<string, any>>) {
+    private readonly subDb: LevelUp<EncodingDown<string, PlainObject>>;
+    constructor(db: LevelUp<EncodingDown<string, PlainObject>>) {
         super("appointment-store");
         this.subDb = sub(db, `watcher`, { valueEncoding: "json" });
     }

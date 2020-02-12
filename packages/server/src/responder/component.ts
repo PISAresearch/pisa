@@ -1,8 +1,7 @@
-import { PisaTransactionIdentifier } from "./gasQueue";
+import { PisaTransactionIdentifier, PisaTransactionIdentifierSerialisation, GasQueueItem } from "./gasQueue";
 import {
     ReadOnlyBlockCache,
     Block,
-    ResponderBlock,
     MappedState,
     StateReducer,
     MappedStateReducer,
@@ -11,8 +10,9 @@ import {
     BlockNumberReducer
 } from "@pisa-research/block";
 import { MultiResponder } from "./multiResponder";
-import { logger } from "@pisa-research/utils";
+import { logger, PlainObject } from "@pisa-research/utils";
 import { UnreachableCaseError } from "@pisa-research/errors";
+import { BigNumber } from "ethers/utils";
 
 export enum ResponderStateKind {
     Pending = 1,
@@ -21,37 +21,37 @@ export enum ResponderStateKind {
 export type PendingResponseState = {
     appointmentId: string;
     kind: ResponderStateKind.Pending;
-    identifier: PisaTransactionIdentifier;
+    identifier: PisaTransactionIdentifierSerialisation;
 };
 export type MinedResponseState = {
     appointmentId: string;
     kind: ResponderStateKind.Mined;
-    identifier: PisaTransactionIdentifier;
+    identifier: PisaTransactionIdentifierSerialisation;
     blockMined: number;
     nonce: number;
 };
-export type ResponderAppointmentAnchorState = PendingResponseState | MinedResponseState;
+export type ResponderAppointmentAnchorState = PlainObject & (PendingResponseState | MinedResponseState);
 export type ResponderAnchorState = MappedState<ResponderAppointmentAnchorState> & BlockNumberState;
 
 /**
  * Selects information from blocks that are relevant to generating responses.
  */
-export class ResponderAppointmentReducer implements StateReducer<ResponderAppointmentAnchorState, ResponderBlock> {
+export class ResponderAppointmentReducer implements StateReducer<ResponderAppointmentAnchorState, Block> {
     public constructor(
-        private readonly blockCache: ReadOnlyBlockCache<ResponderBlock>,
+        private readonly blockCache: ReadOnlyBlockCache<Block>,
         private readonly identifier: PisaTransactionIdentifier,
         private readonly appointmentId: string,
         private readonly blockObserved: number,
         private readonly address: string
     ) {}
 
-    private txIdentifierInBlock(block: ResponderBlock, identifier: PisaTransactionIdentifier): { blockNumber: number; nonce: number } | null {
+    private txIdentifierInBlock(block: Block, identifier: PisaTransactionIdentifier): { blockNumber: number; nonce: number } | null {
         for (const tx of block.transactions) {
             // a contract creation - cant be of interest
             if (!tx.to) continue;
 
             // look for matching transactions
-            const txIdentifier = new PisaTransactionIdentifier(tx.chainId, tx.data, tx.to, tx.value, tx.gasLimit);
+            const txIdentifier = new PisaTransactionIdentifier(tx.chainId, tx.data, tx.to, new BigNumber(tx.value), new BigNumber(tx.gasLimit));
             if (txIdentifier.equals(identifier) && tx.from.toLowerCase() === this.address.toLowerCase()) {
                 return {
                     blockNumber: tx.blockNumber!,
@@ -74,7 +74,7 @@ export class ResponderAppointmentReducer implements StateReducer<ResponderAppoin
         return null;
     }
 
-    public getInitialState(block: ResponderBlock): ResponderAppointmentAnchorState {
+    public async getInitialState(block: Block): Promise<ResponderAppointmentAnchorState> {
         // find out the current state of a queue item by looking through all
         // the blocks in the block cache
         const minedTx = this.getMinedTransaction(block.hash, this.identifier);
@@ -84,21 +84,21 @@ export class ResponderAppointmentReducer implements StateReducer<ResponderAppoin
                 appointmentId: this.appointmentId,
                 kind: ResponderStateKind.Mined,
                 blockMined: minedTx.blockNumber,
-                identifier: this.identifier,
+                identifier: PisaTransactionIdentifier.serialise(this.identifier),
                 nonce: minedTx.nonce
             };
         } else {
             return {
                 appointmentId: this.appointmentId,
                 kind: ResponderStateKind.Pending,
-                identifier: this.identifier
+                identifier: PisaTransactionIdentifier.serialise(this.identifier)
             };
         }
     }
 
-    public reduce(prevState: ResponderAppointmentAnchorState, block: ResponderBlock): ResponderAppointmentAnchorState {
+    public async reduce(prevState: ResponderAppointmentAnchorState, block: Block): Promise<ResponderAppointmentAnchorState> {
         if (prevState.kind === ResponderStateKind.Pending) {
-            const transaction = this.txIdentifierInBlock(block, prevState.identifier);
+            const transaction = this.txIdentifierInBlock(block, PisaTransactionIdentifier.deserialise(prevState.identifier));
             if (transaction) {
                 return {
                     appointmentId: prevState.appointmentId,
@@ -127,7 +127,7 @@ export type ReEnqueueMissingItemsAction = {
 
 export type TxMinedAction = {
     readonly kind: ResponderActionKind.TxMined;
-    readonly identifier: PisaTransactionIdentifier;
+    readonly identifier: PisaTransactionIdentifierSerialisation;
     readonly nonce: number;
 };
 
@@ -152,9 +152,9 @@ export class MultiResponderComponent extends Component<ResponderAnchorState, Blo
     public constructor(private readonly responder: MultiResponder, blockCache: ReadOnlyBlockCache<Block>, private readonly confirmationsRequired: number) {
         super(
             new MappedStateReducer(
-                () => [...responder.transactions.values()],
-                item => new ResponderAppointmentReducer(blockCache, item.request.identifier, item.request.id, item.request.blockObserved, responder.address),
-                item => item.request.id,
+                () => [...responder.transactions.values()].map(gqi => GasQueueItem.serialise((gqi))),
+                item => new ResponderAppointmentReducer(blockCache, PisaTransactionIdentifier.deserialise(item.request.identifier), item.request.appointmentId, item.request.blockObserved, responder.address),
+                item => item.request.appointmentId,
                 new BlockNumberReducer()
             )
         );
@@ -226,7 +226,7 @@ export class MultiResponderComponent extends Component<ResponderAnchorState, Blo
                 await this.responder.reEnqueueMissingItems(action.appointmentIds);
                 break;
             case ResponderActionKind.TxMined:
-                await this.responder.txMined(action.identifier, action.nonce);
+                await this.responder.txMined(PisaTransactionIdentifier.deserialise(action.identifier), action.nonce);
                 break;
             case ResponderActionKind.EndResponse:
                 await this.responder.endResponse(action.appointmentId);

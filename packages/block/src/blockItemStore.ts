@@ -2,7 +2,7 @@ import { ApplicationError } from "@pisa-research/errors";
 import { IBlockStub, BlockAndAttached } from "./block";
 import { LevelUp, LevelUpChain } from "levelup";
 import EncodingDown from "encoding-down";
-import { StartStopService, Lock } from "@pisa-research/utils";
+import { StartStopService, Lock, PlainObject } from "@pisa-research/utils";
 import { AnchorState } from "./component";
 const sub = require("subleveldown");
 
@@ -15,7 +15,7 @@ const sub = require("subleveldown");
  * in the same `withBatch` call are either successfully written to the database, or not. This can be used to guarantee that the state that is
  * persisted in the database is always consistent, and can be therefore be used as a checkpoint to restart the application.
  */
-export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService {
+export class BlockItemStore<TBlock extends IBlockStub & PlainObject> extends StartStopService {
     // Keys used by the BlockCache
     /** Stores the content of the block. */
     private static KEY_BLOCK = "block";
@@ -30,16 +30,16 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
      * that was emitted as a "new head"; indexed by component. */
     private static KEY_PREV_EMITTED_STATE = "prevEmittedState";
 
-    private readonly subDb: LevelUp<EncodingDown<string, any>>;
-    constructor(db: LevelUp<EncodingDown<string, any>>) {
+    private readonly subDb: LevelUp<EncodingDown<string, PlainObject>>;
+    constructor(db: LevelUp<EncodingDown<string, PlainObject>>) {
         super("block-item-store");
         this.subDb = sub(db, `block-item-store`, { valueEncoding: "json" });
     }
 
     private itemsByHeight: Map<number, Set<string>> = new Map();
-    private items: Map<string, any> = new Map();
+    private items: Map<string, PlainObject> = new Map();
 
-    private mBatch: LevelUpChain<any, any> | null = null;
+    private mBatch: LevelUpChain<string, PlainObject> | null = null;
     private get batch() {
         if (!this.mBatch) throw new ApplicationError("Write accesses must be executed within a withBatch callback.");
         return this.mBatch;
@@ -86,7 +86,7 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
      * Gets the item with key `itemKey` for block `blockHash`.
      * Returns `undefined` if a key is not present.
      **/
-    public getItem(blockHash: string, itemKey: string): any | undefined {
+    public getItem(blockHash: string, itemKey: string): PlainObject | undefined {
         const key = `${blockHash}:${itemKey}`;
         return this.items.get(key);
     }
@@ -94,7 +94,7 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
     // Type safe methods to store blocks
     public block = {
         get: (blockHash: string): TBlock | undefined =>
-            this.getItem(blockHash, BlockItemStore.KEY_BLOCK), // prettier-ignore
+            this.getItem(blockHash, BlockItemStore.KEY_BLOCK) as unknown as TBlock | undefined, // prettier-ignore
         set: (blockHeight: number, blockHash: string, block: TBlock) =>
             this.putBlockItem(blockHeight, blockHash, BlockItemStore.KEY_BLOCK, block) // prettier-ignore
     };
@@ -102,7 +102,7 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
     // Type safe methods to store the "attached" boolean for each block (used in the BlockCache)
     public attached = {
         get: (blockHash: string): boolean | undefined =>
-            this.getItem(blockHash, BlockItemStore.KEY_ATTACHED), // prettier-ignore
+            this.getItem(blockHash, BlockItemStore.KEY_ATTACHED) as unknown as boolean, // prettier-ignore
         set: (blockHeight: number, blockHash: string, attached: boolean) =>
             this.putBlockItem(blockHeight, blockHash, BlockItemStore.KEY_ATTACHED, attached) // prettier-ignore
     };
@@ -110,7 +110,7 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
     // Type safe methods to store the anchor state for each block, indexed by component (used in the BlockchainMachine)
     public anchorState = {
         get: <TAnchorState>(componentName: string, blockHash: string): TAnchorState | undefined =>
-            this.getItem(blockHash, `${componentName}:${BlockItemStore.KEY_STATE}`), // prettier-ignore
+            this.getItem(blockHash, `${componentName}:${BlockItemStore.KEY_STATE}`) as unknown as TAnchorState | undefined, // prettier-ignore
         set: (componentName: string, blockHeight: number, blockHash: string, newState: AnchorState) =>
             this.putBlockItem(blockHeight, blockHash, `${componentName}:${BlockItemStore.KEY_STATE}`, newState)
     };

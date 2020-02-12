@@ -2,6 +2,7 @@ import "mocha";
 import { expect } from "chai";
 import { BlockAddResult, BlockCache, getConfirmations, IBlockStub, TransactionHashes, BlockItemStore } from "../src";
 import { ArgumentError, ApplicationError } from "@pisa-research/errors";
+import { PlainObject } from "@pisa-research/utils";
 import { fnIt } from "@pisa-research/test-utils";
 
 import LevelUp from "levelup";
@@ -13,8 +14,8 @@ function generateBlocks(
     initialHeight: number,
     chain: string,
     rootParentHash?: string | null // if given, the parentHash of the first block in the returned chain
-): (IBlockStub & TransactionHashes)[] {
-    const result: (IBlockStub & TransactionHashes)[] = [];
+): (IBlockStub & PlainObject & TransactionHashes)[] {
+    const result: (IBlockStub & PlainObject & TransactionHashes)[] = [];
     for (let height = initialHeight; height <= initialHeight + nBlocks; height++) {
         const transactions: string[] = [];
         for (let i = 0; i < 5; i++) {
@@ -28,7 +29,7 @@ function generateBlocks(
             transactionHashes: transactions
         };
 
-        result.push(block as (IBlockStub & TransactionHashes));
+        result.push(block as (IBlockStub & PlainObject & TransactionHashes));
     }
     return result;
 }
@@ -53,14 +54,14 @@ class NewBlockSpy {
 describe("BlockCache", () => {
     const maxDepth = 10;
     let db: any;
-    let blockStore: BlockItemStore<IBlockStub>;
-    let bc: BlockCache<IBlockStub>;
+    let blockStore: BlockItemStore<IBlockStub & PlainObject>;
+    let bc: BlockCache<IBlockStub & PlainObject>;
 
     let resolveBatch: (value?: any) => void;
 
     beforeEach(async () => {
-        db = LevelUp(EncodingDown<string, any>(MemDown(), { valueEncoding: "json" }));
-        blockStore = new BlockItemStore<IBlockStub>(db);
+        db = LevelUp(EncodingDown<string, PlainObject>(MemDown(), { valueEncoding: "json" }));
+        blockStore = new BlockItemStore<IBlockStub & PlainObject>(db);
         await blockStore.start();
 
         bc = new BlockCache(maxDepth, blockStore);
@@ -433,17 +434,17 @@ describe("getConfirmations", () => {
     const maxDepth = 100;
 
     let db: any;
-    let blockStore: BlockItemStore<IBlockStub & TransactionHashes>;
+    let blockStore: BlockItemStore<IBlockStub & PlainObject & TransactionHashes>;
 
-    let bc: BlockCache<IBlockStub & TransactionHashes>;
+    let bc: BlockCache<IBlockStub & PlainObject & TransactionHashes>;
 
     let resolveBatch: (value?: any) => void;
     beforeEach(async () => {
-        db = LevelUp(EncodingDown<string, any>(MemDown(), { valueEncoding: "json" }));
-        blockStore = new BlockItemStore<IBlockStub & TransactionHashes>(db);
+        db = LevelUp(EncodingDown<string, PlainObject>(MemDown(), { valueEncoding: "json" }));
+        blockStore = new BlockItemStore<IBlockStub & PlainObject & TransactionHashes>(db);
         await blockStore.start();
 
-        bc = new BlockCache(maxDepth, blockStore);
+        bc = new BlockCache<IBlockStub & PlainObject & TransactionHashes>(maxDepth, blockStore);
 
         // Create a batch that will be closed in the afterEach block, as the BlockCache assumes the batch is already open
         blockStore.withBatch(

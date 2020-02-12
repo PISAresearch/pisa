@@ -19,12 +19,13 @@ import { BlockchainMachine } from "../src/blockchainMachine";
 import { throwingInstance, fnIt, wait } from "@pisa-research/test-utils";
 import { ArgumentError, ConfigurationError } from "@pisa-research/errors";
 import chaiAsPromised from "chai-as-promised";
+import { PlainObject } from "@pisa-research/utils";
 chai.use(chaiAsPromised);
 
-type TestAnchorState = { number: number; extraData: string };
+type TestAnchorState = { number: number; extraData: string } & PlainObject;
 const anchorStates: TestAnchorState[] = [];
 
-const blocks: IBlockStub[] = [
+const blocks: (IBlockStub & PlainObject)[] = [
     {
         hash: "hash0",
         number: 0,
@@ -70,7 +71,7 @@ const getAction = (index: number) => {
 
 // the mocking lib we use isnt able to mock abstract members and functions
 // so we create a dummy subclass
-class TestComponent extends Component<TestAnchorState, IBlockStub, TestActionType> {
+class TestComponent extends Component<TestAnchorState, IBlockStub & PlainObject, TestActionType> {
     detectChanges(prevState: TestAnchorState, nextState: TestAnchorState): TestActionType[] {
         throw new Error("not implemented");
     }
@@ -83,15 +84,15 @@ const setupBM = async (
     applyActionThrowsError: boolean = false,
     actionStore: CachedKeyValueStore<ComponentAction> | undefined = undefined
 ) => {
-    const db = LevelUp(EncodingDown<string, any>(MemDown(), { valueEncoding: "json" }));
+    const db = LevelUp(EncodingDown<string, PlainObject>(MemDown(), { valueEncoding: "json" }));
 
-    const blockItemStore: BlockItemStore<IBlockStub> = new BlockItemStore(db);
+    const blockItemStore: BlockItemStore<IBlockStub & PlainObject> = new BlockItemStore(db);
     const blockItemStoreSpy = spy(blockItemStore);
     const blockItemStoreAnchorStateSpy = spy(blockItemStore.anchorState);
 
-    const reducerMock: StateReducer<TestAnchorState, IBlockStub> = mock<StateReducer<TestAnchorState, IBlockStub>>();
-    when(reducerMock.getInitialState(blocks[0])).thenReturn(getAnchorState(0));
-    when(reducerMock.reduce(getAnchorState(0), blocks[1])).thenReturn(getAnchorState(1));
+    const reducerMock: StateReducer<TestAnchorState, IBlockStub & PlainObject> = mock<StateReducer<TestAnchorState, IBlockStub & PlainObject>>();
+    when(reducerMock.getInitialState(blocks[0])).thenResolve(getAnchorState(0));
+    when(reducerMock.reduce(getAnchorState(0), blocks[1])).thenResolve(getAnchorState(1));
     const reducer = throwingInstance(reducerMock);
 
     if (!actionStore) {
@@ -121,7 +122,7 @@ const setupBM = async (
         componentMocks.push(componentMock);
     }
 
-    const machine: BlockchainMachine<IBlockStub> = new BlockchainMachine(actionStore, blockItemStore, components);
+    const machine: BlockchainMachine<IBlockStub & PlainObject> = new BlockchainMachine(actionStore, blockItemStore, components);
 
     return {
         machine,
@@ -172,7 +173,7 @@ describe("BlockchainMachine", () => {
         });
 
         verify(reducerMock.getInitialState(blocks[0])).once();
-        verify(blockItemStoreAnchorStateSpy.set(components[0].name, blocks[0].number, blocks[0].hash, reducer.getInitialState(blocks[0]))).once();
+        verify(blockItemStoreAnchorStateSpy.set(components[0].name, blocks[0].number, blocks[0].hash, await reducer.getInitialState(blocks[0]))).once();
     });
 
     fnIt<BlockchainMachine<never>>(b => b.setInitialState, "does compute initial state for parent in store", async () => {
@@ -183,7 +184,7 @@ describe("BlockchainMachine", () => {
         });
 
         verify(reducerMock.reduce(getAnchorState(0), blocks[1])).once();
-        verify(blockItemStoreAnchorStateSpy.set(components[0].name, blocks[1].number, blocks[1].hash, reducer.reduce(getAnchorState(0), blocks[1]))).once();
+        verify(blockItemStoreAnchorStateSpy.set(components[0].name, blocks[1].number, blocks[1].hash, await reducer.reduce(getAnchorState(0), blocks[1]))).once();
     });
 
     fnIt<BlockchainMachine<never>>(b => b.setInitialState, "does nothing if state is already in store", async () => {
@@ -205,8 +206,8 @@ describe("BlockchainMachine", () => {
         });
 
         verify(reducerMock.getInitialState(blocks[0])).twice();
-        verify(blockItemStoreAnchorStateSpy.set(components[0].name, blocks[0].number, blocks[0].hash, reducer.getInitialState(blocks[0]))).once();
-        verify(blockItemStoreAnchorStateSpy.set(components[1].name, blocks[0].number, blocks[0].hash, reducer.getInitialState(blocks[0]))).once();
+        verify(blockItemStoreAnchorStateSpy.set(components[0].name, blocks[0].number, blocks[0].hash, await reducer.getInitialState(blocks[0]))).once();
+        verify(blockItemStoreAnchorStateSpy.set(components[1].name, blocks[0].number, blocks[0].hash, await reducer.getInitialState(blocks[0]))).once();
     });
 
     fnIt<BlockchainMachine<never>>(b => b.setStateAndDetectChanges, "does set new state and run actions", async () => {
@@ -217,7 +218,7 @@ describe("BlockchainMachine", () => {
         });
 
         verify(reducerMock.reduce(getAnchorState(0), blocks[1])).once();
-        verify(blockItemStoreAnchorStateSpy.set(components[0].name, blocks[1].number, blocks[1].hash, reducer.reduce(getAnchorState(0), blocks[1]))).once();
+        verify(blockItemStoreAnchorStateSpy.set(components[0].name, blocks[1].number, blocks[1].hash, await reducer.reduce(getAnchorState(0), blocks[1]))).once();
         verify(componentMocks[0].detectChanges(getAnchorState(0), getAnchorState(1))).once();
         verify(actionStoreSpy.storeItems(components[0].name, anything())).once();
         verify(componentMocks[0].applyAction(getAction(0))).once();
@@ -235,7 +236,7 @@ describe("BlockchainMachine", () => {
         });
 
         verify(reducerMock.reduce(getAnchorState(0), blocks[1])).once();
-        verify(blockItemStoreAnchorStateSpy.set(components[0].name, blocks[1].number, blocks[1].hash, reducer.reduce(getAnchorState(0), blocks[1]))).once();
+        verify(blockItemStoreAnchorStateSpy.set(components[0].name, blocks[1].number, blocks[1].hash, await reducer.reduce(getAnchorState(0), blocks[1]))).once();
         verify(componentMocks[0].detectChanges(getAnchorState(0), getAnchorState(1))).once();
         verify(actionStoreSpy.storeItems(components[0].name, anything())).once();
         verify(componentMocks[0].applyAction(getAction(0))).once();

@@ -1,6 +1,7 @@
 import { ArgumentError } from "@pisa-research/errors"
 import { BigNumber } from "ethers/utils";
 import { ethers } from "ethers";
+import { PlainObject } from "@pisa-research/utils";
 
 export class GasQueueError extends ArgumentError {
     constructor(public readonly kind: GasQueueErrorKind, message: string, ...args: any[]) {
@@ -12,13 +13,13 @@ export enum GasQueueErrorKind {
     AlreadyAdded = 0
 }
 
-interface PisaTransactionIdentifierSerialisation {
-    readonly chainId: number;
-    readonly data: string;
-    readonly to: string;
-    readonly value: string;
-    readonly gasLimit: string;
-}
+export type PisaTransactionIdentifierSerialisation = PlainObject & {
+    chainId: number,
+    data: string,
+    to: string,
+    value: string,
+    gasLimit: string
+};
 
 export class PisaTransactionIdentifier {
     public static serialise(identifier: PisaTransactionIdentifier): PisaTransactionIdentifierSerialisation {
@@ -67,12 +68,12 @@ export class PisaTransactionIdentifier {
     }
 }
 
-interface GasQueueItemRequestSerialisation {
-    readonly identifier: PisaTransactionIdentifierSerialisation;
-    readonly idealGasPrice: string;
-    readonly appointmentId: string;
-    readonly blockObserved: number;
-}
+export type GasQueueItemRequestSerialisation = PlainObject & {
+    readonly identifier: PisaTransactionIdentifierSerialisation,
+    readonly idealGasPrice: string,
+    readonly appointmentId: string,
+    readonly blockObserved: number,
+};
 
 export class GasQueueItemRequest {
     public static serialise(request: GasQueueItemRequest): GasQueueItemRequestSerialisation {
@@ -107,12 +108,12 @@ export class GasQueueItemRequest {
     ) {}
 }
 
-interface GasQueueItemSerialisation {
+export type GasQueueItemSerialisation = PlainObject & {
     request: GasQueueItemRequestSerialisation;
     nonceGasPrice: string;
     idealGasPrice: string;
     nonce: number;
-}
+};
 
 export class GasQueueItem {
     public static serialise(item: GasQueueItem): GasQueueItemSerialisation {
@@ -172,11 +173,11 @@ export class GasQueueItem {
     }
 }
 
-interface GasQueueSerialisation {
-    readonly queueItems: Array<GasQueueItemSerialisation>;
-    readonly emptyNonce: number;
-    readonly replacementRate: number;
-    readonly maxQueueDepth: number;
+type GasQueueSerialisation = PlainObject & {
+    readonly queueItems: Array<GasQueueItemSerialisation>,
+    readonly emptyNonce: number,
+    readonly replacementRate: number,
+    readonly maxQueueDepth: number,
 }
 
 export class GasQueue {

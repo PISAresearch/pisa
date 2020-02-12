@@ -3,7 +3,7 @@ import { ApplicationError, ArgumentError, UnreachableCaseError } from "@pisa-res
 import { AppointmentStore } from "./store";
 import { ReadOnlyBlockCache, IBlockStub, hasLogMatchingEventFilter, Logs } from "@pisa-research/block";
 import { StateReducer, MappedStateReducer, MappedState, Component, BlockNumberState, BlockNumberReducer } from "@pisa-research/block";
-import { logger } from "@pisa-research/utils";
+import { logger, PlainObject } from "@pisa-research/utils";
 import { MultiResponder } from "../responder";
 import { EventFilter } from "ethers";
 
@@ -28,11 +28,11 @@ export type WatcherAppointmentAnchorState = WatcherAppointmentAnchorStateWatchin
 /** The complete anchor state for the watcher, that also includes the block number */
 type WatcherAnchorState = MappedState<WatcherAppointmentAnchorState> & BlockNumberState;
 
-export class EventFilterStateReducer implements StateReducer<WatcherAppointmentAnchorState, IBlockStub & Logs> {
-    constructor(private cache: ReadOnlyBlockCache<IBlockStub & Logs>, private filter: EventFilter, private startBlock: number) {
+export class EventFilterStateReducer implements StateReducer<WatcherAppointmentAnchorState, IBlockStub & PlainObject & Logs> {
+    constructor(private cache: ReadOnlyBlockCache<IBlockStub & PlainObject & Logs>, private filter: EventFilter, private startBlock: number) {
         if (!filter.topics) throw new ApplicationError(`topics should be defined`);
     }
-    public getInitialState(block: IBlockStub & Logs): WatcherAppointmentAnchorState {
+    public async getInitialState(block: IBlockStub & PlainObject & Logs): Promise<WatcherAppointmentAnchorState> {
         const eventAncestor = this.cache.findAncestor(block.hash, ancestor => hasLogMatchingEventFilter(ancestor, this.filter), this.startBlock);
 
         if (!eventAncestor) {
@@ -46,7 +46,7 @@ export class EventFilterStateReducer implements StateReducer<WatcherAppointmentA
             };
         }
     }
-    public reduce(prevState: WatcherAppointmentAnchorState, block: IBlockStub & Logs): WatcherAppointmentAnchorState {
+    public async reduce(prevState: WatcherAppointmentAnchorState, block: IBlockStub & PlainObject & Logs): Promise<WatcherAppointmentAnchorState> {
         if (prevState.state === WatcherAppointmentState.WATCHING && hasLogMatchingEventFilter(block, this.filter)) {
             return {
                 state: WatcherAppointmentState.OBSERVED,
@@ -81,26 +81,29 @@ export type WatcherAction = StartResponseAction | RemoveAppointmentAction;
  * observe method to complete the task. The watcher is not responsible for ensuring that observed events are properly
  * acted upon, that is the responsibility of the responder.
  */
-export class Watcher extends Component<WatcherAnchorState, IBlockStub & Logs, WatcherAction> {
+export class Watcher extends Component<WatcherAnchorState, IBlockStub & PlainObject & Logs, WatcherAction> {
     public readonly name = "watcher";
 
     /**
      * Watches the chain for events related to the supplied appointments. When an event is noticed data is forwarded to the
-     * observe method to complete the task. The watcher is not responsible for ensuring that observed events are properly
+     * observe method to complete the tassk. The watcher is not responsible for ensuring that observed events are properly
      * acted upon, that is the responsibility of the responder.
      */
     constructor(
         private readonly responder: MultiResponder,
-        blockCache: ReadOnlyBlockCache<IBlockStub & Logs>,
+        blockCache: ReadOnlyBlockCache<IBlockStub & PlainObject & Logs>,
         private readonly store: AppointmentStore,
         private readonly confirmationsBeforeResponse: number,
         private readonly confirmationsBeforeRemoval: number
     ) {
         super(
             new MappedStateReducer(
-                () => store.getAll(),
-                appointment => new EventFilterStateReducer(blockCache, appointment.eventFilter, appointment.startBlock),
-                appointment => appointment.id,
+                () => store.getAll().map(a => Appointment.toIAppointment(a)),
+                appointment => {
+                    const eventFilter = Appointment.fromIAppointment(appointment).eventFilter;
+                    return new EventFilterStateReducer(blockCache, eventFilter, appointment.startBlock)
+                },
+                appointment => Appointment.fromIAppointment(appointment).id,
                 new BlockNumberReducer()
             )
         );

@@ -2,7 +2,7 @@ import { ethers } from "ethers";
 import appointmentRequestSchemaJson from "./appointmentRequestSchema.json";
 import Ajv from "ajv";
 import { PublicDataValidationError } from "@pisa-research/errors";
-import { logger, Logger } from "@pisa-research/utils";
+import { logger, Logger, PlainObject } from "@pisa-research/utils";
 import { BigNumber } from "ethers/utils";
 import betterAjvErrors from "better-ajv-errors";
 import { ReadOnlyBlockCache, IBlockStub } from "@pisa-research/block";
@@ -167,7 +167,7 @@ export class Appointment {
         );
     }
 
-    public static toIAppointment(appointment: Appointment): IAppointment {
+    public static toIAppointment(appointment: Appointment): IAppointment & PlainObject {
         return {
             contractAddress: appointment.contractAddress,
             customerAddress: appointment.customerAddress,
@@ -211,7 +211,7 @@ export class Appointment {
         );
     }
 
-    public static toIAppointmentRequest(appointment: Appointment): IAppointmentRequest {
+    public static toIAppointmentRequest(appointment: Appointment): IAppointmentRequest & PlainObject {
         return {
             contractAddress: appointment.contractAddress,
             customerAddress: appointment.customerAddress,
@@ -290,7 +290,7 @@ export class Appointment {
      * Validate property values on the appointment
      * @param log Logger to be used in case of failures
      */
-    public async validate(blockCache: ReadOnlyBlockCache<IBlockStub>, pisaContractAddress: string, log: Logger = logger) {
+    public async validate(blockCache: ReadOnlyBlockCache<IBlockStub & PlainObject>, pisaContractAddress: string, log: Logger = logger) {
         if (this.paymentHash.toLowerCase() !== Appointment.FreeHash) throw new PublicDataValidationError("Invalid payment hash."); // prettier-ignore
 
         const currentHead = blockCache.head.number;

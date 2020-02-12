@@ -5,9 +5,7 @@ export {
     TransactionHashes,
     IBlockStub,
     Logs,
-    ResponderBlock,
     TransactionStub,
-    Transactions,
     hasLogMatchingEventFilter
 } from "./block";
 export { ReadOnlyBlockCache, BlockCache, getConfirmations, BlockAddResult, NewBlockListener } from "./blockCache";

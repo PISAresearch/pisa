@@ -1,6 +1,6 @@
 import { ethers } from "ethers";
-import { BigNumber } from "ethers/utils";
 import { ArgumentError } from "@pisa-research/errors";
+import { PlainObject } from "@pisa-research/utils";
 
 export interface IBlockStub {
     hash: string;
@@ -30,26 +30,22 @@ export interface TransactionHashes {
     transactionHashes: string[];
 }
 
-export interface Transactions {
-    transactions: ethers.providers.TransactionResponse[];
-}
-
-export interface TransactionStub {
+export type TransactionStub = {
     blockNumber?: number;
     nonce: number;
     to?: string;
     from: string;
     chainId: number;
     data: string;
-    value: BigNumber;
-    gasLimit: BigNumber;
-}
+    value: string; // BigNumber
+    gasLimit: string; // BigNumber
+};
 
-export interface ResponderBlock extends IBlockStub {
+export type Transactions = IBlockStub & PlainObject & {
     transactions: TransactionStub[];
 }
 
-export interface Block extends IBlockStub, Logs, Transactions, TransactionHashes {}
+export type Block = IBlockStub & PlainObject & Logs & TransactionHashes & Transactions;
 
 export type BlockAndAttached<TBlock extends IBlockStub> = {
     block: TBlock;

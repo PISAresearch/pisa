@@ -11,6 +11,7 @@ import { mock, when, anything } from "ts-mockito";
 import { EventEmitter } from "events";
 import { BlockProcessor, BlockCache, blockStubAndTxHashFactory, BlockProcessorStore, IBlockStub, BlockItemStore } from "../src";
 import { wait, throwingInstance, fnIt } from "@pisa-research/test-utils";
+import { PlainObject } from "@pisa-research/utils";
 
 chai.use(chaiAsPromised);
 const expect = chai.expect;
@@ -53,7 +54,7 @@ describe("BlockProcessorStore", () => {
     let store: BlockProcessorStore;
 
     beforeEach(async () => {
-        db = LevelUp(EncodingDown<string, any>(MemDown(), { valueEncoding: "json" }));
+        db = LevelUp(EncodingDown<string, PlainObject>(MemDown(), { valueEncoding: "json" }));
         store = new BlockProcessorStore(db);
     });
 
@@ -79,15 +80,15 @@ describe("BlockProcessorStore", () => {
 describe("BlockProcessor", () => {
     const maxDepth = 5;
     let db: any;
-    let blockStore: BlockItemStore<IBlockStub>;
+    let blockStore: BlockItemStore<IBlockStub & PlainObject>;
 
-    let blockCache: BlockCache<IBlockStub>;
+    let blockCache: BlockCache<IBlockStub & PlainObject>;
     let blockProcessorStore: BlockProcessorStore;
-    let blockProcessor: BlockProcessor<IBlockStub>;
+    let blockProcessor: BlockProcessor<IBlockStub & PlainObject>;
     let mockProvider: ethers.providers.BaseProvider;
     let provider: ethers.providers.BaseProvider;
 
-    const createNewBlockSubscriber = (bp: BlockProcessor<IBlockStub>, bc: BlockCache<IBlockStub>, blockHash: string) => {
+    const createNewBlockSubscriber = (bp: BlockProcessor<IBlockStub & PlainObject>, bc: BlockCache<IBlockStub & PlainObject>, blockHash: string) => {
         return new Promise(resolve => {
             const newBlockHandler = async (block: IBlockStub) => {
                 if (block.hash === blockHash) {
@@ -130,7 +131,7 @@ describe("BlockProcessor", () => {
     }
 
     async function startStores() {
-        blockStore = new BlockItemStore<IBlockStub>(db);
+        blockStore = new BlockItemStore<IBlockStub & PlainObject>(db);
         await blockStore.start();
 
         blockCache = new BlockCache(maxDepth, blockStore);
@@ -139,7 +140,7 @@ describe("BlockProcessor", () => {
     }
 
     beforeEach(async () => {
-        db = LevelUp(EncodingDown<string, any>(MemDown(), { valueEncoding: "json" }));
+        db = LevelUp(EncodingDown<string, PlainObject>(MemDown(), { valueEncoding: "json" }));
         await startStores();
 
         // Instruct the mocked provider to return the blocks by hash with getBlock

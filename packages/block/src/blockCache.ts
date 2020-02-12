@@ -1,9 +1,8 @@
 import { ApplicationError, ArgumentError } from "@pisa-research/errors";
 import { IBlockStub, TransactionHashes } from "./block";
 import { BlockItemStore } from "./blockItemStore";
-import { Lock } from "@pisa-research/utils";
+import { Lock, PlainObject } from "@pisa-research/utils";
 import { BlockEvent } from "./event";
-import { runInThisContext } from "vm";
 
 // Possible return values of addBlock
 export enum BlockAddResult {
@@ -22,7 +21,7 @@ export type NewBlockListener<TBlock> = (block: TBlock) => Promise<void>;
 /**
  * This interface represents the read-only view of a BlockCache.
  */
-export interface ReadOnlyBlockCache<TBlock extends IBlockStub> {
+export interface ReadOnlyBlockCache<TBlock extends IBlockStub & PlainObject> {
     readonly maxDepth: number;
     readonly maxHeight: number;
     readonly minHeight: number;
@@ -46,7 +45,7 @@ export interface ReadOnlyBlockCache<TBlock extends IBlockStub> {
  * 2) No block is retained if its height is smaller than the first block ever added.
  * 3) All added blocks are never pruned if their depth is less then `maxDepth`.
  */
-export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache<TBlock> {
+export class BlockCache<TBlock extends IBlockStub & PlainObject> implements ReadOnlyBlockCache<TBlock> {
     // Next height to be pruned; the cache will not store a block with height strictly smaller than pruneHeight
     private pruneHeight: number = 0;
 
@@ -322,7 +321,7 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
  * @param txHash
  * @throws `ArgumentError` if the block with hash `headHash` is not in the cache or is not attached.
  */
-export function getConfirmations<T extends IBlockStub & TransactionHashes>(cache: ReadOnlyBlockCache<T>, headHash: string, txHash: string): number {
+export function getConfirmations<T extends IBlockStub & PlainObject & TransactionHashes>(cache: ReadOnlyBlockCache<T>, headHash: string, txHash: string): number {
     const headBlock = cache.getBlock(headHash);
     const blockTxIsMinedIn = cache.findAncestor(headHash, block => block.transactionHashes.includes(txHash));
     if (!blockTxIsMinedIn) return 0;
