@@ -2,7 +2,6 @@ import "mocha";
 import { expect } from "chai";
 import { MappedStateReducer, StateReducer, BlockNumberReducer, IBlockStub } from "../src";
 import { fnIt } from "@pisa-research/test-utils";
-import { PlainObject } from "@pisa-research/utils";
 
 const objects = [
     {
@@ -19,7 +18,7 @@ const objects = [
     }
 ];
 
-const blocks: (IBlockStub & PlainObject)[] = [
+const blocks: IBlockStub[] = [
     {
         hash: "hash0",
         number: 0,
@@ -41,7 +40,7 @@ type TestAnchorState = {
     someNumber: number;
 };
 
-class TestAnchorStateReducer implements StateReducer<TestAnchorState, IBlockStub & PlainObject> {
+class TestAnchorStateReducer implements StateReducer<TestAnchorState, IBlockStub> {
     constructor(private readonly startValue: number) {}
     getInitialState = async (block: IBlockStub) => ({ someNumber: this.startValue + block.number });
     reduce = async (prevState: TestAnchorState, block: IBlockStub) => ({
@@ -49,7 +48,7 @@ class TestAnchorStateReducer implements StateReducer<TestAnchorState, IBlockStub
     });
 }
 
-class NullReducer implements StateReducer<{}, IBlockStub & PlainObject> {
+class NullReducer implements StateReducer<{}, IBlockStub> {
     async getInitialState() {
         return {};
     }
@@ -59,7 +58,7 @@ class NullReducer implements StateReducer<{}, IBlockStub & PlainObject> {
 }
 
 describe("MappedStateReducer", () => {
-    let blocks: (IBlockStub & PlainObject)[] = [];
+    let blocks: IBlockStub[] = [];
 
     before(() => {
         const nBlocks = 5;
@@ -74,7 +73,7 @@ describe("MappedStateReducer", () => {
     });
 
     fnIt<MappedStateReducer<any, any, any, any>>(m => m.getInitialState, "computes initial state", async () => {
-        const msr = new MappedStateReducer<TestAnchorState, {}, IBlockStub & PlainObject, { id: string }>(
+        const msr = new MappedStateReducer<TestAnchorState, {}, IBlockStub, { id: string }>(
             () => [],
             () => new NullReducer(),
             o => o.id,
@@ -100,7 +99,7 @@ describe("MappedStateReducer", () => {
     });
 
     fnIt<MappedStateReducer<any, any, any, any>>(m => m.reduce, "computes reduces state", async () => {
-        const msr = new MappedStateReducer<TestAnchorState, {}, IBlockStub & PlainObject, { id: string }>(
+        const msr = new MappedStateReducer<TestAnchorState, {}, IBlockStub, { id: string }>(
             () => [],
             () => new NullReducer(),
             o => o.id,

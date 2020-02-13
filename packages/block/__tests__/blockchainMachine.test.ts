@@ -25,7 +25,7 @@ chai.use(chaiAsPromised);
 type TestAnchorState = { number: number; extraData: string } & PlainObject;
 const anchorStates: TestAnchorState[] = [];
 
-const blocks: (IBlockStub & PlainObject)[] = [
+const blocks: IBlockStub[] = [
     {
         hash: "hash0",
         number: 0,
@@ -71,7 +71,7 @@ const getAction = (index: number) => {
 
 // the mocking lib we use isnt able to mock abstract members and functions
 // so we create a dummy subclass
-class TestComponent extends Component<TestAnchorState, IBlockStub & PlainObject, TestActionType> {
+class TestComponent extends Component<TestAnchorState, IBlockStub, TestActionType> {
     detectChanges(prevState: TestAnchorState, nextState: TestAnchorState): TestActionType[] {
         throw new Error("not implemented");
     }
@@ -86,11 +86,11 @@ const setupBM = async (
 ) => {
     const db = LevelUp(EncodingDown<string, PlainObject>(MemDown(), { valueEncoding: "json" }));
 
-    const blockItemStore: BlockItemStore<IBlockStub & PlainObject> = new BlockItemStore(db);
+    const blockItemStore: BlockItemStore<IBlockStub> = new BlockItemStore(db);
     const blockItemStoreSpy = spy(blockItemStore);
     const blockItemStoreAnchorStateSpy = spy(blockItemStore.anchorState);
 
-    const reducerMock: StateReducer<TestAnchorState, IBlockStub & PlainObject> = mock<StateReducer<TestAnchorState, IBlockStub & PlainObject>>();
+    const reducerMock: StateReducer<TestAnchorState, IBlockStub> = mock<StateReducer<TestAnchorState, IBlockStub>>();
     when(reducerMock.getInitialState(blocks[0])).thenResolve(getAnchorState(0));
     when(reducerMock.reduce(getAnchorState(0), blocks[1])).thenResolve(getAnchorState(1));
     const reducer = throwingInstance(reducerMock);
@@ -122,7 +122,7 @@ const setupBM = async (
         componentMocks.push(componentMock);
     }
 
-    const machine: BlockchainMachine<IBlockStub & PlainObject> = new BlockchainMachine(actionStore, blockItemStore, components);
+    const machine: BlockchainMachine<IBlockStub> = new BlockchainMachine(actionStore, blockItemStore, components);
 
     return {
         machine,

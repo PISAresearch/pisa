@@ -14,7 +14,7 @@ export class PisaTower {
         private readonly store: AppointmentStore,
         private readonly appointmentSigner: ethers.Wallet,
         private readonly multiResponder: MultiResponder,
-        private readonly blockCache: ReadOnlyBlockCache<IBlockStub & PlainObject>,
+        private readonly blockCache: ReadOnlyBlockCache<IBlockStub>,
         private readonly pisaContractAddress: string
     ) {}
 

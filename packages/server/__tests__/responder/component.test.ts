@@ -52,7 +52,7 @@ const txID1 = newIdentifierAndTransaction(1, "data1", from1, 1);
 // different from address
 const txID2 = newIdentifierAndTransaction(2, "data1", from2, 2);
 
-const blocks: (Block & PlainObject)[] = [
+const blocks: Block[] = [
     {
         hash: "hash0",
         number: 0,

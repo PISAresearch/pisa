@@ -23,7 +23,7 @@ const observedEventFilter = {
 };
 const startBlock = 0;
 
-const blocks: (IBlockStub & PlainObject & Logs)[] = [
+const blocks: (IBlockStub & Logs)[] = [
     {
         hash: "hash0",
         number: 0,
@@ -67,9 +67,9 @@ describe("WatcherAppointmentStateReducer", () => {
     when(appMock.endBlock).thenReturn(1000);
 
     const db = LevelUp(EncodingDown<string, PlainObject>(MemDown(), { valueEncoding: "json" }));
-    const blockStore = new BlockItemStore<IBlockStub & PlainObject & Logs>(db);
+    const blockStore = new BlockItemStore<IBlockStub & Logs>(db);
 
-    const blockCache = new BlockCache<IBlockStub & PlainObject & Logs>(100, blockStore);
+    const blockCache = new BlockCache<IBlockStub & Logs>(100, blockStore);
 
     before(async () => {
         await blockStore.start();
@@ -179,8 +179,8 @@ describe("Watcher", () => {
     const CONFIRMATIONS_BEFORE_REMOVAL = 20;
 
     const db = LevelUp(EncodingDown<string, PlainObject>(MemDown(), { valueEncoding: "json" }));
-    let blockStore: BlockItemStore<IBlockStub & PlainObject & Logs>;
-    let blockCache: BlockCache<IBlockStub & PlainObject & Logs>;
+    let blockStore: BlockItemStore<IBlockStub & Logs>;
+    let blockCache: BlockCache<IBlockStub & Logs>;
 
     let mockedStore: AppointmentStore;
     let store: AppointmentStore;
@@ -191,10 +191,10 @@ describe("Watcher", () => {
     let appointment: Appointment;
 
     before(async () => {
-        blockStore = new BlockItemStore<IBlockStub & PlainObject & Logs>(db);
+        blockStore = new BlockItemStore<IBlockStub & Logs>(db);
         await blockStore.start();
 
-        blockCache = new BlockCache<IBlockStub & PlainObject & Logs>(100, blockStore);
+        blockCache = new BlockCache<IBlockStub & Logs>(100, blockStore);
 
         blockStore.withBatch(async () => {
             for (const b of blocks) {

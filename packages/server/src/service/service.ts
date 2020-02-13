@@ -307,7 +307,7 @@ export class PisaService extends StartStopService {
      * Get all the appointments for a given customer from the tower
      * @param appointmentStore
      */
-    private getAppointmentsByCustomer(appointmentStore: AppointmentStore, blockCache: ReadOnlyBlockCache<IBlockStub & PlainObject>) {
+    private getAppointmentsByCustomer(appointmentStore: AppointmentStore, blockCache: ReadOnlyBlockCache<IBlockStub>) {
         return this.handlerWrapper(async (req: requestAndLog) => {
             const customerAddress = PisaParameterParser.customerAddress(req);
             const authBlock = PisaHeaderParser.authBlock(req, blockCache);
@@ -387,7 +387,7 @@ class PisaHeaderParser {
     private static HEADER_AUTH_BLOCK = "x-auth-block";
     private static HEADER_AUTH_SIG = "x-auth-sig";
 
-    public static authBlock(req: requestAndLog, blockCache: ReadOnlyBlockCache<IBlockStub & PlainObject>) {
+    public static authBlock(req: requestAndLog, blockCache: ReadOnlyBlockCache<IBlockStub>) {
         // auth block
         const authBlockString = req.headers[PisaHeaderParser.HEADER_AUTH_BLOCK];
         if (authBlockString == undefined) throw new PublicDataValidationError("Missing header x-auth-block must contain recent block number.");

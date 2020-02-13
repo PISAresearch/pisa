@@ -9,7 +9,7 @@ import { BlockItemStore } from "./blockItemStore";
 /**
  * Blockchain machine functionality
  */
-export class BlockchainMachine<TBlock extends IBlockStub & PlainObject> {
+export class BlockchainMachine<TBlock extends IBlockStub> {
     // lock used to make sure that all events are processed in order
     private lock = new Lock();
 
@@ -34,7 +34,7 @@ export class BlockchainMachine<TBlock extends IBlockStub & PlainObject> {
      * Runs all the actions in `actionAndIds` for `component`. Actions are all executed in parallel, and each action is removed
      * from the actionStore upon completion.
      */
-    private runActionsForComponent(component: Component<AnchorState, IBlockStub & PlainObject, ComponentAction>, actionAndIds: Iterable<ItemAndId<ComponentAction>>) {
+    private runActionsForComponent(component: Component<AnchorState, IBlockStub, ComponentAction>, actionAndIds: Iterable<ItemAndId<ComponentAction>>) {
         // Side effects must be thread safe, so we can execute them concurrently
         // Note that actions are executed in background and not awaited for in here.
         [...actionAndIds].forEach(async a => {
@@ -133,7 +133,7 @@ export class BlockchainMachine<TBlock extends IBlockStub & PlainObject> {
  * function to compute the appropriate actions, by comparing the newly computed anchor state with the anchor state of the
  * closest ancestor that was emitted.
  */
-export class BlockchainMachineService<TBlock extends IBlockStub & PlainObject> extends StartStopService {
+export class BlockchainMachineService<TBlock extends IBlockStub> extends StartStopService {
     private readonly machine: BlockchainMachine<TBlock>;
 
     constructor(

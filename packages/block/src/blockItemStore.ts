@@ -15,7 +15,7 @@ const sub = require("subleveldown");
  * in the same `withBatch` call are either successfully written to the database, or not. This can be used to guarantee that the state that is
  * persisted in the database is always consistent, and can be therefore be used as a checkpoint to restart the application.
  */
-export class BlockItemStore<TBlock extends IBlockStub & PlainObject> extends StartStopService {
+export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService {
     // Keys used by the BlockCache
     /** Stores the content of the block. */
     private static KEY_BLOCK = "block";

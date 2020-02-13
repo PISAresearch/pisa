@@ -8,7 +8,6 @@ import { mock, when } from "ts-mockito";
 import { ExponentialCurve, ExponentialGasCurve, GasPriceEstimator } from "../../src/responder/gasPriceEstimator";
 import { IBlockStub, BlockCache } from "@pisa-research/block";
 import { ArgumentError } from "@pisa-research/errors";
-import { PlainObject } from "@pisa-research/utils";
 
 describe("ExponentialCurve", () => {
     it("ka constructs for (0, 1), (1, e)", () => {
@@ -127,7 +126,7 @@ describe("GasPriceEstimator", () => {
         when(mockedProvider.getGasPrice()).thenResolve(currentGasPrice);
         const provider = throwingInstance(mockedProvider);
 
-        const mockedBlockCache: BlockCache<IBlockStub & PlainObject> = mock(BlockCache);
+        const mockedBlockCache: BlockCache<IBlockStub> = mock(BlockCache);
         when(mockedBlockCache.head).thenReturn({ hash: "hash1", parentHash: "hash2", number: currentBlock });
         const blockCache = throwingInstance(mockedBlockCache);
 

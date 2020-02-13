@@ -2,14 +2,14 @@ import { ethers } from "ethers";
 import { ArgumentError } from "@pisa-research/errors";
 import { PlainObject } from "@pisa-research/utils";
 
-export interface IBlockStub {
+export interface IBlockStub extends PlainObject {
     hash: string;
     number: number;
     parentHash: string;
 }
 
-export interface Logs {
-    logs: ethers.providers.Log[];
+export interface Logs extends PlainObject {
+    logs: (ethers.providers.Log & PlainObject)[];
 }
 
 /**
@@ -41,11 +41,11 @@ export type TransactionStub = {
     gasLimit: string; // BigNumber
 };
 
-export type Transactions = IBlockStub & PlainObject & {
+export type Transactions = IBlockStub & {
     transactions: TransactionStub[];
 }
 
-export type Block = IBlockStub & PlainObject & Logs & TransactionHashes & Transactions;
+export type Block = IBlockStub & Logs & TransactionHashes & Transactions;
 
 export type BlockAndAttached<TBlock extends IBlockStub> = {
     block: TBlock;

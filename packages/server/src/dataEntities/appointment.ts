@@ -290,7 +290,7 @@ export class Appointment {
      * Validate property values on the appointment
      * @param log Logger to be used in case of failures
      */
-    public async validate(blockCache: ReadOnlyBlockCache<IBlockStub & PlainObject>, pisaContractAddress: string, log: Logger = logger) {
+    public async validate(blockCache: ReadOnlyBlockCache<IBlockStub>, pisaContractAddress: string, log: Logger = logger) {
         if (this.paymentHash.toLowerCase() !== Appointment.FreeHash) throw new PublicDataValidationError("Invalid payment hash."); // prettier-ignore
 
         const currentHead = blockCache.head.number;

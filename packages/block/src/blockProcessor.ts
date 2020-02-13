@@ -35,7 +35,7 @@ async function getBlockFromProvider(provider: ethers.providers.Provider, blockNu
 
 export const blockStubAndTxHashFactory = (provider: ethers.providers.Provider) => async (
     blockNumberOrHash: string | number
-): Promise<IBlockStub & PlainObject & TransactionHashes> => {
+): Promise<IBlockStub & TransactionHashes> => {
     const block = await getBlockFromProvider(provider, blockNumberOrHash);
 
     return {
@@ -121,7 +121,7 @@ export class BlockProcessorStore {
  * the `blockCache` with the new block and its ancestors (thus, the BlockCache's "new block" event is always emitted for a block
  * and its ancestors before the corresponding "new head" event).
  */
-export class BlockProcessor<TBlock extends IBlockStub & PlainObject> extends StartStopService {
+export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService {
     private mBlockCache: BlockCache<TBlock>;
 
     /**

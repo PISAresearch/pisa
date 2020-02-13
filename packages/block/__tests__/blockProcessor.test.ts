@@ -80,15 +80,15 @@ describe("BlockProcessorStore", () => {
 describe("BlockProcessor", () => {
     const maxDepth = 5;
     let db: any;
-    let blockStore: BlockItemStore<IBlockStub & PlainObject>;
+    let blockStore: BlockItemStore<IBlockStub>;
 
-    let blockCache: BlockCache<IBlockStub & PlainObject>;
+    let blockCache: BlockCache<IBlockStub>;
     let blockProcessorStore: BlockProcessorStore;
-    let blockProcessor: BlockProcessor<IBlockStub & PlainObject>;
+    let blockProcessor: BlockProcessor<IBlockStub>;
     let mockProvider: ethers.providers.BaseProvider;
     let provider: ethers.providers.BaseProvider;
 
-    const createNewBlockSubscriber = (bp: BlockProcessor<IBlockStub & PlainObject>, bc: BlockCache<IBlockStub & PlainObject>, blockHash: string) => {
+    const createNewBlockSubscriber = (bp: BlockProcessor<IBlockStub>, bc: BlockCache<IBlockStub>, blockHash: string) => {
         return new Promise(resolve => {
             const newBlockHandler = async (block: IBlockStub) => {
                 if (block.hash === blockHash) {
@@ -112,8 +112,8 @@ describe("BlockProcessor", () => {
         let curBlockHash: string = hash;
         while (curBlockHash in blocksByHash) {
             const curBlock = blocksByHash[curBlockHash];
-            when(mockProvider.getBlock(curBlock.number, anything())).thenResolve(curBlock as ethers.providers.Block);
-            when(mockProvider.getBlock(curBlock.hash, anything())).thenResolve(curBlock as ethers.providers.Block);
+            when(mockProvider.getBlock(curBlock.number, anything())).thenResolve(curBlock as unknown as ethers.providers.Block);
+            when(mockProvider.getBlock(curBlock.hash, anything())).thenResolve(curBlock as unknown as ethers.providers.Block);
 
             curBlockHash = curBlock.parentHash;
         }
@@ -131,7 +131,7 @@ describe("BlockProcessor", () => {
     }
 
     async function startStores() {
-        blockStore = new BlockItemStore<IBlockStub & PlainObject>(db);
+        blockStore = new BlockItemStore<IBlockStub>(db);
         await blockStore.start();
 
         blockCache = new BlockCache(maxDepth, blockStore);
@@ -146,7 +146,7 @@ describe("BlockProcessor", () => {
         // Instruct the mocked provider to return the blocks by hash with getBlock
         mockProvider = mock(ethers.providers.BaseProvider);
         for (const [hash, blockStub] of Object.entries(blocksByHash)) {
-            when(mockProvider.getBlock(hash, anything())).thenResolve(blockStub as ethers.providers.Block);
+            when(mockProvider.getBlock(hash, anything())).thenResolve(blockStub as unknown as ethers.providers.Block);
         }
 
         // The mocked Provider should behave like an eventEmitter

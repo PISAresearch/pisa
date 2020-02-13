@@ -9,7 +9,6 @@ import { ethers } from "ethers";
 import { Appointment } from "../../src/dataEntities/appointment";
 import { IBlockStub, BlockCache } from "@pisa-research/block";
 import { PublicDataValidationError } from "@pisa-research/errors";
-import { PlainObject } from "@pisa-research/utils";
 chai.use(chaiAsPromised);
 
 const customerPrivKey = "0xd40be03d93b1ab00d334df3fe683da2d360e95fbfd132178facc3a8f5d9eb620";
@@ -79,10 +78,10 @@ const stringifyBigNumbers = (appointment: Appointment) => {
 };
 
 describe("Appointment", () => {
-    let blockCache: BlockCache<IBlockStub & PlainObject>;
+    let blockCache: BlockCache<IBlockStub>;
 
     beforeEach(() => {
-        const blockCacheMock: BlockCache<IBlockStub & PlainObject> = mock(BlockCache);
+        const blockCacheMock: BlockCache<IBlockStub> = mock(BlockCache);
         when(blockCacheMock.head).thenReturn({ parentHash: "parent", hash: "hash", number: 100 });
         blockCache = instance(blockCacheMock);
     });
