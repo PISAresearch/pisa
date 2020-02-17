@@ -1,5 +1,5 @@
 import { BigNumber } from "ethers/utils";
-import { UnreachableCaseError } from "@pisa-research/errors";
+import { ApplicationError } from "@pisa-research/errors";
 
 export type Primitive = boolean | number | string | null | undefined;
 
@@ -12,13 +12,14 @@ export type PlainObject = {
     [key: string]: AnyObject;
 };
 
+export type DbObject = boolean | number | string | AnyObject[] | PlainObject;
 
-enum SerialisableType {
-    BigNumber = "bn"
+// union of all the possible serialised types
+export interface TypedPlainObject extends PlainObject {
+    _type: string;
 }
 
-type SerialisedBigNumber = {
-    _type: SerialisableType.BigNumber,
+type SerialisedBigNumber = TypedPlainObject & {
     value: string
 };
 
@@ -26,13 +27,11 @@ export interface Serialisable {
     serialise(): TypedPlainObject;
 }
 
-// union of all the possible serialised types
-export type TypedPlainObject = SerialisedBigNumber;
-
-class SerialisableBigNumber extends BigNumber {
-    public serialise(): TypedPlainObject {
+export class SerialisableBigNumber extends BigNumber implements Serialisable {
+    public static TYPE = "bn";
+    public serialise(): SerialisedBigNumber {
         return {
-            _type: SerialisableType.BigNumber,
+            _type: SerialisableBigNumber.TYPE,
             value: this.toHexString()
         };
     }
@@ -42,10 +41,16 @@ class SerialisableBigNumber extends BigNumber {
     }
 }
 
+type DbObjectOrSerialisable =
+    | DbObject
+    | Serialisable
+    | AnyObjectOrSerialisable[]
+    | PlainObjectOrSerialisable;
+
 type AnyObjectOrSerialisable =
     | AnyObject
     | Serialisable
-    | Array<AnyObjectOrSerialisable>
+    | AnyObjectOrSerialisable[]
     | PlainObjectOrSerialisable;
 
 export type PlainObjectOrSerialisable = {
@@ -67,19 +72,25 @@ function isSerialisedPlainObject(obj: PlainObject): obj is TypedPlainObject {
 
 
 export class PlainObjectSerialiser {
-    constructor() {}
+    constructor(public readonly deserialisers: {[type: string]: (obj: TypedPlainObject) => Serialisable}) { }
 
-    public serialise(obj: AnyObjectOrSerialisable): AnyObject {
+    // Like serialise, but also allows null or undefined
+    private serialiseAny(obj: AnyObjectOrSerialisable): null | undefined | DbObject {
+        if (obj === null || obj == undefined) return obj;
+        else return this.serialise(obj);
+    }
+
+    public serialise(obj: DbObjectOrSerialisable): DbObject {
         if (isPrimitive(obj)) {
             return obj;
         } else if (Array.isArray(obj)) {
-            return (obj as AnyObjectOrSerialisable[]).map(item => this.serialise(item));
+            return (obj as AnyObjectOrSerialisable[]).map(item => this.serialiseAny(item));
         } else if (isSerialisable(obj)) {
             return obj.serialise();
         } else {
             const result: PlainObject = {};
             for (const [key, value] of Object.entries(obj)) {
-                result[key] = this.serialise(value);
+                result[key] = this.serialiseAny(value);
             }
             return result;
         }
@@ -92,11 +103,10 @@ export class PlainObjectSerialiser {
             return obj.map(item => this.deserialise(item)) as unknown as T;
         } else if (isSerialisedPlainObject(obj)) {
             const type = obj._type;
-            switch (type) {
-                case SerialisableType.BigNumber:
-                    return SerialisableBigNumber.deserialise(obj) as unknown as T;
-                default:
-                    throw new UnreachableCaseError(type, "Unexpected type while deserialising.");
+            if (this.deserialisers[type]) {
+                return this.deserialisers[type](obj) as unknown as T;
+            } else {
+                throw new ApplicationError(`Unexpected type while deserialising: ${type}`);
             }
         } else {
             // generic plain object

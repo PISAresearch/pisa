@@ -2,7 +2,7 @@ import { ApplicationError } from "@pisa-research/errors";
 import { IBlockStub, BlockAndAttached } from "./block";
 import { LevelUp, LevelUpChain } from "levelup";
 import EncodingDown from "encoding-down";
-import { StartStopService, Lock, PlainObject } from "@pisa-research/utils";
+import { StartStopService, Lock, PlainObject, PlainObjectSerialiser, DbObject, SerialisableBigNumber } from "@pisa-research/utils";
 import { AnchorState } from "./component";
 const sub = require("subleveldown");
 
@@ -30,6 +30,11 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
      * that was emitted as a "new head"; indexed by component. */
     private static KEY_PREV_EMITTED_STATE = "prevEmittedState";
 
+    // TODO: the serializer should be initialized elsewhere and passed here, perhaps
+    private readonly serializer = new PlainObjectSerialiser({
+        [SerialisableBigNumber.TYPE]: SerialisableBigNumber.deserialise
+    });
+
     private readonly subDb: LevelUp<EncodingDown<string, PlainObject>>;
     constructor(db: LevelUp<EncodingDown<string, PlainObject>>) {
         super("block-item-store");
@@ -37,9 +42,9 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
     }
 
     private itemsByHeight: Map<number, Set<string>> = new Map();
-    private items: Map<string, PlainObject> = new Map();
+    private items: Map<string, DbObject> = new Map();
 
-    private mBatch: LevelUpChain<string, PlainObject> | null = null;
+    private mBatch: LevelUpChain<string, DbObject> | null = null;
     private get batch() {
         if (!this.mBatch) throw new ApplicationError("Write accesses must be executed within a withBatch callback.");
         return this.mBatch;
@@ -70,7 +75,7 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
      * Should only be used internally, kept public for testing.
      * Writes `item` for the `blockHash` at height `blockHeight` under the key `itemKey`.
      **/
-    public putBlockItem(blockHeight: number, blockHash: string, itemKey: string, item: any) {
+    public putBlockItem(blockHeight: number, blockHash: string, itemKey: string, item: DbObject) {
         const memKey = `${blockHash}:${itemKey}`;
         const dbKey = `${blockHeight}:${memKey}`;
 
@@ -86,7 +91,7 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
      * Gets the item with key `itemKey` for block `blockHash`.
      * Returns `undefined` if a key is not present.
      **/
-    public getItem(blockHash: string, itemKey: string): PlainObject | undefined {
+    public getItem(blockHash: string, itemKey: string): DbObject | undefined {
         const key = `${blockHash}:${itemKey}`;
         return this.items.get(key);
     }
@@ -109,10 +114,14 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
 
     // Type safe methods to store the anchor state for each block, indexed by component (used in the BlockchainMachine)
     public anchorState = {
-        get: <TAnchorState>(componentName: string, blockHash: string): TAnchorState | undefined =>
-            this.getItem(blockHash, `${componentName}:${BlockItemStore.KEY_STATE}`) as unknown as TAnchorState | undefined, // prettier-ignore
-        set: (componentName: string, blockHeight: number, blockHash: string, newState: AnchorState) =>
-            this.putBlockItem(blockHeight, blockHash, `${componentName}:${BlockItemStore.KEY_STATE}`, newState)
+        get: <TAnchorState>(componentName: string, blockHash: string): TAnchorState | undefined => {
+            const rawObject = this.getItem(blockHash, `${componentName}:${BlockItemStore.KEY_STATE}`) as unknown as PlainObject;
+            return rawObject && this.serializer.deserialise<TAnchorState>(rawObject);
+        },
+        set: (componentName: string, blockHeight: number, blockHash: string, newState: AnchorState) => {
+            const serializedNewState = this.serializer.serialise(newState);
+            this.putBlockItem(blockHeight, blockHash, `${componentName}:${BlockItemStore.KEY_STATE}`, serializedNewState)
+        }
     };
 
     /**

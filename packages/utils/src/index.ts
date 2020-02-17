@@ -4,4 +4,4 @@ type Logger = typeof logger;
 export { logger, Logger };
 export { MapOfSets } from "./mapSet";
 export { StartStopService } from "./startStop";
-export { PlainObject, AnyObject, PlainObjectSerialiser } from "./objects";
+export { Serialisable, PlainObject, PlainObjectOrSerialisable, PlainObjectSerialiser, DbObject, TypedPlainObject, SerialisableBigNumber } from "./objects";

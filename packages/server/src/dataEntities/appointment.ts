@@ -2,7 +2,7 @@ import { ethers } from "ethers";
 import appointmentRequestSchemaJson from "./appointmentRequestSchema.json";
 import Ajv from "ajv";
 import { PublicDataValidationError } from "@pisa-research/errors";
-import { logger, Logger, PlainObject } from "@pisa-research/utils";
+import { logger, Logger, PlainObject, Serialisable } from "@pisa-research/utils";
 import { BigNumber } from "ethers/utils";
 import betterAjvErrors from "better-ajv-errors";
 import { ReadOnlyBlockCache, IBlockStub } from "@pisa-research/block";
@@ -121,10 +121,14 @@ export interface IAppointment extends IAppointmentBase {
     readonly mode: AppointmentMode;
 }
 
+type SerialisedAppointmentType = IAppointment & {
+    _type: "app"
+};
+
 /**
  * A customer appointment, detailing what event to be watched for and data to submit.
  */
-export class Appointment {
+export class Appointment implements Serialisable {
     constructor(
         public readonly contractAddress: string,
         public readonly customerAddress: string,
@@ -144,6 +148,29 @@ export class Appointment {
         public readonly paymentHash: string,
         public readonly customerSig: string
     ) {}
+
+    public serialise(): SerialisedAppointmentType {
+        return {
+            _type: "app",
+            contractAddress: this.contractAddress,
+            customerAddress: this.customerAddress,
+            startBlock: this.startBlock,
+            endBlock: this.endBlock,
+            challengePeriod: this.challengePeriod,
+            customerChosenId: this.customerChosenId,
+            nonce: this.nonce,
+            data: this.data,
+            refund: this.refund.toHexString(),
+            gasLimit: this.gasLimit,
+            mode: this.mode,
+            eventAddress: this.eventAddress,
+            topics: this.topics,
+            preCondition: this.preCondition,
+            postCondition: this.postCondition,
+            paymentHash: this.paymentHash,
+            customerSig: this.customerSig
+        }
+    }
 
     public static fromIAppointment(appointment: IAppointment): Appointment {
         return new Appointment(
