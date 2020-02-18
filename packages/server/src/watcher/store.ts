@@ -1,27 +1,30 @@
-import { LevelUp } from "levelup";
+import { LevelUp, LevelUpChain } from "levelup";
 import EncodingDown from "encoding-down";
 const sub = require("subleveldown");
 
 import { ApplicationError } from "@pisa-research/errors";
-import { StartStopService, LockManager, MapOfSets, PlainObject } from "@pisa-research/utils";
+import { StartStopService, LockManager, MapOfSets, DbObject, DbObjectSerialiser } from "@pisa-research/utils";
 
-import { Appointment, IAppointment } from "../dataEntities/appointment";
+import { Appointment } from "../dataEntities/appointment";
 
 /**
  * Stores all appointments in memory and in the db. Has an inefficient processes for
  * determining expired appointments so this function should not be used in a loop.
  */
 export class AppointmentStore extends StartStopService {
-    private readonly subDb: LevelUp<EncodingDown<string, PlainObject>>;
-    constructor(db: LevelUp<EncodingDown<string, PlainObject>>) {
+    private readonly subDb: LevelUp<EncodingDown<string, DbObject>>;
+    constructor(db: LevelUp<EncodingDown<string, DbObject>>, private readonly serialiser: DbObjectSerialiser) {
         super("appointment-store");
+
+        if (!serialiser.deserialisers[Appointment.TYPE]) throw new ApplicationError(`Invalid serialiser: cannot handle objects of type "${Appointment.TYPE}"`);
+
         this.subDb = sub(db, `watcher`, { valueEncoding: "json" });
     }
 
     protected async startInternal() {
         // access the db and load all state
         for await (const record of this.subDb.createValueStream()) {
-            const appointment = Appointment.fromIAppointment((record as any) as IAppointment);
+            const appointment = this.serialiser.deserialise<Appointment>(record as any);
             // add to the indexes
             this.mAppointmentsById.set(appointment.id, appointment);
             this.mAppointmentsByLocator.set(appointment.locator, appointment);
@@ -91,7 +94,7 @@ export class AppointmentStore extends StartStopService {
         return this.stateLocatorLockManager.withLock(appointment.locator, async () => {
             const currentAppointment = this.mAppointmentsByLocator.get(appointment.locator);
 
-            const batch = this.subDb.batch();
+            const batch: LevelUpChain<string, DbObject> = this.subDb.batch();
             // CHECKS
             if (currentAppointment) {
                 // make sure that the nonce is larger than the previous one
@@ -102,7 +105,9 @@ export class AppointmentStore extends StartStopService {
                 batch.del(currentAppointment.id);
             }
 
-            batch.put(appointment.id, Appointment.toIAppointment(appointment));
+
+            const serialisedAppointment = this.serialiser.serialise(appointment);
+            batch.put(appointment.id, serialisedAppointment);
 
             // DB
             await batch.write();

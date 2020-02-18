@@ -3,7 +3,7 @@ import { Log } from "ethers/providers";
 import { LevelUp } from "levelup";
 import EncodingDown from "encoding-down";
 import { BlockFetchingError, ApplicationError, UnreachableCaseError } from "@pisa-research/errors";
-import { StartStopService, Lock, PlainObject } from "@pisa-research/utils";
+import { StartStopService, Lock, PlainObject, DbObject } from "@pisa-research/utils";
 import { ReadOnlyBlockCache, BlockCache, BlockAddResult } from "./blockCache";
 import { IBlockStub, Block, TransactionHashes } from "./block";
 import { BlockItemStore } from "./blockItemStore";
@@ -93,8 +93,8 @@ export const blockFactory = (provider: ethers.providers.Provider) => async (bloc
 };
 
 export class BlockProcessorStore {
-    private readonly subDb: LevelUp<EncodingDown<string, PlainObject>>;
-    constructor(db: LevelUp<EncodingDown<string, PlainObject>>) {
+    private readonly subDb: LevelUp<EncodingDown<string, DbObject>>;
+    constructor(db: LevelUp<EncodingDown<string, DbObject>>) {
         this.subDb = sub(db, `block-processor`, { valueEncoding: "json" });
     }
 

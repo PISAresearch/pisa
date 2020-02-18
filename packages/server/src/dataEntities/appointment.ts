@@ -2,7 +2,7 @@ import { ethers } from "ethers";
 import appointmentRequestSchemaJson from "./appointmentRequestSchema.json";
 import Ajv from "ajv";
 import { PublicDataValidationError } from "@pisa-research/errors";
-import { logger, Logger, PlainObject, Serialisable } from "@pisa-research/utils";
+import { logger, Logger, PlainObject, Serialisable, TypedPlainObject } from "@pisa-research/utils";
 import { BigNumber } from "ethers/utils";
 import betterAjvErrors from "better-ajv-errors";
 import { ReadOnlyBlockCache, IBlockStub } from "@pisa-research/block";
@@ -121,14 +121,13 @@ export interface IAppointment extends IAppointmentBase {
     readonly mode: AppointmentMode;
 }
 
-type SerialisedAppointmentType = IAppointment & {
-    _type: "app"
-};
+export type SerialisedAppointment = IAppointment & TypedPlainObject;
 
 /**
  * A customer appointment, detailing what event to be watched for and data to submit.
  */
 export class Appointment implements Serialisable {
+    public static TYPE = "app";
     constructor(
         public readonly contractAddress: string,
         public readonly customerAddress: string,
@@ -149,9 +148,9 @@ export class Appointment implements Serialisable {
         public readonly customerSig: string
     ) {}
 
-    public serialise(): SerialisedAppointmentType {
+    public serialise(): SerialisedAppointment {
         return {
-            _type: "app",
+            _type: Appointment.TYPE,
             contractAddress: this.contractAddress,
             customerAddress: this.customerAddress,
             startBlock: this.startBlock,
@@ -170,6 +169,28 @@ export class Appointment implements Serialisable {
             paymentHash: this.paymentHash,
             customerSig: this.customerSig
         }
+    }
+
+    public static deserialise(appointment: SerialisedAppointment) {
+        return new Appointment(
+            appointment.contractAddress,
+            appointment.customerAddress,
+            appointment.startBlock,
+            appointment.endBlock,
+            appointment.challengePeriod,
+            appointment.customerChosenId,
+            appointment.nonce,
+            appointment.data,
+            new BigNumber(appointment.refund),
+            appointment.gasLimit,
+            appointment.mode,
+            appointment.eventAddress,
+            appointment.topics,
+            appointment.preCondition,
+            appointment.postCondition,
+            appointment.paymentHash,
+            appointment.customerSig
+        );
     }
 
     public static fromIAppointment(appointment: IAppointment): Appointment {

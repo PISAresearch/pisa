@@ -2,10 +2,10 @@ import "mocha";
 import { expect, use } from "chai";
 import chaiAsPromised from "chai-as-promised"
 import { fnIt } from "@pisa-research/test-utils";
-import { PlainObjectSerialiser, SerialisableBigNumber } from "../src";
+import { DbObjectSerialiser, SerialisableBigNumber } from "../src";
 use(chaiAsPromised);
 
-describe("PlainObjectSerialiser", () => {
+describe("DbObjectSerialiser", () => {
     const plainObjects = [
         true, false, 5, "", "a string", [], [1, 5, "test"],
         {}, { foo: "bar" },
@@ -20,8 +20,8 @@ describe("PlainObjectSerialiser", () => {
         }
     ];
 
-    fnIt<PlainObjectSerialiser>(p => p.serialise, "leaves primitive types and plain objects unchanged", () => {
-        const pos = new PlainObjectSerialiser({ [SerialisableBigNumber.TYPE]: SerialisableBigNumber.deserialise });
+    fnIt<DbObjectSerialiser>(p => p.serialise, "leaves primitive types and plain objects unchanged", () => {
+        const pos = new DbObjectSerialiser({ [SerialisableBigNumber.TYPE]: SerialisableBigNumber.deserialise });
 
         for (const obj of plainObjects) {
             expect(pos.serialise(obj)).to.deep.equal(obj);

@@ -3,7 +3,7 @@ import EncodingDown from "encoding-down";
 const sub = require("subleveldown");
 import uuid = require("uuid/v4");
 
-import { StartStopService, PlainObject } from "@pisa-research/utils";
+import { StartStopService, DbObject, DbObjectOrSerialisable } from "@pisa-research/utils";
 
 export interface ItemAndId<TValue> {
     id: string;
@@ -19,8 +19,8 @@ export interface ItemAndId<TValue> {
  * The store keeps a copy of all the items in memory, and it makes sure that updates on disk are performed after the corresponding successful
  * update on disk, to ensure that copy stored to disk is in a consistent state if a restart is necessary.
  **/
-export class CachedKeyValueStore<TValue> extends StartStopService {
-    private readonly subDb: LevelUp<EncodingDown<string, PlainObject>>;
+export class CachedKeyValueStore<TValue extends DbObjectOrSerialisable> extends StartStopService {
+    private readonly subDb: LevelUp<EncodingDown<string, DbObject>>;
     private items: Map<string, Set<ItemAndId<TValue>>> = new Map();
 
     /**
@@ -28,7 +28,7 @@ export class CachedKeyValueStore<TValue> extends StartStopService {
      * @param db
      * @param name
      */
-    constructor(db: LevelUp<EncodingDown<string, PlainObject>>, name: string) {
+    constructor(db: LevelUp<EncodingDown<string, DbObject>>, name: string) {
         super(`cachedkeyvaluestore-${name}`);
         this.subDb = sub(db, `cachedkeyvaluestore-${name}`, { valueEncoding: "json" });
     }

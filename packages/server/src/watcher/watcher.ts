@@ -98,12 +98,12 @@ export class Watcher extends Component<WatcherAnchorState, IBlockStub & Logs, Wa
     ) {
         super(
             new MappedStateReducer(
-                () => store.getAll().map(a => Appointment.toIAppointment(a)),
+                () => store.getAll(),
                 appointment => {
-                    const eventFilter = Appointment.fromIAppointment(appointment).eventFilter;
-                    return new EventFilterStateReducer(blockCache, eventFilter, appointment.startBlock)
+                    const eventFilter = appointment.eventFilter;
+                    return new EventFilterStateReducer(blockCache, eventFilter, appointment.startBlock);
                 },
-                appointment => Appointment.fromIAppointment(appointment).id,
+                appointment => appointment.id,
                 new BlockNumberReducer()
             )
         );

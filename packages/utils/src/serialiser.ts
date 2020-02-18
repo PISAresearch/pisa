@@ -15,7 +15,7 @@ export interface Serialisable {
     serialise(): TypedPlainObject;
 }
 
-type DbObjectOrSerialisable =
+export type DbObjectOrSerialisable =
     | DbObject
     | Serialisable
     | AnyObjectOrSerialisable[]
@@ -27,7 +27,7 @@ type AnyObjectOrSerialisable =
     | AnyObjectOrSerialisable[]
     | PlainObjectOrSerialisable;
 
-export type PlainObjectOrSerialisable = {
+export type PlainObjectOrSerialisable = Serialisable | {
     [key: string]: AnyObjectOrSerialisable;
 };
 
@@ -41,14 +41,14 @@ function isSerialisable(obj: any): obj is Serialisable {
 }
 
 function isSerialisedPlainObject(obj: PlainObject): obj is TypedPlainObject {
-    return "_type" in Object.keys(obj);
+    return !!obj["_type"];
 }
 
 export type Deserialisers = {
     [type: string]: (obj: TypedPlainObject) => Serialisable
 };
 
-export class PlainObjectSerialiser {
+export class DbObjectSerialiser {
     constructor(public readonly deserialisers: Deserialisers) { }
 
     // Like serialise, but also allows null or undefined
@@ -116,4 +116,4 @@ export const defaultDeserialisers = {
     [SerialisableBigNumber.TYPE]: SerialisableBigNumber.deserialise
 };
 
-export const defaultSerialiser = new PlainObjectSerialiser(defaultDeserialisers);
+export const defaultSerialiser = new DbObjectSerialiser(defaultDeserialisers);

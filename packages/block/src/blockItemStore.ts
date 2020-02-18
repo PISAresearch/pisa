@@ -2,7 +2,7 @@ import { ApplicationError } from "@pisa-research/errors";
 import { IBlockStub, BlockAndAttached } from "./block";
 import { LevelUp, LevelUpChain } from "levelup";
 import EncodingDown from "encoding-down";
-import { StartStopService, Lock, PlainObject, DbObject, PlainObjectSerialiser } from "@pisa-research/utils";
+import { StartStopService, Lock, PlainObject, DbObject, DbObjectSerialiser } from "@pisa-research/utils";
 import { AnchorState } from "./component";
 const sub = require("subleveldown");
 
@@ -26,12 +26,12 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
     /** Stores the anchor state computed for this block; indexed by component. */
     private static KEY_STATE = "state";
 
-    /** Stores the anchor state of the nearest ancestor (including the block itself)s
+    /** Stores the anchor state of the nearest ancestor (including the block itself)
      * that was emitted as a "new head"; indexed by component. */
     private static KEY_PREV_EMITTED_STATE = "prevEmittedState";
 
-    private readonly subDb: LevelUp<EncodingDown<string, PlainObject>>;
-    constructor(db: LevelUp<EncodingDown<string, PlainObject>>, private readonly serialiser: PlainObjectSerialiser) {
+    private readonly subDb: LevelUp<EncodingDown<string, DbObject>>;
+    constructor(db: LevelUp<EncodingDown<string, DbObject>>, private readonly serialiser: DbObjectSerialiser) {
         super("block-item-store");
         this.subDb = sub(db, `block-item-store`, { valueEncoding: "json" });
     }
@@ -79,7 +79,9 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
         else this.itemsByHeight.set(blockHeight, new Set([memKey]));
         this.items.set(memKey, item);
 
-        this.batch.put(dbKey, item);
+        const dbItem = this.serialiser.serialise(item);
+
+        this.batch.put(dbKey, dbItem);
     }
 
     /**

@@ -23,7 +23,7 @@ import {
 } from "@pisa-research/block";
 import { LevelUp } from "levelup";
 import encodingDown from "encoding-down";
-import { StartStopService, Logger, PlainObject, PlainObjectSerialiser, defaultDeserialisers } from "@pisa-research/utils";
+import { StartStopService, Logger, PlainObject, DbObjectSerialiser, defaultDeserialisers } from "@pisa-research/utils";
 import path from "path";
 import rateLimit from "express-rate-limit";
 import uuid = require("uuid/v4");
@@ -77,7 +77,7 @@ export class PisaService extends StartStopService {
         const app = express();
         this.applyMiddlewares(app, config);
 
-        const serialiser = new PlainObjectSerialiser({
+        const serialiser = new DbObjectSerialiser({
             ...defaultDeserialisers
             // TODO: add appointment serialiser
         })
@@ -90,7 +90,7 @@ export class PisaService extends StartStopService {
         this.blockProcessor = new BlockProcessor<Block>(provider, blockFactory, blockCache, this.blockItemStore, blockProcessorStore);
 
         // stores
-        this.appointmentStore = new AppointmentStore(db);
+        this.appointmentStore = new AppointmentStore(db, serialiser);
         const seedQueue = new GasQueue([], walletNonce, 12, 13);
         this.responderStore = new ResponderStore(db, responderWallet.address, seedQueue);
 
