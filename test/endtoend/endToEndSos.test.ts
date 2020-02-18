@@ -9,7 +9,7 @@ import { expect } from "chai";
 import Ganache from "ganache-core";
 import { BigNumber, arrayify } from "ethers/utils";
 
-import { PlainObject } from "@pisa-research/utils";
+import { DbObject } from "@pisa-research/utils";
 
 import config from "../../packages/server/src/service/config";
 import { PisaService } from "../../packages/server/src/service/service";
@@ -93,7 +93,7 @@ describe("sos end to end", () => {
         );
     };
 
-    let db: LevelUp<encodingDown<string, PlainObject>>,
+    let db: LevelUp<encodingDown<string, DbObject>>,
         exService: PisaService,
         user1: ethers.Wallet,
         user2: ethers.Wallet,
@@ -103,7 +103,7 @@ describe("sos end to end", () => {
 
     beforeEach(async () => {
         db = levelup(
-            encodingDown<string, PlainObject>(MemDown(), {
+            encodingDown<string, DbObject>(MemDown(), {
                 valueEncoding: "json"
             })
         );

@@ -2,7 +2,6 @@ import "mocha";
 import { mock, when, anything, spy, verify } from "ts-mockito";
 import chai, { expect } from "chai";
 import chaiAsPromised from "chai-as-promised";
-import { fnIt, throwingInstance } from "@pisa-research/test-utils";
 
 import LevelUp from "levelup";
 import EncodingDown from "encoding-down";
@@ -10,10 +9,12 @@ import MemDown from "memdown";
 import { ethers } from "ethers";
 import { BigNumber } from "ethers/utils";
 
+import { fnIt, throwingInstance } from "@pisa-research/test-utils";
 import { ArgumentError } from "@pisa-research/errors";
+import { DbObject } from "@pisa-research/utils";
+
 import { PisaTransactionIdentifier, GasQueue } from "../../src/responder/gasQueue";
 import { MultiResponder, GasPriceEstimator, ResponderStore } from "../../src/responder";
-import { PlainObject } from "@pisa-research/utils";
 
 chai.use(chaiAsPromised);
 
@@ -63,7 +64,7 @@ describe("MultiResponder", () => {
         when(errorGasEstimatorMock.estimate(anything())).thenThrow(new Error("Gas test error"));
         errorGasPriceEstimator = throwingInstance(errorGasEstimatorMock);
 
-        db = LevelUp(EncodingDown<string, PlainObject>(MemDown(), { valueEncoding: "json" }));
+        db = LevelUp(EncodingDown<string, DbObject>(MemDown(), { valueEncoding: "json" }));
         const seedQueue = new GasQueue([], 0, replacementRate, maxConcurrentResponses);
         store = new ResponderStore(db, "address", seedQueue);
         responderStoreMock = spy(store);

@@ -6,7 +6,7 @@ import MemDown from "memdown";
 import { hasLogMatchingEventFilter, IBlockStub, Logs, BlockItemStore } from "../src";
 import { ArgumentError, ApplicationError } from "@pisa-research/errors";
 import { fnIt, wait } from "@pisa-research/test-utils";
-import { PlainObject, defaultSerialiser } from "@pisa-research/utils";
+import { DbObject, defaultSerialiser } from "@pisa-research/utils";
 
 describe("hasLogMatchingEventFilter", () => {
     const address = "0x1234abcd";
@@ -92,7 +92,7 @@ describe("BlockItemStore", () => {
 
     beforeEach(async () => {
         db = LevelUp(
-            EncodingDown<string, PlainObject>(MemDown(), { valueEncoding: "json" })
+            EncodingDown<string, DbObject>(MemDown(), { valueEncoding: "json" })
         );
         store = new BlockItemStore<IBlockStub>(db, defaultSerialiser);
         await store.start();

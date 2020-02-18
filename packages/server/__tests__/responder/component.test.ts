@@ -21,7 +21,7 @@ import {
 import { BlockCache, TransactionStub, Block, BlockItemStore } from "@pisa-research/block";
 import { PisaTransactionIdentifier } from "../../src/responder/gasQueue";
 import { MultiResponder } from "../../src/responder";
-import { PlainObject, defaultSerialiser } from "@pisa-research/utils";
+import { PlainObject, DbObject, defaultSerialiser } from "@pisa-research/utils";
 
 const from1 = "from1";
 const from2 = "from2";
@@ -86,7 +86,7 @@ describe("ResponderAppointmentReducer", () => {
     let blockCache: BlockCache<Block & PlainObject>;
 
     beforeEach(async () => {
-        db = LevelUp(EncodingDown<string, PlainObject>(MemDown(), { valueEncoding: "json" }));
+        db = LevelUp(EncodingDown<string, DbObject>(MemDown(), { valueEncoding: "json" }));
         blockStore = new BlockItemStore<Block & PlainObject>(db, defaultSerialiser);
         await blockStore.start();
 

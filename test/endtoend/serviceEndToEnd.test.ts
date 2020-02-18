@@ -9,7 +9,7 @@ import { ethers } from "ethers";
 import { arrayify, BigNumber } from "ethers/utils";
 import Ganache from "ganache-core";
 
-import { PlainObject } from "@pisa-research/utils";
+import { DbObject } from "@pisa-research/utils";
 
 import { KitsuneTools } from "../external/kitsune/tools";
 import { PisaService } from "../../packages/server/src/service/service";
@@ -48,7 +48,7 @@ describe("Service end-to-end", () => {
         hashState: string,
         disputePeriod: number,
         service: PisaService,
-        db: LevelUp<encodingDown<string, PlainObject>>,
+        db: LevelUp<encodingDown<string, DbObject>>,
         pisaContractAddress: string,
         pisaClient: PisaClient;
 
@@ -56,7 +56,7 @@ describe("Service end-to-end", () => {
         const responderWallet = new ethers.Wallet(nextConfig.responderKey, provider);
 
         db = levelup(
-            encodingDown<string, PlainObject>(MemDown(), {
+            encodingDown<string, DbObject>(MemDown(), {
                 valueEncoding: "json"
             })
         );

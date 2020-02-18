@@ -11,7 +11,7 @@ import { mock, when, anything } from "ts-mockito";
 import { EventEmitter } from "events";
 import { BlockProcessor, BlockCache, blockStubAndTxHashFactory, BlockProcessorStore, IBlockStub, BlockItemStore } from "../src";
 import { wait, throwingInstance, fnIt } from "@pisa-research/test-utils";
-import { PlainObject, defaultSerialiser } from "@pisa-research/utils";
+import { DbObject, defaultSerialiser } from "@pisa-research/utils";
 
 chai.use(chaiAsPromised);
 const expect = chai.expect;
@@ -54,7 +54,7 @@ describe("BlockProcessorStore", () => {
     let store: BlockProcessorStore;
 
     beforeEach(async () => {
-        db = LevelUp(EncodingDown<string, PlainObject>(MemDown(), { valueEncoding: "json" }));
+        db = LevelUp(EncodingDown<string, DbObject>(MemDown(), { valueEncoding: "json" }));
         store = new BlockProcessorStore(db);
     });
 
@@ -140,7 +140,7 @@ describe("BlockProcessor", () => {
     }
 
     beforeEach(async () => {
-        db = LevelUp(EncodingDown<string, PlainObject>(MemDown(), { valueEncoding: "json" }));
+        db = LevelUp(EncodingDown<string, DbObject>(MemDown(), { valueEncoding: "json" }));
         await startStores();
 
         // Instruct the mocked provider to return the blocks by hash with getBlock

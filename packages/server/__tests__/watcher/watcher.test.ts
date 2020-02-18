@@ -1,19 +1,20 @@
 import "mocha";
 import { expect } from "chai";
 import { mock, when, resetCalls, anything, anyNumber } from "ts-mockito";
-import { fnIt, throwingInstance } from "@pisa-research/test-utils";
 
 import LevelUp from "levelup";
 import EncodingDown from "encoding-down";
 import MemDown from "memdown";
 
+import { ApplicationError } from "@pisa-research/errors";
+import { DbObject, defaultSerialiser } from "@pisa-research/utils";
+import { BlockCache, BlockItemStore, IBlockStub, Logs } from "@pisa-research/block";
+import { fnIt, throwingInstance } from "@pisa-research/test-utils";
+
 import { AppointmentStore } from "../../src/watcher";
 import { MultiResponder } from "../../src/responder";
-import { BlockCache, BlockItemStore, IBlockStub, Logs } from "@pisa-research/block";
-import { ApplicationError } from "@pisa-research/errors";
 import { Appointment } from "../../src/dataEntities/appointment";
 import { EventFilterStateReducer, WatcherAppointmentState, Watcher, WatcherActionKind } from "../../src/watcher/watcher";
-import { PlainObject, defaultSerialiser } from "@pisa-research/utils";
 
 const observedEventAddress = "0x1234abcd";
 const observedEventTopics = ["0x1234"];
@@ -66,7 +67,7 @@ describe("WatcherAppointmentStateReducer", () => {
     when(appMock.startBlock).thenReturn(0);
     when(appMock.endBlock).thenReturn(1000);
 
-    const db = LevelUp(EncodingDown<string, PlainObject>(MemDown(), { valueEncoding: "json" }));
+    const db = LevelUp(EncodingDown<string, DbObject>(MemDown(), { valueEncoding: "json" }));
     const blockStore = new BlockItemStore<IBlockStub & Logs>(db, defaultSerialiser);
 
     const blockCache = new BlockCache<IBlockStub & Logs>(100, blockStore);
@@ -178,7 +179,7 @@ describe("Watcher", () => {
     const CONFIRMATIONS_BEFORE_RESPONSE = 4;
     const CONFIRMATIONS_BEFORE_REMOVAL = 20;
 
-    const db = LevelUp(EncodingDown<string, PlainObject>(MemDown(), { valueEncoding: "json" }));
+    const db = LevelUp(EncodingDown<string, DbObject>(MemDown(), { valueEncoding: "json" }));
     let blockStore: BlockItemStore<IBlockStub & Logs>;
     let blockCache: BlockCache<IBlockStub & Logs>;
 

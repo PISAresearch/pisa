@@ -5,7 +5,7 @@ import LevelUp from "levelup";
 import EncodingDown from "encoding-down";
 import MemDown from "memdown";
 import { fnIt } from "@pisa-research/test-utils";
-import { PlainObject } from "@pisa-research/utils";
+import { DbObject } from "@pisa-research/utils";
 
 
 type TestItem = {
@@ -27,7 +27,7 @@ describe("CachedKeyValueStore", () => {
     ];
 
     beforeEach(async () => {
-        db = LevelUp(EncodingDown<string, PlainObject>(MemDown(), { valueEncoding: "json" }));
+        db = LevelUp(EncodingDown<string, DbObject>(MemDown(), { valueEncoding: "json" }));
         store = new CachedKeyValueStore(db, "prefix");
         await store.start();
     });
