@@ -2,7 +2,7 @@ import "mocha";
 import { expect } from "chai";
 import { BlockAddResult, BlockCache, getConfirmations, IBlockStub, TransactionHashes, BlockItemStore } from "../src";
 import { ArgumentError, ApplicationError } from "@pisa-research/errors";
-import { PlainObject } from "@pisa-research/utils";
+import { PlainObject, defaultSerialiser } from "@pisa-research/utils";
 import { fnIt } from "@pisa-research/test-utils";
 
 import LevelUp from "levelup";
@@ -61,7 +61,7 @@ describe("BlockCache", () => {
 
     beforeEach(async () => {
         db = LevelUp(EncodingDown<string, PlainObject>(MemDown(), { valueEncoding: "json" }));
-        blockStore = new BlockItemStore<IBlockStub>(db);
+        blockStore = new BlockItemStore<IBlockStub>(db, defaultSerialiser);
         await blockStore.start();
 
         bc = new BlockCache(maxDepth, blockStore);
@@ -441,7 +441,7 @@ describe("getConfirmations", () => {
     let resolveBatch: (value?: any) => void;
     beforeEach(async () => {
         db = LevelUp(EncodingDown<string, PlainObject>(MemDown(), { valueEncoding: "json" }));
-        blockStore = new BlockItemStore<IBlockStub & TransactionHashes>(db);
+        blockStore = new BlockItemStore<IBlockStub & TransactionHashes>(db, defaultSerialiser);
         await blockStore.start();
 
         bc = new BlockCache<IBlockStub & TransactionHashes>(maxDepth, blockStore);

@@ -11,7 +11,7 @@ import { mock, when, anything } from "ts-mockito";
 import { EventEmitter } from "events";
 import { BlockProcessor, BlockCache, blockStubAndTxHashFactory, BlockProcessorStore, IBlockStub, BlockItemStore } from "../src";
 import { wait, throwingInstance, fnIt } from "@pisa-research/test-utils";
-import { PlainObject } from "@pisa-research/utils";
+import { PlainObject, defaultSerialiser } from "@pisa-research/utils";
 
 chai.use(chaiAsPromised);
 const expect = chai.expect;
@@ -131,7 +131,7 @@ describe("BlockProcessor", () => {
     }
 
     async function startStores() {
-        blockStore = new BlockItemStore<IBlockStub>(db);
+        blockStore = new BlockItemStore<IBlockStub>(db, defaultSerialiser);
         await blockStore.start();
 
         blockCache = new BlockCache(maxDepth, blockStore);

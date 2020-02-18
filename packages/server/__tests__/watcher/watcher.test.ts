@@ -13,7 +13,7 @@ import { BlockCache, BlockItemStore, IBlockStub, Logs } from "@pisa-research/blo
 import { ApplicationError } from "@pisa-research/errors";
 import { Appointment } from "../../src/dataEntities/appointment";
 import { EventFilterStateReducer, WatcherAppointmentState, Watcher, WatcherActionKind } from "../../src/watcher/watcher";
-import { PlainObject } from "@pisa-research/utils";
+import { PlainObject, defaultSerialiser } from "@pisa-research/utils";
 
 const observedEventAddress = "0x1234abcd";
 const observedEventTopics = ["0x1234"];
@@ -67,7 +67,7 @@ describe("WatcherAppointmentStateReducer", () => {
     when(appMock.endBlock).thenReturn(1000);
 
     const db = LevelUp(EncodingDown<string, PlainObject>(MemDown(), { valueEncoding: "json" }));
-    const blockStore = new BlockItemStore<IBlockStub & Logs>(db);
+    const blockStore = new BlockItemStore<IBlockStub & Logs>(db, defaultSerialiser);
 
     const blockCache = new BlockCache<IBlockStub & Logs>(100, blockStore);
 
@@ -191,7 +191,7 @@ describe("Watcher", () => {
     let appointment: Appointment;
 
     before(async () => {
-        blockStore = new BlockItemStore<IBlockStub & Logs>(db);
+        blockStore = new BlockItemStore<IBlockStub & Logs>(db, defaultSerialiser);
         await blockStore.start();
 
         blockCache = new BlockCache<IBlockStub & Logs>(100, blockStore);

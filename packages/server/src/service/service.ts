@@ -23,7 +23,7 @@ import {
 } from "@pisa-research/block";
 import { LevelUp } from "levelup";
 import encodingDown from "encoding-down";
-import { StartStopService, Logger, PlainObject } from "@pisa-research/utils";
+import { StartStopService, Logger, PlainObject, PlainObjectSerialiser, defaultDeserialisers } from "@pisa-research/utils";
 import path from "path";
 import rateLimit from "express-rate-limit";
 import uuid = require("uuid/v4");
@@ -77,9 +77,14 @@ export class PisaService extends StartStopService {
         const app = express();
         this.applyMiddlewares(app, config);
 
+        const serialiser = new PlainObjectSerialiser({
+            ...defaultDeserialisers
+            // TODO: add appointment serialiser
+        })
+
         // block cache and processor
         const cacheLimit = config.maximumReorgLimit == undefined ? 200 : config.maximumReorgLimit;
-        this.blockItemStore = new BlockItemStore<Block>(db);
+        this.blockItemStore = new BlockItemStore<Block>(db, serialiser);
         const blockCache = new BlockCache<Block>(cacheLimit, this.blockItemStore);
         const blockProcessorStore = new BlockProcessorStore(db);
         this.blockProcessor = new BlockProcessor<Block>(provider, blockFactory, blockCache, this.blockItemStore, blockProcessorStore);

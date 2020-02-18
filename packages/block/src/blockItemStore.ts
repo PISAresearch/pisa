@@ -2,7 +2,7 @@ import { ApplicationError } from "@pisa-research/errors";
 import { IBlockStub, BlockAndAttached } from "./block";
 import { LevelUp, LevelUpChain } from "levelup";
 import EncodingDown from "encoding-down";
-import { StartStopService, Lock, PlainObject, PlainObjectSerialiser, DbObject, SerialisableBigNumber } from "@pisa-research/utils";
+import { StartStopService, Lock, PlainObject, DbObject, PlainObjectSerialiser } from "@pisa-research/utils";
 import { AnchorState } from "./component";
 const sub = require("subleveldown");
 
@@ -30,13 +30,8 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
      * that was emitted as a "new head"; indexed by component. */
     private static KEY_PREV_EMITTED_STATE = "prevEmittedState";
 
-    // TODO: the serializer should be initialized elsewhere and passed here, perhaps
-    private readonly serializer = new PlainObjectSerialiser({
-        [SerialisableBigNumber.TYPE]: SerialisableBigNumber.deserialise
-    });
-
     private readonly subDb: LevelUp<EncodingDown<string, PlainObject>>;
-    constructor(db: LevelUp<EncodingDown<string, PlainObject>>) {
+    constructor(db: LevelUp<EncodingDown<string, PlainObject>>, private readonly serialiser: PlainObjectSerialiser) {
         super("block-item-store");
         this.subDb = sub(db, `block-item-store`, { valueEncoding: "json" });
     }
@@ -116,10 +111,10 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
     public anchorState = {
         get: <TAnchorState>(componentName: string, blockHash: string): TAnchorState | undefined => {
             const rawObject = this.getItem(blockHash, `${componentName}:${BlockItemStore.KEY_STATE}`) as unknown as PlainObject;
-            return rawObject && this.serializer.deserialise<TAnchorState>(rawObject);
+            return rawObject && this.serialiser.deserialise<TAnchorState>(rawObject);
         },
         set: (componentName: string, blockHeight: number, blockHash: string, newState: AnchorState) => {
-            const serializedNewState = this.serializer.serialise(newState);
+            const serializedNewState = this.serialiser.serialise(newState);
             this.putBlockItem(blockHeight, blockHash, `${componentName}:${BlockItemStore.KEY_STATE}`, serializedNewState)
         }
     };

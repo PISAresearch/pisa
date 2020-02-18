@@ -19,7 +19,7 @@ import { BlockchainMachine } from "../src/blockchainMachine";
 import { throwingInstance, fnIt, wait } from "@pisa-research/test-utils";
 import { ArgumentError, ConfigurationError } from "@pisa-research/errors";
 import chaiAsPromised from "chai-as-promised";
-import { PlainObject } from "@pisa-research/utils";
+import { PlainObject, defaultSerialiser } from "@pisa-research/utils";
 chai.use(chaiAsPromised);
 
 type TestAnchorState = { number: number; extraData: string } & PlainObject;
@@ -86,7 +86,7 @@ const setupBM = async (
 ) => {
     const db = LevelUp(EncodingDown<string, PlainObject>(MemDown(), { valueEncoding: "json" }));
 
-    const blockItemStore: BlockItemStore<IBlockStub> = new BlockItemStore(db);
+    const blockItemStore: BlockItemStore<IBlockStub> = new BlockItemStore(db, defaultSerialiser);
     const blockItemStoreSpy = spy(blockItemStore);
     const blockItemStoreAnchorStateSpy = spy(blockItemStore.anchorState);
 
