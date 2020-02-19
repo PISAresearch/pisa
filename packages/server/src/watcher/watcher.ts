@@ -86,7 +86,7 @@ export class Watcher extends Component<WatcherAnchorState, IBlockStub & Logs, Wa
 
     /**
      * Watches the chain for events related to the supplied appointments. When an event is noticed data is forwarded to the
-     * observe method to complete the tassk. The watcher is not responsible for ensuring that observed events are properly
+     * observe method to complete the task. The watcher is not responsible for ensuring that observed events are properly
      * acted upon, that is the responsibility of the responder.
      */
     constructor(
