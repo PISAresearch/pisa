@@ -139,8 +139,8 @@ describe("BlockItemStore", () => {
                 const startTime = Date.now();
                 await Promise.race([store.withBatch(async () => {}), wait(1000)]);
 
-                expect(Date.now() - startTime).to.be.greaterThan(1000)
-                expect(Date.now() - startTime).to.be.lessThan(2000)
+                expect(Date.now() - startTime).to.be.gte(1000);
+                expect(Date.now() - startTime).to.be.lessThan(2000);
             });
         }
     );

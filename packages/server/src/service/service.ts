@@ -90,7 +90,7 @@ export class PisaService extends StartStopService {
         this.blockProcessor = new BlockProcessor<Block>(provider, blockFactory, blockCache, this.blockItemStore, blockProcessorStore);
 
         // stores
-        this.appointmentStore = new AppointmentStore(db, serialiser);
+        this.appointmentStore = new AppointmentStore(db);
         const seedQueue = new GasQueue([], walletNonce, 12, 13);
         this.responderStore = new ResponderStore(db, responderWallet.address, seedQueue);
 

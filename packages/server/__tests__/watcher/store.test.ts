@@ -8,7 +8,7 @@ import encodingDown from "encoding-down";
 import { Appointment } from "../../src/dataEntities/appointment";
 import { ApplicationError } from "@pisa-research/errors";
 import { fnIt, expectAsync } from "@pisa-research/test-utils";
-import { DbObject, defaultDeserialisers, DbObjectSerialiser } from "@pisa-research/utils";
+import { DbObject } from "@pisa-research/utils";
 chai.use(chaiAsPromised);
 
 const getAppointment = (id: string, endBlock: number, nonce: number) => {
@@ -36,18 +36,13 @@ const getAppointment = (id: string, endBlock: number, nonce: number) => {
 describe("Store", () => {
     let db: LevelUp<encodingDown<string, DbObject>>, store: AppointmentStore;
 
-    const serialiser = new DbObjectSerialiser({
-        ...defaultDeserialisers,
-        [Appointment.TYPE]: Appointment.deserialise
-    });
-
     beforeEach(async () => {
         db = levelup(
             encodingDown<string, DbObject>(MemDown(), {
                 valueEncoding: "json"
             })
         );
-        store = new AppointmentStore(db, serialiser);
+        store = new AppointmentStore(db);
         await store.start();
     });
 
@@ -224,7 +219,7 @@ describe("Store", () => {
         await testDB.put(subDbString + appointment2.id, appointment2.serialise());
         await testDB.put(subDbString + appointment3.id, appointment3.serialise());
 
-        const testStore = new AppointmentStore(testDB, serialiser);
+        const testStore = new AppointmentStore(testDB);
         await testStore.start();
 
         let expired = [...testStore.getExpiredSince(appointment3.endBlock + 1)];

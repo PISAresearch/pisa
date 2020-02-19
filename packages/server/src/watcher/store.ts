@@ -13,10 +13,8 @@ import { Appointment } from "../dataEntities/appointment";
  */
 export class AppointmentStore extends StartStopService {
     private readonly subDb: LevelUp<EncodingDown<string, DbObject>>;
-    constructor(db: LevelUp<EncodingDown<string, DbObject>>, private readonly serialiser: DbObjectSerialiser) {
+    constructor(db: LevelUp<EncodingDown<string, DbObject>>) {
         super("appointment-store");
-
-        if (!serialiser.deserialisers[Appointment.TYPE]) throw new ApplicationError(`Invalid serialiser: cannot handle objects of type "${Appointment.TYPE}"`);
 
         this.subDb = sub(db, `watcher`, { valueEncoding: "json" });
     }
@@ -24,7 +22,7 @@ export class AppointmentStore extends StartStopService {
     protected async startInternal() {
         // access the db and load all state
         for await (const record of this.subDb.createValueStream()) {
-            const appointment = this.serialiser.deserialise<Appointment>(record as any);
+            const appointment = Appointment.deserialise(record as any);
             // add to the indexes
             this.mAppointmentsById.set(appointment.id, appointment);
             this.mAppointmentsByLocator.set(appointment.locator, appointment);
@@ -106,8 +104,7 @@ export class AppointmentStore extends StartStopService {
             }
 
 
-            const serialisedAppointment = this.serialiser.serialise(appointment);
-            batch.put(appointment.id, serialisedAppointment);
+            batch.put(appointment.id, appointment.serialise());
 
             // DB
             await batch.write();
