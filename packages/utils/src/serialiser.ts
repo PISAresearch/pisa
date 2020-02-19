@@ -2,15 +2,16 @@ import { BigNumber } from "ethers/utils";
 import { ApplicationError } from "@pisa-research/errors";
 import { PlainObject, DbObject, AnyObject, Primitive } from "./objects";
 
-// union of all the possible serialised types
+// Plain objects obtained by serialising some other (non-plain) object are marked by having a `_type` member field.
 export interface TypedPlainObject extends PlainObject {
     _type: string;
 }
 
-type SerialisedBigNumber = TypedPlainObject & {
-    value: string
-};
-
+/**
+ * An object that can be serialised and deserialised.
+ * Implementations should also the corresponding public static `deserialise` method.
+ * Moreover, they should have a public static readonly constant `TYPE`
+ */
 export interface Serialisable {
     serialise(): TypedPlainObject;
 }
@@ -48,6 +49,10 @@ export type Deserialisers = {
     [type: string]: (obj: TypedPlainObject) => Serialisable
 };
 
+
+/**
+ * Serialises the objects 
+ */
 export class DbObjectSerialiser {
     constructor(public readonly deserialisers: Deserialisers) { }
 
@@ -97,6 +102,14 @@ export class DbObjectSerialiser {
 }
 
 
+/** A serialised object representing a BigNumber */
+type SerialisedBigNumber = TypedPlainObject & {
+    value: string
+};
+
+/**
+ * A Serialisable version of the BigNumber class.
+ */
 export class SerialisableBigNumber extends BigNumber implements Serialisable {
     public static TYPE = "bn";
     public serialise(): SerialisedBigNumber {
@@ -112,8 +125,10 @@ export class SerialisableBigNumber extends BigNumber implements Serialisable {
 }
 
 
+// Convenience default serialisers config that knows how to handle BigNumbers
 export const defaultDeserialisers = {
     [SerialisableBigNumber.TYPE]: SerialisableBigNumber.deserialise
 };
 
+// Convenience default serialiser that can handle BigNumbers
 export const defaultSerialiser = new DbObjectSerialiser(defaultDeserialisers);

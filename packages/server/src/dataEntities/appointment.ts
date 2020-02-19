@@ -127,7 +127,7 @@ export type SerialisedAppointment = IAppointment & TypedPlainObject;
  * A customer appointment, detailing what event to be watched for and data to submit.
  */
 export class Appointment implements Serialisable {
-    public static TYPE = "app";
+    public static readonly TYPE = "app";
     constructor(
         public readonly contractAddress: string,
         public readonly customerAddress: string,
