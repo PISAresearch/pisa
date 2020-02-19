@@ -1,7 +1,7 @@
 import { ArgumentError } from "@pisa-research/errors"
 import { BigNumber } from "ethers/utils";
 import { ethers } from "ethers";
-import { PlainObject } from "@pisa-research/utils";
+import { PlainObject, Serialisable, TypedPlainObject } from "@pisa-research/utils";
 
 export class GasQueueError extends ArgumentError {
     constructor(public readonly kind: GasQueueErrorKind, message: string, ...args: any[]) {
@@ -108,20 +108,22 @@ export class GasQueueItemRequest {
     ) {}
 }
 
-export type GasQueueItemSerialisation = PlainObject & {
+export type GasQueueItemSerialisation = TypedPlainObject & {
     request: GasQueueItemRequestSerialisation;
     nonceGasPrice: string;
     idealGasPrice: string;
     nonce: number;
 };
 
-export class GasQueueItem {
-    public static serialise(item: GasQueueItem): GasQueueItemSerialisation {
+export class GasQueueItem implements Serialisable {
+    public static readonly TYPE = "gqi";
+    public serialise(): GasQueueItemSerialisation {
         return {
-            idealGasPrice: item.idealGasPrice.toHexString(),
-            nonce: item.nonce,
-            nonceGasPrice: item.nonceGasPrice.toHexString(),
-            request: GasQueueItemRequest.serialise(item.request)
+            _type: GasQueueItem.TYPE,
+            idealGasPrice: this.idealGasPrice.toHexString(),
+            nonce: this.nonce,
+            nonceGasPrice: this.nonceGasPrice.toHexString(),
+            request: GasQueueItemRequest.serialise(this.request)
         };
     }
     public static deserialise(serialisation: GasQueueItemSerialisation): GasQueueItem {
@@ -173,14 +175,15 @@ export class GasQueueItem {
     }
 }
 
-type GasQueueSerialisation = PlainObject & {
+type GasQueueSerialisation = TypedPlainObject & {
     readonly queueItems: Array<GasQueueItemSerialisation>,
     readonly emptyNonce: number,
     readonly replacementRate: number,
     readonly maxQueueDepth: number,
 }
 
-export class GasQueue {
+export class GasQueue implements Serialisable {
+    public static readonly TYPE = "gq";
     public static deserialise(serialisation: GasQueueSerialisation): GasQueue {
         return new GasQueue(
             serialisation.queueItems.map(i => GasQueueItem.deserialise(i)),
@@ -190,12 +193,13 @@ export class GasQueue {
         );
     }
 
-    public static serialise(queue: GasQueue): GasQueueSerialisation {
+    public serialise(): GasQueueSerialisation {
         return {
-            queueItems: queue.queueItems.map(i => GasQueueItem.serialise(i)),
-            emptyNonce: queue.emptyNonce,
-            maxQueueDepth: queue.maxQueueDepth,
-            replacementRate: queue.replacementRate
+            _type: GasQueue.TYPE,
+            queueItems: this.queueItems.map(i => i.serialise()),
+            emptyNonce: this.emptyNonce,
+            maxQueueDepth: this.maxQueueDepth,
+            replacementRate: this.replacementRate
         };
     }
 

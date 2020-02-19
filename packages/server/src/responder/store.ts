@@ -66,9 +66,9 @@ export class ResponderStore extends StartStopService {
         const difference = queue.difference(this.mQueue);
 
         // DB
-        let batch = this.subDb.batch().put(this.queueKey, GasQueue.serialise(queue));
+        let batch = this.subDb.batch().put(this.queueKey, queue.serialise());
         for (const item of difference.values()) {
-            batch = batch.put(item.request.id, GasQueueItem.serialise(item));
+            batch = batch.put(item.request.id, item.serialise());
         }
         await batch.write();
 

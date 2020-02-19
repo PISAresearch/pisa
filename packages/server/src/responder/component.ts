@@ -152,7 +152,7 @@ export class MultiResponderComponent extends Component<ResponderAnchorState, Blo
     public constructor(private readonly responder: MultiResponder, blockCache: ReadOnlyBlockCache<Block>, private readonly confirmationsRequired: number) {
         super(
             new MappedStateReducer(
-                () => [...responder.transactions.values()].map(gqi => GasQueueItem.serialise((gqi))),
+                () => [...responder.transactions.values()].map(gqi => gqi.serialise()),
                 item => new ResponderAppointmentReducer(blockCache, PisaTransactionIdentifier.deserialise(item.request.identifier), item.request.appointmentId, item.request.blockObserved, responder.address),
                 item => item.request.appointmentId,
                 new BlockNumberReducer()
