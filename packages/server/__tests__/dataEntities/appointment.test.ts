@@ -224,8 +224,8 @@ describe("Appointment", () => {
     fnIt<Appointment>(a => a.validate, "throws refund > 0.1 ether", async () => {
         const app = Appointment.parse(testAppointmentRequest);
         const signedAppointment = await sign(app, customerSigner);
-        const appClone = Appointment.fromIAppointment({
-            ...Appointment.toIAppointment(signedAppointment),
+        const appClone = Appointment.deserialise({
+            ...signedAppointment.serialise(),
             refund: ethers.utils
                 .parseEther("0.1")
                 .add(1)

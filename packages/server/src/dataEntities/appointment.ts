@@ -193,50 +193,6 @@ export class Appointment implements Serialisable {
         );
     }
 
-    public static fromIAppointment(appointment: IAppointment): Appointment {
-        return new Appointment(
-            appointment.contractAddress,
-            appointment.customerAddress,
-            appointment.startBlock,
-            appointment.endBlock,
-            appointment.challengePeriod,
-            appointment.customerChosenId,
-            appointment.nonce,
-            appointment.data,
-            new BigNumber(appointment.refund),
-            appointment.gasLimit,
-            appointment.mode,
-            appointment.eventAddress,
-            appointment.topics,
-            appointment.preCondition,
-            appointment.postCondition,
-            appointment.paymentHash,
-            appointment.customerSig
-        );
-    }
-
-    public static toIAppointment(appointment: Appointment): IAppointment & PlainObject {
-        return {
-            contractAddress: appointment.contractAddress,
-            customerAddress: appointment.customerAddress,
-            startBlock: appointment.startBlock,
-            endBlock: appointment.endBlock,
-            challengePeriod: appointment.challengePeriod,
-            customerChosenId: appointment.customerChosenId,
-            nonce: appointment.nonce,
-            data: appointment.data,
-            refund: appointment.refund.toHexString(),
-            gasLimit: appointment.gasLimit,
-            mode: appointment.mode,
-            eventAddress: appointment.eventAddress,
-            topics: appointment.topics,
-            preCondition: appointment.preCondition,
-            postCondition: appointment.postCondition,
-            paymentHash: appointment.paymentHash,
-            customerSig: appointment.customerSig
-        };
-    }
-
     public static fromIAppointmentRequest(appointmentRequest: IAppointmentRequest): Appointment {
         return new Appointment(
             appointmentRequest.contractAddress,

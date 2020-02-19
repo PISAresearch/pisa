@@ -12,7 +12,8 @@ import { DbObject } from "@pisa-research/utils";
 chai.use(chaiAsPromised);
 
 const getAppointment = (id: string, endBlock: number, nonce: number) => {
-    return Appointment.fromIAppointment({
+    return Appointment.deserialise({
+        _type: Appointment.TYPE,
         challengePeriod: 10,
         contractAddress: "contractAddress",
         customerAddress: "customerAddress",
