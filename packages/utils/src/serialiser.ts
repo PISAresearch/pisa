@@ -48,7 +48,7 @@ export type DbObjectOrSerialisable =
     | DbObject
     | DbObjectOrSerialisable[]
     | {
-          [key: string]: DbObjectOrSerialisable;
+          [key: string]: AnyObjectOrSerialisable;
       };
 
 function isPrimitive(value: any): value is Primitive {
@@ -73,17 +73,17 @@ export class DbObjectSerialiser {
         return !!obj["_type"];
     }
 
-    private serialise(obj: AnyObjectOrSerialisable): AnyObject {
+    private serialiseAnyObject(obj: AnyObjectOrSerialisable): AnyObject {
         if (isPrimitive(obj)) {
             return obj;
         } else if (Array.isArray(obj)) {
-            return (obj as AnyObjectOrSerialisable[]).map(item => this.serialise(item));
+            return (obj as AnyObjectOrSerialisable[]).map(item => this.serialiseAnyObject(item));
         } else if (this.isSerialisable(obj)) {
             return obj.serialise();
         } else {
             const result: PlainObject = {};
             for (const [key, value] of Object.entries(obj)) {
-                result[key] = this.serialise(value);
+                result[key] = this.serialiseAnyObject(value);
             }
             return result;
         }
@@ -93,18 +93,18 @@ export class DbObjectSerialiser {
      * Serialise an object to its database representation
      * @param obj
      */
-    public serialiseDbObject(obj: DbObjectOrSerialisable): DbObject {
+    public serialise(obj: DbObjectOrSerialisable): DbObject {
         // we know that DbObjectOrSerialisable cant be null and that the
         // serialise(AnyObjectOrSerialisable) only returns null when we pass
         // null into it. Which we dont do here.
-        return this.serialise(obj)!;
+        return this.serialiseAnyObject(obj)!;
     }
 
-    private deserialise<T>(obj: AnyObject): T {
+    private deserialiseAnyObject<T>(obj: AnyObject): T {
         if (isPrimitive(obj)) {
             return (obj as unknown) as T;
         } else if (Array.isArray(obj)) {
-            return (obj.map(item => this.deserialise(item)) as unknown) as T;
+            return (obj.map(item => this.deserialiseAnyObject(item)) as unknown) as T;
         } else if (this.isSerialisedPlainObject(obj)) {
             const type = obj._type;
             if (this.deserialisers[type]) {
@@ -116,7 +116,7 @@ export class DbObjectSerialiser {
             // generic plain object
             const result: { [key: string]: any } = {};
             for (const [key, value] of Object.entries(obj)) {
-                result[key] = this.deserialise(value);
+                result[key] = this.deserialiseAnyObject(value);
             }
             return result as T;
         }
@@ -126,8 +126,8 @@ export class DbObjectSerialiser {
      * Deserialise an object from the database.
      * @param obj
      */
-    public deserialiseDbObject<T>(obj: DbObject): T {
-        return this.deserialise(obj);
+    public deserialise<T>(obj: DbObject): T {
+        return this.deserialiseAnyObject(obj);
     }
 }
 

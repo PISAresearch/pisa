@@ -1,6 +1,6 @@
 import { BlockProcessor } from "./blockProcessor";
 import { IBlockStub } from "./block";
-import { StartStopService, Lock, logger, PlainObject } from "@pisa-research/utils";
+import { StartStopService, Lock, logger } from "@pisa-research/utils";
 import { ConfigurationError, ArgumentError } from "@pisa-research/errors";
 import { Component, AnchorState, ComponentAction } from "./component";
 import { CachedKeyValueStore, ItemAndId } from "./cachedKeyValueStore";
