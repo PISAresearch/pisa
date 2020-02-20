@@ -1,4 +1,4 @@
-import { ArgumentError } from "@pisa-research/errors"
+import { ArgumentError, ApplicationError } from "@pisa-research/errors"
 import { BigNumber } from "ethers/utils";
 import { ethers } from "ethers";
 import { PlainObject, Serialisable, TypedPlainObject } from "@pisa-research/utils";
@@ -127,6 +127,8 @@ export class GasQueueItem implements Serialisable {
         };
     }
     public static deserialise(serialisation: GasQueueItemSerialisation): GasQueueItem {
+        if (serialisation._type !== GasQueueItem.TYPE) throw new ApplicationError(`Unexpected _type while deserialising gas queue item: ${serialisation._type}`); // prettier-ignore
+
         return new GasQueueItem(
             GasQueueItemRequest.deserialise(serialisation.request),
             new BigNumber(serialisation.nonceGasPrice),

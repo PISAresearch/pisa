@@ -149,6 +149,8 @@ export class SerialisableBigNumber extends BigNumber implements Serialisable {
     }
 
     public static deserialise(obj: SerialisedBigNumber): SerialisableBigNumber {
+        if (obj._type !== SerialisableBigNumber.TYPE) throw new ApplicationError(`Unexpected _type while deserialising SerialisableBigNumber: ${obj._type}`); // prettier-ignore
+
         return new SerialisableBigNumber(obj.value);
     }
 }

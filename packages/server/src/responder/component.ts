@@ -10,7 +10,7 @@ import {
     BlockNumberReducer
 } from "@pisa-research/block";
 import { MultiResponder } from "./multiResponder";
-import { logger, PlainObject } from "@pisa-research/utils";
+import { logger } from "@pisa-research/utils";
 import { UnreachableCaseError } from "@pisa-research/errors";
 import { BigNumber } from "ethers/utils";
 
@@ -30,7 +30,7 @@ export type MinedResponseState = {
     blockMined: number;
     nonce: number;
 };
-export type ResponderAppointmentAnchorState = PlainObject & (PendingResponseState | MinedResponseState);
+export type ResponderAppointmentAnchorState = PendingResponseState | MinedResponseState;
 export type ResponderAnchorState = MappedState<ResponderAppointmentAnchorState> & BlockNumberState;
 
 /**

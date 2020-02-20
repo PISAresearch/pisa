@@ -2,7 +2,7 @@ import { ApplicationError } from "@pisa-research/errors";
 import { IBlockStub, BlockAndAttached } from "./block";
 import { LevelUp, LevelUpChain } from "levelup";
 import EncodingDown from "encoding-down";
-import { StartStopService, Lock, PlainObject, DbObject, DbObjectSerialiser } from "@pisa-research/utils";
+import { StartStopService, Lock, PlainObject, DbObject, DbObjectSerialiser, PlainObjectOrSerialisable } from "@pisa-research/utils";
 import { AnchorState } from "./component";
 const sub = require("subleveldown");
 
@@ -107,7 +107,7 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
 
     // Type safe methods to store the anchor state for each block, indexed by component (used in the BlockchainMachine)
     public anchorState = {
-        get: <TAnchorState>(componentName: string, blockHash: string): TAnchorState | undefined => {
+        get: <TAnchorState extends PlainObjectOrSerialisable>(componentName: string, blockHash: string): TAnchorState | undefined => {
             const rawObject = this.getItem(blockHash, `${componentName}:${BlockItemStore.KEY_STATE}`) as unknown as PlainObject;
             return rawObject && this.serialiser.deserialise<TAnchorState>(rawObject);
         },

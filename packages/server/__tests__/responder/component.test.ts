@@ -21,7 +21,7 @@ import {
 import { BlockCache, TransactionStub, Block, BlockItemStore } from "@pisa-research/block";
 import { PisaTransactionIdentifier } from "../../src/responder/gasQueue";
 import { MultiResponder } from "../../src/responder";
-import { PlainObject, DbObject, defaultSerialiser } from "@pisa-research/utils";
+import { DbObject, defaultSerialiser } from "@pisa-research/utils";
 
 const from1 = "from1";
 const from2 = "from2";
@@ -81,16 +81,16 @@ const blocks: Block[] = [
 
 describe("ResponderAppointmentReducer", () => {
     let db: any;
-    let blockStore: BlockItemStore<Block & PlainObject>;
+    let blockStore: BlockItemStore<Block>;
 
-    let blockCache: BlockCache<Block & PlainObject>;
+    let blockCache: BlockCache<Block>;
 
     beforeEach(async () => {
         db = LevelUp(EncodingDown<string, DbObject>(MemDown(), { valueEncoding: "json" }));
-        blockStore = new BlockItemStore<Block & PlainObject>(db, defaultSerialiser);
+        blockStore = new BlockItemStore<Block>(db, defaultSerialiser);
         await blockStore.start();
 
-        blockCache = new BlockCache<Block & PlainObject>(100, blockStore);
+        blockCache = new BlockCache<Block>(100, blockStore);
 
         await blockStore.withBatch(async () => {
             for (const block of blocks) {
@@ -216,7 +216,7 @@ const setupState = (states: ResponderAppointmentAnchorState[], blockNumber: numb
 };
 
 describe("MultiResponderComponent", () => {
-    let multiResponderMock: MultiResponder, multiResponder: MultiResponder, blockCacheMock: BlockCache<Block & PlainObject>, blockCache: BlockCache<Block & PlainObject>;
+    let multiResponderMock: MultiResponder, multiResponder: MultiResponder, blockCacheMock: BlockCache<Block>, blockCache: BlockCache<Block>;
     const confirmationsRequired = 5;
     beforeEach(() => {
         multiResponderMock = mock(MultiResponder);

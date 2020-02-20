@@ -19,10 +19,10 @@ import { BlockchainMachine } from "../src/blockchainMachine";
 import { throwingInstance, fnIt, wait } from "@pisa-research/test-utils";
 import { ArgumentError, ConfigurationError } from "@pisa-research/errors";
 import chaiAsPromised from "chai-as-promised";
-import { PlainObject, DbObject, defaultSerialiser } from "@pisa-research/utils";
+import { DbObject, defaultSerialiser } from "@pisa-research/utils";
 chai.use(chaiAsPromised);
 
-type TestAnchorState = { number: number; extraData: string } & PlainObject;
+type TestAnchorState = { number: number, extraData: string };
 const anchorStates: TestAnchorState[] = [];
 
 const blocks: IBlockStub[] = [
