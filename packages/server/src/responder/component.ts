@@ -21,12 +21,12 @@ export enum ResponderStateKind {
 export type PendingResponseState = {
     appointmentId: string;
     kind: ResponderStateKind.Pending;
-    identifier: PisaTransactionIdentifierSerialisation;
+    identifier: PisaTransactionIdentifier;
 };
 export type MinedResponseState = {
     appointmentId: string;
     kind: ResponderStateKind.Mined;
-    identifier: PisaTransactionIdentifierSerialisation;
+    identifier: PisaTransactionIdentifier;
     blockMined: number;
     nonce: number;
 };
@@ -84,21 +84,21 @@ export class ResponderAppointmentReducer implements StateReducer<ResponderAppoin
                 appointmentId: this.appointmentId,
                 kind: ResponderStateKind.Mined,
                 blockMined: minedTx.blockNumber,
-                identifier: PisaTransactionIdentifier.serialise(this.identifier),
+                identifier: this.identifier,
                 nonce: minedTx.nonce
             };
         } else {
             return {
                 appointmentId: this.appointmentId,
                 kind: ResponderStateKind.Pending,
-                identifier: PisaTransactionIdentifier.serialise(this.identifier)
+                identifier: this.identifier
             };
         }
     }
 
     public async reduce(prevState: ResponderAppointmentAnchorState, block: Block): Promise<ResponderAppointmentAnchorState> {
         if (prevState.kind === ResponderStateKind.Pending) {
-            const transaction = this.txIdentifierInBlock(block, PisaTransactionIdentifier.deserialise(prevState.identifier));
+            const transaction = this.txIdentifierInBlock(block, prevState.identifier);
             if (transaction) {
                 return {
                     appointmentId: prevState.appointmentId,
@@ -127,7 +127,7 @@ export type ReEnqueueMissingItemsAction = {
 
 export type TxMinedAction = {
     readonly kind: ResponderActionKind.TxMined;
-    readonly identifier: PisaTransactionIdentifierSerialisation;
+    readonly identifier: PisaTransactionIdentifier;
     readonly nonce: number;
 };
 
@@ -226,7 +226,7 @@ export class MultiResponderComponent extends Component<ResponderAnchorState, Blo
                 await this.responder.reEnqueueMissingItems(action.appointmentIds);
                 break;
             case ResponderActionKind.TxMined:
-                await this.responder.txMined(PisaTransactionIdentifier.deserialise(action.identifier), action.nonce);
+                await this.responder.txMined(action.identifier, action.nonce);
                 break;
             case ResponderActionKind.EndResponse:
                 await this.responder.endResponse(action.appointmentId);

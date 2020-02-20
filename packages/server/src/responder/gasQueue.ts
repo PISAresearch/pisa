@@ -13,7 +13,7 @@ export enum GasQueueErrorKind {
     AlreadyAdded = 0
 }
 
-export type PisaTransactionIdentifierSerialisation = PlainObject & {
+export type PisaTransactionIdentifierSerialisation = TypedPlainObject & {
     chainId: number,
     data: string,
     to: string,
@@ -21,18 +21,23 @@ export type PisaTransactionIdentifierSerialisation = PlainObject & {
     gasLimit: string
 };
 
-export class PisaTransactionIdentifier {
-    public static serialise(identifier: PisaTransactionIdentifier): PisaTransactionIdentifierSerialisation {
+export class PisaTransactionIdentifier implements Serialisable {
+    public static readonly TYPE = "pti";
+
+    public serialise(): PisaTransactionIdentifierSerialisation {
         return {
-            chainId: identifier.chainId,
-            data: identifier.data,
-            to: identifier.to,
-            value: identifier.value.toString(),
-            gasLimit: identifier.gasLimit.toString()
+            _type: PisaTransactionIdentifier.TYPE,
+            chainId: this.chainId,
+            data: this.data,
+            to: this.to,
+            value: this.value.toString(),
+            gasLimit: this.gasLimit.toString()
         };
     }
 
     public static deserialise(serialisation: PisaTransactionIdentifierSerialisation): PisaTransactionIdentifier {
+        if (serialisation._type !== PisaTransactionIdentifier.TYPE) throw new ApplicationError(`Unexpected _type while deserialising transaction identifier: ${serialisation._type}`); // prettier-ignore
+
         return new PisaTransactionIdentifier(
             serialisation.chainId,
             serialisation.data,
@@ -80,7 +85,7 @@ export class GasQueueItemRequest {
         return {
             appointmentId: request.id,
             idealGasPrice: request.idealGasPrice.toString(),
-            identifier: PisaTransactionIdentifier.serialise(request.identifier),
+            identifier: request.identifier.serialise(),
             blockObserved: request.blockObserved
         };
     }

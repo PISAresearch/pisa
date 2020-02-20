@@ -43,7 +43,7 @@ const newIdentifierAndTransaction = (blockNumber: number, data: string, from: st
     };
     const identifier = new PisaTransactionIdentifier(chainId, data, to, new BigNumber(value), new BigNumber(gasLimit));
     return {
-        identifier: PisaTransactionIdentifier.serialise(identifier),
+        identifier,
         tx
     };
 };
@@ -104,7 +104,7 @@ describe("ResponderAppointmentReducer", () => {
     });
 
     fnIt<ResponderAppointmentReducer>(r => r.getInitialState, "sets pending tx", async () => {
-        const reducer = new ResponderAppointmentReducer(blockCache, PisaTransactionIdentifier.deserialise(txID1.identifier), appointmentId1, 0, from1);
+        const reducer = new ResponderAppointmentReducer(blockCache, txID1.identifier, appointmentId1, 0, from1);
 
         const anchorState = await reducer.getInitialState(blocks[0]);
         expect(anchorState.identifier).to.deep.equal(txID1.identifier);
@@ -113,7 +113,7 @@ describe("ResponderAppointmentReducer", () => {
     });
 
     fnIt<ResponderAppointmentReducer>(r => r.getInitialState, "sets mined tx", async () => {
-        const reducer = new ResponderAppointmentReducer(blockCache, PisaTransactionIdentifier.deserialise(txID1.identifier), appointmentId1, 0, from1);
+        const reducer = new ResponderAppointmentReducer(blockCache, txID1.identifier, appointmentId1, 0, from1);
 
         const anchorState = await reducer.getInitialState(blocks[2]);
 
@@ -127,7 +127,7 @@ describe("ResponderAppointmentReducer", () => {
     });
 
     fnIt<ResponderAppointmentReducer>(r => r.getInitialState, "stays pending if there is a matching mined tx that is deeper than blockObserved", async () => {
-        const reducer = new ResponderAppointmentReducer(blockCache, PisaTransactionIdentifier.deserialise(txID1.identifier), appointmentId1, 2, from1);
+        const reducer = new ResponderAppointmentReducer(blockCache, txID1.identifier, appointmentId1, 2, from1);
 
         const anchorState = await reducer.getInitialState(blocks[2]);
         expect(anchorState.identifier).to.deep.equal(txID1.identifier);
@@ -136,7 +136,7 @@ describe("ResponderAppointmentReducer", () => {
     });
 
     fnIt<ResponderAppointmentReducer>(r => r.reduce, "keeps pending as pending", async () => {
-        const reducer = new ResponderAppointmentReducer(blockCache, PisaTransactionIdentifier.deserialise(txID1.identifier), appointmentId1, 0, from1);
+        const reducer = new ResponderAppointmentReducer(blockCache, txID1.identifier, appointmentId1, 0, from1);
 
         const prevAnchorState = await reducer.getInitialState(blocks[0]);
         const nextAnchorState = await reducer.reduce(prevAnchorState, blocks[0]);
@@ -147,7 +147,7 @@ describe("ResponderAppointmentReducer", () => {
     });
 
     fnIt<ResponderAppointmentReducer>(r => r.reduce, "transitions from pending to mined", async () => {
-        const reducer = new ResponderAppointmentReducer(blockCache, PisaTransactionIdentifier.deserialise(txID1.identifier), appointmentId1, 0, from1);
+        const reducer = new ResponderAppointmentReducer(blockCache, txID1.identifier, appointmentId1, 0, from1);
 
         const prevAnchorState = await reducer.getInitialState(blocks[0]);
         const nextAnchorState = await reducer.reduce(prevAnchorState, blocks[1]);
@@ -162,7 +162,7 @@ describe("ResponderAppointmentReducer", () => {
     });
 
     fnIt<ResponderAppointmentReducer>(r => r.reduce, "keeps mined as mined", async () => {
-        const reducer = new ResponderAppointmentReducer(blockCache, PisaTransactionIdentifier.deserialise(txID1.identifier), appointmentId1, 0, from1);
+        const reducer = new ResponderAppointmentReducer(blockCache, txID1.identifier, appointmentId1, 0, from1);
 
         const prevAnchorState = await reducer.getInitialState(blocks[0]);
         const nextAnchorState = await reducer.reduce(prevAnchorState, blocks[1]);
@@ -172,7 +172,7 @@ describe("ResponderAppointmentReducer", () => {
     });
 
     fnIt<ResponderAppointmentReducer>(r => r.reduce, "doesn't mine tx from different address", async () => {
-        const reducer = new ResponderAppointmentReducer(blockCache, PisaTransactionIdentifier.deserialise(txID1.identifier), appointmentId1, 0, from1);
+        const reducer = new ResponderAppointmentReducer(blockCache, txID1.identifier, appointmentId1, 0, from1);
 
         // setup pending
         const prevAnchorState = await reducer.getInitialState(blocks[0]);
@@ -190,7 +190,7 @@ const makePendingAppointmentState = (appointmentId: string, data: string): Pendi
     const identifier = new PisaTransactionIdentifier(1, data, "to", new BigNumber(0), new BigNumber(200));
     return {
         appointmentId,
-        identifier: PisaTransactionIdentifier.serialise(identifier),
+        identifier,
         kind: ResponderStateKind.Pending
     };
 };
@@ -200,7 +200,7 @@ const makeMinedAppointmentState = (appointmentId: string, data: string, blockMin
     return {
         appointmentId,
         blockMined,
-        identifier: PisaTransactionIdentifier.serialise(identifier),
+        identifier,
         kind: ResponderStateKind.Mined,
         nonce
     };
