@@ -6,7 +6,7 @@ import { PublicInspectionError, PublicDataValidationError, ApplicationError } fr
 import { Appointment } from "../dataEntities/appointment";
 import { Watcher, AppointmentStore } from "../watcher";
 import { PisaTower } from "./tower";
-import { GasQueue, GasPriceEstimator, MultiResponder, MultiResponderComponent, ResponderStore } from "../responder";
+import { GasQueue, GasPriceEstimator, MultiResponder, MultiResponderComponent, ResponderStore, GasQueueItem, PisaTransactionIdentifier } from "../responder";
 import { IArgConfig } from "./config";
 import {
     BlockProcessorStore,
@@ -79,8 +79,11 @@ export class PisaService extends StartStopService {
 
         const serialiser = new DbObjectSerialiser({
             ...defaultDeserialisers,
-            [Appointment.TYPE]: Appointment.deserialise
-        })
+            [Appointment.TYPE]: Appointment.deserialise,
+            [GasQueueItem.TYPE]: GasQueueItem.deserialise,
+            [GasQueue.TYPE]: GasQueue.deserialise,
+            [PisaTransactionIdentifier.TYPE]: PisaTransactionIdentifier.deserialise
+        });
 
         // block cache and processor
         const cacheLimit = config.maximumReorgLimit == undefined ? 200 : config.maximumReorgLimit;
