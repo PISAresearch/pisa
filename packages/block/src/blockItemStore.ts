@@ -26,10 +26,6 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
     /** Stores the anchor state computed for this block; indexed by component. */
     private static KEY_STATE = "state";
 
-    /** Stores the anchor state of the nearest ancestor (including the block itself)
-     * that was emitted as a "new head"; indexed by component. */
-    private static KEY_PREV_EMITTED_STATE = "prevEmittedState";
-
     private readonly subDb: LevelUp<EncodingDown<string, DbObject>>;
     constructor(db: LevelUp<EncodingDown<string, DbObject>>, private readonly serialiser: DbObjectSerialiser) {
         super("block-item-store");
