@@ -7,8 +7,12 @@ import { PlainObject, DbObject, AnyObject, Primitive } from "./objects";
  * object are marked by having a `_type` member field.
  */
 export interface TypedPlainObject extends PlainObject {
-    _type: string;
+    __type__: string;
 }
+
+/* This should always be equal to the type field in TypedPlainObject */
+const DB_TYPE = "__type__";
+
 
 /**
  * An object that can be serialised and deserialised.
@@ -70,7 +74,7 @@ export class DbObjectSerialiser {
     }
 
     private isSerialisedPlainObject(obj: PlainObject): obj is TypedPlainObject {
-        return !!obj["_type"];
+        return !!obj[DB_TYPE];
     }
 
     private serialiseAnyObject(obj: AnyObjectOrSerialisable): AnyObject {
@@ -79,6 +83,9 @@ export class DbObjectSerialiser {
         } else if (Array.isArray(obj)) {
             return (obj as AnyObjectOrSerialisable[]).map(item => this.serialiseAnyObject(item));
         } else if (this.isSerialisable(obj)) {
+            const result = obj.serialise();
+            if(result.__type__ && !this.deserialisers[result.__type__]) throw new ApplicationError(`Tried to serialise an object with __type__ ${result.__type__}, but no deserialiser is set for it. Make sure the serialiser is constructed with all the correct deserialisers.`); // prettier-ignore
+
             return obj.serialise();
         } else {
             const result: PlainObject = {};
@@ -106,7 +113,7 @@ export class DbObjectSerialiser {
         } else if (Array.isArray(obj)) {
             return (obj.map(item => this.deserialiseAnyObject(item)) as unknown) as T;
         } else if (this.isSerialisedPlainObject(obj)) {
-            const type = obj._type;
+            const type = obj.__type__;
             if (this.deserialisers[type]) {
                 return (this.deserialisers[type](obj) as unknown) as T;
             } else {
@@ -143,13 +150,13 @@ export class SerialisableBigNumber extends BigNumber implements Serialisable {
     public static TYPE = "bn";
     public serialise(): SerialisedBigNumber {
         return {
-            _type: SerialisableBigNumber.TYPE,
+            __type__: SerialisableBigNumber.TYPE,
             value: this.toHexString()
         };
     }
 
     public static deserialise(obj: SerialisedBigNumber): SerialisableBigNumber {
-        if (obj._type !== SerialisableBigNumber.TYPE) throw new ApplicationError(`Unexpected _type while deserialising SerialisableBigNumber: ${obj._type}`); // prettier-ignore
+        if (obj.__type__ !== SerialisableBigNumber.TYPE) throw new ApplicationError(`Unexpected __type__ while deserialising SerialisableBigNumber: ${obj.__type__}`); // prettier-ignore
 
         return new SerialisableBigNumber(obj.value);
     }

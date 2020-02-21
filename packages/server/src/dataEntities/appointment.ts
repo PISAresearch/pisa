@@ -150,7 +150,7 @@ export class Appointment implements Serialisable {
 
     public serialise(): SerialisedAppointment {
         return {
-            _type: Appointment.TYPE,
+            __type__: Appointment.TYPE,
             contractAddress: this.contractAddress,
             customerAddress: this.customerAddress,
             startBlock: this.startBlock,
@@ -172,7 +172,7 @@ export class Appointment implements Serialisable {
     }
 
     public static deserialise(appointment: SerialisedAppointment) {
-        if (appointment._type !== Appointment.TYPE) throw new ApplicationError(`Unexpected _type while deserialising appointment: ${appointment._type}`); // prettier-ignore
+        if (appointment.__type__ !== Appointment.TYPE) throw new ApplicationError(`Unexpected _type while deserialising appointment: ${appointment.__type__}`); // prettier-ignore
 
         return new Appointment(
             appointment.contractAddress,

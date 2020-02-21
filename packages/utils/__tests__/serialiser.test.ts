@@ -9,11 +9,11 @@ use(chaiAsPromised);
 
 describe("SerialisableBigNumber", () => {
     fnIt<SerialisableBigNumber>(sbn => sbn.serialise, "serialises correctly", () => {
-        expect(new SerialisableBigNumber("0x42").serialise()).to.deep.equal({_type: SerialisableBigNumber.TYPE, value: "0x42" });
+        expect(new SerialisableBigNumber("0x42").serialise()).to.deep.equal({__type__: SerialisableBigNumber.TYPE, value: "0x42" });
     });
 
     fnIt<SerialisableBigNumber>(() => SerialisableBigNumber.deserialise, "deserialises correctly", () => {
-        expect(SerialisableBigNumber.deserialise({_type: SerialisableBigNumber.TYPE, value: "0x42" }).eq(new BigNumber("0x42"))).to.be.true;
+        expect(SerialisableBigNumber.deserialise({__type__: SerialisableBigNumber.TYPE, value: "0x42" }).eq(new BigNumber("0x42"))).to.be.true;
     });
 });
 
@@ -42,7 +42,7 @@ describe("DbObjectSerialiser", () => {
         nil: null,
         nested: {
             num: {
-                _type: SerialisableBigNumber.TYPE,
+                __type__: SerialisableBigNumber.TYPE,
                 value: "0x42"
             }
         }
@@ -56,12 +56,10 @@ describe("DbObjectSerialiser", () => {
         }
     });
 
-    fnIt<DbObjectSerialiser>(p => p.serialise, "leaves primitive types and plain objects unchanged", () => {
-        const dos = new DbObjectSerialiser({});
+    fnIt<DbObjectSerialiser>(p => p.serialise, "throws ApplicationError if trying to serialise an object of unknown type", () => {
+        const dos = new DbObjectSerialiser({}); // this serialiser doesn't know how to serialise SerialisableBigNumber
 
-        for (const obj of plainObjects) {
-            expect(dos.serialise(obj)).to.deep.equal(obj);
-        }
+        expect(() => dos.serialise(new SerialisableBigNumber(56))).to.throw(ApplicationError);
     });
 
     fnIt<DbObjectSerialiser>(p => p.serialise, "correctly serialises an object with a nested Serialisable element", () => {
@@ -86,7 +84,7 @@ describe("DbObjectSerialiser", () => {
             random: "value",
             nested: {
                 invalid: { // a serialised element of unknown type "foo"
-                    _type: "foo",
+                    __type__: "foo",
                     bar: 42
                 }
             }
