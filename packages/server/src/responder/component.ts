@@ -51,7 +51,7 @@ export class ResponderAppointmentReducer implements StateReducer<ResponderAppoin
             if (!tx.to) continue;
 
             // look for matching transactions
-            const txIdentifier = new PisaTransactionIdentifier(tx.chainId, tx.data, tx.to, new BigNumber(tx.value), new BigNumber(tx.gasLimit));
+            const txIdentifier = new PisaTransactionIdentifier(tx.chainId, tx.data, tx.to, tx.value, tx.gasLimit);
             if (txIdentifier.equals(identifier) && tx.from.toLowerCase() === this.address.toLowerCase()) {
                 return {
                     blockNumber: tx.blockNumber!,

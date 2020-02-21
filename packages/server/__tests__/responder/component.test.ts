@@ -21,7 +21,7 @@ import {
 import { BlockCache, TransactionStub, Block, BlockItemStore } from "@pisa-research/block";
 import { PisaTransactionIdentifier } from "../../src/responder/gasQueue";
 import { MultiResponder } from "../../src/responder";
-import { DbObject, defaultSerialiser } from "@pisa-research/utils";
+import { DbObject, defaultSerialiser, SerialisableBigNumber } from "@pisa-research/utils";
 
 const from1 = "from1";
 const from2 = "from2";
@@ -36,10 +36,10 @@ const newIdentifierAndTransaction = (blockNumber: number, data: string, from: st
         chainId,
         data,
         from,
-        gasLimit,
+        gasLimit: new SerialisableBigNumber(gasLimit),
         nonce,
         to,
-        value
+        value: new SerialisableBigNumber(value)
     };
     const identifier = new PisaTransactionIdentifier(chainId, data, to, new BigNumber(value), new BigNumber(gasLimit));
     return {

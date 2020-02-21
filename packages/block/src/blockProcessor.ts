@@ -3,7 +3,7 @@ import { Log } from "ethers/providers";
 import { LevelUp } from "levelup";
 import EncodingDown from "encoding-down";
 import { BlockFetchingError, ApplicationError, UnreachableCaseError } from "@pisa-research/errors";
-import { StartStopService, Lock, PlainObject, DbObject } from "@pisa-research/utils";
+import { StartStopService, Lock, PlainObject, DbObject, SerialisableBigNumber } from "@pisa-research/utils";
 import { ReadOnlyBlockCache, BlockCache, BlockAddResult } from "./blockCache";
 import { IBlockStub, Block, TransactionHashes } from "./block";
 import { BlockItemStore } from "./blockItemStore";
@@ -74,8 +74,8 @@ export const blockFactory = (provider: ethers.providers.Provider) => async (bloc
                 from: tx.from,
                 chainId: tx.chainId,
                 data: tx.data,
-                value: tx.value.toString(),
-                gasLimit: tx.gasLimit.toString()
+                value: new SerialisableBigNumber(tx.value),
+                gasLimit: new SerialisableBigNumber(tx.gasLimit.toString())
             })),
             transactionHashes: ((block.transactions as any) as ethers.providers.TransactionResponse[]).map(t => t.hash!),
             logs

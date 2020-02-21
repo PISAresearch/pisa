@@ -1,15 +1,15 @@
 import { ethers } from "ethers";
 import { ArgumentError } from "@pisa-research/errors";
-import { PlainObject } from "@pisa-research/utils";
+import { PlainObjectOrSerialisable, SerialisableBigNumber } from "@pisa-research/utils";
 
-export interface IBlockStub extends PlainObject {
+export type IBlockStub = PlainObjectOrSerialisable & {
     hash: string;
     number: number;
     parentHash: string;
 }
 
-export interface Logs extends PlainObject {
-    logs: (ethers.providers.Log & PlainObject)[];
+export type Logs = PlainObjectOrSerialisable & {
+    logs: (ethers.providers.Log & PlainObjectOrSerialisable)[];
 }
 
 /**
@@ -37,8 +37,8 @@ export type TransactionStub = {
     from: string;
     chainId: number;
     data: string;
-    value: string; // BigNumber
-    gasLimit: string; // BigNumber
+    value: SerialisableBigNumber;
+    gasLimit: SerialisableBigNumber;
 };
 
 export type Transactions = IBlockStub & {
