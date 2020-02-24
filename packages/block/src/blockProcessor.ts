@@ -98,7 +98,7 @@ export class BlockProcessorStore {
         this.subDb = sub(db, `block-processor`, { valueEncoding: "json" });
     }
 
-    async getLatestHeadNumber() {
+    public async getLatestHeadNumber() {
         try {
             const headObj = await this.subDb.get("head");
             return (headObj as { head: number }).head;
@@ -109,7 +109,8 @@ export class BlockProcessorStore {
             throw doh;
         }
     }
-    async setLatestHeadNumber(value: number) {
+    
+    public async setLatestHeadNumber(value: number) {
         await this.subDb.put("head", { head: value });
     }
 }
