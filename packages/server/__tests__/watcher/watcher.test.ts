@@ -1,16 +1,18 @@
 import "mocha";
 import { expect } from "chai";
 import { mock, when, resetCalls, anything, anyNumber } from "ts-mockito";
-import { fnIt, throwingInstance } from "@pisa-research/test-utils";
 
 import LevelUp from "levelup";
 import EncodingDown from "encoding-down";
 import MemDown from "memdown";
 
+import { ApplicationError } from "@pisa-research/errors";
+import { DbObject, defaultSerialiser } from "@pisa-research/utils";
+import { BlockCache, BlockItemStore, IBlockStub, Logs } from "@pisa-research/block";
+import { fnIt, throwingInstance } from "@pisa-research/test-utils";
+
 import { AppointmentStore } from "../../src/watcher";
 import { MultiResponder } from "../../src/responder";
-import { BlockCache, BlockItemStore, IBlockStub, Logs } from "@pisa-research/block";
-import { ApplicationError } from "@pisa-research/errors";
 import { Appointment } from "../../src/dataEntities/appointment";
 import { EventFilterStateReducer, WatcherAppointmentState, Watcher, WatcherActionKind } from "../../src/watcher/watcher";
 
@@ -65,8 +67,8 @@ describe("WatcherAppointmentStateReducer", () => {
     when(appMock.startBlock).thenReturn(0);
     when(appMock.endBlock).thenReturn(1000);
 
-    const db = LevelUp(EncodingDown<string, any>(MemDown(), { valueEncoding: "json" }));
-    const blockStore = new BlockItemStore<IBlockStub & Logs>(db);
+    const db = LevelUp(EncodingDown<string, DbObject>(MemDown(), { valueEncoding: "json" }));
+    const blockStore = new BlockItemStore<IBlockStub & Logs>(db, defaultSerialiser);
 
     const blockCache = new BlockCache<IBlockStub & Logs>(100, blockStore);
 
@@ -87,32 +89,32 @@ describe("WatcherAppointmentStateReducer", () => {
         expect(() => new EventFilterStateReducer(blockCache, { address: "address" }, 0)).to.throw(ApplicationError);
     });
 
-    fnIt<EventFilterStateReducer>(w => w.getInitialState, "initializes to WATCHING if event not present in ancestry", () => {
+    fnIt<EventFilterStateReducer>(w => w.getInitialState, "initializes to WATCHING if event not present in ancestry", async () => {
         const asr = new EventFilterStateReducer(blockCache, observedEventFilter, startBlock);
 
-        expect(asr.getInitialState(blocks[1])).to.deep.equal({ state: WatcherAppointmentState.WATCHING });
+        expect(await asr.getInitialState(blocks[1])).to.deep.equal({ state: WatcherAppointmentState.WATCHING });
     });
 
-    fnIt<EventFilterStateReducer>(w => w.getInitialState, "initializes to OBSERVED if event is present in the last block", () => {
+    fnIt<EventFilterStateReducer>(w => w.getInitialState, "initializes to OBSERVED if event is present in the last block", async () => {
         const asr = new EventFilterStateReducer(blockCache, observedEventFilter, startBlock);
-        expect(asr.getInitialState(blocks[2])).to.deep.equal({
+        expect(await asr.getInitialState(blocks[2])).to.deep.equal({
             state: WatcherAppointmentState.OBSERVED,
             blockObserved: blocks[2].number
         });
     });
 
-    fnIt<EventFilterStateReducer>(w => w.getInitialState, "initializes to OBSERVED if event is present in ancestry, updates blockObserved", () => {
+    fnIt<EventFilterStateReducer>(w => w.getInitialState, "initializes to OBSERVED if event is present in ancestry, updates blockObserved", async () => {
         const asr = new EventFilterStateReducer(blockCache, observedEventFilter, startBlock);
-        expect(asr.getInitialState(blocks[3])).to.deep.equal({
+        expect(await asr.getInitialState(blocks[3])).to.deep.equal({
             state: WatcherAppointmentState.OBSERVED,
             blockObserved: blocks[2].number
         });
     });
 
-    fnIt<EventFilterStateReducer>(w => w.reduce, "does not change state if event is not observed in new block", () => {
+    fnIt<EventFilterStateReducer>(w => w.reduce, "does not change state if event is not observed in new block", async () => {
         const asr = new EventFilterStateReducer(blockCache, observedEventFilter, startBlock);
 
-        const result = asr.reduce(
+        const result = await asr.reduce(
             {
                 state: WatcherAppointmentState.WATCHING
             },
@@ -122,27 +124,27 @@ describe("WatcherAppointmentStateReducer", () => {
         expect(result).to.deep.equal({ state: WatcherAppointmentState.WATCHING });
     });
 
-    fnIt<EventFilterStateReducer>(w => w.getInitialState, "does not initialize to OBSERVED if event is present, but deeper than startBlock", () => {
+    fnIt<EventFilterStateReducer>(w => w.getInitialState, "does not initialize to OBSERVED if event is present, but deeper than startBlock", async () => {
         // Appointment with same locator, but with startBlock past the event trigger
         const asr = new EventFilterStateReducer(blockCache, observedEventFilter, 3);
-        expect(asr.getInitialState(blocks[3])).to.deep.equal({
+        expect(await asr.getInitialState(blocks[3])).to.deep.equal({
             state: WatcherAppointmentState.WATCHING
         });
     });
 
-    fnIt<EventFilterStateReducer>(w => w.getInitialState, "does initialize to OBSERVED if event is present exactly at startBlock", () => {
+    fnIt<EventFilterStateReducer>(w => w.getInitialState, "does initialize to OBSERVED if event is present exactly at startBlock", async () => {
         // Appointment with same locator, but with startBlock past the event trigger
         const asr = new EventFilterStateReducer(blockCache, observedEventFilter, 2);
-        expect(asr.getInitialState(blocks[3])).to.deep.equal({
+        expect(await asr.getInitialState(blocks[3])).to.deep.equal({
             state: WatcherAppointmentState.OBSERVED,
             blockObserved: 2
         });
     });
 
-    fnIt<EventFilterStateReducer>(w => w.reduce, "does change state if event is observed in new block", () => {
+    fnIt<EventFilterStateReducer>(w => w.reduce, "does change state if event is observed in new block", async () => {
         const asr = new EventFilterStateReducer(blockCache, observedEventFilter, startBlock);
 
-        const result = asr.reduce(
+        const result = await asr.reduce(
             {
                 state: WatcherAppointmentState.WATCHING
             },
@@ -155,10 +157,10 @@ describe("WatcherAppointmentStateReducer", () => {
         });
     });
 
-    fnIt<EventFilterStateReducer>(w => w.reduce, "does not change from OBSERVED when new blocks come", () => {
+    fnIt<EventFilterStateReducer>(w => w.reduce, "does not change from OBSERVED when new blocks come", async () => {
         const asr = new EventFilterStateReducer(blockCache, observedEventFilter, startBlock);
 
-        const result = asr.reduce(
+        const result = await asr.reduce(
             {
                 state: WatcherAppointmentState.OBSERVED,
                 blockObserved: blocks[2].number
@@ -177,7 +179,7 @@ describe("Watcher", () => {
     const CONFIRMATIONS_BEFORE_RESPONSE = 4;
     const CONFIRMATIONS_BEFORE_REMOVAL = 20;
 
-    const db = LevelUp(EncodingDown<string, any>(MemDown(), { valueEncoding: "json" }));
+    const db = LevelUp(EncodingDown<string, DbObject>(MemDown(), { valueEncoding: "json" }));
     let blockStore: BlockItemStore<IBlockStub & Logs>;
     let blockCache: BlockCache<IBlockStub & Logs>;
 
@@ -190,7 +192,7 @@ describe("Watcher", () => {
     let appointment: Appointment;
 
     before(async () => {
-        blockStore = new BlockItemStore<IBlockStub & Logs>(db);
+        blockStore = new BlockItemStore<IBlockStub & Logs>(db, defaultSerialiser);
         await blockStore.start();
 
         blockCache = new BlockCache<IBlockStub & Logs>(100, blockStore);

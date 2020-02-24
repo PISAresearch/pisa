@@ -11,6 +11,7 @@ import { mock, when, anything } from "ts-mockito";
 import { EventEmitter } from "events";
 import { BlockProcessor, BlockCache, blockStubAndTxHashFactory, BlockProcessorStore, IBlockStub, BlockItemStore } from "../src";
 import { wait, throwingInstance, fnIt } from "@pisa-research/test-utils";
+import { DbObject, defaultSerialiser } from "@pisa-research/utils";
 
 chai.use(chaiAsPromised);
 const expect = chai.expect;
@@ -53,7 +54,7 @@ describe("BlockProcessorStore", () => {
     let store: BlockProcessorStore;
 
     beforeEach(async () => {
-        db = LevelUp(EncodingDown<string, any>(MemDown(), { valueEncoding: "json" }));
+        db = LevelUp(EncodingDown<string, DbObject>(MemDown(), { valueEncoding: "json" }));
         store = new BlockProcessorStore(db);
     });
 
@@ -111,8 +112,8 @@ describe("BlockProcessor", () => {
         let curBlockHash: string = hash;
         while (curBlockHash in blocksByHash) {
             const curBlock = blocksByHash[curBlockHash];
-            when(mockProvider.getBlock(curBlock.number, anything())).thenResolve(curBlock as ethers.providers.Block);
-            when(mockProvider.getBlock(curBlock.hash, anything())).thenResolve(curBlock as ethers.providers.Block);
+            when(mockProvider.getBlock(curBlock.number, anything())).thenResolve(curBlock as unknown as ethers.providers.Block);
+            when(mockProvider.getBlock(curBlock.hash, anything())).thenResolve(curBlock as unknown as ethers.providers.Block);
 
             curBlockHash = curBlock.parentHash;
         }
@@ -130,7 +131,7 @@ describe("BlockProcessor", () => {
     }
 
     async function startStores() {
-        blockStore = new BlockItemStore<IBlockStub>(db);
+        blockStore = new BlockItemStore<IBlockStub>(db, defaultSerialiser);
         await blockStore.start();
 
         blockCache = new BlockCache(maxDepth, blockStore);
@@ -139,13 +140,13 @@ describe("BlockProcessor", () => {
     }
 
     beforeEach(async () => {
-        db = LevelUp(EncodingDown<string, any>(MemDown(), { valueEncoding: "json" }));
+        db = LevelUp(EncodingDown<string, DbObject>(MemDown(), { valueEncoding: "json" }));
         await startStores();
 
         // Instruct the mocked provider to return the blocks by hash with getBlock
         mockProvider = mock(ethers.providers.BaseProvider);
         for (const [hash, blockStub] of Object.entries(blocksByHash)) {
-            when(mockProvider.getBlock(hash, anything())).thenResolve(blockStub as ethers.providers.Block);
+            when(mockProvider.getBlock(hash, anything())).thenResolve(blockStub as unknown as ethers.providers.Block);
         }
 
         // The mocked Provider should behave like an eventEmitter

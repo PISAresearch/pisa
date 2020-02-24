@@ -6,7 +6,7 @@ import { PublicInspectionError, PublicDataValidationError, ApplicationError } fr
 import { Appointment } from "../dataEntities/appointment";
 import { Watcher, AppointmentStore } from "../watcher";
 import { PisaTower } from "./tower";
-import { GasQueue, GasPriceEstimator, MultiResponder, MultiResponderComponent, ResponderStore } from "../responder";
+import { GasQueue, GasPriceEstimator, MultiResponder, MultiResponderComponent, ResponderStore, GasQueueItem, PisaTransactionIdentifier } from "../responder";
 import { IArgConfig } from "./config";
 import {
     BlockProcessorStore,
@@ -23,7 +23,7 @@ import {
 } from "@pisa-research/block";
 import { LevelUp } from "levelup";
 import encodingDown from "encoding-down";
-import { StartStopService, Logger } from "@pisa-research/utils";
+import { StartStopService, Logger, DbObject, DbObjectSerialiser, defaultDeserialisers } from "@pisa-research/utils";
 import path from "path";
 import rateLimit from "express-rate-limit";
 import uuid = require("uuid/v4");
@@ -71,15 +71,23 @@ export class PisaService extends StartStopService {
         walletNonce: number,
         chainId: number,
         receiptWallet: ethers.Wallet,
-        db: LevelUp<encodingDown<string, any>>
+        db: LevelUp<encodingDown<string, DbObject>>
     ) {
         super("service");
         const app = express();
         this.applyMiddlewares(app, config);
 
+        const serialiser = new DbObjectSerialiser({
+            ...defaultDeserialisers,
+            [Appointment.TYPE]: Appointment.deserialise,
+            [GasQueueItem.TYPE]: GasQueueItem.deserialise,
+            [GasQueue.TYPE]: GasQueue.deserialise,
+            [PisaTransactionIdentifier.TYPE]: PisaTransactionIdentifier.deserialise
+        });
+
         // block cache and processor
         const cacheLimit = config.maximumReorgLimit == undefined ? 200 : config.maximumReorgLimit;
-        this.blockItemStore = new BlockItemStore<Block>(db);
+        this.blockItemStore = new BlockItemStore<Block>(db, serialiser);
         const blockCache = new BlockCache<Block>(cacheLimit, this.blockItemStore);
         const blockProcessorStore = new BlockProcessorStore(db);
         this.blockProcessor = new BlockProcessor<Block>(provider, blockFactory, blockCache, this.blockItemStore, blockProcessorStore);

@@ -42,17 +42,17 @@ type TestAnchorState = {
 
 class TestAnchorStateReducer implements StateReducer<TestAnchorState, IBlockStub> {
     constructor(private readonly startValue: number) {}
-    getInitialState = (block: IBlockStub) => ({ someNumber: this.startValue + block.number });
-    reduce = (prevState: TestAnchorState, block: IBlockStub) => ({
+    getInitialState = async (block: IBlockStub) => ({ someNumber: this.startValue + block.number });
+    reduce = async (prevState: TestAnchorState, block: IBlockStub) => ({
         someNumber: prevState.someNumber + block.number
     });
 }
 
 class NullReducer implements StateReducer<{}, IBlockStub> {
-    getInitialState() {
+    async getInitialState() {
         return {};
     }
-    reduce(prevState: {}, block: IBlockStub) {
+    async reduce(prevState: {}, block: IBlockStub) {
         return {};
     }
 }
@@ -158,17 +158,17 @@ describe("MappedStateReducer", () => {
 });
 
 describe("BlockNumberReducer", () => {
-    fnIt<BlockNumberReducer>(m => m.getInitialState, "sets current block number", () => {
+    fnIt<BlockNumberReducer>(m => m.getInitialState, "sets current block number", async () => {
         const reducer = new BlockNumberReducer();
-        const anchorState = reducer.getInitialState(blocks[0]);
+        const anchorState = await reducer.getInitialState(blocks[0]);
 
         expect(anchorState.blockNumber).to.equal(blocks[0].number);
     });
 
-    fnIt<BlockNumberReducer>(m => m.getInitialState, "sets current block number", () => {
+    fnIt<BlockNumberReducer>(m => m.getInitialState, "sets current block number", async () => {
         const reducer = new BlockNumberReducer();
 
-        const nextAnchorState = reducer.reduce({ blockNumber: 0 }, blocks[2]);
+        const nextAnchorState = await reducer.reduce({ blockNumber: 0 }, blocks[2]);
 
         expect(nextAnchorState.blockNumber).to.equal(blocks[2].number);
     });

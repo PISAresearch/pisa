@@ -6,6 +6,7 @@ import MemDown from "memdown";
 import { hasLogMatchingEventFilter, IBlockStub, Logs, BlockItemStore } from "../src";
 import { ArgumentError, ApplicationError } from "@pisa-research/errors";
 import { fnIt, wait } from "@pisa-research/test-utils";
+import { DbObject, defaultSerialiser } from "@pisa-research/utils";
 
 describe("hasLogMatchingEventFilter", () => {
     const address = "0x1234abcd";
@@ -91,9 +92,9 @@ describe("BlockItemStore", () => {
 
     beforeEach(async () => {
         db = LevelUp(
-            EncodingDown<string, any>(MemDown(), { valueEncoding: "json" })
+            EncodingDown<string, DbObject>(MemDown(), { valueEncoding: "json" })
         );
-        store = new BlockItemStore<IBlockStub>(db);
+        store = new BlockItemStore<IBlockStub>(db, defaultSerialiser);
         await store.start();
     });
 
@@ -138,8 +139,8 @@ describe("BlockItemStore", () => {
                 const startTime = Date.now();
                 await Promise.race([store.withBatch(async () => {}), wait(1000)]);
 
-                expect(Date.now() - startTime).to.be.greaterThan(1000)
-                expect(Date.now() - startTime).to.be.lessThan(2000)
+                expect(Date.now() - startTime).to.be.gte(1000);
+                expect(Date.now() - startTime).to.be.lessThan(2000);
             });
         }
     );
@@ -184,7 +185,7 @@ describe("BlockItemStore", () => {
         await store.stop();
 
         // New store using the same db
-        const newStore = new BlockItemStore<IBlockStub>(db);
+        const newStore = new BlockItemStore<IBlockStub>(db, defaultSerialiser);
         await newStore.start();
 
         // Check that all items still return the correct value for the new store

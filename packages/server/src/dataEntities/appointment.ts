@@ -1,8 +1,8 @@
 import { ethers } from "ethers";
 import appointmentRequestSchemaJson from "./appointmentRequestSchema.json";
 import Ajv from "ajv";
-import { PublicDataValidationError } from "@pisa-research/errors";
-import { logger, Logger } from "@pisa-research/utils";
+import { PublicDataValidationError, ApplicationError } from "@pisa-research/errors";
+import { logger, Logger, PlainObject, Serialisable, TypedPlainObject } from "@pisa-research/utils";
 import { BigNumber } from "ethers/utils";
 import betterAjvErrors from "better-ajv-errors";
 import { ReadOnlyBlockCache, IBlockStub } from "@pisa-research/block";
@@ -121,10 +121,13 @@ export interface IAppointment extends IAppointmentBase {
     readonly mode: AppointmentMode;
 }
 
+export type SerialisedAppointment = IAppointment & TypedPlainObject;
+
 /**
  * A customer appointment, detailing what event to be watched for and data to submit.
  */
-export class Appointment {
+export class Appointment implements Serialisable {
+    public static readonly TYPE = "app";
     constructor(
         public readonly contractAddress: string,
         public readonly customerAddress: string,
@@ -145,7 +148,32 @@ export class Appointment {
         public readonly customerSig: string
     ) {}
 
-    public static fromIAppointment(appointment: IAppointment): Appointment {
+    public serialise(): SerialisedAppointment {
+        return {
+            __type__: Appointment.TYPE,
+            contractAddress: this.contractAddress,
+            customerAddress: this.customerAddress,
+            startBlock: this.startBlock,
+            endBlock: this.endBlock,
+            challengePeriod: this.challengePeriod,
+            customerChosenId: this.customerChosenId,
+            nonce: this.nonce,
+            data: this.data,
+            refund: this.refund.toHexString(),
+            gasLimit: this.gasLimit,
+            mode: this.mode,
+            eventAddress: this.eventAddress,
+            topics: this.topics,
+            preCondition: this.preCondition,
+            postCondition: this.postCondition,
+            paymentHash: this.paymentHash,
+            customerSig: this.customerSig
+        }
+    }
+
+    public static deserialise(appointment: SerialisedAppointment) {
+        if (appointment.__type__ !== Appointment.TYPE) throw new ApplicationError(`Unexpected _type while deserialising appointment: ${appointment.__type__}`); // prettier-ignore
+
         return new Appointment(
             appointment.contractAddress,
             appointment.customerAddress,
@@ -165,28 +193,6 @@ export class Appointment {
             appointment.paymentHash,
             appointment.customerSig
         );
-    }
-
-    public static toIAppointment(appointment: Appointment): IAppointment {
-        return {
-            contractAddress: appointment.contractAddress,
-            customerAddress: appointment.customerAddress,
-            startBlock: appointment.startBlock,
-            endBlock: appointment.endBlock,
-            challengePeriod: appointment.challengePeriod,
-            customerChosenId: appointment.customerChosenId,
-            nonce: appointment.nonce,
-            data: appointment.data,
-            refund: appointment.refund.toHexString(),
-            gasLimit: appointment.gasLimit,
-            mode: appointment.mode,
-            eventAddress: appointment.eventAddress,
-            topics: appointment.topics,
-            preCondition: appointment.preCondition,
-            postCondition: appointment.postCondition,
-            paymentHash: appointment.paymentHash,
-            customerSig: appointment.customerSig
-        };
     }
 
     public static fromIAppointmentRequest(appointmentRequest: IAppointmentRequest): Appointment {

@@ -1,7 +1,7 @@
-import { ArgumentError } from "@pisa-research/errors"
-import { IBlockStub ,ReadOnlyBlockCache } from "@pisa-research/block"
-import { BigNumber } from "ethers/utils";
 import { ethers } from "ethers";
+import { BigNumber } from "ethers/utils";
+import { ArgumentError } from "@pisa-research/errors"
+import { IBlockStub, ReadOnlyBlockCache } from "@pisa-research/block"
 
 export class GasPriceEstimator {
     /**

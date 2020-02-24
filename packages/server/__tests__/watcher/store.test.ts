@@ -8,10 +8,12 @@ import encodingDown from "encoding-down";
 import { Appointment } from "../../src/dataEntities/appointment";
 import { ApplicationError } from "@pisa-research/errors";
 import { fnIt, expectAsync } from "@pisa-research/test-utils";
+import { DbObject } from "@pisa-research/utils";
 chai.use(chaiAsPromised);
 
 const getAppointment = (id: string, endBlock: number, nonce: number) => {
-    return Appointment.fromIAppointment({
+    return Appointment.deserialise({
+        __type__: Appointment.TYPE,
         challengePeriod: 10,
         contractAddress: "contractAddress",
         customerAddress: "customerAddress",
@@ -33,11 +35,11 @@ const getAppointment = (id: string, endBlock: number, nonce: number) => {
 };
 
 describe("Store", () => {
-    let db: LevelUp<encodingDown<string, any>>, store: AppointmentStore;
+    let db: LevelUp<encodingDown<string, DbObject>>, store: AppointmentStore;
 
     beforeEach(async () => {
         db = levelup(
-            encodingDown<string, any>(MemDown(), {
+            encodingDown<string, DbObject>(MemDown(), {
                 valueEncoding: "json"
             })
         );
@@ -60,7 +62,7 @@ describe("Store", () => {
         expect(storedAppointments).to.deep.equal([appointment1]);
 
         const dbApp = await db.get(subDbString + appointment1.id);
-        expect(dbApp).to.deep.equal(Appointment.toIAppointment(appointment1));
+        expect(dbApp).to.deep.equal(appointment1.serialise());
     });
 
     fnIt<AppointmentStore>(s => s.addOrUpdateByLocator, "does add multiple appointments", async () => {
@@ -74,9 +76,9 @@ describe("Store", () => {
         expect(storedAppointments).to.deep.equal([appointment1, appointment2]);
 
         const dbAppointment1 = await db.get(subDbString + appointment1.id);
-        expect(dbAppointment1).to.deep.equal(Appointment.toIAppointment(appointment1));
+        expect(dbAppointment1).to.deep.equal(appointment1.serialise());
         const dbAppointment2 = await db.get(subDbString + appointment2.id);
-        expect(dbAppointment2).to.deep.equal(Appointment.toIAppointment(appointment2));
+        expect(dbAppointment2).to.deep.equal(appointment2.serialise());
     });
 
     fnIt<AppointmentStore>(s => s.addOrUpdateByLocator, "does update older appointment", async () => {
@@ -93,7 +95,7 @@ describe("Store", () => {
         expect(storedAppointments).to.deep.equal([appointment2]);
 
         const dbAppointment2 = await db.get(subDbString + appointment2.id);
-        expect(dbAppointment2).to.deep.equal(Appointment.toIAppointment(appointment2));
+        expect(dbAppointment2).to.deep.equal(appointment2.serialise());
     });
 
     fnIt<AppointmentStore>(s => s.addOrUpdateByLocator, "does not update newer appointment", async () => {
@@ -110,7 +112,7 @@ describe("Store", () => {
         expect(storedAppointments).to.deep.equal([appointment2]);
 
         const dbAppointment2 = await db.get(subDbString + appointment2.id);
-        expect(dbAppointment2).to.deep.equal(Appointment.toIAppointment(appointment2));
+        expect(dbAppointment2).to.deep.equal(appointment2.serialise());
     });
 
     const expectNotFound = async (func: () => Promise<any>) => {
@@ -129,7 +131,7 @@ describe("Store", () => {
         const result = await store.removeById(appointment1.id);
         expect(result).to.be.true;
 
-        expect([...(await store.getExpiredSince(appointment1.endBlock + 1))]).to.deep.equal([]);
+        expect([...(store.getExpiredSince(appointment1.endBlock + 1))]).to.deep.equal([]);
 
         expectNotFound(() => db.get(appointment1.id));
     });
@@ -144,7 +146,7 @@ describe("Store", () => {
         const result2 = await store.removeById(appointment1.id);
         expect(result2).to.be.false;
 
-        expect([...(await store.getExpiredSince(appointment1.endBlock + 1))]).to.deep.equal([]);
+        expect([...store.getExpiredSince(appointment1.endBlock + 1)]).to.deep.equal([]);
         expectNotFound(() => db.get(subDbString + appointment1.id));
     });
 
@@ -156,9 +158,9 @@ describe("Store", () => {
         const result = await store.removeById(appointment2.id);
         expect(result).to.be.false;
 
-        expect([...(await store.getExpiredSince(appointment1.endBlock + 1))]).to.deep.equal([appointment1]);
+        expect([...store.getExpiredSince(appointment1.endBlock + 1)]).to.deep.equal([appointment1]);
         const dbAppointment1 = await db.get(subDbString + appointment1.id);
-        expect(dbAppointment1).to.deep.equal(Appointment.toIAppointment(appointment1));
+        expect(dbAppointment1).to.deep.equal(appointment1.serialise());
     });
 
     fnIt<AppointmentStore>(s => s.removeById, "does allow add after remove", async () => {
@@ -169,8 +171,8 @@ describe("Store", () => {
         await store.addOrUpdateByLocator(appointment1);
 
         const dbAppointment1 = await db.get(subDbString + appointment1.id);
-        expect(dbAppointment1).to.deep.equal(Appointment.toIAppointment(appointment1));
-        expect([...(await store.getExpiredSince(appointment1.endBlock + 1))]).to.deep.equal([appointment1]);
+        expect(dbAppointment1).to.deep.equal(appointment1.serialise());
+        expect([...store.getExpiredSince(appointment1.endBlock + 1)]).to.deep.equal([appointment1]);
     });
 
     fnIt<AppointmentStore>(s => s.removeById, "does not remove other appointments", async () => {
@@ -185,8 +187,8 @@ describe("Store", () => {
         expectNotFound(() => db.get(appointment1.id));
 
         const dbAppointment2 = await db.get(subDbString + appointment2.id);
-        expect(dbAppointment2).to.deep.equal(Appointment.toIAppointment(appointment2));
-        expect([...(await store.getExpiredSince(appointment1.endBlock + 1))]).to.deep.equal([appointment2]);
+        expect(dbAppointment2).to.deep.equal(appointment2.serialise());
+        expect([...store.getExpiredSince(appointment1.endBlock + 1)]).to.deep.equal([appointment2]);
     });
 
     fnIt<AppointmentStore>(s => s.getExpiredSince, "fetches items with end block less than supplied", async () => {
@@ -198,7 +200,7 @@ describe("Store", () => {
         await store.addOrUpdateByLocator(appointment2);
         await store.addOrUpdateByLocator(appointment3);
 
-        expect([...(await store.getExpiredSince(5))]).to.deep.equal([appointment1]);
+        expect([...store.getExpiredSince(5)]).to.deep.equal([appointment1]);
     });
 
     it("startup does load all appointments", async () => {
@@ -213,25 +215,27 @@ describe("Store", () => {
             })
         );
 
-        // add items to the store
-        await testDB.put(subDbString + appointment1.id, Appointment.toIAppointment(appointment1));
-        await testDB.put(subDbString + appointment2.id, Appointment.toIAppointment(appointment2));
-        await testDB.put(subDbString + appointment3.id, Appointment.toIAppointment(appointment3));
+        // add items to the store's DB
+        await testDB.put(subDbString + appointment1.id, appointment1.serialise());
+        await testDB.put(subDbString + appointment2.id, appointment2.serialise());
+        await testDB.put(subDbString + appointment3.id, appointment3.serialise());
 
         const testStore = new AppointmentStore(testDB);
         await testStore.start();
 
-        let expired = [...(await testStore.getExpiredSince(appointment3.endBlock + 1))];
-        expect(expired[0]).to.deep.equal(appointment1);
-        expect(expired[1]).to.deep.equal(appointment2);
-        expect(expired[2]).to.deep.equal(appointment3);
+        let expired = [...testStore.getExpiredSince(appointment3.endBlock + 1)];
+        expect(expired.length).to.equal(3);
+        expect(expired[0].serialise()).to.deep.equal(appointment1.serialise());
+        expect(expired[1].serialise()).to.deep.equal(appointment2.serialise());
+        expect(expired[2].serialise()).to.deep.equal(appointment3.serialise());
         // now check an update
         await testStore.addOrUpdateByLocator(appointment4);
 
-        expired = [...(await testStore.getExpiredSince(appointment3.endBlock + 1))];
-        expect(expired[0]).to.deep.equal(appointment1);
-        expect(expired[1]).to.deep.equal(appointment2);
-        expect(expired[2]).to.deep.equal(appointment4);
+        expired = [...testStore.getExpiredSince(appointment3.endBlock + 1)];
+        expect(expired.length).to.equal(3);
+        expect(expired[0].serialise()).to.deep.equal(appointment1.serialise());
+        expect(expired[1].serialise()).to.deep.equal(appointment2.serialise());
+        expect(expired[2].serialise()).to.deep.equal(appointment4.serialise());
         await testStore.stop();
     });
 

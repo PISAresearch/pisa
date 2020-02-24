@@ -32,7 +32,7 @@ export class EventFilterStateReducer implements StateReducer<WatcherAppointmentA
     constructor(private cache: ReadOnlyBlockCache<IBlockStub & Logs>, private filter: EventFilter, private startBlock: number) {
         if (!filter.topics) throw new ApplicationError(`topics should be defined`);
     }
-    public getInitialState(block: IBlockStub & Logs): WatcherAppointmentAnchorState {
+    public async getInitialState(block: IBlockStub & Logs): Promise<WatcherAppointmentAnchorState> {
         const eventAncestor = this.cache.findAncestor(block.hash, ancestor => hasLogMatchingEventFilter(ancestor, this.filter), this.startBlock);
 
         if (!eventAncestor) {
@@ -46,7 +46,7 @@ export class EventFilterStateReducer implements StateReducer<WatcherAppointmentA
             };
         }
     }
-    public reduce(prevState: WatcherAppointmentAnchorState, block: IBlockStub & Logs): WatcherAppointmentAnchorState {
+    public async reduce(prevState: WatcherAppointmentAnchorState, block: IBlockStub & Logs): Promise<WatcherAppointmentAnchorState> {
         if (prevState.state === WatcherAppointmentState.WATCHING && hasLogMatchingEventFilter(block, this.filter)) {
             return {
                 state: WatcherAppointmentState.OBSERVED,
@@ -99,7 +99,10 @@ export class Watcher extends Component<WatcherAnchorState, IBlockStub & Logs, Wa
         super(
             new MappedStateReducer(
                 () => store.getAll(),
-                appointment => new EventFilterStateReducer(blockCache, appointment.eventFilter, appointment.startBlock),
+                appointment => {
+                    const eventFilter = appointment.eventFilter;
+                    return new EventFilterStateReducer(blockCache, eventFilter, appointment.startBlock);
+                },
                 appointment => appointment.id,
                 new BlockNumberReducer()
             )

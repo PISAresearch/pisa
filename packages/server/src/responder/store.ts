@@ -1,4 +1,4 @@
-import { StartStopService } from "@pisa-research/utils";
+import { StartStopService, DbObject } from "@pisa-research/utils";
 import { GasQueueItem, GasQueue } from "./gasQueue";
 import { LevelUp } from "levelup";
 import EncodingDown from "encoding-down";
@@ -19,7 +19,7 @@ export class ResponderStore extends StartStopService {
         return this.mQueue;
     }
 
-    private readonly subDb: LevelUp<EncodingDown<string, any>>;
+    private readonly subDb: LevelUp<EncodingDown<string, DbObject>>;
     private readonly queueKey: string;
     /**
      * A persistent store for responder data.
@@ -27,7 +27,7 @@ export class ResponderStore extends StartStopService {
      * @param responderAddress The address of the responder using this store. Responder public keys can only
      * be used by one responder at a time.
      */
-    constructor(db: LevelUp<EncodingDown<string, any>>, responderAddress: string, seedQueue: GasQueue) {
+    constructor(db: LevelUp<EncodingDown<string, DbObject>>, responderAddress: string, seedQueue: GasQueue) {
         super("responder-store");
         this.subDb = sub(db, `responder:${responderAddress}`, { valueEncoding: "json" });
         this.mQueue = seedQueue;
@@ -66,9 +66,9 @@ export class ResponderStore extends StartStopService {
         const difference = queue.difference(this.mQueue);
 
         // DB
-        let batch = this.subDb.batch().put(this.queueKey, GasQueue.serialise(queue));
+        let batch = this.subDb.batch().put(this.queueKey, queue.serialise());
         for (const item of difference.values()) {
-            batch = batch.put(item.request.id, GasQueueItem.serialise(item));
+            batch = batch.put(item.request.id, item.serialise());
         }
         await batch.write();
 

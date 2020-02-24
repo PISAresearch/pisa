@@ -3,7 +3,6 @@ import { IBlockStub, TransactionHashes } from "./block";
 import { BlockItemStore } from "./blockItemStore";
 import { Lock } from "@pisa-research/utils";
 import { BlockEvent } from "./event";
-import { runInThisContext } from "vm";
 
 // Possible return values of addBlock
 export enum BlockAddResult {

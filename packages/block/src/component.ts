@@ -1,13 +1,11 @@
 import { IBlockStub } from "./block";
+import { PlainObjectOrSerialisable } from "@pisa-research/utils";
 
 /**
  * Anchor state is derived from new blocks. If the block an anchor state is associated
  * with is reverted, then so is the anchor state
  */
-export interface AnchorState {
-    // although an empty interface provides no type safety, it does help to provide
-    // some semantic meaning when using this type as a generic constraint
-}
+export type AnchorState = PlainObjectOrSerialisable;
 
 /**
  * A base for object that define the initial anchor state and the changes in state when a new block is processed.
@@ -20,7 +18,7 @@ export interface StateReducer<TState extends AnchorState, TBlock extends IBlockS
      * this function may be expensive.
      * @param block
      */
-    getInitialState(block: TBlock): Promise<TState> | TState;
+    getInitialState(block: TBlock): Promise<TState>;
 
     /**
      * Computes the next anchor state. Whilst we can compute any anchor state using getInitialState
@@ -29,14 +27,14 @@ export interface StateReducer<TState extends AnchorState, TBlock extends IBlockS
      * @param prevState 
      * @param block 
      */
-    reduce(prevState: TState, block: TBlock): Promise<TState> | TState;
+    reduce(prevState: TState, block: TBlock): Promise<TState>;
 }
 
 /**
  * Convenience type for a state derived from mapping strings (typically, an id) to a per-item state.
  */
 export type MappedState<TState extends AnchorState> = {
-    items: { [index: string]: TState };
+    items: { [key: string]: TState };
 };
 
 /**
@@ -102,10 +100,7 @@ export class MappedStateReducer<TState extends AnchorState, TMappedState extends
 /**
  * An action that needs to be taken within a component
  */
-export interface ComponentAction {
-    // Although this is empty its useful to ascribe some semantic meaning to the generic type
-    // that we need in the component
-}
+export type ComponentAction = PlainObjectOrSerialisable;
 
 /**
  * A `Component` contains a state reducer and receives and processes the state changes after being added to a `BlockchainMachine`.
@@ -132,21 +127,21 @@ export abstract class Component<TState extends AnchorState, TBlock extends IBloc
     public abstract readonly name: string;
 }
 
-export interface BlockNumberState {
+export type BlockNumberState = {
     blockNumber: number;
-}
+};
 
 /**
  * Selects the block number from the provided block
  */
 export class BlockNumberReducer implements StateReducer<BlockNumberState, IBlockStub> {
-    public getInitialState(block: IBlockStub) {
+    public async getInitialState(block: IBlockStub) {
         return {
             blockNumber: block.number
         };
     }
 
-    public reduce(prevState: BlockNumberState, block: IBlockStub) {
+    public async reduce(prevState: BlockNumberState, block: IBlockStub) {
         return {
             blockNumber: block.number
         };

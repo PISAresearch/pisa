@@ -5,6 +5,7 @@ import { validateProvider, getJsonRPCProvider } from "./utils/ethers";
 import levelup, { LevelUp } from "levelup";
 import encodingDown from "encoding-down";
 import leveldown from "leveldown";
+import { DbObject } from "@pisa-research/utils";
 
 let config: IArgConfig;
 try {
@@ -35,7 +36,7 @@ async function startUp() {
     process.on("SIGINT", async () => await stop(service, db));
 }
 
-async function stop(service: PisaService, db: LevelUp<encodingDown<string, any>>) {
+async function stop(service: PisaService, db: LevelUp<encodingDown<string, DbObject>>) {
     await Promise.all([
         // stop the pisa service
         service.stop(),

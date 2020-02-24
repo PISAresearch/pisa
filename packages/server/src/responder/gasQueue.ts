@@ -1,6 +1,7 @@
-import { ArgumentError } from "@pisa-research/errors"
+import { ArgumentError, ApplicationError } from "@pisa-research/errors"
 import { BigNumber } from "ethers/utils";
 import { ethers } from "ethers";
+import { PlainObject, Serialisable, TypedPlainObject } from "@pisa-research/utils";
 
 export class GasQueueError extends ArgumentError {
     constructor(public readonly kind: GasQueueErrorKind, message: string, ...args: any[]) {
@@ -12,26 +13,31 @@ export enum GasQueueErrorKind {
     AlreadyAdded = 0
 }
 
-interface PisaTransactionIdentifierSerialisation {
-    readonly chainId: number;
-    readonly data: string;
-    readonly to: string;
-    readonly value: string;
-    readonly gasLimit: string;
-}
+export type PisaTransactionIdentifierSerialisation = TypedPlainObject & {
+    chainId: number,
+    data: string,
+    to: string,
+    value: string,
+    gasLimit: string
+};
 
-export class PisaTransactionIdentifier {
-    public static serialise(identifier: PisaTransactionIdentifier): PisaTransactionIdentifierSerialisation {
+export class PisaTransactionIdentifier implements Serialisable {
+    public static readonly TYPE = "pti";
+
+    public serialise(): PisaTransactionIdentifierSerialisation {
         return {
-            chainId: identifier.chainId,
-            data: identifier.data,
-            to: identifier.to,
-            value: identifier.value.toString(),
-            gasLimit: identifier.gasLimit.toString()
+            __type__: PisaTransactionIdentifier.TYPE,
+            chainId: this.chainId,
+            data: this.data,
+            to: this.to,
+            value: this.value.toString(),
+            gasLimit: this.gasLimit.toString()
         };
     }
 
     public static deserialise(serialisation: PisaTransactionIdentifierSerialisation): PisaTransactionIdentifier {
+        if (serialisation.__type__ !== PisaTransactionIdentifier.TYPE) throw new ApplicationError(`Unexpected _type while deserialising transaction identifier: ${serialisation.__type__}`); // prettier-ignore
+
         return new PisaTransactionIdentifier(
             serialisation.chainId,
             serialisation.data,
@@ -67,19 +73,19 @@ export class PisaTransactionIdentifier {
     }
 }
 
-interface GasQueueItemRequestSerialisation {
-    readonly identifier: PisaTransactionIdentifierSerialisation;
-    readonly idealGasPrice: string;
-    readonly appointmentId: string;
-    readonly blockObserved: number;
-}
+export type GasQueueItemRequestSerialisation = PlainObject & {
+    readonly identifier: PisaTransactionIdentifierSerialisation,
+    readonly idealGasPrice: string,
+    readonly appointmentId: string,
+    readonly blockObserved: number,
+};
 
 export class GasQueueItemRequest {
     public static serialise(request: GasQueueItemRequest): GasQueueItemRequestSerialisation {
         return {
             appointmentId: request.id,
             idealGasPrice: request.idealGasPrice.toString(),
-            identifier: PisaTransactionIdentifier.serialise(request.identifier),
+            identifier: request.identifier.serialise(),
             blockObserved: request.blockObserved
         };
     }
@@ -107,23 +113,27 @@ export class GasQueueItemRequest {
     ) {}
 }
 
-interface GasQueueItemSerialisation {
+export type GasQueueItemSerialisation = TypedPlainObject & {
     request: GasQueueItemRequestSerialisation;
     nonceGasPrice: string;
     idealGasPrice: string;
     nonce: number;
-}
+};
 
-export class GasQueueItem {
-    public static serialise(item: GasQueueItem): GasQueueItemSerialisation {
+export class GasQueueItem implements Serialisable {
+    public static readonly TYPE = "gqi";
+    public serialise(): GasQueueItemSerialisation {
         return {
-            idealGasPrice: item.idealGasPrice.toHexString(),
-            nonce: item.nonce,
-            nonceGasPrice: item.nonceGasPrice.toHexString(),
-            request: GasQueueItemRequest.serialise(item.request)
+            __type__: GasQueueItem.TYPE,
+            idealGasPrice: this.idealGasPrice.toHexString(),
+            nonce: this.nonce,
+            nonceGasPrice: this.nonceGasPrice.toHexString(),
+            request: GasQueueItemRequest.serialise(this.request)
         };
     }
     public static deserialise(serialisation: GasQueueItemSerialisation): GasQueueItem {
+        if (serialisation.__type__ !== GasQueueItem.TYPE) throw new ApplicationError(`Unexpected _type while deserialising gas queue item: ${serialisation.__type__}`); // prettier-ignore
+
         return new GasQueueItem(
             GasQueueItemRequest.deserialise(serialisation.request),
             new BigNumber(serialisation.nonceGasPrice),
@@ -172,14 +182,15 @@ export class GasQueueItem {
     }
 }
 
-interface GasQueueSerialisation {
-    readonly queueItems: Array<GasQueueItemSerialisation>;
-    readonly emptyNonce: number;
-    readonly replacementRate: number;
-    readonly maxQueueDepth: number;
+type GasQueueSerialisation = TypedPlainObject & {
+    readonly queueItems: Array<GasQueueItemSerialisation>,
+    readonly emptyNonce: number,
+    readonly replacementRate: number,
+    readonly maxQueueDepth: number,
 }
 
-export class GasQueue {
+export class GasQueue implements Serialisable {
+    public static readonly TYPE = "gq";
     public static deserialise(serialisation: GasQueueSerialisation): GasQueue {
         return new GasQueue(
             serialisation.queueItems.map(i => GasQueueItem.deserialise(i)),
@@ -189,12 +200,13 @@ export class GasQueue {
         );
     }
 
-    public static serialise(queue: GasQueue): GasQueueSerialisation {
+    public serialise(): GasQueueSerialisation {
         return {
-            queueItems: queue.queueItems.map(i => GasQueueItem.serialise(i)),
-            emptyNonce: queue.emptyNonce,
-            maxQueueDepth: queue.maxQueueDepth,
-            replacementRate: queue.replacementRate
+            __type__: GasQueue.TYPE,
+            queueItems: this.queueItems.map(i => i.serialise()),
+            emptyNonce: this.emptyNonce,
+            maxQueueDepth: this.maxQueueDepth,
+            replacementRate: this.replacementRate
         };
     }
 

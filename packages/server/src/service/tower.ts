@@ -3,7 +3,7 @@ import { ethers } from "ethers";
 import { PublicDataValidationError } from "@pisa-research/errors";
 import { SignedAppointment, AppointmentMode, Appointment } from "../dataEntities/appointment";
 import { MultiResponder } from "../responder";
-import { Logger } from "@pisa-research/utils";
+import { Logger, PlainObject } from "@pisa-research/utils";
 import { ReadOnlyBlockCache, IBlockStub } from "@pisa-research/block";
 
 /**

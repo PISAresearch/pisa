@@ -2,7 +2,7 @@ import { ApplicationError } from "@pisa-research/errors";
 import { IBlockStub, BlockAndAttached } from "./block";
 import { LevelUp, LevelUpChain } from "levelup";
 import EncodingDown from "encoding-down";
-import { StartStopService, Lock } from "@pisa-research/utils";
+import { StartStopService, Lock, PlainObject, DbObject, DbObjectSerialiser, PlainObjectOrSerialisable } from "@pisa-research/utils";
 import { AnchorState } from "./component";
 const sub = require("subleveldown");
 
@@ -26,20 +26,16 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
     /** Stores the anchor state computed for this block; indexed by component. */
     private static KEY_STATE = "state";
 
-    /** Stores the anchor state of the nearest ancestor (including the block itself)s
-     * that was emitted as a "new head"; indexed by component. */
-    private static KEY_PREV_EMITTED_STATE = "prevEmittedState";
-
-    private readonly subDb: LevelUp<EncodingDown<string, any>>;
-    constructor(db: LevelUp<EncodingDown<string, any>>) {
+    private readonly subDb: LevelUp<EncodingDown<string, DbObject>>;
+    constructor(db: LevelUp<EncodingDown<string, DbObject>>, private readonly serialiser: DbObjectSerialiser) {
         super("block-item-store");
         this.subDb = sub(db, `block-item-store`, { valueEncoding: "json" });
     }
 
     private itemsByHeight: Map<number, Set<string>> = new Map();
-    private items: Map<string, any> = new Map();
+    private items: Map<string, DbObject> = new Map();
 
-    private mBatch: LevelUpChain<any, any> | null = null;
+    private mBatch: LevelUpChain<string, DbObject> | null = null;
     private get batch() {
         if (!this.mBatch) throw new ApplicationError("Write accesses must be executed within a withBatch callback.");
         return this.mBatch;
@@ -70,7 +66,7 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
      * Should only be used internally, kept public for testing.
      * Writes `item` for the `blockHash` at height `blockHeight` under the key `itemKey`.
      **/
-    public putBlockItem(blockHeight: number, blockHash: string, itemKey: string, item: any) {
+    public putBlockItem(blockHeight: number, blockHash: string, itemKey: string, item: DbObject) {
         const memKey = `${blockHash}:${itemKey}`;
         const dbKey = `${blockHeight}:${memKey}`;
 
@@ -79,14 +75,16 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
         else this.itemsByHeight.set(blockHeight, new Set([memKey]));
         this.items.set(memKey, item);
 
-        this.batch.put(dbKey, item);
+        const dbItem = this.serialiser.serialise(item);
+
+        this.batch.put(dbKey, dbItem);
     }
 
     /**
      * Gets the item with key `itemKey` for block `blockHash`.
      * Returns `undefined` if a key is not present.
      **/
-    public getItem(blockHash: string, itemKey: string): any | undefined {
+    public getItem(blockHash: string, itemKey: string): DbObject | undefined {
         const key = `${blockHash}:${itemKey}`;
         return this.items.get(key);
     }
@@ -94,7 +92,7 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
     // Type safe methods to store blocks
     public block = {
         get: (blockHash: string): TBlock | undefined =>
-            this.getItem(blockHash, BlockItemStore.KEY_BLOCK), // prettier-ignore
+            this.getItem(blockHash, BlockItemStore.KEY_BLOCK) as unknown as TBlock | undefined, // prettier-ignore
         set: (blockHeight: number, blockHash: string, block: TBlock) =>
             this.putBlockItem(blockHeight, blockHash, BlockItemStore.KEY_BLOCK, block) // prettier-ignore
     };
@@ -102,17 +100,21 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
     // Type safe methods to store the "attached" boolean for each block (used in the BlockCache)
     public attached = {
         get: (blockHash: string): boolean | undefined =>
-            this.getItem(blockHash, BlockItemStore.KEY_ATTACHED), // prettier-ignore
+            this.getItem(blockHash, BlockItemStore.KEY_ATTACHED) as unknown as boolean, // prettier-ignore
         set: (blockHeight: number, blockHash: string, attached: boolean) =>
             this.putBlockItem(blockHeight, blockHash, BlockItemStore.KEY_ATTACHED, attached) // prettier-ignore
     };
 
     // Type safe methods to store the anchor state for each block, indexed by component (used in the BlockchainMachine)
     public anchorState = {
-        get: <TAnchorState>(componentName: string, blockHash: string): TAnchorState | undefined =>
-            this.getItem(blockHash, `${componentName}:${BlockItemStore.KEY_STATE}`), // prettier-ignore
-        set: (componentName: string, blockHeight: number, blockHash: string, newState: AnchorState) =>
-            this.putBlockItem(blockHeight, blockHash, `${componentName}:${BlockItemStore.KEY_STATE}`, newState)
+        get: <TAnchorState extends PlainObjectOrSerialisable>(componentName: string, blockHash: string): TAnchorState | undefined => {
+            const rawObject = this.getItem(blockHash, `${componentName}:${BlockItemStore.KEY_STATE}`) as unknown as PlainObject;
+            return rawObject && this.serialiser.deserialise<TAnchorState>(rawObject);
+        },
+        set: (componentName: string, blockHeight: number, blockHash: string, newState: AnchorState) => {
+            const serializedNewState = this.serialiser.serialise(newState);
+            this.putBlockItem(blockHeight, blockHash, `${componentName}:${BlockItemStore.KEY_STATE}`, serializedNewState)
+        }
     };
 
     /**

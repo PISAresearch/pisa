@@ -5,6 +5,7 @@ import LevelUp from "levelup";
 import EncodingDown from "encoding-down";
 import MemDown from "memdown";
 import { fnIt } from "@pisa-research/test-utils";
+import { DbObject } from "@pisa-research/utils";
 
 
 type TestItem = {
@@ -26,7 +27,7 @@ describe("CachedKeyValueStore", () => {
     ];
 
     beforeEach(async () => {
-        db = LevelUp(EncodingDown<string, any>(MemDown(), { valueEncoding: "json" }));
+        db = LevelUp(EncodingDown<string, DbObject>(MemDown(), { valueEncoding: "json" }));
         store = new CachedKeyValueStore(db, "prefix");
         await store.start();
     });
@@ -42,7 +43,7 @@ describe("CachedKeyValueStore", () => {
         expect(retrievedItems).to.deep.equal(testItems);
     });
 
-    fnIt<CachedKeyValueStore<object>>(c => c.storeItems, "returns wrapped all the wrapped items and ids", async () => {
+    fnIt<CachedKeyValueStore<TestItem>>(c => c.storeItems, "returns wrapped all the wrapped items and ids", async () => {
         const itemsAndIds = await store.storeItems(key, testItems);
 
         expect(testItems.length).to.equal(itemsAndIds.length);
@@ -51,7 +52,7 @@ describe("CachedKeyValueStore", () => {
         }
     });
 
-    fnIt<CachedKeyValueStore<object>>(c => c.removeItem, "removes an item", async () => {
+    fnIt<CachedKeyValueStore<TestItem>>(c => c.removeItem, "removes an item", async () => {
         await store.storeItems(key, testItems);
 
         const retrievedItemsAndId = [...store.getItems(key)];
@@ -78,7 +79,7 @@ describe("CachedKeyValueStore", () => {
         expect(retrievedItems).to.deep.equal(testItems);
     });
 
-    fnIt<CachedKeyValueStore<object>>(c => c.removeItem, "removes an item in memory and also removes from the db", async () => {
+    fnIt<CachedKeyValueStore<TestItem>>(c => c.removeItem, "removes an item in memory and also removes from the db", async () => {
         // make sure that deleted items are also deleted from the db, and not just locally
 
         await store.storeItems(key, testItems);

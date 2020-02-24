@@ -2,6 +2,7 @@ import "mocha";
 import { expect } from "chai";
 import { BlockAddResult, BlockCache, getConfirmations, IBlockStub, TransactionHashes, BlockItemStore } from "../src";
 import { ArgumentError, ApplicationError } from "@pisa-research/errors";
+import { DbObject, defaultSerialiser } from "@pisa-research/utils";
 import { fnIt } from "@pisa-research/test-utils";
 
 import LevelUp from "levelup";
@@ -59,8 +60,8 @@ describe("BlockCache", () => {
     let resolveBatch: (value?: any) => void;
 
     beforeEach(async () => {
-        db = LevelUp(EncodingDown<string, any>(MemDown(), { valueEncoding: "json" }));
-        blockStore = new BlockItemStore<IBlockStub>(db);
+        db = LevelUp(EncodingDown<string, DbObject>(MemDown(), { valueEncoding: "json" }));
+        blockStore = new BlockItemStore<IBlockStub>(db, defaultSerialiser);
         await blockStore.start();
 
         bc = new BlockCache(maxDepth, blockStore);
@@ -439,11 +440,11 @@ describe("getConfirmations", () => {
 
     let resolveBatch: (value?: any) => void;
     beforeEach(async () => {
-        db = LevelUp(EncodingDown<string, any>(MemDown(), { valueEncoding: "json" }));
-        blockStore = new BlockItemStore<IBlockStub & TransactionHashes>(db);
+        db = LevelUp(EncodingDown<string, DbObject>(MemDown(), { valueEncoding: "json" }));
+        blockStore = new BlockItemStore<IBlockStub & TransactionHashes>(db, defaultSerialiser);
         await blockStore.start();
 
-        bc = new BlockCache(maxDepth, blockStore);
+        bc = new BlockCache<IBlockStub & TransactionHashes>(maxDepth, blockStore);
 
         // Create a batch that will be closed in the afterEach block, as the BlockCache assumes the batch is already open
         blockStore.withBatch(

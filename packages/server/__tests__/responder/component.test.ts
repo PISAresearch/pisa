@@ -18,9 +18,10 @@ import {
     MinedResponseState,
     ResponderActionKind
 } from "../../src/responder/component";
-import { BlockCache, ResponderBlock, TransactionStub, Block, BlockItemStore } from "@pisa-research/block";
+import { BlockCache, TransactionStub, Block, BlockItemStore } from "@pisa-research/block";
 import { PisaTransactionIdentifier } from "../../src/responder/gasQueue";
 import { MultiResponder } from "../../src/responder";
+import { DbObject, defaultSerialiser, SerialisableBigNumber } from "@pisa-research/utils";
 
 const from1 = "from1";
 const from2 = "from2";
@@ -28,19 +29,19 @@ const from2 = "from2";
 const newIdentifierAndTransaction = (blockNumber: number, data: string, from: string, nonce: number) => {
     const chainId = 1;
     const to = "to";
-    const value = new BigNumber(0);
-    const gasLimit = new BigNumber(200);
+    const value = "0";
+    const gasLimit = "200";
     const tx: TransactionStub = {
         blockNumber,
         chainId,
         data,
         from,
-        gasLimit,
+        gasLimit: new SerialisableBigNumber(gasLimit),
         nonce,
         to,
-        value
+        value: new SerialisableBigNumber(value)
     };
-    const identifier = new PisaTransactionIdentifier(chainId, data, to, value, gasLimit);
+    const identifier = new PisaTransactionIdentifier(chainId, data, to, new BigNumber(value), new BigNumber(gasLimit));
     return {
         identifier,
         tx
@@ -51,39 +52,45 @@ const txID1 = newIdentifierAndTransaction(1, "data1", from1, 1);
 // different from address
 const txID2 = newIdentifierAndTransaction(2, "data1", from2, 2);
 
-const blocks: ResponderBlock[] = [
+const blocks: Block[] = [
     {
         hash: "hash0",
         number: 0,
         parentHash: "hash",
-        transactions: []
+        transactions: [],
+        transactionHashes: [],
+        logs: []
     },
     {
         hash: "hash1",
         number: 1,
         parentHash: "hash0",
-        transactions: [txID1.tx]
+        transactions: [txID1.tx],
+        transactionHashes: [], // incorrect, but not used in tests
+        logs: []
     },
     {
         hash: "hash2",
         number: 2,
         parentHash: "hash1",
-        transactions: [txID2.tx]
+        transactions: [txID2.tx],
+        transactionHashes: [], // incorrect, but not used in tests
+        logs: []
     }
 ];
 
 describe("ResponderAppointmentReducer", () => {
     let db: any;
-    let blockStore: BlockItemStore<ResponderBlock>;
+    let blockStore: BlockItemStore<Block>;
 
-    let blockCache: BlockCache<ResponderBlock>;
+    let blockCache: BlockCache<Block>;
 
     beforeEach(async () => {
-        db = LevelUp(EncodingDown<string, any>(MemDown(), { valueEncoding: "json" }));
-        blockStore = new BlockItemStore<ResponderBlock>(db);
+        db = LevelUp(EncodingDown<string, DbObject>(MemDown(), { valueEncoding: "json" }));
+        blockStore = new BlockItemStore<Block>(db, defaultSerialiser);
         await blockStore.start();
 
-        blockCache = new BlockCache<ResponderBlock>(100, blockStore);
+        blockCache = new BlockCache<Block>(100, blockStore);
 
         await blockStore.withBatch(async () => {
             for (const block of blocks) {
@@ -96,84 +103,84 @@ describe("ResponderAppointmentReducer", () => {
         await blockStore.stop();
     });
 
-    fnIt<ResponderAppointmentReducer>(r => r.getInitialState, "sets pending tx", () => {
+    fnIt<ResponderAppointmentReducer>(r => r.getInitialState, "sets pending tx", async () => {
         const reducer = new ResponderAppointmentReducer(blockCache, txID1.identifier, appointmentId1, 0, from1);
 
-        const anchorState = reducer.getInitialState(blocks[0]);
-        expect(anchorState.identifier).to.equal(txID1.identifier);
+        const anchorState = await reducer.getInitialState(blocks[0]);
+        expect(anchorState.identifier).to.deep.equal(txID1.identifier);
         expect(anchorState.appointmentId).to.equal(appointmentId1);
         expect(anchorState.kind).to.equal(ResponderStateKind.Pending);
     });
 
-    fnIt<ResponderAppointmentReducer>(r => r.getInitialState, "sets mined tx", () => {
+    fnIt<ResponderAppointmentReducer>(r => r.getInitialState, "sets mined tx", async () => {
         const reducer = new ResponderAppointmentReducer(blockCache, txID1.identifier, appointmentId1, 0, from1);
 
-        const anchorState = reducer.getInitialState(blocks[2]);
+        const anchorState = await reducer.getInitialState(blocks[2]);
 
         expect(anchorState.kind).to.equal(ResponderStateKind.Mined);
         if (anchorState.kind === ResponderStateKind.Mined) {
-            expect(anchorState.identifier).to.equal(txID1.identifier);
+            expect(anchorState.identifier).to.deep.equal(txID1.identifier);
             expect(anchorState.appointmentId).to.equal(appointmentId1);
             expect(anchorState.blockMined).to.equal(txID1.tx.blockNumber);
             expect(anchorState.nonce).to.equal(txID1.tx.nonce);
         }
     });
 
-    fnIt<ResponderAppointmentReducer>(r => r.getInitialState, "stays pending if there is a matching mined tx that is deeper than blockObserved", () => {
+    fnIt<ResponderAppointmentReducer>(r => r.getInitialState, "stays pending if there is a matching mined tx that is deeper than blockObserved", async () => {
         const reducer = new ResponderAppointmentReducer(blockCache, txID1.identifier, appointmentId1, 2, from1);
 
-        const anchorState = reducer.getInitialState(blocks[2]);
-        expect(anchorState.identifier).to.equal(txID1.identifier);
+        const anchorState = await reducer.getInitialState(blocks[2]);
+        expect(anchorState.identifier).to.deep.equal(txID1.identifier);
         expect(anchorState.appointmentId).to.equal(appointmentId1);
         expect(anchorState.kind).to.equal(ResponderStateKind.Pending);
     });
 
-    fnIt<ResponderAppointmentReducer>(r => r.reduce, "keeps pending as pending", () => {
+    fnIt<ResponderAppointmentReducer>(r => r.reduce, "keeps pending as pending", async () => {
         const reducer = new ResponderAppointmentReducer(blockCache, txID1.identifier, appointmentId1, 0, from1);
 
-        const prevAnchorState = reducer.getInitialState(blocks[0]);
-        const nextAnchorState = reducer.reduce(prevAnchorState, blocks[0]);
+        const prevAnchorState = await reducer.getInitialState(blocks[0]);
+        const nextAnchorState = await reducer.reduce(prevAnchorState, blocks[0]);
 
-        expect(nextAnchorState.identifier).to.equal(txID1.identifier);
+        expect(nextAnchorState.identifier).to.deep.equal(txID1.identifier);
         expect(nextAnchorState.appointmentId).to.equal(appointmentId1);
         expect(nextAnchorState.kind).to.equal(ResponderStateKind.Pending);
     });
 
-    fnIt<ResponderAppointmentReducer>(r => r.reduce, "transitions from pending to mined", () => {
+    fnIt<ResponderAppointmentReducer>(r => r.reduce, "transitions from pending to mined", async () => {
         const reducer = new ResponderAppointmentReducer(blockCache, txID1.identifier, appointmentId1, 0, from1);
 
-        const prevAnchorState = reducer.getInitialState(blocks[0]);
-        const nextAnchorState = reducer.reduce(prevAnchorState, blocks[1]);
+        const prevAnchorState = await reducer.getInitialState(blocks[0]);
+        const nextAnchorState = await reducer.reduce(prevAnchorState, blocks[1]);
 
         expect(nextAnchorState.kind).to.equal(ResponderStateKind.Mined);
         if (nextAnchorState.kind === ResponderStateKind.Mined) {
-            expect(nextAnchorState.identifier).to.equal(txID1.identifier);
+            expect(nextAnchorState.identifier).to.deep.equal(txID1.identifier);
             expect(nextAnchorState.appointmentId).to.equal(appointmentId1);
             expect(nextAnchorState.blockMined).to.equal(txID1.tx.blockNumber);
             expect(nextAnchorState.nonce).to.equal(txID1.tx.nonce);
         }
     });
 
-    fnIt<ResponderAppointmentReducer>(r => r.reduce, "keeps mined as mined", () => {
+    fnIt<ResponderAppointmentReducer>(r => r.reduce, "keeps mined as mined", async () => {
         const reducer = new ResponderAppointmentReducer(blockCache, txID1.identifier, appointmentId1, 0, from1);
 
-        const prevAnchorState = reducer.getInitialState(blocks[0]);
-        const nextAnchorState = reducer.reduce(prevAnchorState, blocks[1]);
-        const nextNextAnchorState = reducer.reduce(nextAnchorState, blocks[2]);
+        const prevAnchorState = await reducer.getInitialState(blocks[0]);
+        const nextAnchorState = await reducer.reduce(prevAnchorState, blocks[1]);
+        const nextNextAnchorState = await reducer.reduce(nextAnchorState, blocks[2]);
 
         expect(nextAnchorState).to.equal(nextNextAnchorState);
     });
 
-    fnIt<ResponderAppointmentReducer>(r => r.reduce, "doesn't mine tx from different address", () => {
+    fnIt<ResponderAppointmentReducer>(r => r.reduce, "doesn't mine tx from different address", async () => {
         const reducer = new ResponderAppointmentReducer(blockCache, txID1.identifier, appointmentId1, 0, from1);
 
         // setup pending
-        const prevAnchorState = reducer.getInitialState(blocks[0]);
+        const prevAnchorState = await reducer.getInitialState(blocks[0]);
 
         // mine a block with the same txidentifier but a different 'from'
-        const nextAnchorState = reducer.reduce(prevAnchorState, blocks[2]);
+        const nextAnchorState = await reducer.reduce(prevAnchorState, blocks[2]);
 
-        expect(nextAnchorState.identifier).to.equal(txID1.identifier);
+        expect(nextAnchorState.identifier).to.deep.equal(txID1.identifier);
         expect(nextAnchorState.appointmentId).to.equal(appointmentId1);
         expect(nextAnchorState.kind).to.equal(ResponderStateKind.Pending);
     });
