@@ -20,6 +20,7 @@
         "start-evm": "ganache-cli -d -l 15000000 --allowUnlimitedContractSize --defaultBalanceEther 1000000 --mnemonic 'myth like bonus scare over problem client lizard pioneer submit female collect'",
         "submodule": "git submodule init && git submodule update",
         "test": "NODE_ENV=test mocha -r ts-node/register './!(node_modules)/**/__tests__/**/*.test.ts' --exit",
+        "test:tr": "TS_NODE_TRANSPILE_ONLY=true NODE_ENV=test mocha -r ts-node/register './!(node_modules)/**/__tests__/**/*.test.ts' --exit",
         "test-alpha": "npm run build && NODE_ENV=test mocha -r ts-node/register test/smoke/alpha.test.ts --exit",
         "test-coverage": "lerna run test-coverage",
         "test-endtoend": "NODE_ENV=test mocha -r ts-node/register test/endtoend/**/*.test.ts --exit",
