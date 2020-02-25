@@ -17,7 +17,7 @@ import EncodingDown from "encoding-down";
 import MemDown from "memdown";
 import Ganache from "ganache-core";
 import { ethers } from "ethers";
-import { StartStopService } from "@pisa-research/utils";
+import { StartStopService, defaultSerialiser } from "@pisa-research/utils";
 import { Web3Provider } from "ethers/providers";
 import { wait } from "@pisa-research/test-utils";
 import { expect } from "chai";
@@ -42,16 +42,16 @@ export async function mine(provider: Web3Provider, noOfBlocks: number, offset: n
     }
 }
 
-interface BlockHistoryState extends AnchorState {
+type BlockHistoryState = {
     blockNumber: number;
     allBlockNumbers: number[];
-}
-interface BlockNumberAction extends ComponentAction {
+};
+type BlockNumberAction = {
     prevBlockNumber: number;
     prevAllBlockNumbers: number[];
     currentBlockNumber: number;
     currentAllBlockNumbers: number[];
-}
+};
 
 const calculateActionsForPrevBlock = (fromBlock: number, currentBlockNumber: number): BlockNumberAction => {
     const prevAllBlockNumbers = new Array(currentBlockNumber - fromBlock).fill(0).map((_, i) => fromBlock + i);
@@ -136,7 +136,7 @@ describe("BlockchainMachineIntegration", () => {
               );
 
         const actionStore = new CachedKeyValueStore<BlockNumberAction>(db, "blockchain-machine-actions-store");
-        const blockItemStore = new BlockItemStore(db);
+        const blockItemStore = new BlockItemStore(db, defaultSerialiser);
 
         let startBlockNumber = 2;
         if (!provider) {
@@ -156,7 +156,12 @@ describe("BlockchainMachineIntegration", () => {
         const blockProcessor = new BlockProcessor(
             provider,
             provider => async (blockHashOrNumber: string | number) => {
-                return await provider.getBlock(blockHashOrNumber);
+                const block = await provider.getBlock(blockHashOrNumber);
+                return {
+                    number: block.number,
+                    parentHash: block.parentHash,
+                    hash: block.hash
+                };
             },
             blockCache,
             blockItemStore,
