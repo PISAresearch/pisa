@@ -1,9 +1,9 @@
-import { LevelUp } from "levelup";
+import { LevelUp, LevelUpChain } from "levelup";
 import EncodingDown from "encoding-down";
 const sub = require("subleveldown");
 import uuid = require("uuid/v4");
 
-import { StartStopService, DbObject, DbObjectOrSerialisable } from "@pisa-research/utils";
+import { StartStopService, DbObject, DbObjectOrSerialisable, DbObjectSerialiser, PlainObject } from "@pisa-research/utils";
 
 export interface ItemAndId<TValue> {
     id: string;
@@ -28,7 +28,7 @@ export class CachedKeyValueStore<TValue extends DbObjectOrSerialisable> extends 
      * @param db
      * @param name
      */
-    constructor(db: LevelUp<EncodingDown<string, DbObject>>, name: string) {
+    constructor(db: LevelUp<EncodingDown<string, DbObject>>, private readonly serialiser: DbObjectSerialiser, name: string) {
         super(`cachedkeyvaluestore-${name}`);
         this.subDb = sub(db, `cachedkeyvaluestore-${name}`, { valueEncoding: "json" });
     }
@@ -36,7 +36,9 @@ export class CachedKeyValueStore<TValue extends DbObjectOrSerialisable> extends 
     protected async startInternal() {
         // load existing values from the db
         for await (const record of this.subDb.createReadStream()) {
-            const { key: dbKey, value } = (record as any) as { key: string; value: TValue };
+            const { key: dbKey, value: serialisedValue } = (record as any) as { key: string; value: PlainObject };
+
+            const value = this.serialiser.deserialise<TValue>(serialisedValue);
 
             const i = dbKey.indexOf(":");
             const key = dbKey.substring(0, i);
@@ -78,9 +80,9 @@ export class CachedKeyValueStore<TValue extends DbObjectOrSerialisable> extends 
         const itemsWithId = items.map(item => ({ id: uuid(), value: item }));
 
         // DB
-        let batch = this.subDb.batch();
+        let batch: LevelUpChain<string, DbObject> = this.subDb.batch();
         itemsWithId.forEach(({ id, value }) => {
-            batch = batch.put(key + ":" + id, value);
+            batch = batch.put(key + ":" + id, this.serialiser.serialise(value));
         });
         await batch.write();
 

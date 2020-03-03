@@ -5,11 +5,12 @@ import LevelUp from "levelup";
 import EncodingDown from "encoding-down";
 import MemDown from "memdown";
 import { fnIt } from "@pisa-research/test-utils";
-import { DbObject } from "@pisa-research/utils";
+import { DbObject, defaultSerialiser, SerialisableBigNumber } from "@pisa-research/utils";
 
 
 type TestItem = {
     name: string;
+    bigNum: SerialisableBigNumber
 }
 
 describe("CachedKeyValueStore", () => {
@@ -19,21 +20,34 @@ describe("CachedKeyValueStore", () => {
     const key = "awesome-component";
     const testItems: TestItem[] = [
         {
-            name: "item1"
+            name: "item1",
+            bigNum: new SerialisableBigNumber(42)
         },
         {
-            name: "item2"
+            name: "item2",
+            bigNum: new SerialisableBigNumber(43)
         }
     ];
 
     beforeEach(async () => {
         db = LevelUp(EncodingDown<string, DbObject>(MemDown(), { valueEncoding: "json" }));
-        store = new CachedKeyValueStore(db, "prefix");
+        store = new CachedKeyValueStore(db, defaultSerialiser, "prefix");
         await store.start();
     });
 
     afterEach(async () => {
         if (store.started) await store.stop();
+    });
+
+    it("can store an retrieve some items", async () => {
+        await store.storeItems(key, testItems);
+
+        const retrievedItems = [...store.getItems(key)].map(i => i.value);
+        expect(retrievedItems.length, "retrieves the correct number of stored items").to.equal(testItems.length);
+        for (let i = 0; i < testItems.length; i++) {
+            expect(retrievedItems[i].name, "retrieves a primitive value").to.equal(testItems[i].name);
+            expect(retrievedItems[i].bigNum.eq(testItems[i].bigNum), "retrieves a deserialised value").to.be.true;
+        }
     });
 
     it("can store an retrieve some items", async () => {
@@ -67,7 +81,7 @@ describe("CachedKeyValueStore", () => {
         await store.storeItems(key, testItems);
         await store.stop();
 
-        const newStore = new CachedKeyValueStore(db, "prefix"); // a new CachedKeyValueStore on the same db
+        const newStore = new CachedKeyValueStore(db, defaultSerialiser, "prefix"); // a new CachedKeyValueStore on the same db
         await newStore.start();
 
         const retrievedItems = [...newStore.getItems(key)]
@@ -89,7 +103,7 @@ describe("CachedKeyValueStore", () => {
 
         await store.stop();
 
-        const newStore = new CachedKeyValueStore(db, "prefix"); // a new CachedKeyValueStore on the same db
+        const newStore = new CachedKeyValueStore(db, defaultSerialiser, "prefix"); // a new CachedKeyValueStore on the same db
         await newStore.start();
 
         const retrievedItemsAfter = [...newStore.getItems(key)].map(i => i.value);
