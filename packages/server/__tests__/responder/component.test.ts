@@ -31,12 +31,14 @@ const newIdentifierAndTransaction = (blockNumber: number, data: string, from: st
     const to = "to";
     const value = "0";
     const gasLimit = "200";
+    const gasPrice = "2000000000";
     const tx: TransactionStub = {
         blockNumber,
         chainId,
         data,
         from,
         gasLimit: new SerialisableBigNumber(gasLimit),
+        gasPrice: new SerialisableBigNumber(gasPrice),
         nonce,
         to,
         value: new SerialisableBigNumber(value)

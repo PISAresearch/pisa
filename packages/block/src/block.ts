@@ -39,6 +39,7 @@ export type TransactionStub = {
     data: string;
     value: SerialisableBigNumber;
     gasLimit: SerialisableBigNumber;
+    gasPrice: SerialisableBigNumber;
 };
 
 export type Transactions = IBlockStub & {
