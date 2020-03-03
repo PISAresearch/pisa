@@ -1,6 +1,6 @@
 {
   "name": "@pisa-research/test-utils",
-  "version": "0.1.23",
+  "version": "0.1.24",
   "description": "Misc test utilities used in the PISA project",
   "author": "PISA Research Ltd",
   "homepage": "https://github.com/PISAresearch/pisa/tree/master/packages/test-utils#readme",
