@@ -1,6 +1,6 @@
 import { StartStopService, DbObject } from "@pisa-research/utils";
 import { GasQueueItem, GasQueue } from "./gasQueue";
-import { LevelUp } from "levelup";
+import { LevelUp, LevelUpChain } from "levelup";
 import EncodingDown from "encoding-down";
 const sub = require("subleveldown");
 
@@ -66,7 +66,7 @@ export class ResponderStore extends StartStopService {
         const difference = queue.difference(this.mQueue);
 
         // DB
-        let batch = this.subDb.batch().put(this.queueKey, queue.serialise());
+        let batch: LevelUpChain<string, DbObject> = this.subDb.batch().put(this.queueKey, queue.serialise());
         for (const item of difference.values()) {
             batch = batch.put(item.request.id, item.serialise());
         }

@@ -86,7 +86,8 @@ const setupBM = async (
 ) => {
     const db = LevelUp(EncodingDown<string, DbObject>(MemDown(), { valueEncoding: "json" }));
 
-    const blockItemStore: BlockItemStore<IBlockStub> = new BlockItemStore(db, defaultSerialiser);
+    const serialiser = defaultSerialiser;
+    const blockItemStore: BlockItemStore<IBlockStub> = new BlockItemStore(db, serialiser);
     const blockItemStoreSpy = spy(blockItemStore);
     const blockItemStoreAnchorStateSpy = spy(blockItemStore.anchorState);
 
@@ -96,7 +97,7 @@ const setupBM = async (
     const reducer = instance(reducerMock);
 
     if (!actionStore) {
-        actionStore = new CachedKeyValueStore<ComponentAction>(db, "test-actions");
+        actionStore = new CachedKeyValueStore<ComponentAction>(db, serialiser, "test-actions");
         await actionStore.start();
     }
     const actionStoreSpy = spy(actionStore);

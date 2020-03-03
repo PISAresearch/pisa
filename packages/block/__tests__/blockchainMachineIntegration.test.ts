@@ -135,7 +135,7 @@ describe("BlockchainMachineIntegration", () => {
                   EncodingDown<string, any>(MemDown(), { valueEncoding: "json" })
               );
 
-        const actionStore = new CachedKeyValueStore<BlockNumberAction>(db, "blockchain-machine-actions-store");
+        const actionStore = new CachedKeyValueStore<BlockNumberAction>(db, defaultSerialiser, "blockchain-machine-actions-store");
         const blockItemStore = new BlockItemStore(db, defaultSerialiser);
 
         let startBlockNumber = 2;

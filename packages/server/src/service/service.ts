@@ -122,7 +122,7 @@ export class PisaService extends StartStopService {
             config.maximumReorgLimit == undefined ? 100 : config.maximumReorgLimit
         );
 
-        this.actionStore = new CachedKeyValueStore<ComponentAction>(db, "blockchain-machine");
+        this.actionStore = new CachedKeyValueStore<ComponentAction>(db, serialiser, "blockchain-machine");
         this.blockchainMachine = new BlockchainMachineService<Block>(this.blockProcessor, this.actionStore, this.blockItemStore, [watcher, responder]);
 
         // tower
