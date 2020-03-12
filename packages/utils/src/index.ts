@@ -7,6 +7,7 @@ export { StartStopService } from "./startStop";
 export { PlainObject, DbObject } from "./objects";
 export {
     Serialisable,
+    Serialised,
     PlainObjectOrSerialisable,
     DbObjectSerialiser,
     DbObjectOrSerialisable,

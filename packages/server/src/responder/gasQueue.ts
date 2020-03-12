@@ -1,7 +1,7 @@
 import { ArgumentError, ApplicationError } from "@pisa-research/errors"
 import { BigNumber } from "ethers/utils";
 import { ethers } from "ethers";
-import { PlainObject, Serialisable, TypedPlainObject } from "@pisa-research/utils";
+import { PlainObject, Serialisable, TypedPlainObject, Serialised } from "@pisa-research/utils";
 
 export class GasQueueError extends ArgumentError {
     constructor(public readonly kind: GasQueueErrorKind, message: string, ...args: any[]) {
@@ -24,7 +24,7 @@ export type PisaTransactionIdentifierSerialisation = TypedPlainObject & {
 export class PisaTransactionIdentifier implements Serialisable {
     public static readonly TYPE = "pti";
 
-    public serialise(): PisaTransactionIdentifierSerialisation {
+    public serialise() {
         return {
             __type__: PisaTransactionIdentifier.TYPE,
             chainId: this.chainId,
@@ -35,7 +35,7 @@ export class PisaTransactionIdentifier implements Serialisable {
         };
     }
 
-    public static deserialise(serialisation: PisaTransactionIdentifierSerialisation): PisaTransactionIdentifier {
+    public static deserialise(serialisation: Serialised<PisaTransactionIdentifier>): PisaTransactionIdentifier {
         if (serialisation.__type__ !== PisaTransactionIdentifier.TYPE) throw new ApplicationError(`Unexpected _type while deserialising transaction identifier: ${serialisation.__type__}`); // prettier-ignore
 
         return new PisaTransactionIdentifier(
@@ -113,16 +113,9 @@ export class GasQueueItemRequest {
     ) {}
 }
 
-export type GasQueueItemSerialisation = TypedPlainObject & {
-    request: GasQueueItemRequestSerialisation;
-    nonceGasPrice: string;
-    idealGasPrice: string;
-    nonce: number;
-};
-
 export class GasQueueItem implements Serialisable {
     public static readonly TYPE = "gqi";
-    public serialise(): GasQueueItemSerialisation {
+    public serialise() {
         return {
             __type__: GasQueueItem.TYPE,
             idealGasPrice: this.idealGasPrice.toHexString(),
@@ -131,7 +124,7 @@ export class GasQueueItem implements Serialisable {
             request: GasQueueItemRequest.serialise(this.request)
         };
     }
-    public static deserialise(serialisation: GasQueueItemSerialisation): GasQueueItem {
+    public static deserialise(serialisation: Serialised<GasQueueItem>): GasQueueItem {
         if (serialisation.__type__ !== GasQueueItem.TYPE) throw new ApplicationError(`Unexpected _type while deserialising gas queue item: ${serialisation.__type__}`); // prettier-ignore
 
         return new GasQueueItem(
@@ -182,16 +175,10 @@ export class GasQueueItem implements Serialisable {
     }
 }
 
-type GasQueueSerialisation = TypedPlainObject & {
-    readonly queueItems: Array<GasQueueItemSerialisation>,
-    readonly emptyNonce: number,
-    readonly replacementRate: number,
-    readonly maxQueueDepth: number,
-}
 
 export class GasQueue implements Serialisable {
     public static readonly TYPE = "gq";
-    public static deserialise(serialisation: GasQueueSerialisation): GasQueue {
+    public static deserialise(serialisation: Serialised<GasQueue>): GasQueue {
         return new GasQueue(
             serialisation.queueItems.map(i => GasQueueItem.deserialise(i)),
             serialisation.emptyNonce,
@@ -200,7 +187,7 @@ export class GasQueue implements Serialisable {
         );
     }
 
-    public serialise(): GasQueueSerialisation {
+    public serialise() {
         return {
             __type__: GasQueue.TYPE,
             queueItems: this.queueItems.map(i => i.serialise()),
