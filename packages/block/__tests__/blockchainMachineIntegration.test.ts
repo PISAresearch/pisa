@@ -5,8 +5,6 @@ import {
     BlockItemStore,
     Component,
     IBlockStub,
-    AnchorState,
-    ComponentAction,
     StateReducer,
     BlockProcessor,
     BlockCache,

@@ -2,7 +2,7 @@ import { ethers } from "ethers";
 import appointmentRequestSchemaJson from "./appointmentRequestSchema.json";
 import Ajv from "ajv";
 import { PublicDataValidationError, ApplicationError } from "@pisa-research/errors";
-import { logger, Logger, PlainObject, Serialisable, TypedPlainObject } from "@pisa-research/utils";
+import { logger, Logger, Serialisable, Serialised } from "@pisa-research/utils";
 import { BigNumber } from "ethers/utils";
 import betterAjvErrors from "better-ajv-errors";
 import { ReadOnlyBlockCache, IBlockStub } from "@pisa-research/block";
@@ -121,8 +121,6 @@ export interface IAppointment extends IAppointmentBase {
     readonly mode: AppointmentMode;
 }
 
-export type SerialisedAppointment = IAppointment & TypedPlainObject;
-
 /**
  * A customer appointment, detailing what event to be watched for and data to submit.
  */
@@ -148,7 +146,7 @@ export class Appointment implements Serialisable {
         public readonly customerSig: string
     ) {}
 
-    public serialise(): SerialisedAppointment {
+    public serialise() {
         return {
             __type__: Appointment.TYPE,
             contractAddress: this.contractAddress,
@@ -171,7 +169,7 @@ export class Appointment implements Serialisable {
         }
     }
 
-    public static deserialise(appointment: SerialisedAppointment) {
+    public static deserialise(appointment: Serialised<Appointment>) {
         if (appointment.__type__ !== Appointment.TYPE) throw new ApplicationError(`Unexpected _type while deserialising appointment: ${appointment.__type__}`); // prettier-ignore
 
         return new Appointment(

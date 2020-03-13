@@ -332,10 +332,15 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
 
             if (blockGap > 100) this.logger.info({ gap: observedBlockNumber - processingBlockNumber, observedBlockNumber, processingBlockNumber }, "Finished processing large block gap."); //prettier-ignore
         } catch (doh) {
-            if (doh instanceof BlockFetchingError) this.logger.info({ err: doh }, "Expected error fetching block.");
-            else this.logger.error({ err: doh }, "Error processing block.");
+            if (doh instanceof BlockFetchingError) this.logger.info({ err: doh }, "Error fetching block; ignoring.");
+            else {
+                this.logger.error({ err: doh }, "Error processing block.");
+
+                // during startup, we rethrow so that the startup can be halted
+                if (!this.started) throw doh;
+            }
         } finally {
-            await this.processorLock.release();
+            this.processorLock.release();
         }
     }
 }

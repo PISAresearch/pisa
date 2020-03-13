@@ -1,4 +1,4 @@
-import { PisaTransactionIdentifier, PisaTransactionIdentifierSerialisation, GasQueueItem } from "./gasQueue";
+import { PisaTransactionIdentifier } from "./gasQueue";
 import {
     ReadOnlyBlockCache,
     Block,
@@ -12,7 +12,6 @@ import {
 import { MultiResponder } from "./multiResponder";
 import { logger } from "@pisa-research/utils";
 import { UnreachableCaseError } from "@pisa-research/errors";
-import { BigNumber } from "ethers/utils";
 
 export enum ResponderStateKind {
     Pending = 1,

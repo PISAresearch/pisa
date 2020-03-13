@@ -24,6 +24,12 @@ export interface Serialisable {
 }
 
 /**
+ * Given a Serialisable type X, Serialised<X> is the type of the serialised form of X.
+ * The X class should have a public static method X.deserialise of type Serialised<X> and returning X.
+ **/
+export type Serialised<X extends Serialisable> = ReturnType<X['serialise']>;
+
+/**
  * An object that is AnyObject or is Serialisable
  * We need this type for recursive serialisation and deserialisation functions.
  */
@@ -138,29 +144,25 @@ export class DbObjectSerialiser {
     }
 }
 
-/** A serialised object representing a BigNumber */
-type SerialisedBigNumber = TypedPlainObject & {
-    value: string;
-};
-
 /**
  * A Serialisable version of the BigNumber class.
  */
 export class SerialisableBigNumber extends BigNumber implements Serialisable {
     public static TYPE = "bn";
-    public serialise(): SerialisedBigNumber {
+    public serialise() {
         return {
             __type__: SerialisableBigNumber.TYPE,
             value: this.toHexString()
         };
     }
 
-    public static deserialise(obj: SerialisedBigNumber): SerialisableBigNumber {
+    public static deserialise(obj: Serialised<SerialisableBigNumber>): SerialisableBigNumber {
         if (obj.__type__ !== SerialisableBigNumber.TYPE) throw new ApplicationError(`Unexpected __type__ while deserialising SerialisableBigNumber: ${obj.__type__}`); // prettier-ignore
 
         return new SerialisableBigNumber(obj.value);
     }
 }
+
 
 /**
  * Convenience default serialisers config that knows how to handle BigNumbers
