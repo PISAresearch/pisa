@@ -3,7 +3,7 @@ import EncodingDown from "encoding-down";
 const sub = require("subleveldown");
 
 import { ApplicationError } from "@pisa-research/errors";
-import { StartStopService, LockManager, MapOfSets, DbObject, DbObjectSerialiser } from "@pisa-research/utils";
+import { StartStopService, LockManager, MapOfSets, DbObject } from "@pisa-research/utils";
 
 import { Appointment } from "../dataEntities/appointment";
 

@@ -1,7 +1,7 @@
 import { ArgumentError, ApplicationError } from "@pisa-research/errors"
 import { BigNumber } from "ethers/utils";
 import { ethers } from "ethers";
-import { PlainObject, Serialisable, TypedPlainObject, Serialised } from "@pisa-research/utils";
+import { PlainObject, Serialisable, Serialised } from "@pisa-research/utils";
 
 export class GasQueueError extends ArgumentError {
     constructor(public readonly kind: GasQueueErrorKind, message: string, ...args: any[]) {
@@ -13,13 +13,6 @@ export enum GasQueueErrorKind {
     AlreadyAdded = 0
 }
 
-export type PisaTransactionIdentifierSerialisation = TypedPlainObject & {
-    chainId: number,
-    data: string,
-    to: string,
-    value: string,
-    gasLimit: string
-};
 
 export class PisaTransactionIdentifier implements Serialisable {
     public static readonly TYPE = "pti";
@@ -74,7 +67,7 @@ export class PisaTransactionIdentifier implements Serialisable {
 }
 
 export type GasQueueItemRequestSerialisation = PlainObject & {
-    readonly identifier: PisaTransactionIdentifierSerialisation,
+    readonly identifier: Serialised<PisaTransactionIdentifier>,
     readonly idealGasPrice: string,
     readonly appointmentId: string,
     readonly blockObserved: number,
