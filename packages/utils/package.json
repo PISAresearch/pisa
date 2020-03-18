@@ -1,6 +1,6 @@
 {
   "name": "@pisa-research/utils",
-  "version": "0.1.26",
+  "version": "0.1.27",
   "description": "Misc utilities used in the PISA project",
   "author": "PISA Research Ltd",
   "homepage": "https://github.com/PISAresearch/pisa/tree/master/packages/utils#readme",
@@ -48,6 +48,7 @@
   },
   "dependencies": {
     "@pisa-research/errors": "file:../errors",
+    "ethers": "^4.0.46",
     "pino": "^5.16.0"
   },
   "gitHead": "29ffe15d987791c7297845edc99b5a4abbb56ce1"
