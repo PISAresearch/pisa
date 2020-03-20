@@ -41,6 +41,7 @@ importers:
       eslint: 5.16.0
       eslint-config-prettier: 4.3.0_eslint@5.16.0
       eslint-plugin-prettier: 3.1.2_eslint@5.16.0+prettier@1.19.1
+      ethers: 4.0.46
       fs-extra: 7.0.1
       ganache-core: 2.8.0
       husky: 3.1.0
@@ -100,6 +101,7 @@ importers:
       eslint: ^5.16.0
       eslint-config-prettier: ^4.2.0
       eslint-plugin-prettier: ^3.0.1
+      ethers: ^4.0.46
       fs-extra: ^7.0.1
       ganache-core: 2.8.0
       husky: ^3.0.5
@@ -4099,7 +4101,7 @@ packages:
     dependencies:
       bn.js: 4.11.8
       brorand: 1.1.0
-      hash.js: 1.1.7
+      hash.js: 1.1.3
       hmac-drbg: 1.0.1
       inherits: 2.0.4
       minimalistic-assert: 1.0.1
@@ -4756,7 +4758,6 @@ packages:
       setimmediate: 1.0.4
       uuid: 2.0.1
       xmlhttprequest: 1.8.0
-    dev: false
     resolution:
       integrity: sha512-/dPMzzpInhtiip4hKFvsDiJKeRk64IhyA+Po7CtNXneQFSOCYXg8eBFt+jXbxUQyApgWnWOtYxWdfn9+CvvxDA==
   /ethjs-unit/0.1.6:
@@ -9458,7 +9459,6 @@ packages:
     resolution:
       integrity: sha1-uwBAvgMEPamgEqLOqfyfhSz8h9Q=
   /scrypt-js/2.0.4:
-    dev: false
     resolution:
       integrity: sha512-4KsaGcPnuhtCZQCxFxN3GVYIhKFPTdLd8PLC552XwbMndtD0cjRFAhDuuydXQ0h08ZfPgzqe6EKHozpuH74iDw==
   /scrypt.js/0.3.0:

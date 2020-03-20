@@ -1,7 +1,11 @@
+FROM node:11.9.0 as pnpm
+ENV PNPM_VERSION 4.11.6 # Control pnpm version dependency explicitly
+RUN curl -sL https://unpkg.com/@pnpm/self-installer | node
+
 ######################
 ####### BUILD ########
 ######################
-FROM node:10.14.2 as dev
+FROM pnpm as dev
 WORKDIR /usr/pisa
 
 # copy the package files
@@ -13,7 +17,7 @@ COPY ./tsconfig*.json ./
 COPY ./lerna.json ./lerna.json
 
 # install packages
-RUN ["npm", "i"]
+RUN ["pnpm", "i", "--frozen-lockfile"]
 
 # build
 RUN ["npm", "run", "build"]
