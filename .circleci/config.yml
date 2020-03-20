@@ -26,7 +26,7 @@ jobs:
           command: cd raiden_demo/raiden-pisa-daemon && npm install
       - run:
           name: build pisa
-          command: npm run build
+          command: pnpm -r run build
       - run:
           name: install parity
           command: bash <(curl https://get.parity.io -L) -r v2.5.10
@@ -103,7 +103,7 @@ jobs:
           command: pnpm install --frozen-lockfile
       - run:
           name: build
-          command: npm run build
+          command: pnpm -r run build
       - run:
           name: test
           command: TAG_NAME=$CIRCLE_BRANCH npm run test-integration

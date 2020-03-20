@@ -63,13 +63,6 @@ npm run test-integration   # run integration-tests
 npm run test-contract      # run smart contract's unit tests
 ```
 
-## Build production instance
-
-```
-npm run build              # build PISA
-npm run build-client       # build the client library
-```
-
 # Hiring Pisa
 
 **Note:** Pisa is alpha stage software and is not yet available on mainnet. All specifications and APIs are subject to change at any time. Do not use with real funds.

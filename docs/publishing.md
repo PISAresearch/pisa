@@ -1,4 +1,4 @@
-1. npm run clean
-2. npm install
-3. npm run build
+1. pnpm run clean
+2. pnpm install
+3. pnpm -r run build
 4. lerna publish --force-publish
