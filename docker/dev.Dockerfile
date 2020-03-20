@@ -9,7 +9,8 @@ FROM pnpm as dev
 WORKDIR /usr/pisa
 
 # copy the package files
-COPY package*.json ./
+COPY package.json ./
+COPY pnpm-lock.yaml ./
 
 # copy the src and the configs
 COPY ./packages ./packages
