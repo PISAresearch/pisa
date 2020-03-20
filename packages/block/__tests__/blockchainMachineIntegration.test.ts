@@ -139,7 +139,7 @@ describe("BlockchainMachineIntegration", () => {
         let startBlockNumber = 2;
         if (!provider) {
             const ganache = Ganache.provider();
-            provider = new ethers.providers.Web3Provider(ganache);
+            provider = new ethers.providers.Web3Provider(ganache as any);
             await provider.send("miner_stop", []);
             // start on block 2
             await mine(provider, startBlockNumber);

@@ -1,4 +1,11 @@
 version: 2.1
+
+install_pnpm: &install_pnpm
+  # Control pnpm version dependency explicitly
+  run:
+    name: install pnpm
+    command: sudo npm i -g pnpm@4.11.6
+
 orbs:
   codecov: codecov/codecov@1.0.4
 jobs:
@@ -8,9 +15,10 @@ jobs:
       - image: circleci/node:11.9.0
     steps:
       - checkout
+      - <<: *install_pnpm
       - run:
           name: install
-          command: npm install
+          command: pnpm install --frozen-lockfile
       - run:
           name: install raiden deps
           command: cd raiden_demo/raiden-pisa-daemon && npm install
@@ -48,9 +56,10 @@ jobs:
         command: ganache-cli --port 7545 --gasLimit 8000000
     steps:
       - checkout
+      - <<: *install_pnpm
       - run:
           name: install packages
-          command: npm install
+          command: pnpm install --frozen-lockfile
       - run:
           name: tests
           command: npm run contracts-test
@@ -82,9 +91,10 @@ jobs:
             # Each step uses the same `$BASH_ENV`, so need to modify it
             echo 'export NVM_DIR="/opt/circleci/.nvm"' >> $BASH_ENV
             echo "[ -s \"$NVM_DIR/nvm.sh\" ] && . \"$NVM_DIR/nvm.sh\"" >> $BASH_ENV
+      - <<: *install_pnpm
       - run:
           name: install
-          command: npm install
+          command: pnpm install --frozen-lockfile
       - run:
           name: build
           command: npm run build
