@@ -47,7 +47,7 @@
     "url": "https://github.com/PISAresearch/pisa/issues"
   },
   "dependencies": {
-    "@pisa-research/errors": "file:../errors",
+    "@pisa-research/errors": "workspace:*",
     "ethers": "^4.0.46",
     "pino": "^5.16.0",
     "yargs": "^13.2.4"

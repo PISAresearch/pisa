@@ -49,10 +49,10 @@
     },
     "author": "PISA Research Ltd",
     "dependencies": {
-        "@pisa-research/block": "file:../block",
-        "@pisa-research/contracts": "file:../contracts",
-        "@pisa-research/errors": "file:../errors",
-        "@pisa-research/utils": "file:../utils",
+        "@pisa-research/block": "workspace:*",
+        "@pisa-research/contracts": "workspace:*",
+        "@pisa-research/errors": "workspace:*",
+        "@pisa-research/utils": "workspace:*",
         "@types/cors": "^2.8.6",
         "ajv": "^6.10.2",
         "better-ajv-errors": "^0.6.4",
@@ -73,7 +73,7 @@
         "yargs": "^13.2.4"
     },
     "devDependencies": {
-        "@pisa-research/test-utils": "file:../test-utils"
+        "@pisa-research/test-utils": "workspace:*"
     },
     "gitHead": "29ffe15d987791c7297845edc99b5a4abbb56ce1"
 }

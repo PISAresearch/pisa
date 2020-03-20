@@ -139,8 +139,8 @@ importers:
       subleveldown: 4.1.4
       uuid: 3.4.0
     specifiers:
-      '@pisa-research/errors': 'file:../errors'
-      '@pisa-research/utils': 'file:../utils'
+      '@pisa-research/errors': 'workspace:*'
+      '@pisa-research/utils': 'workspace:*'
       encoding-down: ^6.0.2
       ethers: ^4.0.46
       levelup: ^4.0.1
@@ -184,11 +184,11 @@ importers:
     devDependencies:
       '@pisa-research/test-utils': 'link:../test-utils'
     specifiers:
-      '@pisa-research/block': 'file:../block'
-      '@pisa-research/contracts': 'file:../contracts'
-      '@pisa-research/errors': 'file:../errors'
-      '@pisa-research/test-utils': 'file:../test-utils'
-      '@pisa-research/utils': 'file:../utils'
+      '@pisa-research/block': 'workspace:*'
+      '@pisa-research/contracts': 'workspace:*'
+      '@pisa-research/errors': 'workspace:*'
+      '@pisa-research/test-utils': 'workspace:*'
+      '@pisa-research/utils': 'workspace:*'
       '@types/cors': ^2.8.6
       ajv: ^6.10.2
       better-ajv-errors: ^0.6.4
@@ -221,7 +221,7 @@ importers:
       pino: 5.17.0
       yargs: 13.3.2
     specifiers:
-      '@pisa-research/errors': 'file:../errors'
+      '@pisa-research/errors': 'workspace:*'
       ethers: ^4.0.46
       pino: ^5.16.0
       yargs: ^13.2.4

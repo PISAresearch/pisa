@@ -47,8 +47,8 @@
     "url": "https://github.com/PISAresearch/pisa/issues"
   },
   "dependencies": {
-    "@pisa-research/errors": "file:../errors",
-    "@pisa-research/utils": "file:../utils",
+    "@pisa-research/errors": "workspace:*",
+    "@pisa-research/utils": "workspace:*",
     "encoding-down": "^6.0.2",
     "ethers": "^4.0.46",
     "levelup": "^4.0.1",
