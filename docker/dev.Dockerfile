@@ -10,7 +10,9 @@ WORKDIR /usr/pisa
 
 # copy the package files
 COPY package.json ./
-COPY pnpm-lock.yaml ./
+COPY ./pnpm-lock.yaml ./
+COPY ./pnpm-workspace.yaml ./
+COPY ./.npmrc ./
 
 # copy the src and the configs
 COPY ./packages ./packages
