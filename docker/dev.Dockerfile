@@ -17,13 +17,12 @@ COPY ./.npmrc ./
 # copy the src and the configs
 COPY ./packages ./packages
 COPY ./tsconfig*.json ./
-COPY ./lerna.json ./lerna.json
 
 # install packages
 RUN ["pnpm", "i", "--frozen-lockfile"]
 
 # build
-RUN ["npm", "run", "build"]
+RUN ["pnpm", "-r", "run", "build"]
 
 # create a lib directory and symlink to the one in the server packages
 # we do this to remain consistent with the file structure of the production docker image

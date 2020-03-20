@@ -13,5 +13,4 @@ pisa-db
 raiden_demo/.raiden
 coverage
 **/.DS_Store
-lerna-debug.log
 packages/*/lib

@@ -15,11 +15,10 @@ COPY ./pnpm-workspace.yaml ./
 COPY ./.npmrc ./
 COPY ./packages ./packages
 COPY ./tsconfig*.json ./
-COPY ./lerna.json ./lerna.json
 
 # install and build
 RUN ["pnpm", "i", "--frozen-lockfile"]
-RUN ["npm", "run", "build"]
+RUN ["pnpm", "-r", "run", "build"]
 
 ######################
 ####### PROD PACKAGES ########
