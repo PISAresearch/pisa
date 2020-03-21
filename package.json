@@ -4,6 +4,7 @@
     "description": "Arbitration Outsourcing for State Channels",
     "main": "packages/server/lib/index.js",
     "scripts": {
+        "build": "pnpm -r --filter ./packages run build",
         "build-autominer": "cd build/raiden_demo/autominer && npm install && npm run build",
         "build-raiden-pisa-daemon": "cd build/raiden_demo/raiden-pisa-daemon && npm install && npm run build",
         "clean": "pnpm -r exec -- rm -rf node_modules && rm -rf packages/*/lib && rm -rf packages/contracts/build",
@@ -105,6 +106,7 @@
         "mocha": "^5.2.0",
         "mocha-junit-reporter": "^1.22.0",
         "nyc": "^13.3.0",
+        "pnpm": "^4.11.6",
         "prettier": "^1.17.0",
         "request-promise": "^4.2.4",
         "sinon": "^7.3.1",

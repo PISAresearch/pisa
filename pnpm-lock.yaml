@@ -52,6 +52,7 @@ importers:
       mocha: 5.2.0
       mocha-junit-reporter: 1.23.3_mocha@5.2.0
       nyc: 13.3.0
+      pnpm: 4.11.6
       prettier: 1.19.1
       request-promise: 4.2.5
       sinon: 7.5.0
@@ -114,6 +115,7 @@ importers:
       mocha: ^5.2.0
       mocha-junit-reporter: ^1.22.0
       nyc: ^13.3.0
+      pnpm: ^4.11.6
       prettier: ^1.17.0
       request-promise: ^4.2.4
       sinon: ^7.3.1
@@ -6414,6 +6416,13 @@ packages:
     dev: true
     resolution:
       integrity: sha512-gQR3WpIgNIKwBMVLkpMUeR3e1/E1y42bqDQZfql+kDeXd8COYfM8PQA4X6y7a8u9Ua9FHmsrrmirW2vHs45hWg==
+  /pnpm/4.11.6:
+    dev: true
+    engines:
+      node: '>=10'
+    hasBin: true
+    resolution:
+      integrity: sha512-SJkYVP7BRVR/Q+J13RmB1/WC9dQDOTU6H9uTOmIFE5hbkdh83HqqvOBs7SjT+bUObqMicZ9csfreKxuZhGVvKw==
   /posix-character-classes/0.1.1:
     dev: true
     engines:
