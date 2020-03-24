@@ -42,7 +42,7 @@ export class BlockchainMachine<TBlock extends IBlockStub> {
                 await component.applyAction(a.value);
                 await this.actionStore.removeItem(component.name, a);
             } catch (doh) {
-                logger.error({ err: doh}, "Failed to run action.");
+                logger.error({ err: doh, actionId: a.id, action: a.value, componentName: component.name }, "Failed to run action.");
             }
         });
     }
