@@ -56,6 +56,13 @@ export const blockFactory = (provider: ethers.providers.Provider) => async (bloc
             blockHash: block.hash
         }) as (Log & PlainObject)[];
 
+        // On some situations (after using evm_mine), ganache returns wrong logs:
+        // See issue: https://github.com/trufflesuite/ganache-core/issues/533
+        // We detect it so that we give an appropriate error message.
+        if (logs.length > 0 && logs[0].blockNumber !== block.number) {
+            throw new Error("The provider returned logs for the wrong block. This is not recoverable.");
+        }
+
         const transactions = (block.transactions as any) as (ethers.providers.TransactionResponse & PlainObject)[];
         for (const tx of transactions) {
             // we should use chain id, but for some reason chain id is not present in transactions from ethersjs
