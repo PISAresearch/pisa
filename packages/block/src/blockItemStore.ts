@@ -2,7 +2,7 @@ import { ApplicationError } from "@pisa-research/errors";
 import { IBlockStub, BlockAndAttached } from "./block";
 import { LevelUp, LevelUpChain } from "levelup";
 import EncodingDown from "encoding-down";
-import { StartStopService, Lock, PlainObject, DbObject, DbObjectSerialiser, PlainObjectOrSerialisable } from "@pisa-research/utils";
+import { StartStopService, Lock, DbObject, DbObjectSerialiser, PlainObjectOrSerialisable, DbObjectOrSerialisable } from "@pisa-research/utils";
 import { AnchorState } from "./component";
 const sub = require("subleveldown");
 
@@ -33,7 +33,7 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
     }
 
     private itemsByHeight: Map<number, Set<string>> = new Map();
-    private items: Map<string, DbObject> = new Map();
+    private items: Map<string, DbObjectOrSerialisable> = new Map();
 
     private mBatch: LevelUpChain<string, DbObject> | null = null;
     private get batch() {
@@ -53,7 +53,8 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
             const itemsAtHeight = this.itemsByHeight.get(height);
             if (itemsAtHeight) itemsAtHeight.add(memKey);
             else this.itemsByHeight.set(height, new Set([memKey]));
-            this.items.set(memKey, value);
+
+            this.items.set(memKey, this.serialiser.deserialise(value));
         }
 
         this.logger.info({ itemsByHeightCount: this.itemsByHeight.size, itemsCount: this.items.size }, "Store started.");
@@ -66,7 +67,7 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
      * Should only be used internally, kept public for testing.
      * Writes `item` for the `blockHash` at height `blockHeight` under the key `itemKey`.
      **/
-    public putBlockItem(blockHeight: number, blockHash: string, itemKey: string, item: DbObject) {
+    public putBlockItem(blockHeight: number, blockHash: string, itemKey: string, item: DbObjectOrSerialisable) {
         const memKey = `${blockHash}:${itemKey}`;
         const dbKey = `${blockHeight}:${memKey}`;
 
@@ -84,7 +85,7 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
      * Gets the item with key `itemKey` for block `blockHash`.
      * Returns `undefined` if a key is not present.
      **/
-    public getItem(blockHash: string, itemKey: string): DbObject | undefined {
+    public getItem(blockHash: string, itemKey: string): DbObjectOrSerialisable | undefined {
         const key = `${blockHash}:${itemKey}`;
         return this.items.get(key);
     }
@@ -107,13 +108,10 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
 
     // Type safe methods to store the anchor state for each block, indexed by component (used in the BlockchainMachine)
     public anchorState = {
-        get: <TAnchorState extends PlainObjectOrSerialisable>(componentName: string, blockHash: string): TAnchorState | undefined => {
-            const rawObject = this.getItem(blockHash, `${componentName}:${BlockItemStore.KEY_STATE}`) as unknown as PlainObject;
-            return rawObject && this.serialiser.deserialise<TAnchorState>(rawObject);
-        },
+        get: <TAnchorState extends PlainObjectOrSerialisable>(componentName: string, blockHash: string) =>
+            (this.getItem(blockHash, `${componentName}:${BlockItemStore.KEY_STATE}`) as unknown) as TAnchorState,
         set: (componentName: string, blockHeight: number, blockHash: string, newState: AnchorState) => {
-            const serializedNewState = this.serialiser.serialise(newState);
-            this.putBlockItem(blockHeight, blockHash, `${componentName}:${BlockItemStore.KEY_STATE}`, serializedNewState)
+            this.putBlockItem(blockHeight, blockHash, `${componentName}:${BlockItemStore.KEY_STATE}`, newState);
         }
     };
 
@@ -169,7 +167,7 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
      */
     public async withBatch<TReturn>(callback: () => Promise<TReturn>) {
         try {
-            await this.batchLock.acquire()
+            await this.batchLock.acquire();
 
             if (this.mBatch) {
                 throw new ApplicationError("There is already an open batch.");
@@ -184,7 +182,7 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
             return callBackResult;
         } finally {
             this.mBatch = null;
-            await this.batchLock.release()
+            await this.batchLock.release();
         }
     }
 }

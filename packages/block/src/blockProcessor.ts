@@ -52,9 +52,9 @@ export const blockFactory = (provider: ethers.providers.Provider) => async (bloc
 
         // We could filter out the logs that we are not interesting in order to save space
         // (e.g.: only keep the logs from the DataRegistry).
-        const logs = await provider.getLogs({
+        const logs = (await provider.getLogs({
             blockHash: block.hash
-        }) as (Log & PlainObject)[];
+        })) as (Log & PlainObject)[];
 
         const transactions = (block.transactions as any) as (ethers.providers.TransactionResponse & PlainObject)[];
         for (const tx of transactions) {
@@ -110,7 +110,7 @@ export class BlockProcessorStore {
             throw doh;
         }
     }
-    
+
     public async setLatestHeadNumber(value: number) {
         await this.subDb.put("head", { head: value });
     }
@@ -191,6 +191,8 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
     private async processNewBlock(block: TBlock) {
         if (!this.started) throw new ApplicationError("The BlockProcessor should not receive newBlock events before startup is complete."); // prettier-ignore
 
+        this.logger.info({ hash: block.hash, parentHash: block.parentHash, number: block.number }, "Block emitted.");
+
         await this.newBlock.emit(block);
     }
 
@@ -214,8 +216,10 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
             // Thus, in case of failure above, we do not update the head number for the block processor in order to repeat the processing
             // upon startup.
             await this.store.setLatestHeadNumber(headBlock.number);
+
+            this.logger.info({ headBlock: headBlock.hash, number: headBlock.number, emitted: this.started }, "Head set.");
         } catch (doh) {
-            this.logger.error({ err: doh}, "Error processing head.");
+            this.logger.error({ err: doh }, "Error processing head.");
         }
     }
 
@@ -247,6 +251,8 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
     // Processes a new block, adding it to the cache and emitting the appropriate events
     // It is called for each new block received, but also at startup (during startInternal).
     private async processBlockNumber(observedBlockNumber: number) {
+        this.logger.info({ blockNumber: observedBlockNumber }, "Block observed.")
+
         try {
             await this.processorLock.acquire();
 
