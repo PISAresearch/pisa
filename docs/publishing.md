@@ -3,4 +3,4 @@
 3. pmpm run build
 4. pnpm recursive --filter ./packages exec -- npm version <version>
 5. git commit -am "Version bump <version>"
-6. pnpm recursive --filter ./packages exec -- npm publish --access public
+6. pnpm recursive publish --filter ./packages --access public
