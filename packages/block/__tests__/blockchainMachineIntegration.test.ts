@@ -127,24 +127,25 @@ const mineBlocksInCache = (blockCache: BlockCache<IBlockStub>, provider: Web3Pro
 
 describe("BlockchainMachineIntegration", () => {
     const startBlockchainMachine = async (db?: LevelUp<EncodingDown<string, any>>, pollingInterval?: number, provider?: Web3Provider) => {
-        db = db
-            ? db
-            : levelup(
-                  EncodingDown<string, any>(MemDown(), { valueEncoding: "json" })
-              );
+        db =
+            db ||
+            levelup(
+                EncodingDown<string, any>(MemDown(), { valueEncoding: "json" })
+            );
 
         const actionStore = new CachedKeyValueStore<BlockNumberAction>(db, defaultSerialiser, "blockchain-machine-actions-store");
         const blockItemStore = new BlockItemStore(db, defaultSerialiser);
 
         let startBlockNumber = 2;
+        let mineFirstBlock = false;
         if (!provider) {
             const ganache = Ganache.provider();
             provider = new ethers.providers.Web3Provider(ganache as any);
             await provider.send("miner_stop", []);
-            // start on block 2
-            await mine(provider, startBlockNumber);
+            // start on block startBlockNumber - 1; an extra block will be mined after strarting the services
+            await mine(provider, startBlockNumber - 1);
+            mineFirstBlock = true;
         }
-        startBlockNumber = await provider.getBlockNumber();
         provider.pollingInterval = pollingInterval || 10;
 
         const blockCacheDepth = 10;
@@ -172,12 +173,16 @@ describe("BlockchainMachineIntegration", () => {
 
         await blockItemStore.start();
         await actionStore.start();
-        await blockProcessor.start();
         await blockchainMachine.start();
+        await blockProcessor.start();
+
+        if (mineFirstBlock) await mine(provider, 1);
+
+        startBlockNumber = await provider.getBlockNumber();
 
         return {
             db,
-            services: [blockItemStore, actionStore, blockProcessor, blockchainMachine],
+            services: [blockItemStore, actionStore, blockchainMachine, blockProcessor],
             mineBlocks: mineBlocksInCache(blockCache, provider),
             blockCache,
             actionsTaken: blockNumberRecorderComponent.actionsTaken,
@@ -204,9 +209,9 @@ describe("BlockchainMachineIntegration", () => {
             providerIn
         );
 
-        expect(blockCache.head.number).to.eq(startUpBlock || startBlockNumber);
+        expect(blockCache.head.number, "head number matches before").to.eq(startUpBlock || startBlockNumber);
         await mineBlocks(blocksToMine);
-        expect(blockCache.head.number).to.eq(startBlockNumber + blocksToMine);
+        expect(blockCache.head.number, "head number matches after").to.eq(startBlockNumber + blocksToMine);
 
         expect(actionsTaken).to.deep.eq(
             calculateActionsTakenBetweenBlocksInclusive(

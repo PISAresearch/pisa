@@ -17,9 +17,9 @@ import {
 
 import { BlockchainMachine } from "../src/blockchainMachine";
 import { throwingInstance, fnIt, wait } from "@pisa-research/test-utils";
-import { ArgumentError, ConfigurationError } from "@pisa-research/errors";
+import { ArgumentError } from "@pisa-research/errors";
 import chaiAsPromised from "chai-as-promised";
-import { DbObject, defaultSerialiser } from "@pisa-research/utils";
+import { DbObject, defaultSerialiser, logger } from "@pisa-research/utils";
 chai.use(chaiAsPromised);
 
 type TestAnchorState = { number: number, extraData: string };
@@ -72,11 +72,11 @@ const getAction = (index: number) => {
 // the mocking lib we use isnt able to mock abstract members and functions
 // so we create a dummy subclass
 class TestComponent extends Component<TestAnchorState, IBlockStub, TestActionType> {
-    detectChanges(prevState: TestAnchorState, nextState: TestAnchorState): TestActionType[] {
+    public detectChanges(prevState: TestAnchorState, nextState: TestAnchorState): TestActionType[] {
         throw new Error("not implemented");
     }
-    async applyAction(action: TestActionType) {}
-    name: string;
+    public async applyAction(action: TestActionType) {}
+    public name: string;
 }
 
 const setupBM = async (
@@ -123,7 +123,7 @@ const setupBM = async (
         componentMocks.push(componentMock);
     }
 
-    const machine: BlockchainMachine<IBlockStub> = new BlockchainMachine(actionStore, blockItemStore, components);
+    const machine: BlockchainMachine<IBlockStub> = new BlockchainMachine(actionStore, blockItemStore, components, logger);
 
     return {
         machine,
@@ -144,7 +144,7 @@ const setupInitialisedBM = async (componentNumber: number, applyActionThrowsErro
     const setup = await setupBM(componentNumber, applyActionThrowsError);
 
     await setup.machine.blockItemStore.withBatch(async () => {
-        await setup.machine.setInitialState(blocks[0]);
+        await setup.machine.setStateAndDetectChanges(blocks[0]);
     });
 
     resetCalls(setup.reducerMock);
@@ -162,53 +162,8 @@ describe("BlockchainMachine", () => {
                 new BlockchainMachine(throwingInstance(actionStoreSpy), blockItemStore, [
                     throwingInstance(componentMocks[0]),
                     throwingInstance(componentMocks[0])
-                ])
+                ], logger)
         ).to.throw(ArgumentError);
-    });
-
-    fnIt<BlockchainMachine<never>>(b => b.setInitialState, "does compute initial state for parent not in store", async () => {
-        const { machine, reducerMock, blockItemStoreAnchorStateSpy, components, reducer } = await setupBM(1);
-
-        await machine.blockItemStore.withBatch(async () => {
-            await machine.setInitialState(blocks[0]);
-        });
-
-        verify(reducerMock.getInitialState(DE(blocks[0]))).once();
-        verify(blockItemStoreAnchorStateSpy.set(components[0].name, blocks[0].number, blocks[0].hash, DE(await reducer.getInitialState(blocks[0])))).once();
-    });
-
-    fnIt<BlockchainMachine<never>>(b => b.setInitialState, "does compute initial state for parent in store", async () => {
-        const { machine, reducerMock, blockItemStoreAnchorStateSpy, components, reducer } = await setupInitialisedBM(1);
-
-        await machine.blockItemStore.withBatch(async () => {
-            await machine.setInitialState(blocks[1]);
-        });
-
-        verify(reducerMock.reduce(DE(getAnchorState(0)), DE(blocks[1]))).once();
-        verify(blockItemStoreAnchorStateSpy.set(components[0].name, blocks[1].number, blocks[1].hash, DE(await reducer.reduce(getAnchorState(0), blocks[1])))).once();
-    });
-
-    fnIt<BlockchainMachine<never>>(b => b.setInitialState, "does nothing if state is already in store", async () => {
-        const { machine, reducerMock, blockItemStoreAnchorStateSpy } = await setupInitialisedBM(1);
-
-        await machine.blockItemStore.withBatch(async () => {
-            await machine.setInitialState(blocks[0]);
-        });
-
-        verify(reducerMock.reduce(anything(), anything())).never();
-        verify(blockItemStoreAnchorStateSpy.set(anything(), anything(), anything(), anything())).never();
-    });
-
-    fnIt<BlockchainMachine<never>>(b => b.setInitialState, "does compute initial state for multiple components", async () => {
-        const { machine, reducerMock, blockItemStoreAnchorStateSpy, components, reducer } = await setupBM(2);
-
-        await machine.blockItemStore.withBatch(async () => {
-            await machine.setInitialState(blocks[0]);
-        });
-
-        verify(reducerMock.getInitialState(blocks[0])).twice();
-        verify(blockItemStoreAnchorStateSpy.set(components[0].name, blocks[0].number, blocks[0].hash, DE(await reducer.getInitialState(blocks[0])))).once();
-        verify(blockItemStoreAnchorStateSpy.set(components[1].name, blocks[0].number, blocks[0].hash, DE(await reducer.getInitialState(blocks[0])))).once();
     });
 
     fnIt<BlockchainMachine<never>>(b => b.setStateAndDetectChanges, "does set new state and run actions", async () => {
@@ -246,15 +201,16 @@ describe("BlockchainMachine", () => {
         verify(actionStoreSpy.storeItems(components[0].name, anything())).calledBefore(componentMocks[0].applyAction(anything()));
     });
 
-    fnIt<BlockchainMachine<never>>(b => b.setStateAndDetectChanges, "does throw error for non existing parent", async () => {
-        const { machine } = await setupBM(1, true);
+    fnIt<BlockchainMachine<never>>(b => b.setStateAndDetectChanges, "does set initial state for non existing parent", async () => {
+        const { machine, reducer, reducerMock, componentMocks, actionStoreSpy, blockItemStoreAnchorStateSpy, components } = await setupBM(1, true);
 
-        // we expect the batch to throw as well
-        return expect(
-            machine.blockItemStore.withBatch(async () => {
-                await machine.setStateAndDetectChanges(blocks[1]);
-            })
-        ).to.eventually.be.rejectedWith(ConfigurationError, "Parent state");
+        await machine.blockItemStore.withBatch(async () => {
+            await machine.setStateAndDetectChanges(blocks[0]);
+        });
+
+        verify(reducerMock.getInitialState(DE(blocks[0]))).once();
+        verify(blockItemStoreAnchorStateSpy.set(components[0].name, blocks[0].number, blocks[0].hash, DE(await reducer.getInitialState(blocks[0])))).once();
+        verify(componentMocks[0].detectChanges(anything(), anything())).never();
     });
 
     fnIt<BlockchainMachine<never>>(b => b.setStateAndDetectChanges, "runs any actions currently in the action store", async () => {

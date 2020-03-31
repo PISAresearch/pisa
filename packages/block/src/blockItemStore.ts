@@ -55,6 +55,10 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
             else this.itemsByHeight.set(height, new Set([memKey]));
 
             this.items.set(memKey, this.serialiser.deserialise(value));
+
+            if (memKey === BlockItemStore.KEY_STATE) {
+                this.mIsAnchorStateInitialised = true;
+            }
         }
 
         this.logger.info({ itemsByHeightCount: this.itemsByHeight.size, itemsCount: this.items.size }, "Store started.");
@@ -107,11 +111,19 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
     };
 
     // Type safe methods to store the anchor state for each block, indexed by component (used in the BlockchainMachine)
+    private mIsAnchorStateInitialised = false;
+    /**
+     * True when no at least one anchor state state was saved into the store, false otherwise.
+     */
+    public get isAnchorStateInitialised() {
+        return this.mIsAnchorStateInitialised;
+    }
     public anchorState = {
         get: <TAnchorState extends PlainObjectOrSerialisable>(componentName: string, blockHash: string) =>
             (this.getItem(blockHash, `${componentName}:${BlockItemStore.KEY_STATE}`) as unknown) as TAnchorState,
         set: (componentName: string, blockHeight: number, blockHash: string, newState: AnchorState) => {
             this.putBlockItem(blockHeight, blockHash, `${componentName}:${BlockItemStore.KEY_STATE}`, newState);
+            this.mIsAnchorStateInitialised = true;
         }
     };
 
