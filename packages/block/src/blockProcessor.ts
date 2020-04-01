@@ -124,6 +124,11 @@ export class BlockProcessorStore {
  * and its ancestors before the corresponding "new head" event).
  */
 export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService {
+    /**
+     * The BlockProcessor will be considered not synchronised if no more than BLOCK_SYNC_THRESHOLD behind compared to the provider.
+     */
+    public static readonly BLOCK_SYNC_THRESHOLD = 5;
+
     private mBlockCache: BlockCache<TBlock>;
 
     /**
@@ -145,6 +150,17 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
 
     // Returned in the constructor by blockProvider: obtains the block remotely (or throws an exception on failure)
     private getBlockRemote: (blockNumberOrHash: string | number) => Promise<TBlock>;
+
+    // The highest number observed for the block number according to the provider, in order to
+    private mProviderBlockNumber = Number.NEGATIVE_INFINITY;
+
+    public get providerBlockNumber() {
+        return this.mProviderBlockNumber;
+    }
+
+    public isSynchronised() {
+        return this.started && this.blockCache.head.number >= this.providerBlockNumber - BlockProcessor.BLOCK_SYNC_THRESHOLD;
+    }
 
     /**
      * Returns the ReadOnlyBlockCache associated to this BlockProcessor.
@@ -251,7 +267,10 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
     // Processes a new block, adding it to the cache and emitting the appropriate events
     // It is called for each new block received, but also at startup (during startInternal).
     private async processBlockNumber(observedBlockNumber: number) {
-        this.logger.info({ blockNumber: observedBlockNumber }, "Block observed.")
+        this.logger.info({ blockNumber: observedBlockNumber }, "Block observed.");
+
+        // While processing the block is in a critical section, we updated the highest known block number immediately
+        this.mProviderBlockNumber = Math.max(this.mProviderBlockNumber, observedBlockNumber);
 
         try {
             await this.processorLock.acquire();
