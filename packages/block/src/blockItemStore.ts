@@ -56,8 +56,8 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
 
             this.items.set(memKey, this.serialiser.deserialise(value));
 
-            if (memKey === BlockItemStore.KEY_STATE) {
-                this.mIsAnchorStateInitialised = true;
+            if (memKey.endsWith(BlockItemStore.KEY_STATE)) {
+                this.mHasAnyAnchorStates = true;
             }
         }
 
@@ -111,19 +111,19 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
     };
 
     // Type safe methods to store the anchor state for each block, indexed by component (used in the BlockchainMachine)
-    private mIsAnchorStateInitialised = false;
+    private mHasAnyAnchorStates = false;
     /**
-     * True when no at least one anchor state state was saved into the store, false otherwise.
+     * True when at least one anchor state state was saved into the store, false otherwise.
      */
-    public get isAnchorStateInitialised() {
-        return this.mIsAnchorStateInitialised;
+    public get hasAnyAnchorStates() {
+        return this.mHasAnyAnchorStates;
     }
     public anchorState = {
         get: <TAnchorState extends PlainObjectOrSerialisable>(componentName: string, blockHash: string) =>
-            (this.getItem(blockHash, `${componentName}:${BlockItemStore.KEY_STATE}`) as unknown) as TAnchorState,
+            (this.getItem(blockHash, `${componentName}:${BlockItemStore.KEY_STATE}`) as unknown) as TAnchorState | undefined,
         set: (componentName: string, blockHeight: number, blockHash: string, newState: AnchorState) => {
             this.putBlockItem(blockHeight, blockHash, `${componentName}:${BlockItemStore.KEY_STATE}`, newState);
-            this.mIsAnchorStateInitialised = true;
+            this.mHasAnyAnchorStates = true;
         }
     };
 

@@ -1,6 +1,6 @@
 import { BlockProcessor } from "./blockProcessor";
 import { IBlockStub } from "./block";
-import { StartStopService, Lock, logger, Logger } from "@pisa-research/utils";
+import { StartStopService, Lock, Logger } from "@pisa-research/utils";
 import { ArgumentError } from "@pisa-research/errors";
 import { Component, AnchorState, ComponentAction } from "./component";
 import { CachedKeyValueStore, ItemAndId } from "./cachedKeyValueStore";
@@ -13,10 +13,6 @@ export class BlockchainMachine<TBlock extends IBlockStub> {
     // lock used to make sure that all events are processed in order
     private lock = new Lock();
 
-    private componentStates: {
-        component: Component<AnchorState, TBlock, ComponentAction>,
-        waitingForFirstBlock: boolean
-    }[] = [];
     /**
      *
      * @param actionStore
@@ -47,7 +43,7 @@ export class BlockchainMachine<TBlock extends IBlockStub> {
                 await component.applyAction(a.value);
                 await this.actionStore.removeItem(component.name, a);
             } catch (doh) {
-                logger.error({ err: doh, actionId: a.id, action: a.value, componentName: component.name }, "Failed to run action.");
+                this.logger.error({ err: doh, actionId: a.id, action: a.value, componentName: component.name }, "Failed to run action.");
             }
         });
     }
@@ -72,40 +68,56 @@ export class BlockchainMachine<TBlock extends IBlockStub> {
      * @param block
      */
     public async setStateAndDetectChanges(block: TBlock) {
-        if (!this.actionStore.started) logger.error("The actionStore should be started before the BlockchainMachine is used.");
-        if (!this.blockItemStore.started) logger.error("The BlockItemStore should be started before the BlockchainMachine is used.");
+        if (!this.actionStore.started) this.logger.error("The ActionStore should be started before the BlockchainMachine is used.");
+        if (!this.blockItemStore.started) this.logger.error("The BlockItemStore should be started before the BlockchainMachine is used.");
+
+        // Every time a new block is received we calculate the anchor state for that block for each component and store it
 
         try {
             await this.lock.acquire();
 
-            const isFirstAnchorState = !this.blockItemStore.isAnchorStateInitialised;
+            // For the first block only, there won't be any anchor state in the store. As we do the same for all the components,
+            // we check blockItemStore.hasAnyAnchorStates only once at the beginning of the function.
+            const isFirstAnchorState = !this.blockItemStore.hasAnyAnchorStates;
 
-            // Every time a new block is received we calculate the anchor state for that block and store it
             for (const component of this.components) {
-                // get the parent
-                const parentState = this.blockItemStore.anchorState.get<AnchorState>(component.name, block.parentHash);
-
-                let newAnchorState: AnchorState;
-                if (parentState != undefined) {
-                    newAnchorState = await component.reducer.reduce(parentState, block);
+                if (isFirstAnchorState) {
+                    // When the first block is fed to the blockchainMachine, no parent is available,
+                    // therefore we compute the initial anchor state
+                    const newAnchorState = await component.reducer.getInitialState(block);
+                    this.blockItemStore.anchorState.set(component.name, block.number, block.hash, newAnchorState);
                 } else {
-                    if (isFirstAnchorState) this.logger.error({ componentName: component.name }, "Did not find anchor state for component, but it was expected.");
+                    // The parent state should definitely be available here, as it is not the first block processed
 
-                    newAnchorState = await component.reducer.getInitialState(block);
-                }
+                    // get the parent state
+                    const parentState = this.blockItemStore.anchorState.get<AnchorState>(component.name, block.parentHash);
 
-                this.blockItemStore.anchorState.set(component.name, block.number, block.hash, newAnchorState);
+                    let newAnchorState: AnchorState;
+                    if (parentState == undefined) {
+                        // This is a serious error, it should never happen
+                        this.logger.error({ componentName: component.name }, "Did not find anchor state for component, but it was expected.");
 
-                if (parentState != undefined) {
-                    // having computed a new state we can detect changes and run actions
-                    // for the difference between parent and now
-                    const newActions = component.detectChanges(parentState, newAnchorState);
-                    if (newActions.length > 0) {
-                        const actionAndIds = await this.actionStore.storeItems(component.name, newActions);
-                        this.runActionsForComponent(component, actionAndIds);
+                        // fallback to returning the initial state as best-effort resolution
+                        newAnchorState = await component.reducer.getInitialState(block);
+                    } else {
+                        newAnchorState = await component.reducer.reduce(parentState, block);
+                    }
+
+                    this.blockItemStore.anchorState.set(component.name, block.number, block.hash, newAnchorState);
+
+                    if (parentState != undefined) {
+                        // having computed a new state we can detect changes and run actions
+                        // for the difference between parent and now
+                        const newActions = component.detectChanges(parentState, newAnchorState);
+                        if (newActions.length > 0) {
+                            const actionAndIds = await this.actionStore.storeItems(component.name, newActions);
+                            this.runActionsForComponent(component, actionAndIds);
+                        }
                     }
                 }
             }
+        } catch (doh) {
+            this.logger.error({ error: doh }, "Unexpected error while setting anchor state.");
         } finally {
             this.lock.release();
         }
