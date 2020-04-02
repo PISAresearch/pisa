@@ -56,7 +56,7 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
 
             this.items.set(memKey, this.serialiser.deserialise(value));
 
-            if (memKey.endsWith(BlockItemStore.KEY_STATE)) {
+            if (memKey.endsWith(`:${BlockItemStore.KEY_STATE}`)) {
                 this.mHasAnyAnchorStates = true;
             }
         }
