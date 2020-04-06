@@ -105,9 +105,11 @@ describe("BlockProcessor", () => {
         });
     };
 
-    // Instructs the mock provider to switch to the chain given by block `hash` (and its ancestors),
-    // then emits the block number corresponding to `hash`.
-    // If `returnNullAtHash` is provided, getBlock will return null for that block hash (simulating a provider failure).
+    /**
+     * Instructs the mock provider to switch to the chain given by block `hash` (and its ancestors),
+     * then emits the block number corresponding to `hash`.
+     * If `returnNullAtHash` is provided, getBlock will return null for that block hash (simulating a provider failure).
+     **/
     function emitBlockHash(hash: string, returnNullAtHash: string | null = null, throwErrorAtHash: string | null = null) {
         let curBlockHash: string = hash;
         while (curBlockHash in blocksByHash) {
@@ -130,6 +132,15 @@ describe("BlockProcessor", () => {
         provider.emit("block", blocksByHash[hash].number);
     }
 
+    /**
+     * Instructs the provider to emit the given blockNumber, but fail to resolve when the block is requested.
+     */
+    function emitStuckBlockNumber(blockNumber: number) {
+        when(mockProvider.getBlockNumber()).thenResolve(blockNumber);
+        when(mockProvider.getBlock(blockNumber)).thenReturn(new Promise(() => {})); // returns a Promise that never resolves or rejects
+        provider.emit("block", blockNumber);
+    }
+
     async function startStores() {
         blockStore = new BlockItemStore<IBlockStub>(db, defaultSerialiser);
         await blockStore.start();
@@ -140,13 +151,15 @@ describe("BlockProcessor", () => {
     }
 
     beforeEach(async () => {
-        db = LevelUp(EncodingDown<string, DbObject>(MemDown(), { valueEncoding: "json" }));
+        db = LevelUp(
+            EncodingDown<string, DbObject>(MemDown(), { valueEncoding: "json" })
+        );
         await startStores();
 
         // Instruct the mocked provider to return the blocks by hash with getBlock
         mockProvider = mock(ethers.providers.BaseProvider);
         for (const [hash, blockStub] of Object.entries(blocksByHash)) {
-            when(mockProvider.getBlock(hash, anything())).thenResolve(blockStub as unknown as ethers.providers.Block);
+            when(mockProvider.getBlock(hash, anything())).thenResolve((blockStub as unknown) as ethers.providers.Block);
         }
 
         // The mocked Provider should behave like an eventEmitter
@@ -406,4 +419,48 @@ describe("BlockProcessor", () => {
         // The store should still be at a2, not a3.
         expect(await blockProcessorStore.getLatestHeadNumber()).to.equal(2);
     });
+
+    fnIt<BlockProcessor<IBlockStub>>(
+        b => b.isSynchronised,
+        "returns true if BlockCache head is at most BLOCK_SYNC_THRESHOLD blocks behind",
+        async () => {
+            blockProcessor = new BlockProcessor(provider, blockStubAndTxHashFactory, blockCache, blockStore, blockProcessorStore);
+            emitBlockHash("a1");
+            await blockProcessor.start();
+
+            const cacheBlockNumber = blockCache.head.number;
+            emitStuckBlockNumber(cacheBlockNumber + BlockProcessor.BLOCK_SYNC_THRESHOLD);
+            await wait(20);
+
+            expect(blockProcessor.isSynchronised()).to.be.true;
+        }
+    );
+
+    it("updates providerBlockNumber immediately even if processing the block fails or takes too long", async () => {
+        blockProcessor = new BlockProcessor(provider, blockStubAndTxHashFactory, blockCache, blockStore, blockProcessorStore);
+        emitBlockHash("a1");
+        await blockProcessor.start();
+
+        const cacheBlockNumber = blockCache.head.number;
+        emitStuckBlockNumber(cacheBlockNumber + 42);
+        await wait(20);
+
+        expect(blockProcessor.providerBlockNumber).to.equal(cacheBlockNumber + 42);
+    });
+
+    fnIt<BlockProcessor<IBlockStub>>(
+        b => b.isSynchronised,
+        "returns false if BlockCache head is more than BLOCK_SYNC_THRESHOLD blocks behind",
+        async () => {
+            blockProcessor = new BlockProcessor(provider, blockStubAndTxHashFactory, blockCache, blockStore, blockProcessorStore);
+            emitBlockHash("a1");
+            await blockProcessor.start();
+
+            const cacheBlockNumber = blockCache.head.number;
+            emitStuckBlockNumber(cacheBlockNumber + BlockProcessor.BLOCK_SYNC_THRESHOLD + 1);
+            await wait(20);
+
+            expect(blockProcessor.isSynchronised()).to.be.false;
+        }
+    );
 });
