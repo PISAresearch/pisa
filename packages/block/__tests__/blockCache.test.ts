@@ -29,7 +29,7 @@ function generateBlocks(
             transactionHashes: transactions
         };
 
-        result.push(block as (IBlockStub & TransactionHashes));
+        result.push(block as IBlockStub & TransactionHashes);
     }
     return result;
 }
@@ -60,7 +60,9 @@ describe("BlockCache", () => {
     let resolveBatch: (value?: any) => void;
 
     beforeEach(async () => {
-        db = LevelUp(EncodingDown<string, DbObject>(MemDown(), { valueEncoding: "json" }));
+        db = LevelUp(
+            EncodingDown<string, DbObject>(MemDown(), { valueEncoding: "json" })
+        );
         blockStore = new BlockItemStore<IBlockStub>(db, defaultSerialiser);
         await blockStore.start();
 
@@ -90,19 +92,27 @@ describe("BlockCache", () => {
         expect(blocks[0]).to.deep.include(bc.getBlock(blocks[0].hash));
     });
 
-    fnIt<BlockCache<any>>(b => b.addBlock, "adds blocks that are attached and returns Added", async () => {
-        const blocks = generateBlocks(10, 5, "main");
-        expect(await bc.addBlock(blocks[0])).to.equal(BlockAddResult.Added);
-        expect(await bc.addBlock(blocks[1])).to.equal(BlockAddResult.Added);
-        expect(await bc.addBlock(blocks[2])).to.equal(BlockAddResult.Added);
-    });
+    fnIt<BlockCache<any>>(
+        b => b.addBlock,
+        "adds blocks that are attached and returns Added",
+        async () => {
+            const blocks = generateBlocks(10, 5, "main");
+            expect(await bc.addBlock(blocks[0])).to.equal(BlockAddResult.Added);
+            expect(await bc.addBlock(blocks[1])).to.equal(BlockAddResult.Added);
+            expect(await bc.addBlock(blocks[2])).to.equal(BlockAddResult.Added);
+        }
+    );
 
-    fnIt<BlockCache<any>>(b => b.addBlock, "adds unattached blocks and returns false", async () => {
-        const blocks = generateBlocks(10, 5, "main");
-        await bc.addBlock(blocks[0]);
-        expect(await bc.addBlock(blocks[3])).to.equal(BlockAddResult.AddedDetached);
-        expect(await bc.addBlock(blocks[2])).to.equal(BlockAddResult.AddedDetached);
-    });
+    fnIt<BlockCache<any>>(
+        b => b.addBlock,
+        "adds unattached blocks and returns false",
+        async () => {
+            const blocks = generateBlocks(10, 5, "main");
+            await bc.addBlock(blocks[0]);
+            expect(await bc.addBlock(blocks[3])).to.equal(BlockAddResult.AddedDetached);
+            expect(await bc.addBlock(blocks[2])).to.equal(BlockAddResult.AddedDetached);
+        }
+    );
 
     it("emits a new block event when a new block is added and attached", async () => {
         const blocks = generateBlocks(10, 5, "main");
@@ -142,47 +152,67 @@ describe("BlockCache", () => {
         expect(newBlockSpy.lastCallBlock).to.deep.equal(blocks[2]);
     });
 
-    fnIt<BlockCache<any>>(b => b.hasBlock, "returns true for an existing attached block", async () => {
-        const blocks = generateBlocks(10, 5, "main");
-        await bc.addBlock(blocks[0]);
-        await bc.addBlock(blocks[1]);
-        expect(bc.hasBlock(blocks[1].hash)).to.be.true;
-    });
+    fnIt<BlockCache<any>>(
+        b => b.hasBlock,
+        "returns true for an existing attached block",
+        async () => {
+            const blocks = generateBlocks(10, 5, "main");
+            await bc.addBlock(blocks[0]);
+            await bc.addBlock(blocks[1]);
+            expect(bc.hasBlock(blocks[1].hash)).to.be.true;
+        }
+    );
 
-    fnIt<BlockCache<any>>(b => b.hasBlock, "returns false for a non-existing block", async () => {
-        const blocks = generateBlocks(10, 5, "main");
-        await bc.addBlock(blocks[0]);
-        await bc.addBlock(blocks[1]);
-        expect(bc.hasBlock("someNonExistingHash")).to.be.false;
-    });
+    fnIt<BlockCache<any>>(
+        b => b.hasBlock,
+        "returns false for a non-existing block",
+        async () => {
+            const blocks = generateBlocks(10, 5, "main");
+            await bc.addBlock(blocks[0]);
+            await bc.addBlock(blocks[1]);
+            expect(bc.hasBlock("someNonExistingHash")).to.be.false;
+        }
+    );
 
-    fnIt<BlockCache<any>>(b => b.hasBlock, "returns false for an unattached block if allowPending=false", async () => {
-        const blocks = generateBlocks(10, 5, "main");
-        await bc.addBlock(blocks[0]);
-        await bc.addBlock(blocks[1]);
-        await bc.addBlock(blocks[3]);
-        expect(bc.hasBlock(blocks[3].hash, false)).to.be.false;
-    });
+    fnIt<BlockCache<any>>(
+        b => b.hasBlock,
+        "returns false for an unattached block if allowPending=false",
+        async () => {
+            const blocks = generateBlocks(10, 5, "main");
+            await bc.addBlock(blocks[0]);
+            await bc.addBlock(blocks[1]);
+            await bc.addBlock(blocks[3]);
+            expect(bc.hasBlock(blocks[3].hash, false)).to.be.false;
+        }
+    );
 
-    fnIt<BlockCache<any>>(b => b.hasBlock, "returns true for an unattached block if allowPending=true", async () => {
-        const blocks = generateBlocks(10, 5, "main");
-        await bc.addBlock(blocks[0]);
-        await bc.addBlock(blocks[1]);
-        await bc.addBlock(blocks[3]);
-        expect(bc.hasBlock(blocks[3].hash, true)).to.be.true;
-    });
+    fnIt<BlockCache<any>>(
+        b => b.hasBlock,
+        "returns true for an unattached block if allowPending=true",
+        async () => {
+            const blocks = generateBlocks(10, 5, "main");
+            await bc.addBlock(blocks[0]);
+            await bc.addBlock(blocks[1]);
+            await bc.addBlock(blocks[3]);
+            expect(bc.hasBlock(blocks[3].hash, true)).to.be.true;
+        }
+    );
 
-    fnIt<BlockCache<any>>(b => b.addBlock, "makes sure that a previously unattached block becomes attached if appropriate", async () => {
-        const blocks = generateBlocks(10, 5, "main");
-        await bc.addBlock(blocks[0]);
-        await bc.addBlock(blocks[3]);
-        await bc.addBlock(blocks[2]);
+    fnIt<BlockCache<any>>(
+        b => b.addBlock,
+        "makes sure that a previously unattached block becomes attached if appropriate",
+        async () => {
+            const blocks = generateBlocks(10, 5, "main");
+            await bc.addBlock(blocks[0]);
+            await bc.addBlock(blocks[3]);
+            await bc.addBlock(blocks[2]);
 
-        expect(await bc.addBlock(blocks[1])).to.equal(BlockAddResult.Added);
+            expect(await bc.addBlock(blocks[1])).to.equal(BlockAddResult.Added);
 
-        expect(bc.maxHeight).to.equal(blocks[3].number);
-        expect(bc.hasBlock(blocks[3].hash)).to.be.true;
-    });
+            expect(bc.maxHeight).to.equal(blocks[3].number);
+            expect(bc.hasBlock(blocks[3].hash)).to.be.true;
+        }
+    );
 
     it("maxHeight does not change for unattached blocks", async () => {
         const blocks = generateBlocks(10, 5, "main");
@@ -191,29 +221,41 @@ describe("BlockCache", () => {
         expect(bc.maxHeight).to.equal(blocks[0].number);
     });
 
-    fnIt<BlockCache<any>>(b => b.getBlock, "returns an attached block", async () => {
-        const blocks = generateBlocks(10, 5, "main");
-        await bc.addBlock(blocks[0]);
-        await bc.addBlock(blocks[1]);
-        await bc.addBlock(blocks[3]);
-        expect(bc.getBlock(blocks[1].hash)).to.deep.equal(blocks[1]);
-    });
+    fnIt<BlockCache<any>>(
+        b => b.getBlock,
+        "returns an attached block",
+        async () => {
+            const blocks = generateBlocks(10, 5, "main");
+            await bc.addBlock(blocks[0]);
+            await bc.addBlock(blocks[1]);
+            await bc.addBlock(blocks[3]);
+            expect(bc.getBlock(blocks[1].hash)).to.deep.equal(blocks[1]);
+        }
+    );
 
-    fnIt<BlockCache<any>>(b => b.getBlock, "returns an unattached block", async () => {
-        const blocks = generateBlocks(10, 5, "main");
-        await bc.addBlock(blocks[0]);
-        await bc.addBlock(blocks[1]);
-        await bc.addBlock(blocks[3]);
-        expect(bc.getBlock(blocks[3].hash)).to.deep.equal(blocks[3]);
-    });
+    fnIt<BlockCache<any>>(
+        b => b.getBlock,
+        "returns an unattached block",
+        async () => {
+            const blocks = generateBlocks(10, 5, "main");
+            await bc.addBlock(blocks[0]);
+            await bc.addBlock(blocks[1]);
+            await bc.addBlock(blocks[3]);
+            expect(bc.getBlock(blocks[3].hash)).to.deep.equal(blocks[3]);
+        }
+    );
 
-    fnIt<BlockCache<any>>(b => b.getBlock, "throws ApplicationError for an unknown block", async () => {
-        const blocks = generateBlocks(10, 5, "main");
-        await bc.addBlock(blocks[0]);
-        await bc.addBlock(blocks[1]);
-        await bc.addBlock(blocks[3]);
-        expect(() => bc.getBlock("someNonExistingHash")).to.throw(ApplicationError);
-    });
+    fnIt<BlockCache<any>>(
+        b => b.getBlock,
+        "throws ApplicationError for an unknown block",
+        async () => {
+            const blocks = generateBlocks(10, 5, "main");
+            await bc.addBlock(blocks[0]);
+            await bc.addBlock(blocks[1]);
+            await bc.addBlock(blocks[3]);
+            expect(() => bc.getBlock("someNonExistingHash")).to.throw(ApplicationError);
+        }
+    );
 
     it("minHeight is equal to maxHeight minus max depth", async () => {
         const initialHeight = 3;
@@ -233,8 +275,8 @@ describe("BlockCache", () => {
         const blocks = generateBlocks(blocksAdded, initialHeight, "main");
         for (const block of blocks) {
             await bc.addBlock(block);
-        }       
-        
+        }
+
         expect(bc.minHeight).to.equal(blocks[blocks.length - 1].number - maxDepth);
     });
 
@@ -255,48 +297,64 @@ describe("BlockCache", () => {
         expect(bc.maxHeight).to.equal(lastBlockAdded);
     });
 
-    fnIt<BlockCache<any>>(b => b.canAttachBlock, "returns true for a block whose height is equal to the max height - max depth", async () => {
-        const initialHeight = 3;
-        const blocksAdded = maxDepth + 1;
-        const blocks = generateBlocks(blocksAdded, initialHeight, "main");
-        for (const block of blocks) {
-            await bc.addBlock(block);
+    fnIt<BlockCache<any>>(
+        b => b.canAttachBlock,
+        "returns true for a block whose height is equal to the max height - max depth",
+        async () => {
+            const initialHeight = 3;
+            const blocksAdded = maxDepth + 1;
+            const blocks = generateBlocks(blocksAdded, initialHeight, "main");
+            for (const block of blocks) {
+                await bc.addBlock(block);
+            }
+            const otherBlocks = generateBlocks(2, initialHeight, "main");
+
+            expect(otherBlocks[1].number).to.eq(bc.maxHeight - bc.maxDepth);
+            expect(bc.canAttachBlock(otherBlocks[1])).to.be.true;
         }
-        const otherBlocks = generateBlocks(2, initialHeight, "main");
-        
-        expect(otherBlocks[1].number).to.eq(bc.maxHeight - bc.maxDepth)
-        expect(bc.canAttachBlock(otherBlocks[1])).to.be.true;
-    });
+    );
 
-    fnIt<BlockCache<any>>(b => b.canAttachBlock, "returns false for blocks whose height is lower than the maximum depth", async () => {
-        const initialHeight = 3;
-        const blocksAdded = maxDepth + 1;
-        const blocks = generateBlocks(blocksAdded, initialHeight, "main");
-        for (const block of blocks) {
-            await bc.addBlock(block);
+    fnIt<BlockCache<any>>(
+        b => b.canAttachBlock,
+        "returns false for blocks whose height is lower than the maximum depth",
+        async () => {
+            const initialHeight = 3;
+            const blocksAdded = maxDepth + 1;
+            const blocks = generateBlocks(blocksAdded, initialHeight, "main");
+            for (const block of blocks) {
+                await bc.addBlock(block);
+            }
+            const otherBlocks = generateBlocks(2, initialHeight - 1, "main");
+
+            expect(bc.canAttachBlock(otherBlocks[0])).to.be.false;
         }
-        const otherBlocks = generateBlocks(2, initialHeight - 1, "main");
+    );
 
-        expect(bc.canAttachBlock(otherBlocks[0])).to.be.false;
-    });
+    fnIt<BlockCache<any>>(
+        b => b.canAttachBlock,
+        "returns true for a block whose parent is in the BlockCache",
+        async () => {
+            const blocks = generateBlocks(10, 7, "main");
 
-    fnIt<BlockCache<any>>(b => b.canAttachBlock, "returns true for a block whose parent is in the BlockCache", async () => {
-        const blocks = generateBlocks(10, 7, "main");
+            await bc.addBlock(blocks[5]);
 
-        await bc.addBlock(blocks[5]);
+            expect(bc.canAttachBlock(blocks[6])).to.be.true;
+        }
+    );
 
-        expect(bc.canAttachBlock(blocks[6])).to.be.true;
-    });
+    fnIt<BlockCache<any>>(
+        b => b.canAttachBlock,
+        "returns false for a block above minHeight whose parent is not in the BlockCache",
+        async () => {
+            const blocks = generateBlocks(10, 7, "main");
 
-    fnIt<BlockCache<any>>(b => b.canAttachBlock, "returns false for a block above minHeight whose parent is not in the BlockCache", async () => {
-        const blocks = generateBlocks(10, 7, "main");
+            await bc.addBlock(blocks[0]);
+            await bc.addBlock(blocks[1]);
+            await bc.addBlock(blocks[2]);
 
-        await bc.addBlock(blocks[0]);
-        await bc.addBlock(blocks[1]);
-        await bc.addBlock(blocks[2]);
-
-        expect(bc.canAttachBlock(blocks[4])).to.be.false;
-    });
+            expect(bc.canAttachBlock(blocks[4])).to.be.false;
+        }
+    );
 
     it("records blocks until maximum depth", async () => {
         const blocks = generateBlocks(maxDepth, 0, "main");
@@ -308,122 +366,176 @@ describe("BlockCache", () => {
 
     it("forgets blocks past the maximum depth", async () => {
         const blocks = generateBlocks(maxDepth + 2, 0, "main"); // head is depth 0, so first pruned is maxDepth + 2
-        for (const block of blocks) {
+        for (let index = 0; index < blocks.length; index++) {
+            const block = blocks[index];
             await bc.addBlock(block);
+            bc.setHead(block.hash);
         }
+
         expect(() => bc.getBlock(blocks[0].hash)).to.throw(ApplicationError);
     });
 
-    fnIt<BlockCache<any>>(b => b.ancestry, "iterates over all the ancestors", async () => {
-        const blocks = generateBlocks(10, 0, "main");
-        for (const block of blocks) {
+    it("does not forget above head block", async () => {
+        const blocks = generateBlocks(maxDepth + 2, 0, "main"); // head is depth 0, so first pruned is maxDepth + 2
+        for (let index = 0; index < blocks.length; index++) {
+            const block = blocks[index];
             await bc.addBlock(block);
-        }
-        const headBlock = blocks[blocks.length - 1];
-
-        // Add some other blocks in a forked chain at height 3
-        for (const block of generateBlocks(5, 3, "fork", blocks[1].hash)) {
-            await bc.addBlock(block);
+            if (index === 0) bc.setHead(block.hash);
         }
 
-        const result = [...bc.ancestry(headBlock.hash)];
-        result.reverse();
-
-        expect(result).to.deep.equal(blocks);
+        expect(bc.getBlock(blocks[0].hash)).to.deep.eq(blocks[0]);
     });
 
-    fnIt<BlockCache<any>>(b => b.findAncestor, "returns the nearest ancestor that satisfies the predicate", async () => {
-        const blocks = generateBlocks(5, 0, "main");
-        for (const block of blocks) {
-            await bc.addBlock(block);
+    fnIt<BlockCache<any>>(
+        b => b.ancestry,
+        "iterates over all the ancestors",
+        async () => {
+            const blocks = generateBlocks(10, 0, "main");
+            for (const block of blocks) {
+                await bc.addBlock(block);
+            }
+            const headBlock = blocks[blocks.length - 1];
+
+            // Add some other blocks in a forked chain at height 3
+            for (const block of generateBlocks(5, 3, "fork", blocks[1].hash)) {
+                await bc.addBlock(block);
+            }
+
+            const result = [...bc.ancestry(headBlock.hash)];
+            result.reverse();
+
+            expect(result).to.deep.equal(blocks);
         }
-        const headBlock = blocks[blocks.length - 1];
+    );
 
-        const result = bc.findAncestor(headBlock.hash, block => block.hash == blocks[2].hash);
-        expect(result).to.not.be.null;
-        expect(blocks[2]).to.deep.include(result!);
-    });
+    fnIt<BlockCache<any>>(
+        b => b.findAncestor,
+        "returns the nearest ancestor that satisfies the predicate",
+        async () => {
+            const blocks = generateBlocks(5, 0, "main");
+            for (const block of blocks) {
+                await bc.addBlock(block);
+            }
+            const headBlock = blocks[blocks.length - 1];
 
-    fnIt<BlockCache<any>>(b => b.findAncestor, "returns self if satisfies the predicate", async () => {
-        const blocks = generateBlocks(5, 0, "main");
-        for (const block of blocks) {
-            await bc.addBlock(block);
+            const result = bc.findAncestor(headBlock.hash, block => block.hash == blocks[2].hash);
+            expect(result).to.not.be.null;
+            expect(blocks[2]).to.deep.include(result!);
         }
-        const headBlock = blocks[blocks.length - 1];
+    );
 
-        const result = bc.findAncestor(headBlock.hash, block => block.hash == headBlock.hash);
-        expect(result).to.not.be.null;
-        expect(headBlock).to.deep.include(result!);
-    });
+    fnIt<BlockCache<any>>(
+        b => b.findAncestor,
+        "returns self if satisfies the predicate",
+        async () => {
+            const blocks = generateBlocks(5, 0, "main");
+            for (const block of blocks) {
+                await bc.addBlock(block);
+            }
+            const headBlock = blocks[blocks.length - 1];
 
-    fnIt<BlockCache<any>>(b => b.findAncestor, "returns self if satisfies the predicate", async () => {
-        const blocks = generateBlocks(5, 0, "main");
-        for (const block of blocks) {
-            await bc.addBlock(block);
+            const result = bc.findAncestor(headBlock.hash, block => block.hash == headBlock.hash);
+            expect(result).to.not.be.null;
+            expect(headBlock).to.deep.include(result!);
         }
-        const headBlock = blocks[blocks.length - 1];
+    );
 
-        const result = bc.findAncestor(headBlock.hash, block => block.hash == "notExistingHash");
-        expect(result).to.be.null;
-    });
+    fnIt<BlockCache<any>>(
+        b => b.findAncestor,
+        "returns self if satisfies the predicate",
+        async () => {
+            const blocks = generateBlocks(5, 0, "main");
+            for (const block of blocks) {
+                await bc.addBlock(block);
+            }
+            const headBlock = blocks[blocks.length - 1];
 
-    fnIt<BlockCache<any>>(b => b.findAncestor, "does not return at height less than minHeight", async () => {
-        const blocks = generateBlocks(5, 0, "main");
-        for (const block of blocks) {
-            await bc.addBlock(block);
+            const result = bc.findAncestor(headBlock.hash, block => block.hash == "notExistingHash");
+            expect(result).to.be.null;
         }
-        const headBlock = blocks[blocks.length - 1];
+    );
 
-        // condition is true only for a block at height strictly below minHeight
-        const result = bc.findAncestor(headBlock.hash, block => block.number === blocks[3].number, blocks[3].number + 1);
-        expect(result).to.be.null;
-    });
+    fnIt<BlockCache<any>>(
+        b => b.findAncestor,
+        "does not return at height less than minHeight",
+        async () => {
+            const blocks = generateBlocks(5, 0, "main");
+            for (const block of blocks) {
+                await bc.addBlock(block);
+            }
+            const headBlock = blocks[blocks.length - 1];
 
-    fnIt<BlockCache<any>>(b => b.findAncestor, "does return at height equal or more than minHeight", async () => {
-        const blocks = generateBlocks(5, 0, "main");
-        for (const block of blocks) {
-            await bc.addBlock(block);
+            // condition is true only for a block at height strictly below minHeight
+            const result = bc.findAncestor(headBlock.hash, block => block.number === blocks[3].number, blocks[3].number + 1);
+            expect(result).to.be.null;
         }
-        const headBlock = blocks[blocks.length - 1];
+    );
 
-        // condition is true only for blocks at height exactly minHeight
-        const result = bc.findAncestor(headBlock.hash, block => block.number === blocks[3].number, blocks[3].number);
-        expect(result).to.not.be.null;
-        expect(blocks[3]).to.deep.include(result!);
-    });
+    fnIt<BlockCache<any>>(
+        b => b.findAncestor,
+        "does return at height equal or more than minHeight",
+        async () => {
+            const blocks = generateBlocks(5, 0, "main");
+            for (const block of blocks) {
+                await bc.addBlock(block);
+            }
+            const headBlock = blocks[blocks.length - 1];
 
-    fnIt<BlockCache<any>>(b => b.getOldestAncestorInCache, "returns the deepest ancestor", async () => {
-        const blocks = generateBlocks(5, 0, "main");
-        for (const block of blocks) {
-            await bc.addBlock(block);
+            // condition is true only for blocks at height exactly minHeight
+            const result = bc.findAncestor(headBlock.hash, block => block.number === blocks[3].number, blocks[3].number);
+            expect(result).to.not.be.null;
+            expect(blocks[3]).to.deep.include(result!);
         }
-        const headBlock = blocks[blocks.length - 1];
+    );
 
-        const result = bc.getOldestAncestorInCache(headBlock.hash);
-        expect(blocks[0]).to.deep.include(result);
-    });
+    fnIt<BlockCache<any>>(
+        b => b.getOldestAncestorInCache,
+        "returns the deepest ancestor",
+        async () => {
+            const blocks = generateBlocks(5, 0, "main");
+            for (const block of blocks) {
+                await bc.addBlock(block);
+            }
+            const headBlock = blocks[blocks.length - 1];
 
-    fnIt<BlockCache<any>>(b => b.getOldestAncestorInCache, "throws ArgumentError for a hash not in cache", async () => {
-        const blocks = generateBlocks(5, 0, "main");
-        for (const block of blocks) {
-            await bc.addBlock(block);
+            const result = bc.getOldestAncestorInCache(headBlock.hash);
+            expect(blocks[0]).to.deep.include(result);
         }
-        expect(() => bc.getOldestAncestorInCache("notExistingHash")).to.throw(ArgumentError);
-    });
+    );
 
-    fnIt<BlockCache<any>>(b => b.setHead, "correctly sets new head", async () => {
-        const blocks = generateBlocks(1, 0, "main");
+    fnIt<BlockCache<any>>(
+        b => b.getOldestAncestorInCache,
+        "throws ArgumentError for a hash not in cache",
+        async () => {
+            const blocks = generateBlocks(5, 0, "main");
+            for (const block of blocks) {
+                await bc.addBlock(block);
+            }
+            expect(() => bc.getOldestAncestorInCache("notExistingHash")).to.throw(ArgumentError);
+        }
+    );
 
-        await bc.addBlock(blocks[0]);
-        bc.setHead(blocks[0].hash);
-        expect(bc.head).to.deep.equal(blocks[0]);
-    });
+    fnIt<BlockCache<any>>(
+        b => b.setHead,
+        "correctly sets new head",
+        async () => {
+            const blocks = generateBlocks(1, 0, "main");
 
-    fnIt<BlockCache<any>>(b => b.setHead, "setHead throws for head not in cache", async () => {
-        const blocks = generateBlocks(1, 0, "main");
+            await bc.addBlock(blocks[0]);
+            bc.setHead(blocks[0].hash);
+            expect(bc.head).to.deep.equal(blocks[0]);
+        }
+    );
 
-        expect(() => bc.setHead(blocks[0].hash)).to.throw(ArgumentError);
-    });
+    fnIt<BlockCache<any>>(
+        b => b.setHead,
+        "setHead throws for head not in cache",
+        async () => {
+            const blocks = generateBlocks(1, 0, "main");
+
+            expect(() => bc.setHead(blocks[0].hash)).to.throw(ArgumentError);
+        }
+    );
 
     it("head throws if setHead never called", async () => {
         expect(() => bc.head).to.throw(ApplicationError);
@@ -440,7 +552,9 @@ describe("getConfirmations", () => {
 
     let resolveBatch: (value?: any) => void;
     beforeEach(async () => {
-        db = LevelUp(EncodingDown<string, DbObject>(MemDown(), { valueEncoding: "json" }));
+        db = LevelUp(
+            EncodingDown<string, DbObject>(MemDown(), { valueEncoding: "json" })
+        );
         blockStore = new BlockItemStore<IBlockStub & TransactionHashes>(db, defaultSerialiser);
         await blockStore.start();
 

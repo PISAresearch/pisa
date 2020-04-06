@@ -49,6 +49,8 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
     // Next height to be pruned; the cache will not store a block with height strictly smaller than pruneHeight
     private pruneHeight: number = 0;
 
+    private headSet: boolean = false;
+
     private mIsEmpty = true;
 
     // As the BlockCache has an on-disk store, a lock is used to serialize parallel write accesses
@@ -92,7 +94,7 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
 
     /** Remove all the blocks that are deeper than maxDepth, and all connected information. */
     private async prune() {
-        while (this.pruneHeight < this.minHeight) {
+        while (this.pruneHeight < this.minHeight && this.headSet && this.pruneHeight < this.head.number) {
             this.blockStore.deleteItemsAtHeight(this.pruneHeight);
             this.pruneHeight++;
         }
@@ -170,7 +172,7 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
                 if (attached === true) {
                     if (this.mIsEmpty) {
                         // set the prune height below the max depth
-                        this.pruneHeight = block.number - this.maxDepth - 10;
+                        this.pruneHeight = Math.max(block.number - this.maxDepth - 10, 0);
                         this.mIsEmpty = false;
                     }
 
@@ -186,7 +188,7 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
 
                     if (this.mIsEmpty) {
                         // set the prune height below the max depth
-                        this.pruneHeight = block.number - this.maxDepth - 10;
+                        this.pruneHeight = Math.max(block.number - this.maxDepth - 10, 0);
                         this.mIsEmpty = false;
                     }
 
@@ -295,6 +297,7 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
         if (!this.hasBlock(blockHash)) {
             throw new ArgumentError("Cannot set the head to be a block that isn't in the cache.", blockHash);
         }
+        this.headSet = true;
         this.headHash = blockHash;
     }
 
