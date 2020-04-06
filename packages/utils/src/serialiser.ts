@@ -13,7 +13,6 @@ export interface TypedPlainObject extends PlainObject {
 /* This should always be equal to the type field in TypedPlainObject */
 const DB_TYPE = "__type__";
 
-
 /**
  * An object that can be serialised and deserialised.
  * Implementations should also the corresponding public static `deserialise` method.
@@ -27,18 +26,18 @@ export interface Serialisable {
  * Given a Serialisable type X, Serialised<X> is the type of the serialised form of X.
  * The X class should have a public static method X.deserialise of type Serialised<X> and returning X.
  **/
-export type Serialised<X extends Serialisable> = ReturnType<X['serialise']>;
+export type Serialised<X extends Serialisable> = ReturnType<X["serialise"]>;
 
 /**
  * An object that is AnyObject or is Serialisable
  * We need this type for recursive serialisation and deserialisation functions.
  */
-type AnyObjectOrSerialisable =
+export type AnyObjectOrSerialisable =
     | Serialisable
     | AnyObject
     | AnyObjectOrSerialisable[]
     | {
-          [key: string]: AnyObjectOrSerialisable;   
+          [key: string]: AnyObjectOrSerialisable;
       };
 
 /**
@@ -61,8 +60,12 @@ export type DbObjectOrSerialisable =
           [key: string]: AnyObjectOrSerialisable;
       };
 
-function isPrimitive(value: any): value is Primitive {
+export function isPrimitive(value: any): value is Primitive {
     return (typeof value !== "object" && typeof value !== "function") || value == null;
+}
+
+export function isSerialisable(obj: any): obj is Serialisable {
+    return obj.serialise && obj.serialise instanceof Function;
 }
 
 export type Deserialisers = {
@@ -75,10 +78,6 @@ export type Deserialisers = {
 export class DbObjectSerialiser {
     constructor(public readonly deserialisers: Deserialisers) {}
 
-    private isSerialisable(obj: any): obj is Serialisable {
-        return obj.serialise && obj.serialise instanceof Function;
-    }
-
     private isSerialisedPlainObject(obj: PlainObject): obj is TypedPlainObject {
         return !!obj[DB_TYPE];
     }
@@ -88,7 +87,7 @@ export class DbObjectSerialiser {
             return obj;
         } else if (Array.isArray(obj)) {
             return (obj as AnyObjectOrSerialisable[]).map(item => this.serialiseAnyObject(item));
-        } else if (this.isSerialisable(obj)) {
+        } else if (isSerialisable(obj)) {
             const result = obj.serialise();
             if(result.__type__ && !this.deserialisers[result.__type__]) throw new ApplicationError(`Tried to serialise an object with __type__ ${result.__type__}, but no deserialiser is set for it. Make sure the serialiser is constructed with all the correct deserialisers.`); // prettier-ignore
 

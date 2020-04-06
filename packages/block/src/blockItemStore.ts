@@ -1,10 +1,102 @@
-import { ApplicationError } from "@pisa-research/errors";
-import { IBlockStub, BlockAndAttached } from "./block";
 import { LevelUp, LevelUpChain } from "levelup";
 import EncodingDown from "encoding-down";
-import { StartStopService, Lock, DbObject, DbObjectSerialiser, PlainObjectOrSerialisable, DbObjectOrSerialisable } from "@pisa-research/utils";
-import { AnchorState } from "./component";
 const sub = require("subleveldown");
+
+import { keccak256 } from "ethers/utils";
+
+import { ApplicationError, ArgumentError } from "@pisa-research/errors";
+import {
+    StartStopService,
+    Lock,
+    DbObject,
+    DbObjectSerialiser,
+    PlainObjectOrSerialisable,
+    DbObjectOrSerialisable,
+    isPrimitive,
+    isSerialisable,
+    AnyObjectOrSerialisable
+} from "@pisa-research/utils";
+
+import { IBlockStub, BlockAndAttached } from "./block";
+import { AnchorState } from "./component";
+
+export class ObjectCacheByHeight {
+    private readonly objectsByHeight: {
+        [height: number]: Map<string, PlainObjectOrSerialisable>;
+    };
+    public mCurHeight: number | undefined = undefined;
+    public get curHeight() {
+        return this.mCurHeight;
+    }
+
+    constructor(private readonly serialiser: DbObjectSerialiser, public readonly depth: number) {}
+
+    private hash(object: PlainObjectOrSerialisable) {
+        const serialisedObject = this.serialiser.serialise(object);
+        return keccak256(JSON.stringify(serialisedObject));
+    }
+
+    private pruneBelowHeight(minHeight: number) {
+        Object.keys(this.objectsByHeight)
+            .filter(h => Number(h) < minHeight)
+            .forEach(h => delete this.objectsByHeight[Number(h)]);
+    }
+
+    public getObject(hash: string): PlainObjectOrSerialisable | undefined {
+        if (this.curHeight == undefined) return undefined;
+
+        for (let h = this.curHeight; h >= this.curHeight - this.depth; h--) {
+            const cachedObject = this.objectsByHeight[h] && this.objectsByHeight[h].get(hash);
+            if (cachedObject != undefined) return cachedObject;
+        }
+
+        return undefined;
+    }
+
+    public addObject(height: number, object: PlainObjectOrSerialisable) {
+        if (this.mCurHeight != undefined) {
+            if (height < this.mCurHeight) throw new ArgumentError("Can't add object below the current height");
+        } else {
+            this.mCurHeight = height;
+        }
+
+        this.pruneBelowHeight(this.mCurHeight - this.depth);
+
+        if (this.objectsByHeight[height] == undefined) this.objectsByHeight[height] = new Map();
+
+        const hash = this.hash(object);
+        const prevObj = this.getObject(hash);
+        if (prevObj != undefined) {
+            // Object already in cache
+            this.objectsByHeight[height].set(hash, prevObj); // make sure it's store at `height` and not just at earlier heights
+            return false;
+        } else {
+            this.objectsByHeight[height].set(hash, object); // new object that wasn't in cache
+            return true;
+        }
+    }
+
+    public optimiseMappedObject(height: number, obj: { [key: string]: AnyObjectOrSerialisable }): { [key: string]: AnyObjectOrSerialisable } {
+        const result: { [key: string]: AnyObjectOrSerialisable } = {};
+        for (const key of Object.keys(obj)) {
+            const subObject = obj[key];
+            if (isPrimitive(subObject) || isSerialisable(subObject) || Array.isArray(subObject)) {
+                result[key] = obj[key];
+            } else {
+                const hash = this.hash(subObject);
+                const cachedSubobject = this.getObject(hash);
+                if (cachedSubobject != undefined) {
+                    this.addObject(height, cachedSubobject);
+                    result[key] = cachedSubobject;
+                } else {
+                    this.addObject(height, subObject);
+                    result[key] = obj[key];
+                }
+            }
+        }
+        return result;
+    }
+}
 
 /**
  * This store is a support structure for the block cache and all the related components that need to store blocks and other data that
@@ -26,10 +118,13 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
     /** Stores the anchor state computed for this block; indexed by component. */
     private static KEY_STATE = "state";
 
+    private readonly objectCache: ObjectCacheByHeight;
+
     private readonly subDb: LevelUp<EncodingDown<string, DbObject>>;
     constructor(db: LevelUp<EncodingDown<string, DbObject>>, private readonly serialiser: DbObjectSerialiser) {
         super("block-item-store");
         this.subDb = sub(db, `block-item-store`, { valueEncoding: "json" });
+        this.objectCache = new ObjectCacheByHeight(serialiser, 1);
     }
 
     private itemsByHeight: Map<number, Set<string>> = new Map();
@@ -41,6 +136,20 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
         return this.mBatch;
     }
 
+    private setItem(height: number, memKey: string, item: DbObjectOrSerialisable) {
+        const itemsAtHeight = this.itemsByHeight.get(height);
+        if (itemsAtHeight) itemsAtHeight.add(memKey);
+        else this.itemsByHeight.set(height, new Set([memKey]));
+
+        if (typeof item == "object" && !Array.isArray(item) && !isSerialisable(item)) {
+            const optimisedItem = this.objectCache.optimiseMappedObject(height, item);
+
+            this.items.set(memKey, optimisedItem);
+        } else {
+            this.items.set(memKey, item);
+        }
+    }
+
     protected async startInternal() {
         // load all items from the db
         for await (const record of this.subDb.createReadStream()) {
@@ -50,11 +159,9 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
             const height = Number.parseInt(key.substring(0, i));
             const memKey = key.substring(i + 1);
 
-            const itemsAtHeight = this.itemsByHeight.get(height);
-            if (itemsAtHeight) itemsAtHeight.add(memKey);
-            else this.itemsByHeight.set(height, new Set([memKey]));
+            console.log(`Read ${key}, memkey ${memKey}: ${value}`);
 
-            this.items.set(memKey, this.serialiser.deserialise(value));
+            this.setItem(height, memKey, this.serialiser.deserialise(value));
 
             if (memKey.endsWith(`:${BlockItemStore.KEY_STATE}`)) {
                 this.mHasAnyAnchorStates = true;
@@ -75,14 +182,9 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
         const memKey = `${blockHash}:${itemKey}`;
         const dbKey = `${blockHeight}:${memKey}`;
 
-        const itemsAtHeight = this.itemsByHeight.get(blockHeight);
-        if (itemsAtHeight) itemsAtHeight.add(memKey);
-        else this.itemsByHeight.set(blockHeight, new Set([memKey]));
-        this.items.set(memKey, item);
+        this.setItem(blockHeight, memKey, item);
 
-        const dbItem = this.serialiser.serialise(item);
-
-        this.batch.put(dbKey, dbItem);
+        this.batch.put(dbKey, this.serialiser.serialise(item));
     }
 
     /**
