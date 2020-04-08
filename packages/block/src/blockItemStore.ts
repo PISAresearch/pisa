@@ -147,8 +147,6 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
             const height = Number.parseInt(key.substring(0, i));
             const memKey = key.substring(i + 1);
 
-            console.log(`Read ${key}, memkey ${memKey}: ${value}`);
-
             this.setItem(height, memKey, this.serialiser.deserialise(value));
 
             if (memKey.endsWith(`:${BlockItemStore.KEY_STATE}`)) {
