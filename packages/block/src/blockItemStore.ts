@@ -2,7 +2,7 @@ import { LevelUp, LevelUpChain } from "levelup";
 import EncodingDown from "encoding-down";
 const sub = require("subleveldown");
 
-import { keccak256 } from "ethers/utils";
+import { keccak256, toUtf8Bytes } from "ethers/utils";
 
 import { ApplicationError, ArgumentError } from "@pisa-research/errors";
 import {
@@ -23,7 +23,7 @@ import { AnchorState } from "./component";
 export class ObjectCacheByHeight {
     private readonly objectsByHeight: {
         [height: number]: Map<string, PlainObjectOrSerialisable>;
-    };
+    } = {};
     public mCurHeight: number | undefined = undefined;
     public get curHeight() {
         return this.mCurHeight;
@@ -31,9 +31,9 @@ export class ObjectCacheByHeight {
 
     constructor(private readonly serialiser: DbObjectSerialiser, public readonly depth: number) {}
 
-    private hash(object: PlainObjectOrSerialisable) {
+    public hash(object: PlainObjectOrSerialisable) {
         const serialisedObject = this.serialiser.serialise(object);
-        return keccak256(JSON.stringify(serialisedObject));
+        return keccak256(toUtf8Bytes(JSON.stringify(serialisedObject)));
     }
 
     private pruneBelowHeight(minHeight: number) {
@@ -55,7 +55,9 @@ export class ObjectCacheByHeight {
 
     public addObject(height: number, object: PlainObjectOrSerialisable) {
         if (this.mCurHeight != undefined) {
-            if (height < this.mCurHeight) throw new ArgumentError("Can't add object below the current height");
+            if (height < this.mCurHeight) throw new ArgumentError("Can't add an object below the current height");
+
+            this.mCurHeight = Math.max(this.mCurHeight, height);
         } else {
             this.mCurHeight = height;
         }
@@ -68,7 +70,7 @@ export class ObjectCacheByHeight {
         const prevObj = this.getObject(hash);
         if (prevObj != undefined) {
             // Object already in cache
-            this.objectsByHeight[height].set(hash, prevObj); // make sure it's store at `height` and not just at earlier heights
+            this.objectsByHeight[height].set(hash, prevObj); // make sure it's stored at `height` and not just at earlier heights
             return false;
         } else {
             this.objectsByHeight[height].set(hash, object); // new object that wasn't in cache
@@ -136,20 +138,6 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
         return this.mBatch;
     }
 
-    private setItem(height: number, memKey: string, item: DbObjectOrSerialisable) {
-        const itemsAtHeight = this.itemsByHeight.get(height);
-        if (itemsAtHeight) itemsAtHeight.add(memKey);
-        else this.itemsByHeight.set(height, new Set([memKey]));
-
-        if (typeof item == "object" && !Array.isArray(item) && !isSerialisable(item)) {
-            const optimisedItem = this.objectCache.optimiseMappedObject(height, item);
-
-            this.items.set(memKey, optimisedItem);
-        } else {
-            this.items.set(memKey, item);
-        }
-    }
-
     protected async startInternal() {
         // load all items from the db
         for await (const record of this.subDb.createReadStream()) {
@@ -194,6 +182,20 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
     public getItem(blockHash: string, itemKey: string): DbObjectOrSerialisable | undefined {
         const key = `${blockHash}:${itemKey}`;
         return this.items.get(key);
+    }
+
+    private setItem(height: number, memKey: string, item: DbObjectOrSerialisable) {
+        const itemsAtHeight = this.itemsByHeight.get(height);
+        if (itemsAtHeight) itemsAtHeight.add(memKey);
+        else this.itemsByHeight.set(height, new Set([memKey]));
+
+        if (typeof item == "object" && !Array.isArray(item) && !isSerialisable(item)) {
+            const optimisedItem = this.objectCache.optimiseMappedObject(height, item);
+
+            this.items.set(memKey, optimisedItem);
+        } else {
+            this.items.set(memKey, item);
+        }
     }
 
     // Type safe methods to store blocks
