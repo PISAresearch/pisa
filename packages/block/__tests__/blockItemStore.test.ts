@@ -6,7 +6,7 @@ import EncodingDown from "encoding-down";
 import MemDown from "memdown";
 
 import { fnIt, wait } from "@pisa-research/test-utils";
-import { defaultSerialiser, DbObject } from "@pisa-research/utils";
+import { defaultSerialiser, DbObject, PlainObjectOrSerialisable } from "@pisa-research/utils";
 import { ObjectCacheByHeight, BlockItemStore } from "../src/blockItemStore";
 import { ArgumentError, ApplicationError } from "@pisa-research/errors";
 import { IBlockStub } from "../src";
@@ -68,7 +68,7 @@ describe("ObjectCacheByHeight", () => {
         const depth = 5;
         const maxHeight = 15;
         const cache = new ObjectCacheByHeight(defaultSerialiser, depth);
-        const savedObjects = {};
+        const savedObjects: PlainObjectOrSerialisable = {};
         for (let h = 5; h <= maxHeight; h++) {
             const obj = { height: h };
             cache.addObject(h, obj);
@@ -86,7 +86,7 @@ describe("ObjectCacheByHeight", () => {
         const depth = 5;
         const maxHeight = 15;
         const cache = new ObjectCacheByHeight(defaultSerialiser, depth);
-        const savedObjects = {};
+        const savedObjects: PlainObjectOrSerialisable = {};
         for (let h = 5; h <= maxHeight; h++) {
             const obj = { height: h };
             cache.addObject(h, obj);
