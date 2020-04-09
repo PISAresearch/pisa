@@ -23,11 +23,19 @@ import { AnchorState } from "./component";
 // Objects that are not primimtive but can be stored in the db can be stored in the cache.
 type CacheableObject = PlainObjectOrSerialisable | AnyObjectOrSerialisable[];
 
+/**
+ * A cache that identifies shared objects built during startup in the BlockItemStore, in order to avoid storing many copies of
+ * the same object in RAM. By identifying objects by a cryptographic hash function, we are certain that there won't be collisions.
+ * The cache keeps track of a height associated to the objects, and prunes objects deeper than a given depth.
+ */
 export class ObjectCacheByHeight {
     private readonly objectsByHeight: {
         [height: number]: Map<string, CacheableObject>;
     } = {};
     public mCurHeight: number | undefined = undefined;
+    /**
+     * Gets the maximum height of added objects.
+     */
     public get curHeight() {
         return this.mCurHeight;
     }
@@ -36,6 +44,11 @@ export class ObjectCacheByHeight {
 
     constructor(private readonly serialiser: DbObjectSerialiser, public readonly depth: number) {}
 
+    /**
+     * Computes the unique hash for the given object. The computed hash is stored in order to not recompute the hash multiple times for the
+     * same object (by using the object reference; therefore, the hash of a deeply equal object would be recomputed again).
+     * @param object
+     */
     public hash(object: CacheableObject) {
         const cachedResult = this.objectHash.get(object);
         if (cachedResult != undefined) return cachedResult;
@@ -47,12 +60,20 @@ export class ObjectCacheByHeight {
         return result;
     }
 
+    /**
+     * Remove all the stored elements that have an associated height below minHeight.
+     * @param minHeight
+     */
     private pruneBelowHeight(minHeight: number) {
         Object.keys(this.objectsByHeight)
             .filter(h => Number(h) < minHeight)
             .forEach(h => delete this.objectsByHeight[Number(h)]);
     }
 
+    /**
+     * Given a hash, returns the cached object for that hash (if present), or undefined otherwise.
+     * @param hash
+     */
     public getObject(hash: string): CacheableObject | undefined {
         if (this.curHeight == undefined) return undefined;
 
@@ -70,21 +91,24 @@ export class ObjectCacheByHeight {
 
     private _addObject(height: number, object: CacheableObject) {
         // Recursively add any subobject that is not primitive
-        if (ObjectCacheByHeight.isMappedObject(object)) {
-            for (const value of Object.values(object)) {
-                if (!isPrimitive(value)) this._addObject(height, value);
-            }
-        } else if (Array.isArray(object)) {
+        if (Array.isArray(object)) {
             object.forEach(el => {
                 if (!isPrimitive(el)) this._addObject(height, el);
             });
+        } else if (!isSerialisable(object)) {
+            // If not an array nor a Serialisable, then it is a mapped object.
+            // We make sure to add all the subobjects.
+            for (const value of Object.values(object)) {
+                if (!isPrimitive(value)) this._addObject(height, value);
+            }
         }
 
         const hash = this.hash(object);
         const prevObj = this.getObject(hash);
         if (prevObj != undefined) {
             // Object already in cache
-            this.objectsByHeight[height].set(hash, prevObj); // make sure it's stored at `height` and not just at earlier heights
+            // We make sure it's also stored at `height` and not just at earlier heights, so it's not pruned prematurely.
+            this.objectsByHeight[height].set(hash, prevObj);
             return false;
         } else {
             this.objectsByHeight[height].set(hash, object); // new object that wasn't in cache
@@ -92,6 +116,12 @@ export class ObjectCacheByHeight {
         }
     }
 
+    /**
+     * Adds an object (and all its cacheable sub-objects recursively). Objects are stored for the given height and won't be pruned
+     * until curHeight is at least larger than height + depth (including the ones that were already in cache).
+     * @param height
+     * @param object
+     */
     public addObject(height: number, object: CacheableObject) {
         if (this.mCurHeight != undefined) {
             if (height < this.mCurHeight) throw new ArgumentError("Can't add an object below the current height");
@@ -113,6 +143,14 @@ export class ObjectCacheByHeight {
         else return this.optimiseObject(obj);
     }
 
+    /**
+     * Returns an optimised object that is deeply equal to the argument, but where every sub-object that deeply equals some object
+     * that was in cache is replaced with a reference to the cached object.
+     * If `object` itself is already in cache, then a reference to the cached object is returned; otherwise, a new object is built.
+     * If `object` is Serialisable, then `object` itself is returned.
+     * It does not add `object` (or any of the nested sub-objects) to the cache.
+     * @param obj
+     */
     public optimiseObject(obj: CacheableObject): CacheableObject {
         // If object is cached, return the cached copy
         const hash = this.hash(obj);
