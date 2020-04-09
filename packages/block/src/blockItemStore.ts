@@ -18,8 +18,9 @@ import {
 } from "@pisa-research/utils";
 
 import { IBlockStub, BlockAndAttached } from "./block";
-import { AnchorState, Component, ComponentAction } from "./component";
+import { AnchorState } from "./component";
 
+// Objects that are not primimtive but can be stored in the db can be stored in the cache.
 type CacheableObject = PlainObjectOrSerialisable | AnyObjectOrSerialisable[];
 
 export class ObjectCacheByHeight {
@@ -39,7 +40,7 @@ export class ObjectCacheByHeight {
         const cachedResult = this.objectHash.get(object);
         if (cachedResult != undefined) return cachedResult;
 
-        // TODO: JSON.stringify is not stable, so might return different keys for subobjects
+        // TODO: JSON.stringify is not stable, so it might return different results for objects that are deep equal
         const serialisedObject = this.serialiser.serialise(object);
         const result = keccak256(toUtf8Bytes(JSON.stringify(serialisedObject)));
         this.objectHash.set(object, result);
@@ -107,23 +108,23 @@ export class ObjectCacheByHeight {
         return this._addObject(height, object);
     }
 
-    private optimiseObjectOrPrimitive(height: number, obj: AnyObjectOrSerialisable) {
+    private optimiseObjectOrPrimitive(obj: AnyObjectOrSerialisable) {
         if (isPrimitive(obj)) return obj;
-        else this.optimiseObject(height, obj);
+        else return this.optimiseObject(obj);
     }
 
-    public optimiseObject(height: number, obj: CacheableObject): CacheableObject {
+    public optimiseObject(obj: CacheableObject): CacheableObject {
         // If object is cached, return the cached copy
         const hash = this.hash(obj);
         const cachedObject = this.getObject(hash);
         if (cachedObject != undefined) return cachedObject;
 
-        if (Array.isArray(obj)) return (obj as AnyObjectOrSerialisable[]).map(el => this.optimiseObjectOrPrimitive(height, el));
+        if (Array.isArray(obj)) return (obj as AnyObjectOrSerialisable[]).map(el => this.optimiseObjectOrPrimitive(el));
         else if (isSerialisable(obj)) return obj;
         else {
             const result: { [key: string]: AnyObjectOrSerialisable } = {};
             for (const [key, subObj] of Object.entries(obj)) {
-                result[key] = this.optimiseObjectOrPrimitive(height, subObj);
+                result[key] = this.optimiseObjectOrPrimitive(subObj);
             }
             return result;
         }
@@ -181,7 +182,7 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
                 this.setItem(height, memKey, deserialised);
             } else {
                 objectCache.addObject(height, deserialised);
-                this.setItem(height, memKey, objectCache.optimiseObject(height, deserialised));
+                this.setItem(height, memKey, objectCache.optimiseObject(deserialised));
             }
 
             if (memKey.endsWith(`:${BlockItemStore.KEY_STATE}`)) {

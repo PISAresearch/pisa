@@ -64,6 +64,21 @@ describe("ObjectCacheByHeight", () => {
         }
     );
 
+    fnIt<ObjectCacheByHeight>(
+        o => o.addObject,
+        "also adds subobjects recursively",
+        () => {
+            const cache = new ObjectCacheByHeight(defaultSerialiser, 5);
+            const obj = {
+                subobject: { test: 1 },
+                array: [{ test: 2 }, 5, false]
+            };
+            expect(cache.addObject(15, obj)).to.be.true;
+            expect(cache.addObject(16, { test: 1 })).to.be.false; // added as an inner object
+            expect(cache.addObject(17, { test: 2 })).to.be.false; // added as element of the array
+        }
+    );
+
     it("records stored items up to the depth", () => {
         const depth = 5;
         const maxHeight = 15;
@@ -119,63 +134,52 @@ describe("ObjectCacheByHeight", () => {
         expect(cache.getObject(hash)).to.equal(obj1);
     });
 
-    // fnIt<ObjectCacheByHeight>(
-    //     o => o.optimiseMappedObject,
-    //     "adds all entries of the mapped object to the cache",
-    //     () => {
-    //         const complexObject = {
-    //             a: { first: "entry" },
-    //             b: { test: 42 },
-    //             c: { some: "object" },
-    //             d: 79, // not an object
-    //             e: { foo: "bar" }
-    //         };
+    fnIt<ObjectCacheByHeight>(
+        o => o.optimiseObject,
+        "replaces nested object entries that were already added to the cache",
+        () => {
+            const complexObject1 = {
+                a: { first: "entry" },
+                b: { test: 42 },
+                c: { some: "object" },
+                d: 79, // not an object
+                e: [2, { foo: "bar" }]
+            };
 
-    //         const cache = new ObjectCacheByHeight(defaultSerialiser, 5);
+            const complexObject2 = {
+                a: { first: "entry" }, // same
+                b: { test: 43 }, // different
+                c: { some: "different object" }, // different
+                d: 100, // not an object
+                ZZZ: [{ foo: "bar" }, true] // has a shared object with an array in complexObject1
+            };
 
-    //         cache.optimiseMappedObject(10, complexObject);
-    //         for (const key of ["a", "b", "c", "e"]) {
-    //             const hash = cache.hash(complexObject[key]);
-    //             expect(cache.getObject(hash)).to.equal(complexObject[key]);
-    //         }
-    //     }
-    // );
+            const cache = new ObjectCacheByHeight(defaultSerialiser, 5);
 
-    // fnIt<ObjectCacheByHeight>(
-    //     o => o.optimiseMappedObject,
-    //     "optimises common entries of a new object",
-    //     () => {
-    //         const complexObject = {
-    //             a: { first: "entry" },
-    //             b: { test: 42 },
-    //             c: { some: "object" },
-    //             d: 79, // not an object
-    //             e: { foo: "bar" }
-    //         };
+            cache.addObject(11, complexObject1);
 
-    //         const complexObject2 = {
-    //             a: { first: "entry" }, // same
-    //             b: { test: 43 }, // different
-    //             c: { some: "different object" }, // different
-    //             d: 100, // not an object
-    //             e: { foo: "bar" } // same
-    //         };
+            const result = cache.optimiseObject(complexObject2);
 
-    //         const cache = new ObjectCacheByHeight(defaultSerialiser, 5);
+            // fields "a" end one of the element of thte array are matching, so while the object should deep equal
+            // complexObject2, those common parts should be identically equal to the references in complexObject1
+            expect(result).to.deep.equal(complexObject2);
+            expect(result["a"]).to.equal(complexObject1.a);
+            expect(result["ZZZ"][0]).to.equal(complexObject1.e[1]);
+        }
+    );
 
-    //         cache.optimiseMappedObject(10, complexObject);
+    fnIt<ObjectCacheByHeight>(
+        o => o.optimiseObject,
+        "returns the passed object if already in cache",
+        () => {
+            const obj = { foo: "bar" };
+            const cache = new ObjectCacheByHeight(defaultSerialiser, 5);
 
-    //         const result = cache.optimiseMappedObject(11, complexObject2);
+            cache.addObject(11, obj);
 
-    //         // fields "a" end "e" are matching, so it should be recycled from the first object
-    //         // the other ebjects should strictly equal the second object
-    //         expect(result.a).to.equal(complexObject.a);
-    //         expect(result.b).to.equal(complexObject2.b);
-    //         expect(result.c).to.equal(complexObject2.c);
-    //         expect(result.d).to.equal(complexObject2.d);
-    //         expect(result.e).to.equal(complexObject.e);
-    //     }
-    // );
+            expect(cache.optimiseObject(obj)).to.equal(obj);
+        }
+    );
 });
 
 describe("BlockItemStore", () => {
