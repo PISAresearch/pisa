@@ -78,7 +78,7 @@ describe("ObjectCacheByHeight", () => {
         for (let h = maxHeight - depth; h <= maxHeight; h++) {
             const hash = cache.hash({ height: h });
             // asserts strict equality - it must be the same object
-            expect(cache.getObject(hash), `should still have objects at hieght ${h}`).to.equal(savedObjects[h]);
+            expect(cache.getObject(hash), `should still have objects at height ${h}`).to.equal(savedObjects[h]);
         }
     });
 
@@ -119,63 +119,63 @@ describe("ObjectCacheByHeight", () => {
         expect(cache.getObject(hash)).to.equal(obj1);
     });
 
-    fnIt<ObjectCacheByHeight>(
-        o => o.optimiseMappedObject,
-        "adds all entries of the mapped object to the cache",
-        () => {
-            const complexObject = {
-                a: { first: "entry" },
-                b: { test: 42 },
-                c: { some: "object" },
-                d: 79, // not an object
-                e: { foo: "bar" }
-            };
+    // fnIt<ObjectCacheByHeight>(
+    //     o => o.optimiseMappedObject,
+    //     "adds all entries of the mapped object to the cache",
+    //     () => {
+    //         const complexObject = {
+    //             a: { first: "entry" },
+    //             b: { test: 42 },
+    //             c: { some: "object" },
+    //             d: 79, // not an object
+    //             e: { foo: "bar" }
+    //         };
 
-            const cache = new ObjectCacheByHeight(defaultSerialiser, 5);
+    //         const cache = new ObjectCacheByHeight(defaultSerialiser, 5);
 
-            cache.optimiseMappedObject(10, complexObject);
-            for (const key of ["a", "b", "c", "e"]) {
-                const hash = cache.hash(complexObject[key]);
-                expect(cache.getObject(hash)).to.equal(complexObject[key]);
-            }
-        }
-    );
+    //         cache.optimiseMappedObject(10, complexObject);
+    //         for (const key of ["a", "b", "c", "e"]) {
+    //             const hash = cache.hash(complexObject[key]);
+    //             expect(cache.getObject(hash)).to.equal(complexObject[key]);
+    //         }
+    //     }
+    // );
 
-    fnIt<ObjectCacheByHeight>(
-        o => o.optimiseMappedObject,
-        "optimises common entries of a new object",
-        () => {
-            const complexObject = {
-                a: { first: "entry" },
-                b: { test: 42 },
-                c: { some: "object" },
-                d: 79, // not an object
-                e: { foo: "bar" }
-            };
+    // fnIt<ObjectCacheByHeight>(
+    //     o => o.optimiseMappedObject,
+    //     "optimises common entries of a new object",
+    //     () => {
+    //         const complexObject = {
+    //             a: { first: "entry" },
+    //             b: { test: 42 },
+    //             c: { some: "object" },
+    //             d: 79, // not an object
+    //             e: { foo: "bar" }
+    //         };
 
-            const complexObject2 = {
-                a: { first: "entry" }, // same
-                b: { test: 43 }, // different
-                c: { some: "different object" }, // different
-                d: 100, // not an object
-                e: { foo: "bar" } // same
-            };
+    //         const complexObject2 = {
+    //             a: { first: "entry" }, // same
+    //             b: { test: 43 }, // different
+    //             c: { some: "different object" }, // different
+    //             d: 100, // not an object
+    //             e: { foo: "bar" } // same
+    //         };
 
-            const cache = new ObjectCacheByHeight(defaultSerialiser, 5);
+    //         const cache = new ObjectCacheByHeight(defaultSerialiser, 5);
 
-            cache.optimiseMappedObject(10, complexObject);
+    //         cache.optimiseMappedObject(10, complexObject);
 
-            const result = cache.optimiseMappedObject(11, complexObject2);
+    //         const result = cache.optimiseMappedObject(11, complexObject2);
 
-            // fields "a" end "e" are matching, so it should be recycled from the first object
-            // the other ebjects should strictly equal the second object
-            expect(result.a).to.equal(complexObject.a);
-            expect(result.b).to.equal(complexObject2.b);
-            expect(result.c).to.equal(complexObject2.c);
-            expect(result.d).to.equal(complexObject2.d);
-            expect(result.e).to.equal(complexObject.e);
-        }
-    );
+    //         // fields "a" end "e" are matching, so it should be recycled from the first object
+    //         // the other ebjects should strictly equal the second object
+    //         expect(result.a).to.equal(complexObject.a);
+    //         expect(result.b).to.equal(complexObject2.b);
+    //         expect(result.c).to.equal(complexObject2.c);
+    //         expect(result.d).to.equal(complexObject2.d);
+    //         expect(result.e).to.equal(complexObject.e);
+    //     }
+    // );
 });
 
 describe("BlockItemStore", () => {

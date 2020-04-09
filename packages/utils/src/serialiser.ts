@@ -55,7 +55,7 @@ export type PlainObjectOrSerialisable =
 export type DbObjectOrSerialisable =
     | Serialisable
     | DbObject
-    | DbObjectOrSerialisable[]
+    | AnyObjectOrSerialisable[]
     | {
           [key: string]: AnyObjectOrSerialisable;
       };
