@@ -43,7 +43,9 @@ export class ObjectCache {
         const cachedResult = this.objectHash.get(object);
         if (cachedResult != undefined) return cachedResult;
 
-        // TODO: JSON.stringify is not stable, so it might return different results for objects that are deep equal
+        // JSON.stringify is not stable, so it might return different results for objects that are deep equal.
+        // We could optimise further by using a JSON serialisation that is stable, or a custom hash function
+        // that does not use the JSON representation at all.
         const serialisedObject = this.serialiser.serialise(object);
         const result = keccak256(toUtf8Bytes(JSON.stringify(serialisedObject)));
         this.objectHash.set(object, result);
