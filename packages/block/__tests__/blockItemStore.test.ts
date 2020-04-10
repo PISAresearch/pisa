@@ -103,7 +103,7 @@ describe("ObjectCache", () => {
 
             const result: any = cache.optimiseObject(complexObject2);
 
-            // fields "a" end one of the element of the array are matching, so while the object should deep equal
+            // fields "a" and one of the element of the array are matching, so while the object should deep equal
             // complexObject2, those common parts should be identically equal to the references in complexObject1
             expect(result).to.deep.equal(complexObject2);
             expect(result["a"]).to.equal(complexObject1.a);

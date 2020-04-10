@@ -20,16 +20,18 @@ import {
 import { IBlockStub, BlockAndAttached } from "./block";
 import { AnchorState } from "./component";
 
-// Objects that are not primimtive but can be stored in the db can be stored in the cache.
+// Objects that can be stored in the cache (aything that is not primitive and can be stored in the DB, including Serialisable).
 type CacheableObject = PlainObjectOrSerialisable | AnyObjectOrSerialisable[];
 
 /**
  * A cache that identifies shared objects built during startup in the BlockItemStore, in order to avoid storing many copies of
- * the same object in RAM. By identifying objects by a cryptographic hash function, we are certain that there won't be collisions.
+ * the same object in RAM. By identifying objects with a cryptographic hash function, we are certain that there won't be collisions.
  */
 export class ObjectCache {
+    // All the objects stored in the cache, kayed by their hash
     private readonly objects = new Map<string, CacheableObject>();
 
+    // WeakMap from objects to their hash, to make sure that we never compute the hash of the same object multiple times.
     private readonly objectHash = new WeakMap<object, string>();
 
     constructor(private readonly serialiser: DbObjectSerialiser) {}
@@ -39,7 +41,7 @@ export class ObjectCache {
      * same object (by using the object reference; therefore, the hash of a deeply equal object would be recomputed again).
      * @param object
      */
-    public hash(object: CacheableObject) {
+    private hash(object: CacheableObject) {
         const cachedResult = this.objectHash.get(object);
         if (cachedResult != undefined) return cachedResult;
 
@@ -50,18 +52,6 @@ export class ObjectCache {
         const result = keccak256(toUtf8Bytes(JSON.stringify(serialisedObject)));
         this.objectHash.set(object, result);
         return result;
-    }
-
-    /**
-     * Given a hash, returns the cached object for that hash (if present), or undefined otherwise.
-     * @param hash
-     */
-    public getObject(hash: string): CacheableObject | undefined {
-        return this.objects.get(hash);
-    }
-
-    public static isMappedObject(object: AnyObjectOrSerialisable): object is { [key: string]: AnyObjectOrSerialisable } {
-        return !isPrimitive(object) && !Array.isArray(object) && !isSerialisable(object);
     }
 
     /**
@@ -109,7 +99,7 @@ export class ObjectCache {
     public optimiseObject(obj: CacheableObject): CacheableObject {
         // If object is cached, return the cached copy
         const hash = this.hash(obj);
-        const cachedObject = this.getObject(hash);
+        const cachedObject = this.objects.get(hash);
         if (cachedObject != undefined) return cachedObject;
 
         if (Array.isArray(obj)) return (obj as AnyObjectOrSerialisable[]).map(el => this.optimiseObjectOrPrimitive(el));
