@@ -4,7 +4,7 @@ const sub = require("subleveldown");
 
 import { keccak256, toUtf8Bytes } from "ethers/utils";
 
-import { ApplicationError, ArgumentError } from "@pisa-research/errors";
+import { ApplicationError } from "@pisa-research/errors";
 import {
     StartStopService,
     Lock,
@@ -26,19 +26,9 @@ type CacheableObject = PlainObjectOrSerialisable | AnyObjectOrSerialisable[];
 /**
  * A cache that identifies shared objects built during startup in the BlockItemStore, in order to avoid storing many copies of
  * the same object in RAM. By identifying objects by a cryptographic hash function, we are certain that there won't be collisions.
- * The cache keeps track of a height associated to the objects, and prunes objects deeper than a given depth.
  */
-export class ObjectCacheByHeight {
-    private readonly objectsByHeight: {
-        [height: number]: Map<string, CacheableObject>;
-    } = {};
-    public mCurHeight: number | undefined = undefined;
-    /**
-     * Gets the maximum height of added objects.
-     */
-    public get curHeight() {
-        return this.mCurHeight;
-    }
+export class ObjectCache {
+    private readonly objects = new Map<string, CacheableObject>();
 
     private readonly objectHash = new WeakMap<object, string>();
 
@@ -61,81 +51,44 @@ export class ObjectCacheByHeight {
     }
 
     /**
-     * Remove all the stored elements that have an associated height below minHeight.
-     * @param minHeight
-     */
-    private pruneBelowHeight(minHeight: number) {
-        Object.keys(this.objectsByHeight)
-            .filter(h => Number(h) < minHeight)
-            .forEach(h => delete this.objectsByHeight[Number(h)]);
-    }
-
-    /**
      * Given a hash, returns the cached object for that hash (if present), or undefined otherwise.
      * @param hash
      */
     public getObject(hash: string): CacheableObject | undefined {
-        if (this.curHeight == undefined) return undefined;
-
-        for (let h = this.curHeight; h >= this.curHeight - this.depth; h--) {
-            const cachedObject = this.objectsByHeight[h] && this.objectsByHeight[h].get(hash);
-            if (cachedObject != undefined) return cachedObject;
-        }
-
-        return undefined;
+        return this.objects.get(hash);
     }
 
     public static isMappedObject(object: AnyObjectOrSerialisable): object is { [key: string]: AnyObjectOrSerialisable } {
         return !isPrimitive(object) && !Array.isArray(object) && !isSerialisable(object);
     }
 
-    private _addObject(height: number, object: CacheableObject) {
+    /**
+     * Adds an object (and all its cacheable sub-objects recursively).
+     * @param object
+     */
+    public addObject(object: CacheableObject) {
         // Recursively add any subobject that is not primitive
         if (Array.isArray(object)) {
             object.forEach(el => {
-                if (!isPrimitive(el)) this._addObject(height, el);
+                if (!isPrimitive(el)) this.addObject(el);
             });
         } else if (!isSerialisable(object)) {
             // If not an array nor a Serialisable, then it is a mapped object.
-            // We make sure to add all the subobjects.
+            // We make sure to add all the sub-objects.
             for (const value of Object.values(object)) {
-                if (!isPrimitive(value)) this._addObject(height, value);
+                if (!isPrimitive(value)) this.addObject(value);
             }
         }
 
         const hash = this.hash(object);
-        const prevObj = this.getObject(hash);
+        const prevObj = this.objects.get(hash);
         if (prevObj != undefined) {
             // Object already in cache
-            // We make sure it's also stored at `height` and not just at earlier heights, so it's not pruned prematurely.
-            this.objectsByHeight[height].set(hash, prevObj);
             return false;
         } else {
-            this.objectsByHeight[height].set(hash, object); // new object that wasn't in cache
+            this.objects.set(hash, object); // new object that wasn't in cache
             return true;
         }
-    }
-
-    /**
-     * Adds an object (and all its cacheable sub-objects recursively). Objects are stored for the given height and won't be pruned
-     * until curHeight is at least larger than height + depth (including the ones that were already in cache).
-     * @param height
-     * @param object
-     */
-    public addObject(height: number, object: CacheableObject) {
-        if (this.mCurHeight != undefined) {
-            if (height < this.mCurHeight) throw new ArgumentError("Can't add an object below the current height");
-
-            this.mCurHeight = Math.max(this.mCurHeight, height);
-        } else {
-            this.mCurHeight = height;
-        }
-
-        this.pruneBelowHeight(this.mCurHeight - this.depth);
-
-        if (this.objectsByHeight[height] == undefined) this.objectsByHeight[height] = new Map();
-
-        return this._addObject(height, object);
     }
 
     private optimiseObjectOrPrimitive(obj: AnyObjectOrSerialisable) {
@@ -205,11 +158,10 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
     }
 
     protected async startInternal() {
-        const objectCache = new ObjectCacheByHeight(this.serialiser, 1);
+        const objectCache = new ObjectCache(this.serialiser, 1);
         // load all items from the db
         for await (const record of this.subDb.createReadStream()) {
             const { key, value } = (record as any) as { key: string; value: any };
-            console.log(`${key}: ${JSON.stringify(value)}`);
 
             const i = key.indexOf(":");
             const height = Number.parseInt(key.substring(0, i));
@@ -219,7 +171,7 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
             if (isPrimitive(deserialised)) {
                 this.setItem(height, memKey, deserialised);
             } else {
-                objectCache.addObject(height, deserialised);
+                objectCache.addObject(deserialised);
                 this.setItem(height, memKey, objectCache.optimiseObject(deserialised));
             }
 

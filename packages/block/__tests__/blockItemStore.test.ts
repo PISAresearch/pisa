@@ -6,9 +6,10 @@ import EncodingDown from "encoding-down";
 import MemDown from "memdown";
 
 import { fnIt, wait } from "@pisa-research/test-utils";
-import { DbObject, PlainObjectOrSerialisable, Serialisable, Serialised, defaultDeserialisers, DbObjectSerialiser } from "@pisa-research/utils";
-import { ObjectCacheByHeight, BlockItemStore } from "../src/blockItemStore";
-import { ArgumentError, ApplicationError } from "@pisa-research/errors";
+import { DbObject, Serialisable, Serialised, defaultDeserialisers, DbObjectSerialiser } from "@pisa-research/utils";
+import { ApplicationError } from "@pisa-research/errors";
+
+import { ObjectCache, BlockItemStore } from "../src/blockItemStore";
 import { IBlockStub } from "../src";
 
 /**
@@ -38,132 +39,45 @@ const serialiser = new DbObjectSerialiser({
     [SerialisableThing.TYPE]: SerialisableThing.deserialise
 });
 
-describe("ObjectCacheByHeight", () => {
-    it("curHeight is undefined before adding any object", () => {
-        const cache = new ObjectCacheByHeight(serialiser, 5);
-        expect(cache.curHeight).to.be.undefined;
-    });
-
-    it("curHeight equals the height the only added element", () => {
-        const cache = new ObjectCacheByHeight(serialiser, 5);
-        cache.addObject(42, {});
-        expect(cache.curHeight).equals(42);
-    });
-
-    it("curHeight equals the maximum height added", () => {
-        const cache = new ObjectCacheByHeight(serialiser, 5);
-        cache.addObject(1, {});
-        cache.addObject(42, {});
-        cache.addObject(99, {});
-        cache.addObject(199, {});
-        cache.addObject(200, {});
-        expect(cache.curHeight).equals(200);
-    });
-
-    fnIt<ObjectCacheByHeight>(
+describe("ObjectCache", () => {
+    fnIt<ObjectCache>(
         o => o.addObject,
         "adds a new object and returns true",
         () => {
-            const cache = new ObjectCacheByHeight(serialiser, 5);
-            expect(cache.addObject(15, { test: "object" })).to.be.true;
+            const cache = new ObjectCache(serialiser, 5);
+            expect(cache.addObject({ test: "object" })).to.be.true;
         }
     );
 
-    fnIt<ObjectCacheByHeight>(
-        o => o.addObject,
-        "throws ArgumentError if the height is lower than curHeight",
-        () => {
-            const cache = new ObjectCacheByHeight(serialiser, 5);
-            expect(cache.addObject(15, { test: "object" })).to.be.true;
-            expect(cache.addObject(15, { test: "object2" })).to.be.true;
-            expect(() => cache.addObject(14, { test: "object3" })).to.throw(ArgumentError);
-        }
-    );
-
-    fnIt<ObjectCacheByHeight>(
+    fnIt<ObjectCache>(
         o => o.addObject,
         "returns false if an object was previously added",
         () => {
-            const cache = new ObjectCacheByHeight(serialiser, 5);
-            expect(cache.addObject(15, { test: "object1" })).to.be.true;
-            expect(cache.addObject(16, { test: "object2" })).to.be.true;
-            expect(cache.addObject(17, { test: "object1" })).to.be.false;
+            const cache = new ObjectCache(serialiser, 5);
+            expect(cache.addObject({ test: "object1" })).to.be.true;
+            expect(cache.addObject({ test: "object2" })).to.be.true;
+            expect(cache.addObject({ test: "object1" })).to.be.false;
         }
     );
 
-    fnIt<ObjectCacheByHeight>(
+    fnIt<ObjectCache>(
         o => o.addObject,
         "also adds subobjects recursively",
         () => {
-            const cache = new ObjectCacheByHeight(serialiser, 5);
+            const cache = new ObjectCache(serialiser, 5);
             const obj = {
                 subobject: { test: 1 },
                 array: [{ test: 2 }, 5, false],
                 serialisable: new SerialisableThing("apple")
             };
-            expect(cache.addObject(15, obj)).to.be.true;
-            expect(cache.addObject(16, { test: 1 })).to.be.false; // added as an inner object
-            expect(cache.addObject(17, { test: 2 })).to.be.false; // added as element of the array
-            expect(cache.addObject(18, new SerialisableThing("apple"))).to.be.false; // sarialisable objects are added too
+            expect(cache.addObject(obj)).to.be.true;
+            expect(cache.addObject({ test: 1 })).to.be.false; // added as an inner object
+            expect(cache.addObject({ test: 2 })).to.be.false; // added as element of the array
+            expect(cache.addObject(new SerialisableThing("apple"))).to.be.false; // sarialisable objects are added too
         }
     );
 
-    it("records stored items up to the depth", () => {
-        const depth = 5;
-        const maxHeight = 15;
-        const cache = new ObjectCacheByHeight(serialiser, depth);
-        const savedObjects: PlainObjectOrSerialisable = {};
-        for (let h = 5; h <= maxHeight; h++) {
-            const obj = { height: h };
-            cache.addObject(h, obj);
-            savedObjects[h] = obj;
-        }
-
-        for (let h = maxHeight - depth; h <= maxHeight; h++) {
-            const hash = cache.hash({ height: h });
-            // asserts strict equality - it must be the same object
-            expect(cache.getObject(hash), `should still have objects at height ${h}`).to.equal(savedObjects[h]);
-        }
-    });
-
-    it("prunes items deeper than depth", async () => {
-        const depth = 5;
-        const maxHeight = 15;
-        const cache = new ObjectCacheByHeight(serialiser, depth);
-        const savedObjects: PlainObjectOrSerialisable = {};
-        for (let h = 5; h <= maxHeight; h++) {
-            const obj = { height: h };
-            cache.addObject(h, obj);
-            savedObjects[h] = obj;
-        }
-
-        for (let h = 5; h < maxHeight - depth; h++) {
-            const hash = cache.hash({ height: h });
-            expect(cache.getObject(hash), `should have pruned objects at height ${h}`).to.be.undefined;
-        }
-    });
-
-    it("records references to the pruned instances of objects if there are more recent copies", () => {
-        const obj1 = { test: 42 };
-        const obj2 = { test: 100 };
-
-        const depth = 5;
-
-        const cache = new ObjectCacheByHeight(serialiser, depth);
-        cache.addObject(8, obj1);
-        cache.addObject(9, obj2);
-        cache.addObject(10, obj2);
-        cache.addObject(11, obj1);
-        cache.addObject(12, obj2);
-        cache.addObject(13, obj2);
-        cache.addObject(14, obj2);
-
-        // height 8 has been pruned, but the reference returned for an object equal to obj1 should still be the same, as it appears also at height 11
-        const hash = cache.hash({ test: 42 });
-        expect(cache.getObject(hash)).to.equal(obj1);
-    });
-
-    fnIt<ObjectCacheByHeight>(
+    fnIt<ObjectCache>(
         o => o.optimiseObject,
         "replaces nested object entries that were already added to the cache",
         () => {
@@ -183,11 +97,11 @@ describe("ObjectCacheByHeight", () => {
                 ZZZ: [{ foo: "bar" }, true] // has a shared object with an array in complexObject1
             };
 
-            const cache = new ObjectCacheByHeight(serialiser, 5);
+            const cache = new ObjectCache(serialiser, 5);
 
-            cache.addObject(11, complexObject1);
+            cache.addObject(complexObject1);
 
-            const result = cache.optimiseObject(complexObject2);
+            const result: any = cache.optimiseObject(complexObject2);
 
             // fields "a" end one of the element of the array are matching, so while the object should deep equal
             // complexObject2, those common parts should be identically equal to the references in complexObject1
@@ -197,27 +111,27 @@ describe("ObjectCacheByHeight", () => {
         }
     );
 
-    fnIt<ObjectCacheByHeight>(
+    fnIt<ObjectCache>(
         o => o.optimiseObject,
         "returns the passed object if already in cache",
         () => {
             const obj = { foo: "bar" };
-            const cache = new ObjectCacheByHeight(serialiser, 5);
+            const cache = new ObjectCache(serialiser, 5);
 
-            cache.addObject(11, obj);
+            cache.addObject(obj);
 
             expect(cache.optimiseObject(obj)).to.equal(obj);
         }
     );
 
-    fnIt<ObjectCacheByHeight>(
+    fnIt<ObjectCache>(
         o => o.optimiseObject,
         "returns the passed Serialisable if already in cache",
         () => {
             const obj = new SerialisableThing("pear");
-            const cache = new ObjectCacheByHeight(serialiser, 5);
+            const cache = new ObjectCache(serialiser, 5);
 
-            cache.addObject(11, obj);
+            cache.addObject(obj);
 
             expect(cache.optimiseObject(obj)).to.equal(obj);
         }
