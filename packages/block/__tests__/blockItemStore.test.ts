@@ -6,25 +6,52 @@ import EncodingDown from "encoding-down";
 import MemDown from "memdown";
 
 import { fnIt, wait } from "@pisa-research/test-utils";
-import { defaultSerialiser, DbObject, PlainObjectOrSerialisable } from "@pisa-research/utils";
+import { DbObject, PlainObjectOrSerialisable, Serialisable, Serialised, defaultDeserialisers, DbObjectSerialiser } from "@pisa-research/utils";
 import { ObjectCacheByHeight, BlockItemStore } from "../src/blockItemStore";
 import { ArgumentError, ApplicationError } from "@pisa-research/errors";
 import { IBlockStub } from "../src";
 
+/**
+ * A test Serialisable class.
+ */
+class SerialisableThing implements Serialisable {
+    public static TYPE = "thing";
+
+    constructor(public readonly thing: string) {}
+
+    public serialise() {
+        return {
+            __type__: SerialisableThing.TYPE,
+            thing: this.thing
+        };
+    }
+
+    public static deserialise(obj: Serialised<SerialisableThing>): SerialisableThing {
+        if (obj.__type__ !== SerialisableThing.TYPE) throw new ApplicationError(`Unexpected __type__ while deserialising SerialisableThing: ${obj.__type__}`); // prettier-ignore
+
+        return new SerialisableThing(obj.thing);
+    }
+}
+
+const serialiser = new DbObjectSerialiser({
+    ...defaultDeserialisers,
+    [SerialisableThing.TYPE]: SerialisableThing.deserialise
+});
+
 describe("ObjectCacheByHeight", () => {
     it("curHeight is undefined before adding any object", () => {
-        const cache = new ObjectCacheByHeight(defaultSerialiser, 5);
+        const cache = new ObjectCacheByHeight(serialiser, 5);
         expect(cache.curHeight).to.be.undefined;
     });
 
     it("curHeight equals the height the only added element", () => {
-        const cache = new ObjectCacheByHeight(defaultSerialiser, 5);
+        const cache = new ObjectCacheByHeight(serialiser, 5);
         cache.addObject(42, {});
         expect(cache.curHeight).equals(42);
     });
 
     it("curHeight equals the maximum height added", () => {
-        const cache = new ObjectCacheByHeight(defaultSerialiser, 5);
+        const cache = new ObjectCacheByHeight(serialiser, 5);
         cache.addObject(1, {});
         cache.addObject(42, {});
         cache.addObject(99, {});
@@ -37,7 +64,7 @@ describe("ObjectCacheByHeight", () => {
         o => o.addObject,
         "adds a new object and returns true",
         () => {
-            const cache = new ObjectCacheByHeight(defaultSerialiser, 5);
+            const cache = new ObjectCacheByHeight(serialiser, 5);
             expect(cache.addObject(15, { test: "object" })).to.be.true;
         }
     );
@@ -46,7 +73,7 @@ describe("ObjectCacheByHeight", () => {
         o => o.addObject,
         "throws ArgumentError if the height is lower than curHeight",
         () => {
-            const cache = new ObjectCacheByHeight(defaultSerialiser, 5);
+            const cache = new ObjectCacheByHeight(serialiser, 5);
             expect(cache.addObject(15, { test: "object" })).to.be.true;
             expect(cache.addObject(15, { test: "object2" })).to.be.true;
             expect(() => cache.addObject(14, { test: "object3" })).to.throw(ArgumentError);
@@ -57,7 +84,7 @@ describe("ObjectCacheByHeight", () => {
         o => o.addObject,
         "returns false if an object was previously added",
         () => {
-            const cache = new ObjectCacheByHeight(defaultSerialiser, 5);
+            const cache = new ObjectCacheByHeight(serialiser, 5);
             expect(cache.addObject(15, { test: "object1" })).to.be.true;
             expect(cache.addObject(16, { test: "object2" })).to.be.true;
             expect(cache.addObject(17, { test: "object1" })).to.be.false;
@@ -68,21 +95,23 @@ describe("ObjectCacheByHeight", () => {
         o => o.addObject,
         "also adds subobjects recursively",
         () => {
-            const cache = new ObjectCacheByHeight(defaultSerialiser, 5);
+            const cache = new ObjectCacheByHeight(serialiser, 5);
             const obj = {
                 subobject: { test: 1 },
-                array: [{ test: 2 }, 5, false]
+                array: [{ test: 2 }, 5, false],
+                serialisable: new SerialisableThing("apple")
             };
             expect(cache.addObject(15, obj)).to.be.true;
             expect(cache.addObject(16, { test: 1 })).to.be.false; // added as an inner object
             expect(cache.addObject(17, { test: 2 })).to.be.false; // added as element of the array
+            expect(cache.addObject(18, new SerialisableThing("apple"))).to.be.false; // sarialisable objects are added too
         }
     );
 
     it("records stored items up to the depth", () => {
         const depth = 5;
         const maxHeight = 15;
-        const cache = new ObjectCacheByHeight(defaultSerialiser, depth);
+        const cache = new ObjectCacheByHeight(serialiser, depth);
         const savedObjects: PlainObjectOrSerialisable = {};
         for (let h = 5; h <= maxHeight; h++) {
             const obj = { height: h };
@@ -100,7 +129,7 @@ describe("ObjectCacheByHeight", () => {
     it("prunes items deeper than depth", async () => {
         const depth = 5;
         const maxHeight = 15;
-        const cache = new ObjectCacheByHeight(defaultSerialiser, depth);
+        const cache = new ObjectCacheByHeight(serialiser, depth);
         const savedObjects: PlainObjectOrSerialisable = {};
         for (let h = 5; h <= maxHeight; h++) {
             const obj = { height: h };
@@ -120,7 +149,7 @@ describe("ObjectCacheByHeight", () => {
 
         const depth = 5;
 
-        const cache = new ObjectCacheByHeight(defaultSerialiser, depth);
+        const cache = new ObjectCacheByHeight(serialiser, depth);
         cache.addObject(8, obj1);
         cache.addObject(9, obj2);
         cache.addObject(10, obj2);
@@ -154,13 +183,13 @@ describe("ObjectCacheByHeight", () => {
                 ZZZ: [{ foo: "bar" }, true] // has a shared object with an array in complexObject1
             };
 
-            const cache = new ObjectCacheByHeight(defaultSerialiser, 5);
+            const cache = new ObjectCacheByHeight(serialiser, 5);
 
             cache.addObject(11, complexObject1);
 
             const result = cache.optimiseObject(complexObject2);
 
-            // fields "a" end one of the element of thte array are matching, so while the object should deep equal
+            // fields "a" end one of the element of the array are matching, so while the object should deep equal
             // complexObject2, those common parts should be identically equal to the references in complexObject1
             expect(result).to.deep.equal(complexObject2);
             expect(result["a"]).to.equal(complexObject1.a);
@@ -173,7 +202,20 @@ describe("ObjectCacheByHeight", () => {
         "returns the passed object if already in cache",
         () => {
             const obj = { foo: "bar" };
-            const cache = new ObjectCacheByHeight(defaultSerialiser, 5);
+            const cache = new ObjectCacheByHeight(serialiser, 5);
+
+            cache.addObject(11, obj);
+
+            expect(cache.optimiseObject(obj)).to.equal(obj);
+        }
+    );
+
+    fnIt<ObjectCacheByHeight>(
+        o => o.optimiseObject,
+        "returns the passed Serialisable if already in cache",
+        () => {
+            const obj = new SerialisableThing("pear");
+            const cache = new ObjectCacheByHeight(serialiser, 5);
 
             cache.addObject(11, obj);
 
@@ -224,7 +266,7 @@ describe("BlockItemStore", () => {
         db = levelUp(
             EncodingDown<string, DbObject>(MemDown(), { valueEncoding: "json" })
         );
-        store = new BlockItemStore<IBlockStub>(db, defaultSerialiser);
+        store = new BlockItemStore<IBlockStub>(db, serialiser);
         await store.start();
     });
 
@@ -315,7 +357,7 @@ describe("BlockItemStore", () => {
         await store.stop();
 
         // New store using the same db
-        const newStore = new BlockItemStore<IBlockStub>(db, defaultSerialiser);
+        const newStore = new BlockItemStore<IBlockStub>(db, serialiser);
         await newStore.start();
 
         // Check that all items still return the correct value for the new store
