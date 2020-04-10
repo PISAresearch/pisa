@@ -32,7 +32,7 @@ export class ObjectCache {
 
     private readonly objectHash = new WeakMap<object, string>();
 
-    constructor(private readonly serialiser: DbObjectSerialiser, public readonly depth: number) {}
+    constructor(private readonly serialiser: DbObjectSerialiser) {}
 
     /**
      * Computes the unique hash for the given object. The computed hash is stored in order to not recompute the hash multiple times for the
@@ -160,7 +160,7 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
     }
 
     protected async startInternal() {
-        const objectCache = new ObjectCache(this.serialiser, 1);
+        const objectCache = new ObjectCache(this.serialiser);
         // load all items from the db
         for await (const record of this.subDb.createReadStream()) {
             const { key, value } = (record as any) as { key: string; value: any };

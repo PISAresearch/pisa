@@ -44,7 +44,7 @@ describe("ObjectCache", () => {
         o => o.addObject,
         "adds a new object and returns true",
         () => {
-            const cache = new ObjectCache(serialiser, 5);
+            const cache = new ObjectCache(serialiser);
             expect(cache.addObject({ test: "object" })).to.be.true;
         }
     );
@@ -53,7 +53,7 @@ describe("ObjectCache", () => {
         o => o.addObject,
         "returns false if an object was previously added",
         () => {
-            const cache = new ObjectCache(serialiser, 5);
+            const cache = new ObjectCache(serialiser);
             expect(cache.addObject({ test: "object1" })).to.be.true;
             expect(cache.addObject({ test: "object2" })).to.be.true;
             expect(cache.addObject({ test: "object1" })).to.be.false;
@@ -64,7 +64,7 @@ describe("ObjectCache", () => {
         o => o.addObject,
         "also adds subobjects recursively",
         () => {
-            const cache = new ObjectCache(serialiser, 5);
+            const cache = new ObjectCache(serialiser);
             const obj = {
                 subobject: { test: 1 },
                 array: [{ test: 2 }, 5, false],
@@ -97,7 +97,7 @@ describe("ObjectCache", () => {
                 ZZZ: [{ foo: "bar" }, true] // has a shared object with an array in complexObject1
             };
 
-            const cache = new ObjectCache(serialiser, 5);
+            const cache = new ObjectCache(serialiser);
 
             cache.addObject(complexObject1);
 
@@ -116,7 +116,7 @@ describe("ObjectCache", () => {
         "returns the passed object if already in cache",
         () => {
             const obj = { foo: "bar" };
-            const cache = new ObjectCache(serialiser, 5);
+            const cache = new ObjectCache(serialiser);
 
             cache.addObject(obj);
 
@@ -129,7 +129,7 @@ describe("ObjectCache", () => {
         "returns the passed Serialisable if already in cache",
         () => {
             const obj = new SerialisableThing("pear");
-            const cache = new ObjectCache(serialiser, 5);
+            const cache = new ObjectCache(serialiser);
 
             cache.addObject(obj);
 
