@@ -194,7 +194,7 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
             await this.processBlockNumber(currentHead);
 
             // if we're starting for the first we emit the head so that subscriber can initialise themselves
-            await this.processNewBlock(this.blockCache.head);
+            await this.blockItemStore.withBatch(async () => await this.processNewBlock(this.blockCache.head));
         } else {
             // if this isnt the first time processing then we process this block number just to set the head
             await this.processBlockNumber(storeHead);
