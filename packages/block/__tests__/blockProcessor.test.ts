@@ -54,7 +54,9 @@ describe("BlockProcessorStore", () => {
     let store: BlockProcessorStore;
 
     beforeEach(async () => {
-        db = LevelUp(EncodingDown<string, DbObject>(MemDown(), { valueEncoding: "json" }));
+        db = LevelUp(
+            EncodingDown<string, DbObject>(MemDown(), { valueEncoding: "json" })
+        );
         store = new BlockProcessorStore(db);
     });
 
@@ -63,18 +65,26 @@ describe("BlockProcessorStore", () => {
         expect(await store.getLatestHeadNumber()).to.equal(42);
     });
 
-    fnIt<BlockProcessorStore>(b => b.setLatestHeadNumber, "stores the latest head number in the db", async () => {
-        await store.setLatestHeadNumber(42);
+    fnIt<BlockProcessorStore>(
+        b => b.setLatestHeadNumber,
+        "stores the latest head number in the db",
+        async () => {
+            await store.setLatestHeadNumber(42);
 
-        const newStore = new BlockProcessorStore(db); // new store with the same db
-        expect(await newStore.getLatestHeadNumber()).to.equal(42);
-    });
+            const newStore = new BlockProcessorStore(db); // new store with the same db
+            expect(await newStore.getLatestHeadNumber()).to.equal(42);
+        }
+    );
 
-    fnIt<BlockProcessorStore>(b => b.setLatestHeadNumber, "overwites current head number", async () => {
-        await store.setLatestHeadNumber(42);
-        await store.setLatestHeadNumber(100);
-        expect(await store.getLatestHeadNumber()).to.equal(100);
-    });
+    fnIt<BlockProcessorStore>(
+        b => b.setLatestHeadNumber,
+        "overwites current head number",
+        async () => {
+            await store.setLatestHeadNumber(42);
+            await store.setLatestHeadNumber(100);
+            expect(await store.getLatestHeadNumber()).to.equal(100);
+        }
+    );
 });
 
 describe("BlockProcessor", () => {
@@ -114,8 +124,8 @@ describe("BlockProcessor", () => {
         let curBlockHash: string = hash;
         while (curBlockHash in blocksByHash) {
             const curBlock = blocksByHash[curBlockHash];
-            when(mockProvider.getBlock(curBlock.number, anything())).thenResolve(curBlock as unknown as ethers.providers.Block);
-            when(mockProvider.getBlock(curBlock.hash, anything())).thenResolve(curBlock as unknown as ethers.providers.Block);
+            when(mockProvider.getBlock(curBlock.number, anything())).thenResolve((curBlock as unknown) as ethers.providers.Block);
+            when(mockProvider.getBlock(curBlock.hash, anything())).thenResolve((curBlock as unknown) as ethers.providers.Block);
 
             curBlockHash = curBlock.parentHash;
         }
@@ -206,8 +216,12 @@ describe("BlockProcessor", () => {
         let newBlockFired = false;
         let newHeadFired = false;
         blockProcessor = new BlockProcessor(provider, blockStubAndTxHashFactory, blockCache, blockStore, blockProcessorStore);
-        blockProcessor.newBlock.addListener(async () => { newBlockFired = true });
-        blockProcessor.newHead.addListener(async () => { newHeadFired = true });
+        blockProcessor.newBlock.addListener(async () => {
+            newBlockFired = true;
+        });
+        blockProcessor.newHead.addListener(async () => {
+            newHeadFired = true;
+        });
         emitBlockHash("a1");
         emitBlockHash("a2");
         emitBlockHash("a3");
@@ -220,18 +234,22 @@ describe("BlockProcessor", () => {
     it("proxies the newBlock events from the blockCache once the service is started", async () => {
         let newBlockFiredCount = 0;
         blockProcessor = new BlockProcessor(provider, blockStubAndTxHashFactory, blockCache, blockStore, blockProcessorStore);
-        blockProcessor.newBlock.addListener(async () => { ++newBlockFiredCount });
+        blockProcessor.newBlock.addListener(async () => {
+            ++newBlockFiredCount;
+        });
 
         emitBlockHash("a1"); // should not fire here
+        emitBlockHash("a2"); // should not fire here
+        emitBlockHash("a3"); // should not fire here
 
-        await blockProcessor.start();
+        await blockProcessor.start(); // should fire once during startup
 
-        emitBlockHash("a2"); //should fire from now on
-        emitBlockHash("a3");
-        emitBlockHash("a4");
+        emitBlockHash("a4"); //should fire from now on
+        emitBlockHash("a5");
+        emitBlockHash("a6");
         await wait(20);
 
-        expect(newBlockFiredCount).to.equal(3);
+        expect(newBlockFiredCount).to.equal(4);
     });
 
     it("adds the first block received to the cache and emits a new head event after the corresponding new block events from the BlockCache", async () => {
@@ -275,7 +293,8 @@ describe("BlockProcessor", () => {
         blockProcessor = new BlockProcessor(provider, blockStubAndTxHashFactory, blockCache, blockStore, blockProcessorStore);
 
         const subscribers = [];
-        for (let i = 2; i <= 5; i++) { // first block is before the start, so not emitted as new block
+        for (let i = 2; i <= 5; i++) {
+            // first block is before the start, so not emitted as new block
             subscribers.push(createNewBlockSubscriber(blockProcessor, blockCache, `a${i}`));
         }
 

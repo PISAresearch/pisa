@@ -15,7 +15,7 @@ import EncodingDown from "encoding-down";
 import MemDown from "memdown";
 import Ganache from "ganache-core";
 import { ethers } from "ethers";
-import { StartStopService, defaultSerialiser } from "@pisa-research/utils";
+import { StartStopService, defaultSerialiser, PlainObjectOrSerialisable, PlainObject } from "@pisa-research/utils";
 import { Web3Provider } from "ethers/providers";
 import { wait } from "@pisa-research/test-utils";
 import { expect } from "chai";
@@ -40,16 +40,16 @@ export async function mine(provider: Web3Provider, noOfBlocks: number, offset: n
     }
 }
 
-interface BlockHistoryState {
+type BlockHistoryState = {
     blockNumber: number;
     allBlockNumbers: number[];
-}
-interface BlockNumberAction {
+} & PlainObject;
+type BlockNumberAction = {
     prevBlockNumber: number;
     prevAllBlockNumbers: number[];
     currentBlockNumber: number;
     currentAllBlockNumbers: number[];
-}
+} & PlainObject;
 
 const calculateActionsForPrevBlock = (fromBlock: number, currentBlockNumber: number): BlockNumberAction => {
     const prevAllBlockNumbers = new Array(currentBlockNumber - fromBlock).fill(0).map((_, i) => fromBlock + i);
