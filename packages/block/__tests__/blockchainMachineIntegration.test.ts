@@ -213,14 +213,12 @@ describe("BlockchainMachineIntegration", () => {
         await mineBlocks(blocksToMine);
         expect(blockCache.head.number, "head number matches after").to.eq(startBlockNumber + blocksToMine);
 
-        // console.log(actionsTaken);
-        // console.log(fromBlock || startBlockNumber, startUpBlock || startBlockNumber, startBlockNumber + blocksToMine);
-        // console.log(
-        //     calculateActionsTakenBetweenBlocksInclusive(fromBlock || startBlockNumber, startUpBlock + 1 || startBlockNumber, startBlockNumber + blocksToMine)
-        // );
-
         expect(actionsTaken, "invalid actions taken").to.deep.eq(
-            calculateActionsTakenBetweenBlocksInclusive(fromBlock || startBlockNumber, startUpBlock + 1 || startBlockNumber, startBlockNumber + blocksToMine)
+            calculateActionsTakenBetweenBlocksInclusive(
+                fromBlock || startBlockNumber,
+                (startUpBlock && startUpBlock + 1) || startBlockNumber,
+                startBlockNumber + blocksToMine
+            )
         );
 
         await stopBlockchainMachine(services);
