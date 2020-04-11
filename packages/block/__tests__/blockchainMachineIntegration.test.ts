@@ -213,12 +213,14 @@ describe("BlockchainMachineIntegration", () => {
         await mineBlocks(blocksToMine);
         expect(blockCache.head.number, "head number matches after").to.eq(startBlockNumber + blocksToMine);
 
-        expect(actionsTaken).to.deep.eq(
-            calculateActionsTakenBetweenBlocksInclusive(
-                fromBlock || startBlockNumber + 1,
-                (startUpBlock || startBlockNumber) + 1,
-                startBlockNumber + blocksToMine
-            )
+        // console.log(actionsTaken);
+        // console.log(fromBlock || startBlockNumber, startUpBlock || startBlockNumber, startBlockNumber + blocksToMine);
+        // console.log(
+        //     calculateActionsTakenBetweenBlocksInclusive(fromBlock || startBlockNumber, startUpBlock + 1 || startBlockNumber, startBlockNumber + blocksToMine)
+        // );
+
+        expect(actionsTaken, "invalid actions taken").to.deep.eq(
+            calculateActionsTakenBetweenBlocksInclusive(fromBlock || startBlockNumber, startUpBlock + 1 || startBlockNumber, startBlockNumber + blocksToMine)
         );
 
         await stopBlockchainMachine(services);
@@ -249,8 +251,8 @@ describe("BlockchainMachineIntegration", () => {
         await mineBlocks(blocksToMine / 2);
 
         expect(blockCache.head.number).to.eq(startBlockNumber + blocksToMine);
-        expect(actionsTaken).to.deep.eq(
-            calculateActionsTakenBetweenBlocksInclusive(startBlockNumber + 1, startBlockNumber + 1, startBlockNumber + blocksToMine)
+        expect(actionsTaken, "invalid actions").to.deep.eq(
+            calculateActionsTakenBetweenBlocksInclusive(startBlockNumber, startBlockNumber, startBlockNumber + blocksToMine)
         );
 
         await stopBlockchainMachine(services);
@@ -258,30 +260,31 @@ describe("BlockchainMachineIntegration", () => {
 
     it("start, stop does detect all correct blocks", async () => {
         const { db, provider, actionsTaken: actionsTaken1, startBlockNumber } = await startMineBlocksStop(2);
-        const { actionsTaken: actionsTaken2 } = await startMineBlocksStop(2, db, provider, startBlockNumber + 1);
 
-        expect(actionsTaken1.concat(actionsTaken2)).to.deep.eq(
-            calculateActionsTakenBetweenBlocksInclusive(startBlockNumber + 1, startBlockNumber + 1, startBlockNumber + 4)
+        const { actionsTaken: actionsTaken2 } = await startMineBlocksStop(2, db, provider, startBlockNumber, startBlockNumber + 2);
+
+        expect(actionsTaken1.concat(actionsTaken2), "invalid actions after restart").to.deep.eq(
+            calculateActionsTakenBetweenBlocksInclusive(startBlockNumber, startBlockNumber, startBlockNumber + 4)
         );
     }).timeout(5000);
 
     it("start, stop and gap does detect all correct blocks", async () => {
         const { db, provider, actionsTaken: actionsTaken1, startBlockNumber } = await startMineBlocksStop(2);
         await mine(provider, 5);
-        const { actionsTaken: actionsTaken2 } = await startMineBlocksStop(2, db, provider, startBlockNumber + 1, startBlockNumber + 2);
+        const { actionsTaken: actionsTaken2 } = await startMineBlocksStop(2, db, provider, startBlockNumber, startBlockNumber + 2);
 
         expect(actionsTaken1.concat(actionsTaken2)).to.deep.eq(
-            calculateActionsTakenBetweenBlocksInclusive(startBlockNumber + 1, startBlockNumber + 1, startBlockNumber + 9)
+            calculateActionsTakenBetweenBlocksInclusive(startBlockNumber, startBlockNumber, startBlockNumber + 9)
         );
     }).timeout(5000);
 
     it("start, stop and gap greater than block cache depth does detect all correct blocks", async () => {
         const { db, provider, actionsTaken: actionsTaken1, startBlockNumber } = await startMineBlocksStop(2);
         await mine(provider, 25);
-        const { actionsTaken: actionsTaken2 } = await startMineBlocksStop(2, db, provider, startBlockNumber + 1, startBlockNumber + 2);
+        const { actionsTaken: actionsTaken2 } = await startMineBlocksStop(2, db, provider, startBlockNumber, startBlockNumber + 2);
 
-        expect(actionsTaken1.concat(actionsTaken2)).to.deep.eq(
-            calculateActionsTakenBetweenBlocksInclusive(startBlockNumber + 1, startBlockNumber + 1, startBlockNumber + 29)
+        expect(actionsTaken1.concat(actionsTaken2), "invalid actions").to.deep.eq(
+            calculateActionsTakenBetweenBlocksInclusive(startBlockNumber, startBlockNumber, startBlockNumber + 29)
         );
     }).timeout(5000);
 
@@ -293,9 +296,7 @@ describe("BlockchainMachineIntegration", () => {
         expect(blockCache.head.number).to.eq(startBlockNumber);
         await mineBlocks(blocksToMine);
         expect(blockCache.head.number).to.eq(startBlockNumber + blocksToMine);
-        expect(actionsTaken).to.deep.eq(
-            calculateActionsTakenBetweenBlocksInclusive(startBlockNumber + 1, startBlockNumber + 1, startBlockNumber + blocksToMine)
-        );
+        expect(actionsTaken).to.deep.eq(calculateActionsTakenBetweenBlocksInclusive(startBlockNumber, startBlockNumber, startBlockNumber + blocksToMine));
 
         // take a snap shot of ganache
         let snapShotId = await provider.send("evm_snapshot", []);
@@ -308,8 +309,8 @@ describe("BlockchainMachineIntegration", () => {
         expect(blockCache.head.number).to.eq(snapshotStarterBlockNumber);
         await mineBlocks(blocksToMine, 1);
         expect(blockCache.head.number).to.eq(snapshotStarterBlockNumber + blocksToMine);
-        expect(actionsTaken).to.deep.eq(
-            calculateActionsTakenBetweenBlocksInclusive(startBlockNumber + 1, snapshotStarterBlockNumber + 1, snapshotStarterBlockNumber + blocksToMine)
+        expect(actionsTaken, "second actions invalid").to.deep.eq(
+            calculateActionsTakenBetweenBlocksInclusive(startBlockNumber, snapshotStarterBlockNumber + 1, snapshotStarterBlockNumber + blocksToMine)
         );
 
         // now revert and reset the snap shot id
@@ -323,8 +324,8 @@ describe("BlockchainMachineIntegration", () => {
         expect(blockCache.head.number).to.eq(snapshotStarterBlockNumber + blocksToMine);
         await mineBlocks(reorgBlocksToMine, 2);
         expect(blockCache.head.number).to.eq(snapshotStarterBlockNumber + reorgBlocksToMine);
-        expect(actionsTaken).to.deep.eq(
-            calculateActionsTakenBetweenBlocksInclusive(startBlockNumber + 1, snapshotStarterBlockNumber + 1, snapshotStarterBlockNumber + reorgBlocksToMine)
+        expect(actionsTaken, "third actions invalid").to.deep.eq(
+            calculateActionsTakenBetweenBlocksInclusive(startBlockNumber, snapshotStarterBlockNumber + 1, snapshotStarterBlockNumber + reorgBlocksToMine)
         );
 
         await stopBlockchainMachine(services);
