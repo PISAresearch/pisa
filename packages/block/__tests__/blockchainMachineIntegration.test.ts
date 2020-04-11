@@ -40,16 +40,16 @@ export async function mine(provider: Web3Provider, noOfBlocks: number, offset: n
     }
 }
 
-type BlockHistoryState = {
+interface BlockHistoryState {
     blockNumber: number;
     allBlockNumbers: number[];
-};
-type BlockNumberAction = {
+}
+interface BlockNumberAction {
     prevBlockNumber: number;
     prevAllBlockNumbers: number[];
     currentBlockNumber: number;
     currentAllBlockNumbers: number[];
-};
+}
 
 const calculateActionsForPrevBlock = (fromBlock: number, currentBlockNumber: number): BlockNumberAction => {
     const prevAllBlockNumbers = new Array(currentBlockNumber - fromBlock).fill(0).map((_, i) => fromBlock + i);
@@ -169,7 +169,7 @@ describe("BlockchainMachineIntegration", () => {
 
         const blockNumberRecorderComponent = new BlockNumberRecorderComponent();
 
-        const blockchainMachine = new BlockchainMachineService(blockProcessor, actionStore, blockItemStore, [blockNumberRecorderComponent]);
+        const blockchainMachine = new BlockchainMachineService(blockProcessor, actionStore, blockItemStore, [blockNumberRecorderComponent], blockCache);
 
         await blockItemStore.start();
         await actionStore.start();

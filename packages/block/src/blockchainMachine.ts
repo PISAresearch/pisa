@@ -5,7 +5,7 @@ import { ArgumentError } from "@pisa-research/errors";
 import { Component, AnchorState, ComponentAction } from "./component";
 import { CachedKeyValueStore, ItemAndId } from "./cachedKeyValueStore";
 import { BlockItemStore } from "./blockItemStore";
-import { BlockCache } from "./blockCache";
+import { ReadOnlyBlockCache } from "./blockCache";
 
 /**
  * Blockchain machine functionality
@@ -145,7 +145,7 @@ export class BlockchainMachineService<TBlock extends IBlockStub> extends StartSt
         actionStore: CachedKeyValueStore<ComponentAction>,
         private readonly blockItemStore: BlockItemStore<TBlock>,
         components: Component<AnchorState, TBlock, ComponentAction>[],
-        private readonly blockCache: BlockCache<TBlock>
+        private readonly blockCache: ReadOnlyBlockCache<TBlock>
     ) {
         super("blockchain-machine");
         this.machine = new BlockchainMachine(actionStore, blockItemStore, components, this.logger);

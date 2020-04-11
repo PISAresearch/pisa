@@ -32,7 +32,6 @@ import swaggerDoc from "./swagger-doc.json";
 import favicon from "serve-favicon";
 import cors from "cors";
 
-
 /**
  * Request object supplemented with a log
  */
@@ -123,7 +122,13 @@ export class PisaService extends StartStopService {
         );
 
         this.actionStore = new CachedKeyValueStore<ComponentAction>(db, serialiser, "blockchain-machine");
-        this.blockchainMachine = new BlockchainMachineService<Block>(this.blockProcessor, this.actionStore, this.blockItemStore, [watcher, responder]);
+        this.blockchainMachine = new BlockchainMachineService<Block>(
+            this.blockProcessor,
+            this.actionStore,
+            this.blockItemStore,
+            [watcher, responder],
+            this.blockProcessor.blockCache
+        );
 
         // tower
         const tower = new PisaTower(this.appointmentStore, receiptWallet, multiResponder, blockCache, config.pisaContractAddress);
