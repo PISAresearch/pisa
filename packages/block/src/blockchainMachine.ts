@@ -144,8 +144,7 @@ export class BlockchainMachineService<TBlock extends IBlockStub> extends StartSt
         private readonly blockProcessor: BlockProcessor<TBlock>,
         actionStore: CachedKeyValueStore<ComponentAction>,
         private readonly blockItemStore: BlockItemStore<TBlock>,
-        components: Component<AnchorState, TBlock, ComponentAction>[],
-        private readonly blockCache: ReadOnlyBlockCache<TBlock>
+        components: Component<AnchorState, TBlock, ComponentAction>[]
     ) {
         super("blockchain-machine");
         this.machine = new BlockchainMachine(actionStore, blockItemStore, components, this.logger);
@@ -153,9 +152,6 @@ export class BlockchainMachineService<TBlock extends IBlockStub> extends StartSt
 
     protected async startInternal(): Promise<void> {
         if (this.blockProcessor.started) this.logger.error("The BlockProcessor should be started after the BlockchainMachineService.");
-
-        // upon very first startup we populate an anchor state from the cache head
-        if (!this.blockItemStore.hasAnyAnchorStates) this.machine.setStateAndDetectChanges(this.blockCache.head);
 
         this.blockProcessor.newBlock.addListener(this.machine.setStateAndDetectChanges);
         // startup any actions that we had not completed

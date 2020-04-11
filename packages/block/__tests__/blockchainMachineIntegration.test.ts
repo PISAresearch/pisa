@@ -169,7 +169,7 @@ describe("BlockchainMachineIntegration", () => {
 
         const blockNumberRecorderComponent = new BlockNumberRecorderComponent();
 
-        const blockchainMachine = new BlockchainMachineService(blockProcessor, actionStore, blockItemStore, [blockNumberRecorderComponent], blockCache);
+        const blockchainMachine = new BlockchainMachineService(blockProcessor, actionStore, blockItemStore, [blockNumberRecorderComponent]);
 
         await blockItemStore.start();
         await actionStore.start();

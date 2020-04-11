@@ -187,14 +187,27 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
 
     protected async startInternal(): Promise<void> {
         // Make sure the current head block is processed
-        const currentHead = (await this.store.getLatestHeadNumber()) || (await this.provider.getBlockNumber());
-        await this.processBlockNumber(currentHead);
-        this.provider.on("block", this.processBlockNumber);
+        const storeHead = await this.store.getLatestHeadNumber();
+        if (storeHead !== undefined) {
+            // if we're starting for the first time we wont have a store head, subscribers may want to process this
+            // opening block
+            this.mBlockCache.newBlock.addListener(this.processNewBlock);
+            await this.processBlockNumber(storeHead);
 
-        // After startup, `newBlock` events of the BlockCache are proxied
-        this.mBlockCache.newBlock.addListener(this.processNewBlock);
+            this.provider.on("block", this.processBlockNumber);
 
-        this.logger.info({ currentHeadNumber: currentHead }, "Blockprocessor started.");
+            this.logger.info({ currentHeadNumber: storeHead }, "Blockprocessor started.");
+        } else {
+            // if this isnt the first time processing then we process this block number just to set the head
+            const currentHead = await this.provider.getBlockNumber();
+            await this.processBlockNumber(currentHead);
+            this.provider.on("block", this.processBlockNumber);
+
+            // After startup, `newBlock` events of the BlockCache are proxied
+            this.mBlockCache.newBlock.addListener(this.processNewBlock);
+
+            this.logger.info({ currentHeadNumber: currentHead }, "Blockprocessor started.");
+        }
     }
 
     protected async stopInternal(): Promise<void> {
@@ -205,8 +218,6 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
 
     // proxies the newBlock event from the cache from the moment startup is complete
     private async processNewBlock(block: TBlock) {
-        if (!this.started) throw new ApplicationError("The BlockProcessor should not receive newBlock events before startup is complete."); // prettier-ignore
-
         const beforeBlock = Date.now();
         this.logger.info({ hash: block.hash, parentHash: block.parentHash, number: block.number }, "Emitting block.");
         await this.newBlock.emit(block);
