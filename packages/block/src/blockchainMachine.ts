@@ -5,6 +5,7 @@ import { ArgumentError } from "@pisa-research/errors";
 import { Component, AnchorState, ComponentAction } from "./component";
 import { CachedKeyValueStore, ItemAndId } from "./cachedKeyValueStore";
 import { BlockItemStore } from "./blockItemStore";
+import { BlockCache } from "./blockCache";
 
 /**
  * Blockchain machine functionality
@@ -142,8 +143,9 @@ export class BlockchainMachineService<TBlock extends IBlockStub> extends StartSt
     constructor(
         private readonly blockProcessor: BlockProcessor<TBlock>,
         actionStore: CachedKeyValueStore<ComponentAction>,
-        blockItemStore: BlockItemStore<TBlock>,
-        components: Component<AnchorState, TBlock, ComponentAction>[]
+        private readonly blockItemStore: BlockItemStore<TBlock>,
+        components: Component<AnchorState, TBlock, ComponentAction>[],
+        private readonly blockCache: BlockCache<TBlock>
     ) {
         super("blockchain-machine");
         this.machine = new BlockchainMachine(actionStore, blockItemStore, components, this.logger);
@@ -151,6 +153,9 @@ export class BlockchainMachineService<TBlock extends IBlockStub> extends StartSt
 
     protected async startInternal(): Promise<void> {
         if (this.blockProcessor.started) this.logger.error("The BlockProcessor should be started after the BlockchainMachineService.");
+
+        // upon very first startup we populate an anchor state from the cache head
+        if (!this.blockItemStore.hasAnyAnchorStates) this.machine.setStateAndDetectChanges(this.blockCache.head);
 
         this.blockProcessor.newBlock.addListener(this.machine.setStateAndDetectChanges);
         // startup any actions that we had not completed

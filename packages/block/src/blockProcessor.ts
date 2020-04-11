@@ -207,7 +207,6 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
     private async processNewBlock(block: TBlock) {
         if (!this.started) throw new ApplicationError("The BlockProcessor should not receive newBlock events before startup is complete."); // prettier-ignore
 
-        this.logger.info({ hash: block.hash, parentHash: block.parentHash, number: block.number }, "Block emitted.");
         const beforeBlock = Date.now();
         this.logger.info({ hash: block.hash, parentHash: block.parentHash, number: block.number }, "Emitting block.");
         await this.newBlock.emit(block);
