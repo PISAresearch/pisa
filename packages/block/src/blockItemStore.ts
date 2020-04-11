@@ -189,7 +189,9 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
 
             const callBackResult = await callback();
 
+            const beforeBatchWrite = Date.now();
             await this.mBatch.write();
+            this.logger.info({ duration: Date.now() - beforeBatchWrite, length: this.mBatch.length, code: "items-store-batch-write" }, "Batch written.");
 
             return callBackResult;
         } finally {

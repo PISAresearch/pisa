@@ -92,6 +92,7 @@ export class BlockchainMachine<TBlock extends IBlockStub> {
                     // get the parent state
                     const parentState = this.blockItemStore.anchorState.get<AnchorState>(component.name, block.parentHash);
 
+                    const beforeReduce = Date.now();
                     let newAnchorState: AnchorState;
                     if (parentState == undefined) {
                         // This is a serious error, it should never happen
@@ -102,8 +103,11 @@ export class BlockchainMachine<TBlock extends IBlockStub> {
                     } else {
                         newAnchorState = await component.reducer.reduce(parentState, block);
                     }
+                    this.logger.info({ duration: Date.now() - beforeReduce, code: "reduce-anchor-state", componentName: component.name }, "Anchor state reduced."); // prettier-ignore
 
+                    const beforeSet = Date.now();
                     this.blockItemStore.anchorState.set(component.name, block.number, block.hash, newAnchorState);
+                    this.logger.info({ duration: Date.now() - beforeSet, code: "set-anchor-state", componentName: component.name }, "Anchor state set.");
 
                     if (parentState != undefined) {
                         // having computed a new state we can detect changes and run actions
