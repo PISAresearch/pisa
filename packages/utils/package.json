@@ -1,6 +1,6 @@
 {
   "name": "@pisa-research/utils",
-  "version": "0.1.30",
+  "version": "0.1.32",
   "description": "Misc utilities used in the PISA project",
   "author": "PISA Research Ltd",
   "homepage": "https://github.com/PISAresearch/pisa/tree/master/packages/utils#readme",
