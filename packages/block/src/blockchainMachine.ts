@@ -159,7 +159,7 @@ export class BlockchainMachineService<TBlock extends IBlockStub> extends StartSt
     }
 
     protected async stopInternal(): Promise<void> {
-        if (!this.blockProcessor.started) this.logger.error("The BlockProcessor should be stopped before the BlockchainMachineService.");
+        if (this.blockProcessor.started) this.logger.error("The BlockProcessor should be stopped before the BlockchainMachineService.");
 
         this.blockProcessor.newBlock.removeListener(this.machine.setStateAndDetectChanges);
     }
