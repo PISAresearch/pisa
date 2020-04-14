@@ -51,6 +51,7 @@
     "@pisa-research/utils": "workspace:*",
     "encoding-down": "^6.0.2",
     "ethers": "^4.0.46",
+    "json-stable-stringify": "^1.0.1",
     "levelup": "^4.0.1",
     "subleveldown": "^4.1.0",
     "uuid": "^3.3.3"

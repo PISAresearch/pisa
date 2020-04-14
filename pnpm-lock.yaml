@@ -21,6 +21,7 @@ importers:
       '@types/express-rate-limit': 3.3.4
       '@types/express-serve-static-core': 4.17.2
       '@types/fs-extra': 5.1.0
+      '@types/json-stable-stringify': 1.0.32
       '@types/leveldown': 4.0.2
       '@types/levelup': 3.1.1
       '@types/lolex': 3.1.1
@@ -84,6 +85,7 @@ importers:
       '@types/express-rate-limit': ^3.3.3
       '@types/express-serve-static-core': ^4.17.2
       '@types/fs-extra': ^5.0.5
+      '@types/json-stable-stringify': ^1.0.32
       '@types/leveldown': ^4.0.0
       '@types/levelup': ^3.1.0
       '@types/lolex': ^3.1.1
@@ -135,6 +137,7 @@ importers:
       '@pisa-research/utils': 'link:../utils'
       encoding-down: 6.3.0
       ethers: 4.0.46
+      json-stable-stringify: 1.0.1
       levelup: 4.3.2
       subleveldown: 4.1.4
       uuid: 3.4.0
@@ -143,6 +146,7 @@ importers:
       '@pisa-research/utils': 'workspace:*'
       encoding-down: ^6.0.2
       ethers: ^4.0.46
+      json-stable-stringify: ^1.0.1
       levelup: ^4.0.1
       subleveldown: ^4.1.0
       uuid: ^3.3.3
@@ -463,6 +467,10 @@ packages:
     dev: true
     resolution:
       integrity: sha512-8+KAKzEvSUdeo+kmqnKrqgeE+LcA0tjYWFY7RPProVYwnqDjukzO+3b6dLD56rYX5TdWejnEOLJYOIeh4CXKuA==
+  /@types/json-stable-stringify/1.0.32:
+    dev: true
+    resolution:
+      integrity: sha512-q9Q6+eUEGwQkv4Sbst3J4PNgDOvpuVuKj79Hl/qnmBMEIPzB5QoFRUtjcgcg2xNUZyYUGXBk5wYIBKHt0A+Mxw==
   /@types/level-codec/9.0.0:
     dev: true
     resolution:
@@ -4978,7 +4986,6 @@ packages:
   /json-stable-stringify/1.0.1:
     dependencies:
       jsonify: 0.0.0
-    dev: true
     resolution:
       integrity: sha1-mnWdOcXy/1A/1TAGRu1EX4jE+a8=
   /json-stringify-safe/5.0.1:
@@ -5005,7 +5012,6 @@ packages:
     resolution:
       integrity: sha1-h3Gq4HmbZAdrdmQPygWPnBDjPss=
   /jsonify/0.0.0:
-    dev: true
     resolution:
       integrity: sha1-LHS27kHZPKUbe1qu6PUDYx0lKnM=
   /jsonparse/1.3.1:

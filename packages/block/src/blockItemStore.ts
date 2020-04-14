@@ -1,5 +1,7 @@
 import { LevelUp, LevelUpChain } from "levelup";
 import EncodingDown from "encoding-down";
+import stableStringify from "json-stable-stringify";
+
 const sub = require("subleveldown");
 
 import { keccak256, toUtf8Bytes } from "ethers/utils";
@@ -46,10 +48,9 @@ export class ObjectCache {
         if (cachedResult != undefined) return cachedResult;
 
         // JSON.stringify is not stable, so it might return different results for objects that are deep equal.
-        // We could optimise further by using a JSON serialisation that is stable, or a custom hash function
-        // that does not use the JSON representation at all.
+        // Therefore, we use a stable stringifier instead.
         const serialisedObject = this.serialiser.serialise(object);
-        const result = keccak256(toUtf8Bytes(JSON.stringify(serialisedObject)));
+        const result = keccak256(toUtf8Bytes(stableStringify(serialisedObject)));
         this.objectHash.set(object, result);
         return result;
     }
