@@ -8,12 +8,15 @@ export { PlainObject, DbObject } from "./objects";
 export {
     Serialisable,
     Serialised,
+    AnyObjectOrSerialisable,
     PlainObjectOrSerialisable,
     DbObjectSerialiser,
     DbObjectOrSerialisable,
     TypedPlainObject,
     SerialisableBigNumber,
     Deserialisers,
+    isPrimitive,
+    isSerialisable,
     defaultDeserialisers,
     defaultSerialiser
 } from "./serialiser";
