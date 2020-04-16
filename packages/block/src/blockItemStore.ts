@@ -1,10 +1,10 @@
+import crypto from "crypto";
+
 import { LevelUp, LevelUpChain } from "levelup";
 import EncodingDown from "encoding-down";
 import stableStringify from "json-stable-stringify";
 
 const sub = require("subleveldown");
-
-import { keccak256, toUtf8Bytes } from "ethers/utils";
 
 import { ApplicationError } from "@pisa-research/errors";
 import {
@@ -50,7 +50,12 @@ export class ObjectCache {
         // JSON.stringify is not stable, so it might return different results for objects that are deep equal.
         // Therefore, we use a stable stringifier instead.
         const serialisedObject = this.serialiser.serialise(object);
-        const result = keccak256(toUtf8Bytes(stableStringify(serialisedObject)));
+        const stringifiedObject = stableStringify(serialisedObject);
+        const result = crypto
+            .createHash("sha256")
+            .update(stringifiedObject)
+            .digest()
+            .toString("base64");
         this.objectHash.set(object, result);
         return result;
     }
