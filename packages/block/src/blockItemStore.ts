@@ -47,9 +47,29 @@ export class ObjectCache {
         const cachedResult = this.objectHash.get(object);
         if (cachedResult != undefined) return cachedResult;
 
+        // replace subobjects with their hash
+        let flattened: CacheableObject;
+        if (Array.isArray(object)) {
+            flattened = [];
+            for (const element of object) {
+                if (isPrimitive(element) || isSerialisable(element)) flattened.push(element);
+                else flattened.push(this.hash(element));
+            }
+        } else if (!isSerialisable(object)) {
+            // If not an array nor a Serialisable, then it is a mapped object.
+            // We make sure to add all the sub-objects.
+            flattened = {};
+            for (const [key, value] of Object.entries(object)) {
+                if (!isPrimitive(value)) flattened[key] = this.hash(value);
+                else flattened[key] = value;
+            }
+        } else {
+            flattened = object;
+        }
+
         // JSON.stringify is not stable, so it might return different results for objects that are deep equal.
         // Therefore, we use a stable stringifier instead.
-        const serialisedObject = this.serialiser.serialise(object);
+        const serialisedObject = this.serialiser.serialise(flattened);
         const stringifiedObject = stableStringify(serialisedObject);
         const result = crypto
             .createHash("sha256")
@@ -158,8 +178,24 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
     protected async startInternal() {
         const objectCache = new ObjectCache(this.serialiser);
         // load all items from the db
+
+        let totalKeys = 0;
+        for await (const record of this.subDb.createKeyStream()) {
+            ++totalKeys;
+        }
+
+        const startTime = Date.now();
+        this.logger.info({ startTime, totalKeys }, "BlockItemStore started loading state from db");
+
+        let currentKey = 0;
         for await (const record of this.subDb.createReadStream()) {
             const { key, value } = (record as any) as { key: string; value: any };
+
+            ++currentKey;
+            if (currentKey % Math.floor(totalKeys / (100 / 5)) === 0) {
+                // show progress every 5%
+                this.logger.info({ elapsedTime: Date.now() - startTime }, `BlockItemStore load progress: ${(currentKey / totalKeys) * 100}%`);
+            }
 
             const i = key.indexOf(":");
             const height = Number.parseInt(key.substring(0, i));
@@ -178,7 +214,9 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
             }
         }
 
-        this.logger.info({ itemsByHeightCount: this.itemsByHeight.size, itemsCount: this.items.size }, "Store started.");
+        const duration = Date.now() - startTime;
+
+        this.logger.info({ itemsByHeightCount: this.itemsByHeight.size, itemsCount: this.items.size, startupDuration: duration }, "Store started.");
     }
     protected async stopInternal() {
         this.logger.info({ itemsByHeightCount: this.itemsByHeight.size, itemsCount: this.items.size }, "Store stopped.");
