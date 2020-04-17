@@ -6,137 +6,11 @@ import EncodingDown from "encoding-down";
 import MemDown from "memdown";
 
 import { fnIt, wait } from "@pisa-research/test-utils";
-import { DbObject, Serialisable, Serialised, defaultDeserialisers, DbObjectSerialiser } from "@pisa-research/utils";
+import { DbObject, defaultSerialiser } from "@pisa-research/utils";
 import { ApplicationError } from "@pisa-research/errors";
 
-import { ObjectCache, BlockItemStore } from "../src/blockItemStore";
+import { BlockItemStore } from "../src/blockItemStore";
 import { IBlockStub } from "../src";
-
-/**
- * A test Serialisable class.
- */
-class SerialisableThing implements Serialisable {
-    public static TYPE = "thing";
-
-    constructor(public readonly thing: string) {}
-
-    public serialise() {
-        return {
-            __type__: SerialisableThing.TYPE,
-            thing: this.thing
-        };
-    }
-
-    public static deserialise(obj: Serialised<SerialisableThing>): SerialisableThing {
-        if (obj.__type__ !== SerialisableThing.TYPE) throw new ApplicationError(`Unexpected __type__ while deserialising SerialisableThing: ${obj.__type__}`); // prettier-ignore
-
-        return new SerialisableThing(obj.thing);
-    }
-}
-
-const serialiser = new DbObjectSerialiser({
-    ...defaultDeserialisers,
-    [SerialisableThing.TYPE]: SerialisableThing.deserialise
-});
-
-describe("ObjectCache", () => {
-    fnIt<ObjectCache>(
-        o => o.addObject,
-        "adds a new object and returns true",
-        () => {
-            const cache = new ObjectCache(serialiser);
-            expect(cache.addObject({ test: "object" })).to.be.true;
-        }
-    );
-
-    fnIt<ObjectCache>(
-        o => o.addObject,
-        "returns false if an object was previously added",
-        () => {
-            const cache = new ObjectCache(serialiser);
-            expect(cache.addObject({ test: "object1" })).to.be.true;
-            expect(cache.addObject({ test: "object2" })).to.be.true;
-            expect(cache.addObject({ test: "object1" })).to.be.false;
-        }
-    );
-
-    fnIt<ObjectCache>(
-        o => o.addObject,
-        "also adds subobjects recursively",
-        () => {
-            const cache = new ObjectCache(serialiser);
-            const obj = {
-                subobject: { test: 1 },
-                array: [{ test: 2 }, 5, false],
-                serialisable: new SerialisableThing("apple")
-            };
-            expect(cache.addObject(obj)).to.be.true;
-            expect(cache.addObject({ test: 1 })).to.be.false; // added as an inner object
-            expect(cache.addObject({ test: 2 })).to.be.false; // added as element of the array
-            expect(cache.addObject(new SerialisableThing("apple"))).to.be.false; // sarialisable objects are added too
-        }
-    );
-
-    fnIt<ObjectCache>(
-        o => o.optimiseObject,
-        "replaces nested object entries that were already added to the cache",
-        () => {
-            const complexObject1 = {
-                a: { first: "entry" },
-                b: { test: 42 },
-                c: { some: "object" },
-                d: 79, // not an object
-                e: [2, { foo: "bar" }]
-            };
-
-            const complexObject2 = {
-                a: { first: "entry" }, // same
-                b: { test: 43 }, // different
-                c: { some: "different object" }, // different
-                d: 100, // not an object
-                ZZZ: [{ foo: "bar" }, true] // has a shared object with an array in complexObject1
-            };
-
-            const cache = new ObjectCache(serialiser);
-
-            cache.addObject(complexObject1);
-
-            const result: any = cache.optimiseObject(complexObject2);
-
-            // fields "a" and one of the element of the array are matching, so while the object should deep equal
-            // complexObject2, those common parts should be identically equal to the references in complexObject1
-            expect(result).to.deep.equal(complexObject2);
-            expect(result["a"]).to.equal(complexObject1.a);
-            expect(result["ZZZ"][0]).to.equal(complexObject1.e[1]);
-        }
-    );
-
-    fnIt<ObjectCache>(
-        o => o.optimiseObject,
-        "returns the passed object if already in cache",
-        () => {
-            const obj = { foo: "bar" };
-            const cache = new ObjectCache(serialiser);
-
-            cache.addObject(obj);
-
-            expect(cache.optimiseObject(obj)).to.equal(obj);
-        }
-    );
-
-    fnIt<ObjectCache>(
-        o => o.optimiseObject,
-        "returns the passed Serialisable if already in cache",
-        () => {
-            const obj = new SerialisableThing("pear");
-            const cache = new ObjectCache(serialiser);
-
-            cache.addObject(obj);
-
-            expect(cache.optimiseObject(obj)).to.equal(obj);
-        }
-    );
-});
 
 describe("BlockItemStore", () => {
     let db: LevelUp<EncodingDown<string, DbObject>>;
@@ -180,7 +54,7 @@ describe("BlockItemStore", () => {
         db = levelUp(
             EncodingDown<string, DbObject>(MemDown(), { valueEncoding: "json" })
         );
-        store = new BlockItemStore<IBlockStub>(db, serialiser);
+        store = new BlockItemStore<IBlockStub>(db, defaultSerialiser);
         await store.start();
     });
 
@@ -271,7 +145,7 @@ describe("BlockItemStore", () => {
         await store.stop();
 
         // New store using the same db
-        const newStore = new BlockItemStore<IBlockStub>(db, serialiser);
+        const newStore = new BlockItemStore<IBlockStub>(db, defaultSerialiser);
         await newStore.start();
 
         // Check that all items still return the correct value for the new store

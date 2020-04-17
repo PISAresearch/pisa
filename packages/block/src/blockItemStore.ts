@@ -1,119 +1,13 @@
 import { LevelUp, LevelUpChain } from "levelup";
 import EncodingDown from "encoding-down";
-import stableStringify from "json-stable-stringify";
 
 const sub = require("subleveldown");
 
-import { keccak256, toUtf8Bytes } from "ethers/utils";
-
 import { ApplicationError } from "@pisa-research/errors";
-import {
-    StartStopService,
-    Lock,
-    DbObject,
-    DbObjectSerialiser,
-    PlainObjectOrSerialisable,
-    DbObjectOrSerialisable,
-    isPrimitive,
-    isSerialisable,
-    AnyObjectOrSerialisable
-} from "@pisa-research/utils";
+import { StartStopService, Lock, DbObject, DbObjectSerialiser, PlainObjectOrSerialisable, DbObjectOrSerialisable } from "@pisa-research/utils";
 
 import { IBlockStub, BlockAndAttached } from "./block";
 import { AnchorState } from "./component";
-
-// Objects that can be stored in the cache (aything that is not primitive and can be stored in the DB, including Serialisable).
-type CacheableObject = PlainObjectOrSerialisable | AnyObjectOrSerialisable[];
-
-/**
- * A cache that identifies shared objects built during startup in the BlockItemStore, in order to avoid storing many copies of
- * the same object in RAM. By identifying objects with a cryptographic hash function, we are certain that there won't be collisions.
- */
-export class ObjectCache {
-    // All the objects stored in the cache, kayed by their hash
-    private readonly objects = new Map<string, CacheableObject>();
-
-    // WeakMap from objects to their hash, to make sure that we never compute the hash of the same object multiple times.
-    private readonly objectHash = new WeakMap<object, string>();
-
-    constructor(private readonly serialiser: DbObjectSerialiser) {}
-
-    /**
-     * Computes the unique hash for the given object. The computed hash is stored in order to not recompute the hash multiple times for the
-     * same object (by using the object reference; therefore, the hash of a deeply equal object would be recomputed again).
-     * @param object
-     */
-    private hash(object: CacheableObject) {
-        const cachedResult = this.objectHash.get(object);
-        if (cachedResult != undefined) return cachedResult;
-
-        // JSON.stringify is not stable, so it might return different results for objects that are deep equal.
-        // Therefore, we use a stable stringifier instead.
-        const serialisedObject = this.serialiser.serialise(object);
-        const result = keccak256(toUtf8Bytes(stableStringify(serialisedObject)));
-        this.objectHash.set(object, result);
-        return result;
-    }
-
-    /**
-     * Adds an object (and all its cacheable sub-objects recursively).
-     * @param object
-     */
-    public addObject(object: CacheableObject) {
-        // Recursively add any subobject that is not primitive
-        if (Array.isArray(object)) {
-            object.forEach(el => {
-                if (!isPrimitive(el)) this.addObject(el);
-            });
-        } else if (!isSerialisable(object)) {
-            // If not an array nor a Serialisable, then it is a mapped object.
-            // We make sure to add all the sub-objects.
-            for (const value of Object.values(object)) {
-                if (!isPrimitive(value)) this.addObject(value);
-            }
-        }
-
-        const hash = this.hash(object);
-        const prevObj = this.objects.get(hash);
-        if (prevObj != undefined) {
-            // Object already in cache
-            return false;
-        } else {
-            this.objects.set(hash, object); // new object that wasn't in cache
-            return true;
-        }
-    }
-
-    private optimiseObjectOrPrimitive(obj: AnyObjectOrSerialisable) {
-        if (isPrimitive(obj)) return obj;
-        else return this.optimiseObject(obj);
-    }
-
-    /**
-     * Returns an optimised object that is deeply equal to the argument, but where every sub-object that deeply equals some object
-     * that was in cache is replaced with a reference to the cached object.
-     * If `object` itself is already in cache, then a reference to the cached object is returned; otherwise, a new object is built.
-     * If `object` is Serialisable, then `object` itself is returned.
-     * It does not add `object` (or any of the nested sub-objects) to the cache.
-     * @param obj
-     */
-    public optimiseObject(obj: CacheableObject): CacheableObject {
-        // If object is cached, return the cached copy
-        const hash = this.hash(obj);
-        const cachedObject = this.objects.get(hash);
-        if (cachedObject != undefined) return cachedObject;
-
-        if (Array.isArray(obj)) return (obj as AnyObjectOrSerialisable[]).map(el => this.optimiseObjectOrPrimitive(el));
-        else if (isSerialisable(obj)) return obj;
-        else {
-            const result: { [key: string]: AnyObjectOrSerialisable } = {};
-            for (const [key, subObj] of Object.entries(obj)) {
-                result[key] = this.optimiseObjectOrPrimitive(subObj);
-            }
-            return result;
-        }
-    }
-}
 
 /**
  * This store is a support structure for the block cache and all the related components that need to store blocks and other data that
@@ -151,7 +45,6 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
     }
 
     protected async startInternal() {
-        const objectCache = new ObjectCache(this.serialiser);
         // load all items from the db
         for await (const record of this.subDb.createReadStream()) {
             const { key, value } = (record as any) as { key: string; value: any };
@@ -161,12 +54,7 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
             const memKey = key.substring(i + 1);
 
             const deserialised = this.serialiser.deserialise<DbObjectOrSerialisable>(value);
-            if (isPrimitive(deserialised)) {
-                this.setItem(height, memKey, deserialised);
-            } else {
-                objectCache.addObject(deserialised);
-                this.setItem(height, memKey, objectCache.optimiseObject(deserialised));
-            }
+            this.setItem(height, memKey, deserialised);
 
             if (memKey.endsWith(`:${BlockItemStore.KEY_STATE}`)) {
                 this.mHasAnyAnchorStates = true;
