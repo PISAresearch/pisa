@@ -36,9 +36,9 @@ jobs:
       - run:
           name: test endtoend
           command: npm run test-endtoend
-      - run:
-          name: test raiden integration
-          command: npm run test-raiden
+      # - run:
+      #     name: test raiden integration
+      #     command: npm run test-raiden
       # - store_test_results:
       #     path: coverage
       - store_artifacts:
