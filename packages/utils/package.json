@@ -48,7 +48,7 @@
   },
   "dependencies": {
     "@pisa-research/errors": "workspace:*",
-    "ethers": "^4.0.46",
+    "ethers": "^4.0.47",
     "pino": "^5.16.0",
     "yargs": "^13.2.4"
   },

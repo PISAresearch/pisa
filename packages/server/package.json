@@ -58,7 +58,7 @@
         "better-ajv-errors": "^0.6.4",
         "cors": "^2.8.5",
         "encoding-down": "^6.0.2",
-        "ethers": "^4.0.37",
+        "ethers": "^4.0.47",
         "express": "^4.16.4",
         "express-http-context": "^1.2.0",
         "express-rate-limit": "^5.0.0",

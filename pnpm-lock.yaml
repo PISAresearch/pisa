@@ -45,7 +45,7 @@ importers:
       eslint: 5.16.0
       eslint-config-prettier: 4.3.0_eslint@5.16.0
       eslint-plugin-prettier: 3.1.2_eslint@5.16.0+prettier@1.19.1
-      ethers: 4.0.46
+      ethers: 4.0.47
       fs-extra: 7.0.1
       ganache-core: 2.8.0
       husky: 3.1.0
@@ -109,7 +109,7 @@ importers:
       eslint: ^5.16.0
       eslint-config-prettier: ^4.2.0
       eslint-plugin-prettier: ^3.0.1
-      ethers: ^4.0.46
+      ethers: ^4.0.47
       fs-extra: ^7.0.1
       ganache-core: 2.8.0
       husky: ^3.0.5
@@ -136,7 +136,7 @@ importers:
       '@pisa-research/errors': 'link:../errors'
       '@pisa-research/utils': 'link:../utils'
       encoding-down: 6.3.0
-      ethers: 4.0.46
+      ethers: 4.0.47
       json-stable-stringify: 1.0.1
       levelup: 4.3.2
       subleveldown: 4.1.4
@@ -145,7 +145,7 @@ importers:
       '@pisa-research/errors': 'workspace:*'
       '@pisa-research/utils': 'workspace:*'
       encoding-down: ^6.0.2
-      ethers: ^4.0.46
+      ethers: ^4.0.47
       json-stable-stringify: ^1.0.1
       levelup: ^4.0.1
       subleveldown: ^4.1.0
@@ -153,10 +153,10 @@ importers:
   packages/client:
     dependencies:
       cross-fetch: 3.0.4
-      ethers: 4.0.46
+      ethers: 4.0.47
     specifiers:
       cross-fetch: ^3.0.4
-      ethers: ^4.0.37
+      ethers: ^4.0.47
   packages/contracts:
     specifiers: {}
   packages/errors:
@@ -172,7 +172,7 @@ importers:
       better-ajv-errors: 0.6.7_ajv@6.12.0
       cors: 2.8.5
       encoding-down: 6.3.0
-      ethers: 4.0.46
+      ethers: 4.0.47
       express: 4.17.1
       express-http-context: 1.2.3
       express-rate-limit: 5.1.1
@@ -198,7 +198,7 @@ importers:
       better-ajv-errors: ^0.6.4
       cors: ^2.8.5
       encoding-down: ^6.0.2
-      ethers: ^4.0.37
+      ethers: ^4.0.47
       express: ^4.16.4
       express-http-context: ^1.2.0
       express-rate-limit: ^5.0.0
@@ -221,12 +221,12 @@ importers:
   packages/utils:
     dependencies:
       '@pisa-research/errors': 'link:../errors'
-      ethers: 4.0.46
+      ethers: 4.0.47
       pino: 5.17.0
       yargs: 13.3.2
     specifiers:
       '@pisa-research/errors': 'workspace:*'
-      ethers: ^4.0.46
+      ethers: ^4.0.47
       pino: ^5.16.0
       yargs: ^13.2.4
 lockfileVersion: 5.1
@@ -3372,7 +3372,7 @@ packages:
     optional: true
     resolution:
       integrity: sha512-YYPogooSknTwvHg3+Mv71gM/3Wcrx+ZpCzarBj3mqs9njjRkrOo2/eufzhHloOCo3JSoNI4TQJJ6yU5ABm3Uog==
-  /ethers/4.0.46:
+  /ethers/4.0.47:
     dependencies:
       aes-js: 3.0.0
       bn.js: 4.11.8
@@ -3384,7 +3384,7 @@ packages:
       uuid: 2.0.1
       xmlhttprequest: 1.8.0
     resolution:
-      integrity: sha512-/dPMzzpInhtiip4hKFvsDiJKeRk64IhyA+Po7CtNXneQFSOCYXg8eBFt+jXbxUQyApgWnWOtYxWdfn9+CvvxDA==
+      integrity: sha512-hssRYhngV4hiDNeZmVU/k5/E8xmLG8UpcNUzg6mb7lqhgpFPH/t7nuv20RjRrEf0gblzvi2XwR5Te+V3ZFc9pQ==
   /ethjs-unit/0.1.6:
     dependencies:
       bn.js: 4.11.6
@@ -8984,6 +8984,7 @@ packages:
     dev: true
     name: ethereumjs-abi
     resolution:
+      registry: 'https://registry.npmjs.org/'
       tarball: 'https://codeload.github.com/ethereumjs/ethereumjs-abi/tar.gz/1cfbb13862f90f0b391d8a699544d5fe4dfb8c7b'
     version: 0.6.8
   github.com/web3-js/WebSocket-Node/905deb4812572b344f5801f8c9ce8bb02799d82e:
@@ -9000,5 +9001,6 @@ packages:
     optional: true
     requiresBuild: true
     resolution:
+      registry: 'https://registry.npmjs.org/'
       tarball: 'https://codeload.github.com/web3-js/WebSocket-Node/tar.gz/905deb4812572b344f5801f8c9ce8bb02799d82e'
     version: 1.0.29

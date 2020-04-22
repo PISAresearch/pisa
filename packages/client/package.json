@@ -27,7 +27,7 @@
   "homepage": "https://github.com/PISAresearch/pisa#readme",
   "dependencies": {
     "cross-fetch": "^3.0.4",
-    "ethers": "^4.0.37"
+    "ethers": "^4.0.47"
   },
   "files": [
     "/lib",

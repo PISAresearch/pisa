@@ -50,7 +50,7 @@
     "@pisa-research/errors": "workspace:*",
     "@pisa-research/utils": "workspace:*",
     "encoding-down": "^6.0.2",
-    "ethers": "^4.0.46",
+    "ethers": "^4.0.47",
     "json-stable-stringify": "^1.0.1",
     "levelup": "^4.0.1",
     "subleveldown": "^4.1.0",
