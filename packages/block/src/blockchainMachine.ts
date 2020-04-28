@@ -5,7 +5,6 @@ import { ArgumentError } from "@pisa-research/errors";
 import { Component, AnchorState, ComponentAction } from "./component";
 import { CachedKeyValueStore, ItemAndId } from "./cachedKeyValueStore";
 import { BlockItemStore } from "./blockItemStore";
-import { ReadOnlyBlockCache } from "./blockCache";
 
 /**
  * Blockchain machine functionality
@@ -44,7 +43,7 @@ export class BlockchainMachine<TBlock extends IBlockStub> {
                 await component.applyAction(a.value);
                 await this.actionStore.removeItem(component.name, a);
             } catch (doh) {
-                this.logger.error({ err: doh, actionId: a.id, action: a.value, componentName: component.name }, "Failed to run action.");
+                this.logger.error({ code: "p_mcn_runact", err: doh, actionId: a.id, action: a.value, componentName: component.name }, "Failed to run action.");
             }
         });
     }
@@ -69,8 +68,8 @@ export class BlockchainMachine<TBlock extends IBlockStub> {
      * @param block
      */
     public async setStateAndDetectChanges(block: TBlock) {
-        if (!this.actionStore.started) this.logger.error("The ActionStore should be started before the BlockchainMachine is used.");
-        if (!this.blockItemStore.started) this.logger.error("The BlockItemStore should be started before the BlockchainMachine is used.");
+        if (!this.actionStore.started) this.logger.error({ code: "p_mcn_asntst" }, "The ActionStore should be started before the BlockchainMachine is used.");
+        if (!this.blockItemStore.started) this.logger.error({ code: "p_mcn_bisntst" }, "The BlockItemStore should be started before the BlockchainMachine is used.");
 
         // Every time a new block is received we calculate the anchor state for that block for each component and store it
 
@@ -97,18 +96,21 @@ export class BlockchainMachine<TBlock extends IBlockStub> {
                     let newAnchorState: AnchorState;
                     if (parentState == undefined) {
                         // This is a serious error, it should never happen
-                        this.logger.error({ componentName: component.name }, "Did not find anchor state for component, but it was expected.");
+                        this.logger.error(
+                            { code: "p_mcn_snf", componentName: component.name },
+                            "Did not find anchor state for component, but it was expected."
+                        );
 
                         // fallback to returning the initial state as best-effort resolution
                         newAnchorState = await component.reducer.getInitialState(block);
                     } else {
                         newAnchorState = await component.reducer.reduce(parentState, block);
                     }
-                    this.logger.info({ duration: Date.now() - beforeReduce, code: "reduce-anchor-state", componentName: component.name }, "Anchor state reduced."); // prettier-ignore
+                    this.logger.info({ code: "p_mcn_ras", duration: Date.now() - beforeReduce, componentName: component.name }, "Anchor state reduced.");
 
                     const beforeSet = Date.now();
                     this.blockItemStore.anchorState.set(component.name, block.number, block.hash, newAnchorState);
-                    this.logger.info({ duration: Date.now() - beforeSet, code: "set-anchor-state", componentName: component.name }, "Anchor state set.");
+                    this.logger.info({ code: "p_mcn_sas", duration: Date.now() - beforeSet, componentName: component.name }, "Anchor state set.");
 
                     if (parentState != undefined) {
                         // having computed a new state we can detect changes and run actions
@@ -122,7 +124,7 @@ export class BlockchainMachine<TBlock extends IBlockStub> {
                 }
             }
         } catch (doh) {
-            this.logger.error({ error: doh }, "Unexpected error while setting anchor state.");
+            this.logger.error({ code: "p_mcn_sasfail", error: doh }, "Unexpected error while setting anchor state.");
         } finally {
             this.lock.release();
         }
@@ -151,7 +153,7 @@ export class BlockchainMachineService<TBlock extends IBlockStub> extends StartSt
     }
 
     protected async startInternal(): Promise<void> {
-        if (this.blockProcessor.started) this.logger.error("The BlockProcessor should be started after the BlockchainMachineService.");
+        if (this.blockProcessor.started) this.logger.error({ code: "p_mcns_bpstart" }, "The BlockProcessor should be started after the BlockchainMachineService."); //prettier-ignore
 
         this.blockProcessor.newBlock.addListener(this.machine.setStateAndDetectChanges);
         // startup any actions that we had not completed
@@ -159,7 +161,7 @@ export class BlockchainMachineService<TBlock extends IBlockStub> extends StartSt
     }
 
     protected async stopInternal(): Promise<void> {
-        if (this.blockProcessor.started) this.logger.error("The BlockProcessor should be stopped before the BlockchainMachineService.");
+        if (this.blockProcessor.started) this.logger.error({ code: "p_mcns_bpstop" }, "The BlockProcessor should be stopped before the BlockchainMachineService."); //prettier-ignore
 
         this.blockProcessor.newBlock.removeListener(this.machine.setStateAndDetectChanges);
     }

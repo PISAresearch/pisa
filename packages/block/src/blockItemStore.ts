@@ -61,10 +61,10 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
             }
         }
 
-        this.logger.info({ itemsByHeightCount: this.itemsByHeight.size, itemsCount: this.items.size }, "Store started.");
+        this.logger.info({ code: "p_bis_start", itemsByHeightCount: this.itemsByHeight.size, itemsCount: this.items.size }, "Store started.");
     }
     protected async stopInternal() {
-        this.logger.info({ itemsByHeightCount: this.itemsByHeight.size, itemsCount: this.items.size }, "Store stopped.");
+        this.logger.info({ code: "p_bis_stop", itemsByHeightCount: this.itemsByHeight.size, itemsCount: this.items.size }, "Store stopped.");
     }
 
     /**
@@ -194,7 +194,7 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
 
             const beforeBatchWrite = Date.now();
             await this.mBatch.write();
-            this.logger.info({ duration: Date.now() - beforeBatchWrite, length: this.mBatch.length, code: "items-store-batch-write" }, "Batch written.");
+            this.logger.info({ code: "p_bis_bchw", duration: Date.now() - beforeBatchWrite, length: this.mBatch.length }, "Batch written.");
 
             return callBackResult;
         } finally {

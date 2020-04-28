@@ -203,22 +203,22 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
         this.provider.on("block", this.processBlockNumber);
         this.mBlockCache.newBlock.addListener(this.processNewBlock);
 
-        this.logger.info({ currentHeadNumber: currentHead }, "Blockprocessor started.");
+        this.logger.info({ code: "p_bp_start", currentHeadNumber: currentHead }, "Blockprocessor started.");
     }
 
     protected async stopInternal(): Promise<void> {
         this.mBlockCache.newBlock.removeListener(this.processNewBlock);
         this.provider.removeListener("block", this.processBlockNumber);
-        this.logger.info({ currentHeadNumber: await this.store.getLatestHeadNumber() }, "Blockprocessor stopped.");
+        this.logger.info({ code: "p_bp_stop", currentHeadNumber: await this.store.getLatestHeadNumber() }, "Blockprocessor stopped.");
     }
 
     // proxies the newBlock event from the cache from the moment startup is complete
     private async processNewBlock(block: TBlock) {
         const beforeBlock = Date.now();
-        this.logger.info({ hash: block.hash, parentHash: block.parentHash, number: block.number }, "Emitting block.");
+        this.logger.info({ code: "p_bp_blkevs", hash: block.hash, parentHash: block.parentHash, number: block.number }, "Emitting block.");
         await this.newBlock.emit(block);
         this.logger.info(
-            { hash: block.hash, parentHash: block.parentHash, number: block.number, duration: Date.now() - beforeBlock, code: "block-emit" },
+            { code: "p_bp_blkeve", hash: block.hash, parentHash: block.parentHash, number: block.number, duration: Date.now() - beforeBlock },
             "Block emitted."
         );
     }
@@ -244,9 +244,9 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
             // upon startup.
             await this.store.setLatestHeadNumber(headBlock.number);
 
-            this.logger.info({ headBlock: headBlock.hash, number: headBlock.number, emitted: this.started }, "Head set.");
+            this.logger.info({ code: "p_bp_hdset", headBlock: headBlock.hash, number: headBlock.number, emitted: this.started }, "Head set.");
         } catch (doh) {
-            this.logger.error({ err: doh }, "Error processing head.");
+            this.logger.error({ code: "p_bp_hderr", err: doh }, "Error processing head.");
         }
     }
 
@@ -278,7 +278,7 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
     // Processes a new block, adding it to the cache and emitting the appropriate events
     // It is called for each new block received, but also at startup (during startInternal).
     private async processBlockNumber(observedBlockNumber: number) {
-        this.logger.info({ blockNumber: observedBlockNumber }, "Block observed.");
+        this.logger.info({ code: "p_bp_blk", blockNumber: observedBlockNumber }, "Block observed.");
 
         // While processing the block is in a critical section, we updated the highest known block number immediately
         this.mProviderBlockNumber = Math.max(this.mProviderBlockNumber, observedBlockNumber);
@@ -291,7 +291,7 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
             const wasEmpty = this.mBlockCache.isEmpty;
 
             const blockGap = observedBlockNumber - processingBlockNumber;
-            if (blockGap > 100) this.logger.info({ gap: observedBlockNumber - processingBlockNumber, observedBlockNumber, processingBlockNumber }, "Processing large block gap."); //prettier-ignore
+            if (blockGap > 100) this.logger.info({ code: "p_bp_gap", gap: observedBlockNumber - processingBlockNumber, observedBlockNumber, processingBlockNumber }, "Processing large block gap."); //prettier-ignore
 
             let processingBlock: TBlock; // the block the provider returned for height processingBlockNumber
             do {
@@ -310,7 +310,7 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
                 while (true) {
                     const addResult = await this.addBlockToCache(curBlock);
                     let continueBlockFetching = false;
-                    if (curBlock.number % 100 === 0) this.logger.info({ number: curBlock.number, hash: curBlock.hash }, "Synchronised block.");
+                    if (curBlock.number % 100 === 0) this.logger.info({ code: "p_bp_sync", number: curBlock.number, hash: curBlock.hash }, "Synchronised block.");
 
                     switch (addResult) {
                         case BlockAddResult.Added: {
@@ -366,11 +366,11 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
                 await this.processNewHead(processingBlock);
             }
 
-            if (blockGap > 100) this.logger.info({ gap: observedBlockNumber - processingBlockNumber, observedBlockNumber, processingBlockNumber }, "Finished processing large block gap."); //prettier-ignore
+            if (blockGap > 100) this.logger.info({ code: "p_bp_gapend", gap: observedBlockNumber - processingBlockNumber, observedBlockNumber, processingBlockNumber }, "Finished processing large block gap."); //prettier-ignore
         } catch (doh) {
-            if (doh instanceof BlockFetchingError) this.logger.info({ err: doh }, "Error fetching block; ignoring.");
+            if (doh instanceof BlockFetchingError) this.logger.info({ code: "p_bp_blkfcherr", err: doh }, "Error fetching block; ignoring.");
             else {
-                this.logger.error({ err: doh }, "Error processing block.");
+                this.logger.error({ code: "p_bp_blkerr", err: doh }, "Error processing block.");
 
                 // during startup, we rethrow so that the startup can be halted
                 if (!this.started) throw doh;

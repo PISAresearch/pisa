@@ -158,7 +158,7 @@ export class PisaService extends StartStopService {
         const service = app.listen(config.hostPort, config.hostName);
         // never log private parts of the config
         const { receiptKey, responderKey, ...rest } = config;
-        this.logger.info({ ...rest, responderAddress: responderWallet.address, receiptSignerAddress: receiptWallet.address }, "PISA config settings."); // prettier-ignore
+        this.logger.info({ code: "p_serv_settings", ...rest, responderAddress: responderWallet.address, receiptSignerAddress: receiptWallet.address }, "PISA config settings."); // prettier-ignore
         this.server = service;
     }
 
@@ -180,8 +180,8 @@ export class PisaService extends StartStopService {
         await this.blockItemStore.stop();
 
         this.server.close(error => {
-            if (error) this.logger.error({ err: error }, "Error shutting down server.");
-            this.logger.info(`Shutdown.`);
+            if (error) this.logger.error({ code: "p_serv_shutdownerr", err: error }, "Error shutting down server.");
+            this.logger.info({ code: "p_serv_shutdown" }, `Shutdown.`);
         });
     }
 
@@ -202,7 +202,7 @@ export class PisaService extends StartStopService {
         });
         // set up base error handler
         app.use((err: Error, req: requestAndLog, res: express.Response, next: express.NextFunction) => {
-            this.logger.error({ err, req, res, requestBody: req.body }, "Base handler");
+            this.logger.error({ code: "p_serv_basehandler", err, req, res, requestBody: req.body }, "Base handler");
             if ((err as any).statusCode === 400) {
                 res.status(400);
                 res.send({ message: "Bad request" });
@@ -237,12 +237,12 @@ export class PisaService extends StartStopService {
                         -1 &&
                     res.statusCode < 400
                 ) {
-                    req.log.info(logEntry, "Docs request.");
+                    req.log.info({ code: "p_serv_docsreq", logEntry }, "Docs request.");
                 } else if (res.statusCode == 200) {
-                    req.log.info(logEntry, "Success response.");
+                    req.log.info({ code: "p_serv_succresp", logEntry }, "Success response.");
                 } else if (res.statusCode >= 400) {
-                    req.log.error(logEntry, "Error response.");
-                } else req.log.error(logEntry, "Other response.");
+                    req.log.error({ code: "p_serv_errresp", logEntry }, "Error response.");
+                } else req.log.error({ code: "p_serv_othresp", logEntry }, "Other response.");
             });
             next();
         });
@@ -291,7 +291,7 @@ export class PisaService extends StartStopService {
                 else if (doh instanceof ApplicationError) this.logAndSend(500, "Internal server error", doh, res, req);
                 else if (doh instanceof Error) this.logAndSend(500, "Internal server error.", doh, res, req);
                 else {
-                    req.log.error(doh);
+                    req.log.error({ code: "p_serv_error500" }, doh);
                     res.status(500);
                     res.send({ message: "Internal server error." });
                 }
@@ -332,7 +332,7 @@ export class PisaService extends StartStopService {
     }
 
     private logAndSend(code: number, responseMessage: string, error: Error, res: Response, req: requestAndLog) {
-        req.log.error(error);
+        req.log.error({ code: `p_serv_error${code}` , err: error}, "Response error");
         res.status(code);
         res.send({ message: responseMessage });
     }
@@ -374,7 +374,7 @@ class Authenticator {
         try {
             recoveredAddress = ethers.utils.verifyMessage(ethers.utils.arrayify("0x" + blockNumber.toString(16)), signature);
         } catch (doh) {
-            this.logger.error({ err: doh }, "Error authenticating.");
+            this.logger.error({ code: "p_auth_fail", err: doh }, "Error authenticating.");
             throw new PublicDataValidationError("Invalid x-auth-sig header.");
         }
         if (recoveredAddress !== customerAddress) throw new PublicDataValidationError("Signing key does not match customer address.");
@@ -403,7 +403,7 @@ class PisaHeaderParser {
         try {
             authBlock = Number.parseInt(authBlockString as string);
         } catch (doh) {
-            req.log.error(doh);
+            req.log.error({ code: "p_headerparse_err", err: doh }, "Error paring the header.");
             throw new PublicDataValidationError("Header x-auth-block is not an integer.");
         }
         if (authBlock > blockCache.head.number + 5) throw new PublicDataValidationError(`Header x-auth-block too high. Must be within 5 blocks of current block ${blockCache.head.number}.`); //prettier-ignore

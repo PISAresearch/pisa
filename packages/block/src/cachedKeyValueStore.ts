@@ -63,7 +63,7 @@ export class CachedKeyValueStore<TValue extends DbObjectOrSerialisable> extends 
             return { key: k, count: values ? values.size : 0 };
         });
 
-        this.logger.info({ items: logParams }, message);
+        this.logger.info({ code: "p_ckvs_log", items: logParams }, message);
     }
 
     /** Returns all the items stored for `key`. */
