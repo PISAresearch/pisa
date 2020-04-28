@@ -16,6 +16,7 @@
         "submodule": "git submodule init && git submodule update",
         "test": "NODE_ENV=test mocha -r ts-node/register './!(node_modules)/**/__tests__/**/*.test.ts' --exit",
         "test:tr": "TS_NODE_TRANSPILE_ONLY=true NODE_ENV=test mocha -r ts-node/register './!(node_modules)/**/__tests__/**/*.test.ts' --exit",
+        "test:tr:log": "TS_NODE_TRANSPILE_ONLY=true mocha -r ts-node/register './!(node_modules)/**/__tests__/**/*.test.ts' --exit",
         "test-alpha": "pnpm -r run build && NODE_ENV=test mocha -r ts-node/register test/smoke/alpha.test.ts --exit",
         "test-coverage": "pnpm -r run test-coverage",
         "test-endtoend": "NODE_ENV=test mocha -r ts-node/register test/endtoend/**/*.test.ts --exit",
