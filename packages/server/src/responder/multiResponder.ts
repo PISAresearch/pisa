@@ -90,7 +90,14 @@ export class MultiResponder {
 
                 const idealGas = await this.gasEstimator.estimate(endBlock);
                 const request = new GasQueueItemRequest(txIdentifier, idealGas, responseId, startBlock);
-                logger.info(request, `Enqueueing request for ${responseId}.`);
+                logger.info(
+                    {
+                        code: "p_resp_enq",
+                        responseId,
+                        request
+                    },
+                    `Enqueueing request.`
+                );
 
                 // add the queue item to the queue, since the queue is ordered this may mean
                 // that we need to replace some transactions on the network. Find those and
@@ -101,7 +108,7 @@ export class MultiResponder {
 
             await Promise.all(replacedTransactions.map(b => this.broadcast(b)));
         } catch (doh) {
-            logger.error({ err: doh }, "Error starting response.");
+            logger.error({ code: "p_resp_starterr", err: doh }, "Error starting response.");
 
             // we rethrow to the public if this item is already enqueued.
             if (doh instanceof GasQueueError && doh.kind === GasQueueErrorKind.AlreadyAdded) {
@@ -148,7 +155,7 @@ export class MultiResponder {
                 if (txIdentifier.equals(frontItem.request.identifier)) {
                     // the mined transaction was the one at the front of the current queue
                     // this is what we hoped for, simply dequeue the transaction
-                    logger.info(`Transaction is front of queue.`);
+                    logger.info({ code: "p_resp_txfront" }, `Transaction is front of queue.`);
                     const dequeuedQueue = this.zStore.queue.dequeue();
                     return await this.zStore.updateQueue(dequeuedQueue);
                 } else {
@@ -159,7 +166,7 @@ export class MultiResponder {
                     // the mined tx and remove it. In doing so free up a later nonce.
                     // and bump up all transactions with a lower nonce so that the tx that is
                     // at the front of the current queue - but was not mined - remains there
-                    logger.info(`Transaction has since been replaced.`);
+                    logger.info({ code: "p_resp_txrepl" }, `Transaction has since been replaced.`);
                     const reducedQueue = this.zStore.queue.consume(txIdentifier);
                     return await this.zStore.updateQueue(reducedQueue);
                 }
@@ -170,7 +177,7 @@ export class MultiResponder {
             // we can just assume so may fail in a race condition
             if (replacedTransactions) await Promise.all(replacedTransactions.map(b => this.broadcast(b)));
         } catch (doh) {
-            logger.error({ err: doh }, "Error mining tx.");
+            logger.error({ code: "p_resp_txminederr", err: doh }, "Error mining tx.");
         }
     }
 
@@ -197,7 +204,7 @@ export class MultiResponder {
 
             // no need to unlock anything if we dont have any missing items
             if (missingQueueItems.length !== 0) {
-                logger.info({ missingItems: missingQueueItems }, `${missingQueueItems.length} items missing from the gas queue. Re-enqueueing.`); //prettier-ignore
+                logger.info({ code: "p_resp_missitems", missingItems: missingQueueItems }, `${missingQueueItems.length} items missing from the gas queue. Re-enqueueing.`); //prettier-ignore
 
                 const unlockedQueue = this.zStore.queue.prepend(missingQueueItems);
                 return await this.zStore.updateQueue(unlockedQueue);
@@ -219,14 +226,14 @@ export class MultiResponder {
     private async broadcast(queueItem: GasQueueItem) {
         try {
             const tx = queueItem.toTransactionRequest();
-            logger.info({ tx: tx, queueItem: queueItem }, `Broadcasting tx for ${queueItem.request.id}`); // prettier-ignore
+            logger.info({ code: "p_resp_broadcasttx", tx: tx, queueItem: queueItem }, `Broadcasting tx for ${queueItem.request.id}`); // prettier-ignore
             await this.signer.sendTransaction(tx);
         } catch (doh) {
             // we've failed to broadcast a transaction however this isn't a fatal
             // error. Periodically, we look to see if a transaction has been mined
             // for whatever reason if not then we'll need to re-issue the transaction
             // anyway
-            logger.error({ err: doh }, "Error broadcasting tx.");
+            logger.error({ code: "p_resp_broadcasterr", err: doh }, "Error broadcasting tx.");
         }
     }
 
@@ -237,7 +244,7 @@ export class MultiResponder {
     public async checkBalance() {
         const currentBalance = await this.signer.provider!.getBalance(this.address);
         if (currentBalance.lt(this.balanceThreshold)) {
-            logger.error("Responder balance is becoming low. Current balance: " + currentBalance);
+            logger.error({ code: "p_resp_balancelow" }, "Responder balance is becoming low. Current balance: " + currentBalance);
         }
     }
 }

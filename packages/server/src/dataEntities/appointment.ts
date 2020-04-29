@@ -246,13 +246,13 @@ export class Appointment implements Serialisable {
      */
     public static FreeHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("on-the-house")).toLowerCase();
 
-    static parseBigNumber(numberString: string, name: string, log: Logger) {
+    public static parseBigNumber(numberString: string, name: string, log: Logger) {
         try {
             const bigNumber = new BigNumber(numberString);
             if (bigNumber.lt(0)) throw new PublicDataValidationError(`${name} must be non negative.`);
         } catch (doh) {
             if (doh instanceof PublicDataValidationError) throw doh;
-            log.info(doh);
+            log.info({ code: "p_app_parsebn" }, doh);
             throw new PublicDataValidationError(`${name} is not a number.`);
         }
     }
@@ -268,7 +268,7 @@ export class Appointment implements Serialisable {
         if (!valid) {
             const betterErrors = betterAjvErrors(appointmentRequestSchemaJson, obj, appointmentRequestValidation.errors, { format: "js" });
             if (betterErrors) {
-                log.info({ results: betterErrors }, "Schema error.");
+                log.info({ code: "p_app_parseschema", results: betterErrors }, "Schema error.");
                 throw new PublicDataValidationError(betterErrors.map(e => e.error).join("\n"));
             }
         }
@@ -315,7 +315,7 @@ export class Appointment implements Serialisable {
             try {
                 ethers.utils.getAddress(this.eventAddress);
             } catch (doh) {
-                logger.info({ err: doh }, "Error parsing address.");
+                logger.info({ code: "p_app_parseaddr", err: doh }, "Error parsing address.");
                 throw new PublicDataValidationError(`Invalid eventAddress: ${this.eventAddress}`); // prettier-ignore
             }
 
@@ -341,7 +341,7 @@ export class Appointment implements Serialisable {
             // try to encode the solidity type
             encoded = this.encodeForSig(pisaContractAddress);
         } catch (doh) {
-            log.error(doh);
+            log.error({ code: "p_app_encsig" }, doh);
             throw new PublicDataValidationError("Invalid solidity type. An error has occurred ABI encoding a field. This may be due to incorrect bytes encoding, please ensure that all byte(s) fields are of the correct length and are prefixed with 0x."); //prettier-ignore
         }
         let recoveredAddress;
@@ -349,7 +349,7 @@ export class Appointment implements Serialisable {
             const hashForSig = ethers.utils.keccak256(encoded);
             recoveredAddress = ethers.utils.verifyMessage(ethers.utils.arrayify(hashForSig), this.customerSig);
         } catch (doh) {
-            log.error(doh);
+            log.error({ code: "p_app_versig" }, doh);
             throw new PublicDataValidationError("Invalid signature.");
         }
         if (this.customerAddress.toLowerCase() !== recoveredAddress.toLowerCase()) {

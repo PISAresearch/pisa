@@ -55,7 +55,7 @@ export abstract class StartStopService extends EventEmitter {
         // set started straight away to block the code below
         this.mStarting = true;
         await this.startInternal();
-        this.logger.info("Started.");
+        this.logger.info({ code: "p_service_started" }, "Started.");
         this.mStarted = true;
         this.mStarting = false;
         this.emit(StartStopService.STARTED_EVENT);
@@ -69,10 +69,10 @@ export abstract class StartStopService extends EventEmitter {
         if (this.mStarted) {
             this.mStarted = false;
             await this.stopInternal();
-            this.logger.info("Stopped.");
+            this.logger.info({ code: "p_service_stopped" }, "Stopped.");
             this.emit(StartStopService.STOPPED_EVENT);
         } else {
-            this.logger.error("Already stopped.");
+            this.logger.error({ code: "p_service_alreadystopped" }, "Already stopped.");
         }
     }
     protected abstract stopInternal(): Promise<void>;

@@ -31,6 +31,7 @@ export class AppointmentStore extends StartStopService {
 
         this.logger.info(
             {
+                code: "p_wchst_start",
                 appointmentsByIdCount: this.appointmentsById.size,
                 appointmentsByLocatorCount: this.appointmentsByLocator.size,
                 appointmentsByCustomerAddress: this.appointmentsByCustomerAddress.size
@@ -42,6 +43,7 @@ export class AppointmentStore extends StartStopService {
     protected async stopInternal() {
         this.logger.info(
             {
+                code: "p_wchst_stop",
                 appointmentsByIdCount: this.appointmentsById.size,
                 appointmentsByLocatorCount: this.appointmentsByLocator.size,
                 appointmentsByCustomerAddress: this.appointmentsByCustomerAddress.size

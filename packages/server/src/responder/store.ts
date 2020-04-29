@@ -47,13 +47,13 @@ export class ResponderStore extends StartStopService {
         }
 
         this.logger.info(
-            { transactionsCount: this.transactions.size, queueItemsSize: this.queue.queueItems.length, emptyNonce: this.queue.emptyNonce },
+            { code: "p_respst_start", transactionsCount: this.transactions.size, queueItemsSize: this.queue.queueItems.length, emptyNonce: this.queue.emptyNonce },
             "Store started."
         );
     }
     protected async stopInternal() {
         this.logger.info(
-            { transactionsCount: this.transactions.size, queueItemsSize: this.queue.queueItems.length, emptyNonce: this.queue.emptyNonce },
+            { code: "p_respst_stop", transactionsCount: this.transactions.size, queueItemsSize: this.queue.queueItems.length, emptyNonce: this.queue.emptyNonce },
             "Store stopped."
         );
     }

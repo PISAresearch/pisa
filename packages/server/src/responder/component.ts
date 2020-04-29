@@ -188,12 +188,12 @@ export class MultiResponderComponent extends Component<ResponderAnchorState, Blo
             const prevItem = prevState.items[appointmentId];
 
             if (!prevItem && currentItem.kind === ResponderStateKind.Pending) {
-                logger.info({state: currentItem, id: appointmentId, blockNumber: state.blockNumber }, "New pending transaction.") // prettier-ignore
+                logger.info({ code: "p_respc_newpendtx", state: currentItem, id: appointmentId, blockNumber: state.blockNumber }, "New pending transaction.") // prettier-ignore
             }
 
             // if a transaction has been mined we need to inform the responder and also check the responder balance before responding
             if (!this.hasResponseBeenMined(prevItem) && this.hasResponseBeenMined(currentItem)) {
-                logger.info({state: currentItem, id: appointmentId, blockNumber: state.blockNumber }, "Transaction mined.") // prettier-ignore
+                logger.info({ code: "p_respc_minedtx", currentItem, id: appointmentId, blockNumber: state.blockNumber }, "Transaction mined.") // prettier-ignore
                 actions.push(
                     {
                         kind: ResponderActionKind.TxMined,
@@ -208,7 +208,7 @@ export class MultiResponderComponent extends Component<ResponderAnchorState, Blo
 
             // after a certain number of confirmations we can stop tracking a transaction
             if (!this.shouldAppointmentBeRemoved(prevState, prevItem) && this.shouldAppointmentBeRemoved(state, currentItem)) {
-                logger.info({state: currentItem, id: appointmentId, blockNumber: state.blockNumber }, "Response removed.") // prettier-ignore
+                logger.info({ code: "p_respc_rm", state: currentItem, id: appointmentId, blockNumber: state.blockNumber }, "Response removed.") // prettier-ignore
                 actions.push({
                     kind: ResponderActionKind.EndResponse,
                     appointmentId: currentItem.appointmentId

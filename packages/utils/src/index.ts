@@ -1,7 +1,5 @@
 export { Lock, LockManager } from "./lock";
-import { logger } from "./logger";
-type Logger = typeof logger;
-export { logger, Logger };
+export { logger, Logger } from "./logger";
 export { MapOfSets } from "./mapSet";
 export { StartStopService } from "./startStop";
 export { PlainObject, DbObject } from "./objects";

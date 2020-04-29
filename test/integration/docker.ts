@@ -33,7 +33,7 @@ abstract class DockerContainer {
     protected containerId: string;
 
     private async pullImage(imageName: string) {
-        logger.info(`Pulling image: ${imageName}.`);
+        logger.info({ code: "p-docker-pull" }, `Pulling image: ${imageName}.`);
 
         const stream = await this.dockerClient.pull(imageName, {});
 

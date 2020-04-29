@@ -151,13 +151,13 @@ export class Watcher extends Component<WatcherAnchorState, IBlockStub & Logs, Wa
 
             // Log if started watching a new appointment
             if (!prevWatcherAppointmentState && appointmentState.state === WatcherAppointmentState.WATCHING) {
-                logger.info({ state: appointmentState, id: appointmentId, blockNumber: state.blockNumber }, `Started watching for appointment.`); // prettier-ignore
+                logger.info({ code: "p_wch_startapp", state: appointmentState, id: appointmentId, blockNumber: state.blockNumber }, `Started watching for appointment.`); // prettier-ignore
             }
 
             // Start response if necessary
             if (!this.shouldHaveStartedResponder(prevState, prevWatcherAppointmentState) && this.shouldHaveStartedResponder(state, appointmentState)) {
                 const appointment = this.store.appointmentsById.get(appointmentId)!;
-                logger.info({ state: appointmentState, id: appointmentId, blockNumber: state.blockNumber }, `Responding to appointment.`); // prettier-ignore
+                logger.info({ code: "p_wch_respapp", state: appointmentState, id: appointmentId, blockNumber: state.blockNumber }, `Responding to appointment.`); // prettier-ignore
                 actions.push({
                     kind: WatcherActionKind.StartResponse,
                     appointment: appointment,
@@ -170,7 +170,7 @@ export class Watcher extends Component<WatcherAnchorState, IBlockStub & Logs, Wa
                 !this.shouldRemoveObservedAppointment(prevState, prevWatcherAppointmentState) &&
                 this.shouldRemoveObservedAppointment(state, appointmentState)
             ) {
-                logger.info({ state: appointmentState, id: appointmentId, blockNumber: state.blockNumber }, `Removing fulfilled appointment from watcher.`); // prettier-ignore
+                logger.info({ code: "p_wch_rmfulfapp", state: appointmentState, id: appointmentId, blockNumber: state.blockNumber }, `Removing fulfilled appointment from watcher.`); // prettier-ignore
                 actions.push({ kind: WatcherActionKind.RemoveAppointment, appointmentId: appointmentId });
             }
 
@@ -180,7 +180,7 @@ export class Watcher extends Component<WatcherAnchorState, IBlockStub & Logs, Wa
                 !this.shouldRemoveExpiredAppointment(prevState, prevWatcherAppointmentState, endBlock) &&
                 this.shouldRemoveExpiredAppointment(state, appointmentState, endBlock)
             ) {
-                logger.info({ state: appointmentState, id: appointmentId, blockNumber: state.blockNumber }, `Removing expired appointment from watcher.`); // prettier-ignore
+                logger.info({ code: "p_wch_rmexpapp", state: appointmentState, id: appointmentId, blockNumber: state.blockNumber }, `Removing expired appointment from watcher.`); // prettier-ignore
                 actions.push({ kind: WatcherActionKind.RemoveAppointment, appointmentId: appointmentId });
             }
         }
