@@ -15,10 +15,12 @@ import EncodingDown from "encoding-down";
 import MemDown from "memdown";
 import Ganache from "ganache-core";
 import { ethers } from "ethers";
-import { StartStopService, defaultSerialiser, PlainObjectOrSerialisable, PlainObject } from "@pisa-research/utils";
+import { StartStopService, defaultSerialiser, PlainObjectOrSerialisable, PlainObject, Logger } from "@pisa-research/utils";
 import { Web3Provider } from "ethers/providers";
 import { wait } from "@pisa-research/test-utils";
 import { expect } from "chai";
+
+const logger = Logger.getLogger();
 
 /**
  *
@@ -133,8 +135,8 @@ describe("BlockchainMachineIntegration", () => {
                 EncodingDown<string, any>(MemDown(), { valueEncoding: "json" })
             );
 
-        const actionStore = new CachedKeyValueStore<BlockNumberAction>(db, defaultSerialiser, "blockchain-machine-actions-store");
-        const blockItemStore = new BlockItemStore(db, defaultSerialiser);
+        const actionStore = new CachedKeyValueStore<BlockNumberAction>(db, defaultSerialiser, "blockchain-machine-actions-store", logger);
+        const blockItemStore = new BlockItemStore(db, defaultSerialiser, logger);
 
         let startBlockNumber = 2;
         let mineFirstBlock = false;
@@ -164,12 +166,13 @@ describe("BlockchainMachineIntegration", () => {
             },
             blockCache,
             blockItemStore,
-            blockProcessorStore
+            blockProcessorStore,
+            logger
         );
 
         const blockNumberRecorderComponent = new BlockNumberRecorderComponent();
 
-        const blockchainMachine = new BlockchainMachineService(blockProcessor, actionStore, blockItemStore, [blockNumberRecorderComponent]);
+        const blockchainMachine = new BlockchainMachineService(blockProcessor, actionStore, blockItemStore, logger, [blockNumberRecorderComponent]);
 
         await blockItemStore.start();
         await actionStore.start();

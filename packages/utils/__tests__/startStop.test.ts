@@ -1,11 +1,13 @@
 import "mocha";
 import { assert, expect } from "chai";
-import { StartStopService } from "../src";
+import { StartStopService, Logger } from "../src";
 import { verify, spy } from "ts-mockito";
+
+const logger = Logger.getLogger();
 
 class TestStartStop extends StartStopService {
     constructor() {
-        super("test-service");
+        super("test-service", logger);
     }
     public async startInternal() {}
     public async stopInternal() {}
@@ -14,7 +16,7 @@ class TestStartStop extends StartStopService {
 class ManualStartStop extends StartStopService {
     public resolve: any;
     constructor() {
-        super("test-service");
+        super("test-service", logger);
     }
     public async startInternal() {
         await new Promise(resolve => {

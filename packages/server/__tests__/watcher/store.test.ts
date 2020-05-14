@@ -8,8 +8,10 @@ import encodingDown from "encoding-down";
 import { Appointment } from "../../src/dataEntities/appointment";
 import { ApplicationError } from "@pisa-research/errors";
 import { fnIt, expectAsync } from "@pisa-research/test-utils";
-import { DbObject } from "@pisa-research/utils";
+import { DbObject, Logger } from "@pisa-research/utils";
 chai.use(chaiAsPromised);
+
+const logger = Logger.getLogger();
 
 const getAppointment = (id: string, endBlock: number, nonce: number) => {
     return Appointment.deserialise({
@@ -43,7 +45,7 @@ describe("Store", () => {
                 valueEncoding: "json"
             })
         );
-        store = new AppointmentStore(db);
+        store = new AppointmentStore(db, logger);
         await store.start();
     });
 
@@ -220,7 +222,7 @@ describe("Store", () => {
         await testDB.put(subDbString + appointment2.id, appointment2.serialise());
         await testDB.put(subDbString + appointment3.id, appointment3.serialise());
 
-        const testStore = new AppointmentStore(testDB);
+        const testStore = new AppointmentStore(testDB, logger);
         await testStore.start();
 
         let expired = [...testStore.getExpiredSince(appointment3.endBlock + 1)];

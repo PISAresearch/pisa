@@ -146,9 +146,10 @@ export class BlockchainMachineService<TBlock extends IBlockStub> extends StartSt
         private readonly blockProcessor: BlockProcessor<TBlock>,
         actionStore: CachedKeyValueStore<ComponentAction>,
         private readonly blockItemStore: BlockItemStore<TBlock>,
+        logger: Logger,
         components: Component<AnchorState, TBlock, ComponentAction>[]
     ) {
-        super("blockchain-machine");
+        super("blockchain-machine", logger);
         this.machine = new BlockchainMachine(actionStore, blockItemStore, components, this.logger);
     }
 

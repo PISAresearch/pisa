@@ -23,7 +23,7 @@ const parseCommandLine = (argv: string[]) => {
 };
 const args = parseCommandLine(process.argv);
 
-// allow logging to be disable during tests
+// allow logging to be disabled during tests
 const enabled = process.env.NODE_ENV !== "test";
 
 // a custom serialiser for arguments error
@@ -77,8 +77,3 @@ export class Logger {
         return new Logger(this.pino.child(bindings));
     }
 }
-
-// standard logger that components can create children from.
-export const logger = Logger.getLogger();
-
-if (!args.help && args.name === "not-set") logger.warn({ code: "a_logger_notset" }, "Instance name not set. Set this via the --name command line argument.");

@@ -5,7 +5,7 @@ import { validateProvider, getJsonRPCProvider } from "./utils/ethers";
 import levelup, { LevelUp } from "levelup";
 import encodingDown from "encoding-down";
 import leveldown from "leveldown";
-import { DbObject } from "@pisa-research/utils";
+import { DbObject, Logger } from "@pisa-research/utils";
 
 let config: IArgConfig;
 try {
@@ -26,8 +26,10 @@ async function startUp() {
     const db = levelup(encodingDown(leveldown(config.dbDir), { valueEncoding: "json" }));
     const nonce = await provider.getTransactionCount(watcherWallet.address, "pending");
 
+    const logger = Logger.getLogger();
+
     // start the pisa service
-    const service = new PisaService(config, provider, watcherWallet, nonce, provider.network.chainId, receiptSigner, db);
+    const service = new PisaService(config, provider, watcherWallet, nonce, provider.network.chainId, receiptSigner, db, logger);
     service.start();
 
     // listen for stop events

@@ -1,5 +1,4 @@
 import { ConfigurationError } from "@pisa-research/errors";
-import { logger } from "./logger";
 import { EventEmitter } from "events";
 import { Logger } from ".";
 
@@ -30,8 +29,9 @@ export abstract class StartStopService extends EventEmitter {
      * Whoever constructs this service must stop it after using it.
      *
      * @param name The name of the service. It must contain lowercase letters, numbers and hyphens ("-").;
+     * @param logger the Logger to use. The service will create a child from it.
      */
-    protected constructor(protected readonly name: string) {
+    protected constructor(protected readonly name: string, logger: Logger) {
         super();
 
         if (!/^[a-z0-9\-]+$/.test(name)) {

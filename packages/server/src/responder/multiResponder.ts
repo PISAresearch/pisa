@@ -9,7 +9,7 @@ import { GasPriceEstimator } from "./gasPriceEstimator";
 import { ethers } from "ethers";
 import { BigNumber } from "ethers/utils";
 import { inspect } from "util";
-import { logger, LockManager } from "@pisa-research/utils";
+import { Logger, LockManager } from "@pisa-research/utils";
 import { QueueConsistencyError, ArgumentError, PublicInspectionError } from "@pisa-research/errors";
 import { ResponderStore } from "./store";
 
@@ -48,7 +48,8 @@ export class MultiResponder {
         store: ResponderStore,
         public readonly address: string,
         public readonly balanceThreshold: BigNumber,
-        public readonly pisaContractAddress: string
+        public readonly pisaContractAddress: string,
+        private readonly logger: Logger
     ) {
         this.broadcast = this.broadcast.bind(this);
         this.zStore = store;
@@ -90,7 +91,7 @@ export class MultiResponder {
 
                 const idealGas = await this.gasEstimator.estimate(endBlock);
                 const request = new GasQueueItemRequest(txIdentifier, idealGas, responseId, startBlock);
-                logger.info(
+                this.logger.info(
                     {
                         code: "p_resp_enq",
                         responseId,
@@ -108,7 +109,7 @@ export class MultiResponder {
 
             await Promise.all(replacedTransactions.map(b => this.broadcast(b)));
         } catch (doh) {
-            logger.error({ code: "p_resp_starterr", err: doh }, "Error starting response.");
+            this.logger.error({ code: "p_resp_starterr", err: doh }, "Error starting response.");
 
             // we rethrow to the public if this item is already enqueued.
             if (doh instanceof GasQueueError && doh.kind === GasQueueErrorKind.AlreadyAdded) {
@@ -155,7 +156,7 @@ export class MultiResponder {
                 if (txIdentifier.equals(frontItem.request.identifier)) {
                     // the mined transaction was the one at the front of the current queue
                     // this is what we hoped for, simply dequeue the transaction
-                    logger.info({ code: "p_resp_txfront" }, `Transaction is front of queue.`);
+                    this.logger.info({ code: "p_resp_txfront" }, `Transaction is front of queue.`);
                     const dequeuedQueue = this.zStore.queue.dequeue();
                     return await this.zStore.updateQueue(dequeuedQueue);
                 } else {
@@ -166,7 +167,7 @@ export class MultiResponder {
                     // the mined tx and remove it. In doing so free up a later nonce.
                     // and bump up all transactions with a lower nonce so that the tx that is
                     // at the front of the current queue - but was not mined - remains there
-                    logger.info({ code: "p_resp_txrepl" }, `Transaction has since been replaced.`);
+                    this.logger.info({ code: "p_resp_txrepl" }, `Transaction has since been replaced.`);
                     const reducedQueue = this.zStore.queue.consume(txIdentifier);
                     return await this.zStore.updateQueue(reducedQueue);
                 }
@@ -177,7 +178,7 @@ export class MultiResponder {
             // we can just assume so may fail in a race condition
             if (replacedTransactions) await Promise.all(replacedTransactions.map(b => this.broadcast(b)));
         } catch (doh) {
-            logger.error({ code: "p_resp_txminederr", err: doh }, "Error mining tx.");
+            this.logger.error({ code: "p_resp_txminederr", err: doh }, "Error mining tx.");
         }
     }
 
@@ -204,7 +205,7 @@ export class MultiResponder {
 
             // no need to unlock anything if we dont have any missing items
             if (missingQueueItems.length !== 0) {
-                logger.info({ code: "p_resp_missitems", missingItems: missingQueueItems }, `${missingQueueItems.length} items missing from the gas queue. Re-enqueueing.`); //prettier-ignore
+                this.logger.info({ code: "p_resp_missitems", missingItems: missingQueueItems }, `${missingQueueItems.length} items missing from the gas queue. Re-enqueueing.`); //prettier-ignore
 
                 const unlockedQueue = this.zStore.queue.prepend(missingQueueItems);
                 return await this.zStore.updateQueue(unlockedQueue);
@@ -226,14 +227,14 @@ export class MultiResponder {
     private async broadcast(queueItem: GasQueueItem) {
         try {
             const tx = queueItem.toTransactionRequest();
-            logger.info({ code: "p_resp_broadcasttx", tx: tx, queueItem: queueItem }, `Broadcasting tx for ${queueItem.request.id}`); // prettier-ignore
+            this.logger.info({ code: "p_resp_broadcasttx", tx: tx, queueItem: queueItem }, `Broadcasting tx for ${queueItem.request.id}`); // prettier-ignore
             await this.signer.sendTransaction(tx);
         } catch (doh) {
             // we've failed to broadcast a transaction however this isn't a fatal
             // error. Periodically, we look to see if a transaction has been mined
             // for whatever reason if not then we'll need to re-issue the transaction
             // anyway
-            logger.error({ code: "p_resp_broadcasterr", err: doh }, "Error broadcasting tx.");
+            this.logger.error({ code: "p_resp_broadcasterr", err: doh }, "Error broadcasting tx.");
         }
     }
 
@@ -244,7 +245,7 @@ export class MultiResponder {
     public async checkBalance() {
         const currentBalance = await this.signer.provider!.getBalance(this.address);
         if (currentBalance.lt(this.balanceThreshold)) {
-            logger.error({ code: "p_resp_balancelow" }, "Responder balance is becoming low. Current balance: " + currentBalance);
+            this.logger.error({ code: "p_resp_balancelow" }, "Responder balance is becoming low. Current balance: " + currentBalance);
         }
     }
 }

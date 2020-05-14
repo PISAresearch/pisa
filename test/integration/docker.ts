@@ -1,5 +1,5 @@
 import DockerClient from "dockerode";
-import { logger } from "../../packages/utils/src";
+import { Logger } from "../../packages/utils/src";
 import { IArgConfig, PisaConfigManager } from "../../packages/server/src/service/config";
 import { FileUtils } from "./fileUtil";
 import path from "path";
@@ -7,6 +7,8 @@ import fs from "fs";
 import { ConfigurationError } from "../../packages/errors/src/errors";
 import { Key } from "./keyStore";
 import { ChainData } from "./chainData";
+
+const logger = Logger.getLogger();
 
 interface IPortBinding {
     Host: string;

@@ -7,7 +7,7 @@ import EncodingDown from "encoding-down";
 import MemDown from "memdown";
 
 import { ApplicationError } from "@pisa-research/errors";
-import { DbObject, defaultSerialiser } from "@pisa-research/utils";
+import { DbObject, defaultSerialiser, Logger } from "@pisa-research/utils";
 import { BlockCache, BlockItemStore, IBlockStub, Logs } from "@pisa-research/block";
 import { fnIt, throwingInstance } from "@pisa-research/test-utils";
 
@@ -15,6 +15,8 @@ import { AppointmentStore } from "../../src/watcher";
 import { MultiResponder } from "../../src/responder";
 import { Appointment } from "../../src/dataEntities/appointment";
 import { EventFilterStateReducer, WatcherAppointmentState, Watcher, WatcherActionKind } from "../../src/watcher/watcher";
+
+const logger = Logger.getLogger();
 
 const observedEventAddress = "0x1234abcd";
 const observedEventTopics = ["0x1234"];
@@ -68,7 +70,7 @@ describe("WatcherAppointmentStateReducer", () => {
     when(appMock.endBlock).thenReturn(1000);
 
     const db = LevelUp(EncodingDown<string, DbObject>(MemDown(), { valueEncoding: "json" }));
-    const blockStore = new BlockItemStore<IBlockStub & Logs>(db, defaultSerialiser);
+    const blockStore = new BlockItemStore<IBlockStub & Logs>(db, defaultSerialiser, logger);
 
     const blockCache = new BlockCache<IBlockStub & Logs>(100, blockStore);
 
@@ -192,7 +194,7 @@ describe("Watcher", () => {
     let appointment: Appointment;
 
     before(async () => {
-        blockStore = new BlockItemStore<IBlockStub & Logs>(db, defaultSerialiser);
+        blockStore = new BlockItemStore<IBlockStub & Logs>(db, defaultSerialiser, logger);
         await blockStore.start();
 
         blockCache = new BlockCache<IBlockStub & Logs>(100, blockStore);
@@ -237,7 +239,7 @@ describe("Watcher", () => {
     });
 
     fnIt<Watcher>(w => w.detectChanges, "calls startResponse after event is OBSERVED for long enough", async () => {
-        const watcher = new Watcher(responder, blockCache, store, CONFIRMATIONS_BEFORE_RESPONSE, CONFIRMATIONS_BEFORE_REMOVAL);
+        const watcher = new Watcher(responder, blockCache, store, logger, CONFIRMATIONS_BEFORE_RESPONSE, CONFIRMATIONS_BEFORE_REMOVAL);
 
         const actions = watcher.detectChanges(
             {
@@ -253,7 +255,7 @@ describe("Watcher", () => {
     });
 
     fnIt<Watcher>(w => w.detectChanges, "does not call startResponse before event is OBSERVED for long enough", async () => {
-        const watcher = new Watcher(responder, blockCache, store, CONFIRMATIONS_BEFORE_RESPONSE, CONFIRMATIONS_BEFORE_REMOVAL);
+        const watcher = new Watcher(responder, blockCache, store, logger, CONFIRMATIONS_BEFORE_RESPONSE, CONFIRMATIONS_BEFORE_REMOVAL);
 
         const actions = watcher.detectChanges(
             {
@@ -269,7 +271,7 @@ describe("Watcher", () => {
     });
 
     fnIt<Watcher>(w => w.detectChanges, "calls startResponse immediately after event is OBSERVED for long enough even if just added to the store", async () => {
-        const watcher = new Watcher(responder, blockCache, store, CONFIRMATIONS_BEFORE_RESPONSE, CONFIRMATIONS_BEFORE_REMOVAL);
+        const watcher = new Watcher(responder, blockCache, store, logger, CONFIRMATIONS_BEFORE_RESPONSE, CONFIRMATIONS_BEFORE_REMOVAL);
 
         const actions = watcher.detectChanges(
             {
@@ -285,7 +287,7 @@ describe("Watcher", () => {
     });
 
     fnIt<Watcher>(w => w.detectChanges, "does not call startResponse again if a previous state already caused startResponse", async () => {
-        const watcher = new Watcher(responder, blockCache, store, CONFIRMATIONS_BEFORE_RESPONSE, CONFIRMATIONS_BEFORE_REMOVAL);
+        const watcher = new Watcher(responder, blockCache, store, logger, CONFIRMATIONS_BEFORE_RESPONSE, CONFIRMATIONS_BEFORE_REMOVAL);
 
         const actions = watcher.detectChanges(
             {
@@ -301,7 +303,7 @@ describe("Watcher", () => {
     });
 
     fnIt<Watcher>(w => w.detectChanges, "calls removeById after event is OBSERVED for long enoug", async () => {
-        const watcher = new Watcher(responder, blockCache, store, CONFIRMATIONS_BEFORE_RESPONSE, CONFIRMATIONS_BEFORE_REMOVAL);
+        const watcher = new Watcher(responder, blockCache, store, logger, CONFIRMATIONS_BEFORE_RESPONSE, CONFIRMATIONS_BEFORE_REMOVAL);
 
         const actions = watcher.detectChanges(
             {
@@ -317,7 +319,7 @@ describe("Watcher", () => {
     });
 
     fnIt<Watcher>(w => w.detectChanges, "does not call removeById before event is OBSERVED for long enough", async () => {
-        const watcher = new Watcher(responder, blockCache, store, CONFIRMATIONS_BEFORE_RESPONSE, CONFIRMATIONS_BEFORE_REMOVAL);
+        const watcher = new Watcher(responder, blockCache, store, logger, CONFIRMATIONS_BEFORE_RESPONSE, CONFIRMATIONS_BEFORE_REMOVAL);
 
         const actions = watcher.detectChanges(
             {
@@ -333,7 +335,7 @@ describe("Watcher", () => {
     });
 
     fnIt<Watcher>(w => w.detectChanges, "calls removeById after an appointment has expired for long enough", async () => {
-        const watcher = new Watcher(responder, blockCache, store, CONFIRMATIONS_BEFORE_RESPONSE, CONFIRMATIONS_BEFORE_REMOVAL);
+        const watcher = new Watcher(responder, blockCache, store, logger, CONFIRMATIONS_BEFORE_RESPONSE, CONFIRMATIONS_BEFORE_REMOVAL);
 
         const actions = watcher.detectChanges(
             {
@@ -349,7 +351,7 @@ describe("Watcher", () => {
     });
 
     fnIt<Watcher>(w => w.detectChanges, "does not call removeById before an appointment has expired for long enough", async () => {
-        const watcher = new Watcher(responder, blockCache, store, CONFIRMATIONS_BEFORE_RESPONSE, CONFIRMATIONS_BEFORE_REMOVAL);
+        const watcher = new Watcher(responder, blockCache, store, logger, CONFIRMATIONS_BEFORE_RESPONSE, CONFIRMATIONS_BEFORE_REMOVAL);
 
         const actions = watcher.detectChanges(
             {
@@ -365,7 +367,7 @@ describe("Watcher", () => {
     });
 
     fnIt<Watcher>(w => w.detectChanges, "does not call removeById if an appointment is already expired for long enough", async () => {
-        const watcher = new Watcher(responder, blockCache, store, CONFIRMATIONS_BEFORE_RESPONSE, CONFIRMATIONS_BEFORE_REMOVAL);
+        const watcher = new Watcher(responder, blockCache, store, logger, CONFIRMATIONS_BEFORE_RESPONSE, CONFIRMATIONS_BEFORE_REMOVAL);
 
         const actions = watcher.detectChanges(
             {

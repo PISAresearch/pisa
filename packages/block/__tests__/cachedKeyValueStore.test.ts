@@ -5,8 +5,9 @@ import LevelUp from "levelup";
 import EncodingDown from "encoding-down";
 import MemDown from "memdown";
 import { fnIt } from "@pisa-research/test-utils";
-import { DbObject, defaultSerialiser, SerialisableBigNumber } from "@pisa-research/utils";
+import { DbObject, defaultSerialiser, SerialisableBigNumber, Logger } from "@pisa-research/utils";
 
+const logger = Logger.getLogger();
 
 type TestItem = {
     name: string;
@@ -31,7 +32,7 @@ describe("CachedKeyValueStore", () => {
 
     beforeEach(async () => {
         db = LevelUp(EncodingDown<string, DbObject>(MemDown(), { valueEncoding: "json" }));
-        store = new CachedKeyValueStore(db, defaultSerialiser, "prefix");
+        store = new CachedKeyValueStore(db, defaultSerialiser, "prefix", logger);
         await store.start();
     });
 
@@ -81,7 +82,7 @@ describe("CachedKeyValueStore", () => {
         await store.storeItems(key, testItems);
         await store.stop();
 
-        const newStore = new CachedKeyValueStore(db, defaultSerialiser, "prefix"); // a new CachedKeyValueStore on the same db
+        const newStore = new CachedKeyValueStore(db, defaultSerialiser, "prefix", logger); // a new CachedKeyValueStore on the same db
         await newStore.start();
 
         const retrievedItems = [...newStore.getItems(key)]
@@ -103,7 +104,7 @@ describe("CachedKeyValueStore", () => {
 
         await store.stop();
 
-        const newStore = new CachedKeyValueStore(db, defaultSerialiser, "prefix"); // a new CachedKeyValueStore on the same db
+        const newStore = new CachedKeyValueStore(db, defaultSerialiser, "prefix", logger); // a new CachedKeyValueStore on the same db
         await newStore.start();
 
         const retrievedItemsAfter = [...newStore.getItems(key)].map(i => i.value);

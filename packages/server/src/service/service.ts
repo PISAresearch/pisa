@@ -62,6 +62,7 @@ export class PisaService extends StartStopService {
      * @param responderWallet A signing authority for submitting transactions
      * @param receiptWallet A signing authority for receipts returned from Pisa
      * @param db The instance of the database
+     * @param logger The logger instance
      */
     constructor(
         config: IArgConfig,
@@ -70,9 +71,10 @@ export class PisaService extends StartStopService {
         walletNonce: number,
         chainId: number,
         receiptWallet: ethers.Wallet,
-        db: LevelUp<encodingDown<string, DbObject>>
+        db: LevelUp<encodingDown<string, DbObject>>,
+        logger: Logger
     ) {
-        super("service");
+        super("service", logger);
         const app = express();
         this.applyMiddlewares(app, config);
 
@@ -86,15 +88,15 @@ export class PisaService extends StartStopService {
 
         // block cache and processor
         const cacheLimit = config.maximumReorgLimit == undefined ? 200 : config.maximumReorgLimit;
-        this.blockItemStore = new BlockItemStore<Block>(db, serialiser);
+        this.blockItemStore = new BlockItemStore<Block>(db, serialiser, logger);
         const blockCache = new BlockCache<Block>(cacheLimit, this.blockItemStore);
         const blockProcessorStore = new BlockProcessorStore(db);
-        this.blockProcessor = new BlockProcessor<Block>(provider, blockFactory, blockCache, this.blockItemStore, blockProcessorStore);
+        this.blockProcessor = new BlockProcessor<Block>(provider, blockFactory, blockCache, this.blockItemStore, blockProcessorStore, logger);
 
         // stores
-        this.appointmentStore = new AppointmentStore(db);
+        this.appointmentStore = new AppointmentStore(db, logger);
         const seedQueue = new GasQueue([], walletNonce, 12, 13);
-        this.responderStore = new ResponderStore(db, responderWallet.address, seedQueue);
+        this.responderStore = new ResponderStore(db, responderWallet.address, seedQueue, logger);
 
         // managers
         const multiResponder = new MultiResponder(
@@ -104,7 +106,8 @@ export class PisaService extends StartStopService {
             this.responderStore,
             responderWallet.address,
             new BigNumber("500000000000000000"),
-            config.pisaContractAddress
+            config.pisaContractAddress,
+            logger
         );
 
         // components and machine
@@ -112,17 +115,19 @@ export class PisaService extends StartStopService {
             multiResponder,
             this.blockProcessor.blockCache,
             this.appointmentStore,
+            logger,
             config.watcherResponseConfirmations === undefined ? 5 : config.watcherResponseConfirmations,
             config.maximumReorgLimit === undefined ? 100 : config.maximumReorgLimit
         );
         const responder = new MultiResponderComponent(
             multiResponder,
             this.blockProcessor.blockCache,
+            logger,
             config.maximumReorgLimit == undefined ? 100 : config.maximumReorgLimit
         );
 
-        this.actionStore = new CachedKeyValueStore<ComponentAction>(db, serialiser, "blockchain-machine");
-        this.blockchainMachine = new BlockchainMachineService<Block>(this.blockProcessor, this.actionStore, this.blockItemStore, [watcher, responder]);
+        this.actionStore = new CachedKeyValueStore<ComponentAction>(db, serialiser, "blockchain-machine", logger);
+        this.blockchainMachine = new BlockchainMachineService<Block>(this.blockProcessor, this.actionStore, this.blockItemStore, logger, [watcher, responder]);
 
         // tower
         const tower = new PisaTower(this.appointmentStore, receiptWallet, multiResponder, blockCache, config.pisaContractAddress);
