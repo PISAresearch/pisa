@@ -26,7 +26,7 @@ async function startUp() {
     const db = levelup(encodingDown(leveldown(config.dbDir), { valueEncoding: "json" }));
     const nonce = await provider.getTransactionCount(watcherWallet.address, "pending");
 
-    const logger = Logger.getLogger();
+    const logger = Logger.getLogger("pisa", "info");
 
     // start the pisa service
     const service = new PisaService(config, provider, watcherWallet, nonce, provider.network.chainId, receiptSigner, db, logger);
