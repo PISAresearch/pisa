@@ -106,11 +106,11 @@ export class BlockchainMachine<TBlock extends IBlockStub> {
                     } else {
                         newAnchorState = await component.reducer.reduce(parentState, block);
                     }
-                    this.logger.info({ code: "p_mcn_ras", duration: Date.now() - beforeReduce, componentName: component.name }, "Anchor state reduced.");
+                    this.logger.debug({ code: "p_mcn_ras", duration: Date.now() - beforeReduce, componentName: component.name }, "Anchor state reduced.");
 
                     const beforeSet = Date.now();
                     this.blockItemStore.anchorState.set(component.name, block.number, block.hash, newAnchorState);
-                    this.logger.info({ code: "p_mcn_sas", duration: Date.now() - beforeSet, componentName: component.name }, "Anchor state set.");
+                    this.logger.debug({ code: "p_mcn_sas", duration: Date.now() - beforeSet, componentName: component.name }, "Anchor state set.");
 
                     if (parentState != undefined) {
                         // having computed a new state we can detect changes and run actions
