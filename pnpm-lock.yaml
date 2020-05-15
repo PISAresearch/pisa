@@ -8,6 +8,7 @@ importers:
       '@pisa-research/server': 'link:packages/server'
       '@pisa-research/test-utils': 'link:packages/test-utils'
       '@pisa-research/utils': 'link:packages/utils'
+      cross-fetch: 3.0.4
       yargs: 15.3.1
     devDependencies:
       '@istanbuljs/nyc-config-typescript': 0.1.3_ts-node@8.9.1
@@ -37,7 +38,7 @@ importers:
       '@types/tar': 4.0.3
       '@types/uuid': 3.4.9
       '@types/yargs': 13.0.8
-      '@typescript-eslint/eslint-plugin': 1.13.0_01b5b14c201fc628df6ec486d97f4eb6
+      '@typescript-eslint/eslint-plugin': 1.13.0_2bd3bfce53c9c205477cc019a284732a
       '@typescript-eslint/parser': 1.13.0_eslint@5.16.0
       chai: 4.2.0
       chai-as-promised: 7.1.1_chai@4.2.0
@@ -63,8 +64,8 @@ importers:
       truffle: 5.1.23
       truffle-assertions: 0.9.2
       ts-mockito: 2.5.0
-      ts-node: 8.9.1_typescript@3.8.3
-      typescript: 3.8.3
+      ts-node: 8.9.1_typescript@3.9.2
+      typescript: 3.9.2
       wait-port: 0.2.7
     specifiers:
       '@istanbuljs/nyc-config-typescript': ^0.1.3
@@ -105,6 +106,7 @@ importers:
       '@typescript-eslint/parser': ^1.7.0
       chai: ^4.2.0
       chai-as-promised: ^7.1.1
+      cross-fetch: ^3.0.4
       dockerode: ^2.5.8
       eslint: ^5.16.0
       eslint-config-prettier: ^4.2.0
@@ -128,7 +130,7 @@ importers:
       truffle-assertions: ^0.9.1
       ts-mockito: ^2.3.1
       ts-node: ^8.3.0
-      typescript: ^3.7.5
+      typescript: ^3.9.2
       wait-port: ^0.2.2
       yargs: ^15.1.0
   packages/block:
@@ -320,7 +322,7 @@ packages:
       integrity: sha512-XjnvNqenk818r5zMaba+sLQjnbda31UfUURv3ei0qPQw4u+j2jMyJ5b11y8ZHYTRSI3NnInQkkkRT4fLqqPdHg==
   /@istanbuljs/nyc-config-typescript/0.1.3_ts-node@8.9.1:
     dependencies:
-      ts-node: 8.9.1_typescript@3.8.3
+      ts-node: 8.9.1_typescript@3.9.2
     dev: true
     engines:
       node: '>=6'
@@ -606,7 +608,7 @@ packages:
     dev: true
     resolution:
       integrity: sha512-XAvHLwG7UQ+8M4caKIH0ZozIOYay5fQkAgyIXegXT9jPtdIGdhga+sUEdAr1CiG46aB+c64xQEYyEzlwWVTNzA==
-  /@typescript-eslint/eslint-plugin/1.13.0_01b5b14c201fc628df6ec486d97f4eb6:
+  /@typescript-eslint/eslint-plugin/1.13.0_2bd3bfce53c9c205477cc019a284732a:
     dependencies:
       '@typescript-eslint/experimental-utils': 1.13.0_eslint@5.16.0
       '@typescript-eslint/parser': 1.13.0_eslint@5.16.0
@@ -614,7 +616,7 @@ packages:
       eslint-utils: 1.4.3
       functional-red-black-tree: 1.0.1
       regexpp: 2.0.1
-      tsutils: 3.17.1_typescript@3.8.3
+      tsutils: 3.17.1_typescript@3.9.2
     dev: true
     engines:
       node: ^6.14.0 || ^8.10.0 || >=9.10.0
@@ -8069,13 +8071,13 @@ packages:
       lodash: 4.17.15
     resolution:
       integrity: sha512-b3qUeMfghRq5k5jw3xNJcnU9RKhqKnRn0k9v9QkN+YpuawrFuMIiGwzFZCpdi5MHy26o7YPnK8gag2awURl3nA==
-  /ts-node/8.9.1_typescript@3.8.3:
+  /ts-node/8.9.1_typescript@3.9.2:
     dependencies:
       arg: 4.1.3
       diff: 4.0.2
       make-error: 1.3.6
       source-map-support: 0.5.19
-      typescript: 3.8.3
+      typescript: 3.9.2
       yn: 3.1.1
     dev: true
     engines:
@@ -8089,10 +8091,10 @@ packages:
     dev: true
     resolution:
       integrity: sha512-aZW88SY8kQbU7gpV19lN24LtXh/yD4ZZg6qieAJDDg+YBsJcSmLGK9QpnUjAKVG/xefmvJGd1WUmfpT/g6AJGA==
-  /tsutils/3.17.1_typescript@3.8.3:
+  /tsutils/3.17.1_typescript@3.9.2:
     dependencies:
       tslib: 1.11.1
-      typescript: 3.8.3
+      typescript: 3.9.2
     dev: true
     engines:
       node: '>= 6'
@@ -8161,13 +8163,13 @@ packages:
     dev: true
     resolution:
       integrity: sha1-hnrHTjhkGHsdPUfZlqeOxciDB3c=
-  /typescript/3.8.3:
+  /typescript/3.9.2:
     dev: true
     engines:
       node: '>=4.2.0'
     hasBin: true
     resolution:
-      integrity: sha512-MYlEfn5VrLNsgudQTVJeNaQFUAI7DkhnOjdpAp4T+ku1TfQClewlbSuTVHiA+8skNBgaf02TL/kLOvig4y3G8w==
+      integrity: sha512-q2ktq4n/uLuNNShyayit+DTobV2ApPEo/6so68JaD5ojvc/6GClBipedB9zNWYxRSAlZXAe405Rlijzl6qDiSw==
   /typewise-core/1.2.0:
     dev: true
     resolution:

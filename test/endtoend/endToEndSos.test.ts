@@ -15,7 +15,7 @@ import config from "../../packages/server/src/service/config";
 import { PisaService } from "../../packages/server/src/service/service";
 import { wait } from "../../packages/test-utils/src";
 import { deployPisa } from "../../packages/server/__tests__/utils/contract";
-import PisaClient from "../../packages/client";
+import { PisaClient } from "../../packages/client";
 import { encodeTopicsForPisa } from "../../packages/server/src/utils/ethers";
 
 const logger = Logger.getLogger();

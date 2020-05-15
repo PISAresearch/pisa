@@ -1,4 +1,4 @@
-import crossFetch, { Headers } from "cross-fetch";
+import { fetch as crossFetch, Headers } from "cross-fetch";
 import { defaultAbiCoder, keccak256, verifyMessage, arrayify } from "ethers/utils";
 
 interface AppointmentRequest {
@@ -37,7 +37,7 @@ interface BackupState {
     readonly nonce: number;
 }
 
-export default class PisaClient {
+export class PisaClient {
     private static APPOINTMENT_ENDPOINT = "appointment";
     private static APPOINTMENT_CUSTOMER_GET_ENDPOINT = "appointment/customer";
     private static HEADER_AUTH_BLOCK = "x-auth-block";
@@ -425,4 +425,5 @@ export default class PisaClient {
             });
     }
 }
-export { PisaClient };
+
+export default PisaClient;

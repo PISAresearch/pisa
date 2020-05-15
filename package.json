@@ -62,6 +62,7 @@
         "@pisa-research/server": "file:packages/server",
         "@pisa-research/test-utils": "file:packages/test-utils",
         "@pisa-research/utils": "file:packages/utils",
+        "cross-fetch": "^3.0.4",
         "yargs": "^15.1.0"
     },
     "devDependencies": {
@@ -119,7 +120,7 @@
         "truffle-assertions": "^0.9.1",
         "ts-mockito": "^2.3.1",
         "ts-node": "^8.3.0",
-        "typescript": "^3.7.5",
+        "typescript": "^3.9.2",
         "wait-port": "^0.2.2"
     }
 }
