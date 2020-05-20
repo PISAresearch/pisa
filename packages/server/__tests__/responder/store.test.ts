@@ -9,7 +9,9 @@ import { BigNumber } from "ethers/utils";
 
 import { ResponderStore } from "../../src/responder";
 import { GasQueue, GasQueueItemRequest, PisaTransactionIdentifier } from "../../src/responder/gasQueue";
-import { DbObject } from "@pisa-research/utils";
+import { DbObject, Logger } from "@pisa-research/utils";
+
+const logger = Logger.getLogger();
 
 describe("ResponderStore", () => {
     const responderAddress = "address";
@@ -31,7 +33,7 @@ describe("ResponderStore", () => {
     });
 
     fnIt<ResponderStore>(r => r.start, "correctly loads old state", async () => {
-        const store = new ResponderStore(db, responderAddress, seedQueue);
+        const store = new ResponderStore(db, responderAddress, seedQueue, logger);
         await store.start();
 
         const req1 = createGasQueueRequest("1", "data1", new BigNumber(20));
@@ -50,7 +52,7 @@ describe("ResponderStore", () => {
         await store.stop();
 
         // now start a new store with the same db
-        const nextStore = new ResponderStore(db, responderAddress, seedQueue);
+        const nextStore = new ResponderStore(db, responderAddress, seedQueue, logger);
         await nextStore.start();
         expect(nextStore.queue).to.deep.equal(q);
         expect([...nextStore.transactions.values()]).to.deep.equal(q.queueItems);
@@ -60,13 +62,13 @@ describe("ResponderStore", () => {
         await db.put(`${responderAddress}:queue`, { uhoh: "yeah" });
 
         // we would expect an error if a collision occurred here
-        const store = new ResponderStore(db, responderAddress, seedQueue);
+        const store = new ResponderStore(db, responderAddress, seedQueue, logger);
         await store.start();
         await store.stop();
     });
 
     fnIt<ResponderStore>(r => r.updateQueue, "updates the queue", async () => {
-        const store = new ResponderStore(db, responderAddress, seedQueue);
+        const store = new ResponderStore(db, responderAddress, seedQueue, logger);
         await store.start();
 
         const req1 = createGasQueueRequest("1", "data1", new BigNumber(20));
@@ -85,7 +87,7 @@ describe("ResponderStore", () => {
     });
 
     fnIt<ResponderStore>(r => r.updateQueue, "overrides existing queue", async () => {
-        const store = new ResponderStore(db, responderAddress, seedQueue);
+        const store = new ResponderStore(db, responderAddress, seedQueue, logger);
         await store.start();
 
         const req1 = createGasQueueRequest("1", "data1", new BigNumber(20));
@@ -110,7 +112,7 @@ describe("ResponderStore", () => {
     });
 
     fnIt<ResponderStore>(r => r.removeResponse, "deletes tx", async () => {
-        const store = new ResponderStore(db, responderAddress, seedQueue);
+        const store = new ResponderStore(db, responderAddress, seedQueue, logger);
         await store.start();
 
         const req1 = createGasQueueRequest("1", "data1", new BigNumber(20));

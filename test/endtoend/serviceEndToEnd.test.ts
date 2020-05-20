@@ -9,7 +9,7 @@ import { ethers } from "ethers";
 import { arrayify, BigNumber } from "ethers/utils";
 import Ganache from "ganache-core";
 
-import { DbObject } from "@pisa-research/utils";
+import { DbObject, Logger } from "@pisa-research/utils";
 
 import { KitsuneTools } from "../external/kitsune/tools";
 import { PisaService } from "../../packages/server/src/service/service";
@@ -19,6 +19,8 @@ import { wait, expectAsync } from "../../packages/test-utils/src";
 import PisaClient from "../../packages/client";
 
 chai.use(chaiAsPromised);
+
+const logger = Logger.getLogger();
 
 const ganache = Ganache.provider({
     mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect",
@@ -67,7 +69,7 @@ describe("Service end-to-end", () => {
         pisaContractAddress = pisaContract.address;
         const nonce = await responderWallet.getTransactionCount();
 
-        service = new PisaService(nextConfig, provider, responderWallet, nonce, provider.network.chainId, signerWallet, db);
+        service = new PisaService(nextConfig, provider, responderWallet, nonce, provider.network.chainId, signerWallet, db, logger);
         await service.start();
 
         // accounts
@@ -110,7 +112,8 @@ describe("Service end-to-end", () => {
             nonce,
             provider.network.chainId,
             signerWallet,
-            exDb
+            exDb,
+            logger
         );
 
         const exPisaClient = new PisaClient(`http://${nextConfig.hostName}:${nextConfig.hostPort + 1}`, pisaContractAddress);

@@ -3,7 +3,7 @@ import EncodingDown from "encoding-down";
 const sub = require("subleveldown");
 
 import { ApplicationError } from "@pisa-research/errors";
-import { StartStopService, LockManager, MapOfSets, DbObject } from "@pisa-research/utils";
+import { StartStopService, LockManager, MapOfSets, DbObject, Logger } from "@pisa-research/utils";
 
 import { Appointment } from "../dataEntities/appointment";
 
@@ -13,8 +13,8 @@ import { Appointment } from "../dataEntities/appointment";
  */
 export class AppointmentStore extends StartStopService {
     private readonly subDb: LevelUp<EncodingDown<string, DbObject>>;
-    constructor(db: LevelUp<EncodingDown<string, DbObject>>) {
-        super("appointment-store");
+    constructor(db: LevelUp<EncodingDown<string, DbObject>>, logger: Logger) {
+        super("appointment-store", logger);
 
         this.subDb = sub(db, `watcher`, { valueEncoding: "json" });
     }

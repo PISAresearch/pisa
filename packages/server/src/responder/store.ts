@@ -1,4 +1,4 @@
-import { StartStopService, DbObject } from "@pisa-research/utils";
+import { StartStopService, DbObject, Logger } from "@pisa-research/utils";
 import { GasQueueItem, GasQueue } from "./gasQueue";
 import { LevelUp, LevelUpChain } from "levelup";
 import EncodingDown from "encoding-down";
@@ -27,8 +27,8 @@ export class ResponderStore extends StartStopService {
      * @param responderAddress The address of the responder using this store. Responder public keys can only
      * be used by one responder at a time.
      */
-    constructor(db: LevelUp<EncodingDown<string, DbObject>>, responderAddress: string, seedQueue: GasQueue) {
-        super("responder-store");
+    constructor(db: LevelUp<EncodingDown<string, DbObject>>, responderAddress: string, seedQueue: GasQueue, logger: Logger) {
+        super("responder-store", logger);
         this.subDb = sub(db, `responder:${responderAddress}`, { valueEncoding: "json" });
         this.mQueue = seedQueue;
         this.queueKey = `${responderAddress}:queue`;

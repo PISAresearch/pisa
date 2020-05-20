@@ -3,7 +3,7 @@ import EncodingDown from "encoding-down";
 const sub = require("subleveldown");
 import uuid = require("uuid/v4");
 
-import { StartStopService, DbObject, DbObjectOrSerialisable, DbObjectSerialiser, PlainObject } from "@pisa-research/utils";
+import { StartStopService, DbObject, DbObjectOrSerialisable, DbObjectSerialiser, PlainObject, Logger } from "@pisa-research/utils";
 
 export interface ItemAndId<TValue> {
     id: string;
@@ -28,8 +28,8 @@ export class CachedKeyValueStore<TValue extends DbObjectOrSerialisable> extends 
      * @param db
      * @param name
      */
-    constructor(db: LevelUp<EncodingDown<string, DbObject>>, private readonly serialiser: DbObjectSerialiser, name: string) {
-        super(`cachedkeyvaluestore-${name}`);
+    constructor(db: LevelUp<EncodingDown<string, DbObject>>, private readonly serialiser: DbObjectSerialiser, name: string, logger: Logger) {
+        super(`cachedkeyvaluestore-${name}`, logger);
         this.subDb = sub(db, `cachedkeyvaluestore-${name}`, { valueEncoding: "json" });
     }
 

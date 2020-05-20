@@ -10,7 +10,7 @@ import {
     BlockNumberReducer
 } from "@pisa-research/block";
 import { MultiResponder } from "./multiResponder";
-import { logger } from "@pisa-research/utils";
+import { Logger } from "@pisa-research/utils";
 import { UnreachableCaseError } from "@pisa-research/errors";
 
 export enum ResponderStateKind {
@@ -148,7 +148,7 @@ export type ResponderAction = TxMinedAction | ReEnqueueMissingItemsAction | EndR
 export class MultiResponderComponent extends Component<ResponderAnchorState, Block, ResponderAction> {
     public readonly name = "responder";
 
-    public constructor(private readonly responder: MultiResponder, blockCache: ReadOnlyBlockCache<Block>, private readonly confirmationsRequired: number) {
+    public constructor(private readonly responder: MultiResponder, blockCache: ReadOnlyBlockCache<Block>, private readonly logger: Logger, private readonly confirmationsRequired: number) {
         super(
             new MappedStateReducer(
                 () => [...responder.transactions.values()].map(gqi => gqi.serialise()),
@@ -188,12 +188,12 @@ export class MultiResponderComponent extends Component<ResponderAnchorState, Blo
             const prevItem = prevState.items[appointmentId];
 
             if (!prevItem && currentItem.kind === ResponderStateKind.Pending) {
-                logger.info({ code: "p_respc_newpendtx", state: currentItem, id: appointmentId, blockNumber: state.blockNumber }, "New pending transaction.") // prettier-ignore
+                this.logger.info({ code: "p_respc_newpendtx", state: currentItem, id: appointmentId, blockNumber: state.blockNumber }, "New pending transaction.") // prettier-ignore
             }
 
             // if a transaction has been mined we need to inform the responder and also check the responder balance before responding
             if (!this.hasResponseBeenMined(prevItem) && this.hasResponseBeenMined(currentItem)) {
-                logger.info({ code: "p_respc_minedtx", currentItem, id: appointmentId, blockNumber: state.blockNumber }, "Transaction mined.") // prettier-ignore
+                this.logger.info({ code: "p_respc_minedtx", currentItem, id: appointmentId, blockNumber: state.blockNumber }, "Transaction mined.") // prettier-ignore
                 actions.push(
                     {
                         kind: ResponderActionKind.TxMined,
@@ -208,7 +208,7 @@ export class MultiResponderComponent extends Component<ResponderAnchorState, Blo
 
             // after a certain number of confirmations we can stop tracking a transaction
             if (!this.shouldAppointmentBeRemoved(prevState, prevItem) && this.shouldAppointmentBeRemoved(state, currentItem)) {
-                logger.info({ code: "p_respc_rm", state: currentItem, id: appointmentId, blockNumber: state.blockNumber }, "Response removed.") // prettier-ignore
+                this.logger.info({ code: "p_respc_rm", state: currentItem, id: appointmentId, blockNumber: state.blockNumber }, "Response removed.") // prettier-ignore
                 actions.push({
                     kind: ResponderActionKind.EndResponse,
                     appointmentId: currentItem.appointmentId

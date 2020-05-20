@@ -21,7 +21,9 @@ import {
 import { BlockCache, TransactionStub, Block, BlockItemStore } from "@pisa-research/block";
 import { PisaTransactionIdentifier } from "../../src/responder/gasQueue";
 import { MultiResponder } from "../../src/responder";
-import { DbObject, defaultSerialiser, SerialisableBigNumber } from "@pisa-research/utils";
+import { DbObject, defaultSerialiser, SerialisableBigNumber, Logger } from "@pisa-research/utils";
+
+const logger = Logger.getLogger();
 
 const from1 = "from1";
 const from2 = "from2";
@@ -88,8 +90,10 @@ describe("ResponderAppointmentReducer", () => {
     let blockCache: BlockCache<Block>;
 
     beforeEach(async () => {
-        db = LevelUp(EncodingDown<string, DbObject>(MemDown(), { valueEncoding: "json" }));
-        blockStore = new BlockItemStore<Block>(db, defaultSerialiser);
+        db = LevelUp(
+            EncodingDown<string, DbObject>(MemDown(), { valueEncoding: "json" })
+        );
+        blockStore = new BlockItemStore<Block>(db, defaultSerialiser, logger);
         await blockStore.start();
 
         blockCache = new BlockCache<Block>(100, blockStore);
@@ -235,7 +239,7 @@ describe("MultiResponderComponent", () => {
         const app2State = makeMinedAppointmentState("app2", "data2", 0, 0);
         const state1 = setupState([app1State, app2State], 0);
         const state2 = setupState([app1State, app2State], 1);
-        const component = new MultiResponderComponent(multiResponder, blockCache, confirmationsRequired);
+        const component = new MultiResponderComponent(multiResponder, blockCache, logger, confirmationsRequired);
 
         expect(component.detectChanges(state1, state2)).to.deep.equal([
             { kind: ResponderActionKind.ReEnqueueMissingItems, appointmentIds: [app1State.appointmentId] }
@@ -248,7 +252,7 @@ describe("MultiResponderComponent", () => {
         const state1 = setupState([app1State], 0);
         // two block difference
         const state2 = setupState([app2State], 2);
-        const component = new MultiResponderComponent(multiResponder, blockCache, confirmationsRequired);
+        const component = new MultiResponderComponent(multiResponder, blockCache, logger, confirmationsRequired);
 
         const actions = component.detectChanges(state1, state2);
         expect(actions).to.deep.equal([
@@ -262,7 +266,7 @@ describe("MultiResponderComponent", () => {
         const state1 = setupState([], 0);
         // two block difference
         const state2 = setupState([app2State], 2);
-        const component = new MultiResponderComponent(multiResponder, blockCache, confirmationsRequired);
+        const component = new MultiResponderComponent(multiResponder, blockCache, logger, confirmationsRequired);
 
         const actions = component.detectChanges(state1, state2);
         expect(actions).to.deep.equal([
@@ -276,7 +280,7 @@ describe("MultiResponderComponent", () => {
         const state1 = setupState([app2State], 0);
         // two block difference
         const state2 = setupState([app2State], 2);
-        const component = new MultiResponderComponent(multiResponder, blockCache, confirmationsRequired);
+        const component = new MultiResponderComponent(multiResponder, blockCache, logger, confirmationsRequired);
 
         expect(component.detectChanges(state1, state2)).to.deep.equal([]);
     });
@@ -286,7 +290,7 @@ describe("MultiResponderComponent", () => {
         const state1 = setupState([app2State], 0);
         // two block difference
         const state2 = setupState([app2State], confirmationsRequired + 1);
-        const component = new MultiResponderComponent(multiResponder, blockCache, confirmationsRequired);
+        const component = new MultiResponderComponent(multiResponder, blockCache, logger, confirmationsRequired);
 
         expect(component.detectChanges(state1, state2)).to.deep.equal([{ kind: ResponderActionKind.EndResponse, appointmentId: app2State.appointmentId }]);
     });
@@ -297,7 +301,7 @@ describe("MultiResponderComponent", () => {
         const state1 = setupState([app1State], 0);
         // two block difference
         const state2 = setupState([app2State], confirmationsRequired + 1);
-        const component = new MultiResponderComponent(multiResponder, blockCache, confirmationsRequired);
+        const component = new MultiResponderComponent(multiResponder, blockCache, logger, confirmationsRequired);
 
         expect(component.detectChanges(state1, state2)).to.deep.equal([
             { kind: ResponderActionKind.TxMined, identifier: app2State.identifier, nonce: app2State.nonce },
@@ -311,7 +315,7 @@ describe("MultiResponderComponent", () => {
         const state1 = setupState([], 0);
         // two block difference
         const state2 = setupState([app2State], confirmationsRequired + 1);
-        const component = new MultiResponderComponent(multiResponder, blockCache, confirmationsRequired);
+        const component = new MultiResponderComponent(multiResponder, blockCache, logger, confirmationsRequired);
 
         expect(component.detectChanges(state1, state2)).to.deep.equal([
             { kind: ResponderActionKind.TxMined, identifier: app2State.identifier, nonce: app2State.nonce },
@@ -325,7 +329,7 @@ describe("MultiResponderComponent", () => {
         const state1 = setupState([app2State], confirmationsRequired + 1);
         // already removed - then one block later
         const state2 = setupState([app2State], confirmationsRequired + 2);
-        const component = new MultiResponderComponent(multiResponder, blockCache, confirmationsRequired);
+        const component = new MultiResponderComponent(multiResponder, blockCache, logger, confirmationsRequired);
 
         expect(component.detectChanges(state1, state2)).to.deep.equal([]);
     });
