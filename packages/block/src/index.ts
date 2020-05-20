@@ -8,7 +8,7 @@ export {
     TransactionStub,
     hasLogMatchingEventFilter
 } from "./block";
-export { ReadOnlyBlockCache, BlockCache, getConfirmations, BlockAddResult, NewBlockListener } from "./blockCache";
+export { ReadOnlyBlockCache, BlockCache, BlockAddResult, NewBlockListener } from "./blockCache";
 export { BlockchainMachineService, BlockchainMachine } from "./blockchainMachine";
 export { BlockItemStore } from "./blockItemStore";
 export { BlockProcessor, blockStubAndTxHashFactory, blockFactory, BlockProcessorStore, NewHeadListener } from "./blockProcessor";

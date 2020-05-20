@@ -1,6 +1,6 @@
 import "mocha";
 import { expect } from "chai";
-import { BlockAddResult, BlockCache, getConfirmations, IBlockStub, TransactionHashes, BlockItemStore } from "../src";
+import { BlockAddResult, BlockCache, IBlockStub, TransactionHashes, BlockItemStore } from "../src";
 import { ArgumentError, ApplicationError } from "@pisa-research/errors";
 import { DbObject, defaultSerialiser, Logger } from "@pisa-research/utils";
 import { fnIt } from "@pisa-research/test-utils";
@@ -18,7 +18,7 @@ function generateBlocks(
     rootParentHash?: string | null // if given, the parentHash of the first block in the returned chain
 ): (IBlockStub & TransactionHashes)[] {
     const result: (IBlockStub & TransactionHashes)[] = [];
-    for (let height = initialHeight; height <= initialHeight + nBlocks; height++) {
+    for (let height = initialHeight; height < initialHeight + nBlocks; height++) {
         const transactions: string[] = [];
         for (let i = 0; i < 5; i++) {
             transactions.push(`${chain}-block${height}tx${i + 1}`);
@@ -216,6 +216,31 @@ describe("BlockCache", () => {
         }
     );
 
+    fnIt<BlockCache<any>>(
+        b => b.addBlock,
+        "does not cause unattached blocks to be emitted if another unattached block at the same height becomes attached",
+        async () => {
+            const blocksCommon = generateBlocks(3, 5, "main");
+            const lastCommonBlock = blocksCommon[blocksCommon.length - 1];
+            const blocksBranch1 = generateBlocks(2, lastCommonBlock.number + 1, "fork1", lastCommonBlock.hash);
+            const blocksBranch2 = generateBlocks(2, lastCommonBlock.number + 1, "fork2", lastCommonBlock.hash);
+
+            for (const b of blocksCommon) await bc.addBlock(b);
+
+            await bc.addBlock(blocksBranch1[1]); // detached block in fork 1
+            await bc.addBlock(blocksBranch2[1]); // detached block in fork 2
+
+            await bc.addBlock(blocksBranch1[0]); // blocks in fork 1 should become attached, but the second block of branch 2 shouldn't!
+
+            expect(bc.hasBlock(blocksBranch1[0].hash)).to.be.true;
+            expect(bc.hasBlock(blocksBranch1[1].hash)).to.be.true;
+
+            expect(bc.hasBlock(blocksBranch2[1].hash)).to.be.false;
+            expect(bc.hasBlock(blocksBranch2[1].hash, true)).to.be.true;
+        }
+    );
+
+
     it("maxHeight does not change for unattached blocks", async () => {
         const blocks = generateBlocks(10, 5, "main");
         await bc.addBlock(blocks[0]);
@@ -285,7 +310,7 @@ describe("BlockCache", () => {
     it("maxHeight is equal to the height of the highest added block", async () => {
         const initialHeight = 3;
         const blocksAdded = 2 * maxDepth;
-        const lastBlockAdded = initialHeight + blocksAdded;
+        const lastBlockAdded = initialHeight + blocksAdded - 1;
 
         // Add some blocks
         for (const block of generateBlocks(blocksAdded, initialHeight, "main")) {
@@ -309,10 +334,10 @@ describe("BlockCache", () => {
             for (const block of blocks) {
                 await bc.addBlock(block);
             }
-            const otherBlocks = generateBlocks(2, initialHeight, "main");
+            const otherBlocks = generateBlocks(1, initialHeight, "other");
 
-            expect(otherBlocks[1].number).to.eq(bc.maxHeight - bc.maxDepth);
-            expect(bc.canAttachBlock(otherBlocks[1])).to.be.true;
+            expect(otherBlocks[0].number).to.eq(bc.maxHeight - bc.maxDepth);
+            expect(bc.canAttachBlock(otherBlocks[0])).to.be.true;
         }
     );
 
@@ -541,70 +566,5 @@ describe("BlockCache", () => {
 
     it("head throws if setHead never called", async () => {
         expect(() => bc.head).to.throw(ApplicationError);
-    });
-});
-
-describe("getConfirmations", () => {
-    const maxDepth = 100;
-
-    let db: any;
-    let blockStore: BlockItemStore<IBlockStub & TransactionHashes>;
-
-    let bc: BlockCache<IBlockStub & TransactionHashes>;
-
-    let resolveBatch: (value?: any) => void;
-    beforeEach(async () => {
-        db = LevelUp(
-            EncodingDown<string, DbObject>(MemDown(), { valueEncoding: "json" })
-        );
-        blockStore = new BlockItemStore<IBlockStub & TransactionHashes>(db, defaultSerialiser, logger);
-        await blockStore.start();
-
-        bc = new BlockCache<IBlockStub & TransactionHashes>(maxDepth, blockStore);
-
-        // Create a batch that will be closed in the afterEach block, as the BlockCache assumes the batch is already open
-        blockStore.withBatch(
-            () =>
-                new Promise(resolve => {
-                    resolveBatch = resolve;
-                })
-        );
-    });
-
-    afterEach(async () => {
-        resolveBatch();
-        await Promise.resolve();
-
-        await blockStore.stop();
-    });
-
-    it("correctly computes the number of confirmations for a transaction", async () => {
-        const blocks = generateBlocks(7, 0, "main"); // must be less blocks than maxDepth
-        for (const block of blocks) {
-            await bc.addBlock(block);
-        }
-        const headBlock = blocks[blocks.length - 1];
-        expect(getConfirmations(bc, headBlock.hash, blocks[0].transactionHashes[0])).to.equal(blocks.length);
-        expect(getConfirmations(bc, headBlock.hash, blocks[1].transactionHashes[0])).to.equal(blocks.length - 1);
-    });
-
-    it("correctly returns 0 confirmations if transaction is not known", async () => {
-        const blocks = generateBlocks(128, 0, "main");
-        for (const block of blocks) {
-            await bc.addBlock(block);
-        }
-
-        const headBlock = blocks[blocks.length - 1];
-        expect(getConfirmations(bc, headBlock.hash, "nonExistingTxHash")).to.equal(0);
-    });
-
-    it("throws ArgumentError if no block with the given hash is in the BlockCache", async () => {
-        const blocks = generateBlocks(128, 0, "main");
-        for (const block of blocks) {
-            await bc.addBlock(block);
-        }
-
-        const headBlock = blocks[blocks.length - 1];
-        expect(() => getConfirmations(bc, "nonExistingBlockHash", headBlock.transactionHashes[0])).to.throw(ApplicationError);
     });
 });
