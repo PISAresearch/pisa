@@ -118,7 +118,8 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
      */
     private async processDetached(height: number) {
         const blocksAtHeight = this.blockStore.getBlocksAtHeight(height);
-        const blocksToAdd = blocksAtHeight.filter(b => !b.attached);
+        // Filter the blocks at the given height that can actually be attached
+        const blocksToAdd = blocksAtHeight.filter(b => !b.attached && this.canAttachBlock(b.block));
 
         for (const { block } of blocksToAdd) {
             // Update the block in the db (as it is now attached)
