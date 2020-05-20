@@ -1,6 +1,6 @@
 import "mocha";
 import { expect } from "chai";
-import { BlockAddResult, BlockCache, getConfirmations, IBlockStub, TransactionHashes, BlockItemStore } from "../src";
+import { BlockAddResult, BlockCache, IBlockStub, TransactionHashes, BlockItemStore } from "../src";
 import { ArgumentError, ApplicationError } from "@pisa-research/errors";
 import { DbObject, defaultSerialiser } from "@pisa-research/utils";
 import { fnIt } from "@pisa-research/test-utils";
@@ -564,70 +564,5 @@ describe("BlockCache", () => {
 
     it("head throws if setHead never called", async () => {
         expect(() => bc.head).to.throw(ApplicationError);
-    });
-});
-
-describe("getConfirmations", () => {
-    const maxDepth = 100;
-
-    let db: any;
-    let blockStore: BlockItemStore<IBlockStub & TransactionHashes>;
-
-    let bc: BlockCache<IBlockStub & TransactionHashes>;
-
-    let resolveBatch: (value?: any) => void;
-    beforeEach(async () => {
-        db = LevelUp(
-            EncodingDown<string, DbObject>(MemDown(), { valueEncoding: "json" })
-        );
-        blockStore = new BlockItemStore<IBlockStub & TransactionHashes>(db, defaultSerialiser);
-        await blockStore.start();
-
-        bc = new BlockCache<IBlockStub & TransactionHashes>(maxDepth, blockStore);
-
-        // Create a batch that will be closed in the afterEach block, as the BlockCache assumes the batch is already open
-        blockStore.withBatch(
-            () =>
-                new Promise(resolve => {
-                    resolveBatch = resolve;
-                })
-        );
-    });
-
-    afterEach(async () => {
-        resolveBatch();
-        await Promise.resolve();
-
-        await blockStore.stop();
-    });
-
-    it("correctly computes the number of confirmations for a transaction", async () => {
-        const blocks = generateBlocks(7, 0, "main"); // must be less blocks than maxDepth
-        for (const block of blocks) {
-            await bc.addBlock(block);
-        }
-        const headBlock = blocks[blocks.length - 1];
-        expect(getConfirmations(bc, headBlock.hash, blocks[0].transactionHashes[0])).to.equal(blocks.length);
-        expect(getConfirmations(bc, headBlock.hash, blocks[1].transactionHashes[0])).to.equal(blocks.length - 1);
-    });
-
-    it("correctly returns 0 confirmations if transaction is not known", async () => {
-        const blocks = generateBlocks(128, 0, "main");
-        for (const block of blocks) {
-            await bc.addBlock(block);
-        }
-
-        const headBlock = blocks[blocks.length - 1];
-        expect(getConfirmations(bc, headBlock.hash, "nonExistingTxHash")).to.equal(0);
-    });
-
-    it("throws ArgumentError if no block with the given hash is in the BlockCache", async () => {
-        const blocks = generateBlocks(128, 0, "main");
-        for (const block of blocks) {
-            await bc.addBlock(block);
-        }
-
-        const headBlock = blocks[blocks.length - 1];
-        expect(() => getConfirmations(bc, "nonExistingBlockHash", headBlock.transactionHashes[0])).to.throw(ApplicationError);
     });
 });

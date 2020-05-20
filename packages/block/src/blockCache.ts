@@ -1,5 +1,5 @@
 import { ApplicationError, ArgumentError } from "@pisa-research/errors";
-import { IBlockStub, TransactionHashes } from "./block";
+import { IBlockStub } from "./block";
 import { BlockItemStore } from "./blockItemStore";
 import { Lock } from "@pisa-research/utils";
 import { BlockEvent } from "./event";
@@ -92,7 +92,9 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
      */
     constructor(public readonly maxDepth: number, private readonly blockStore: BlockItemStore<TBlock>) {}
 
-    /** Remove all the blocks that are deeper than maxDepth, and all connected information. */
+    /**
+     * Removes all the blocks that are deeper than maxDepth, and all connected information.
+     **/
     private async prune() {
         while (this.pruneHeight < this.minHeight && this.headSet && this.pruneHeight < this.head.number) {
             this.blockStore.deleteItemsAtHeight(this.pruneHeight);
@@ -290,7 +292,7 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
     }
 
     /**
-     * Sets the head block in the cache. AddBlock must be called before setHead can be
+     * Sets the head block in the cache. `addBlock` must be called before `setHead` can be
      * called for that hash, and the block must be attached.
      * @param blockHash
      */
@@ -314,20 +316,4 @@ export class BlockCache<TBlock extends IBlockStub> implements ReadOnlyBlockCache
         }
         return this.getBlock(this.headHash);
     }
-}
-
-/**
- * Gets the number of confirmations of the transaction with hash `txHash`, assuming that the block with hash
- * `headHash` is the head of the blockchain.
- * Return 0 if no such transaction was found in any ancestor block in the cache.
- * @param cache
- * @param headHash
- * @param txHash
- * @throws `ArgumentError` if the block with hash `headHash` is not in the cache or is not attached.
- */
-export function getConfirmations<T extends IBlockStub & TransactionHashes>(cache: ReadOnlyBlockCache<T>, headHash: string, txHash: string): number {
-    const headBlock = cache.getBlock(headHash);
-    const blockTxIsMinedIn = cache.findAncestor(headHash, block => block.transactionHashes.includes(txHash));
-    if (!blockTxIsMinedIn) return 0;
-    else return headBlock.number - blockTxIsMinedIn.number + 1;
 }
