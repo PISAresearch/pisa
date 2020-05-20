@@ -62,7 +62,6 @@
         "@pisa-research/server": "file:packages/server",
         "@pisa-research/test-utils": "file:packages/test-utils",
         "@pisa-research/utils": "file:packages/utils",
-        "cross-fetch": "^3.0.4",
         "yargs": "^15.1.0"
     },
     "devDependencies": {

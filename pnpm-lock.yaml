@@ -8,7 +8,6 @@ importers:
       '@pisa-research/server': 'link:packages/server'
       '@pisa-research/test-utils': 'link:packages/test-utils'
       '@pisa-research/utils': 'link:packages/utils'
-      cross-fetch: 3.0.4
       yargs: 15.3.1
     devDependencies:
       '@istanbuljs/nyc-config-typescript': 0.1.3_ts-node@8.9.1
@@ -106,7 +105,6 @@ importers:
       '@typescript-eslint/parser': ^1.7.0
       chai: ^4.2.0
       chai-as-promised: ^7.1.1
-      cross-fetch: ^3.0.4
       dockerode: ^2.5.8
       eslint: ^5.16.0
       eslint-config-prettier: ^4.2.0
