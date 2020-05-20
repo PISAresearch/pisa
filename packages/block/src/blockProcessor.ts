@@ -3,7 +3,7 @@ import { Log } from "ethers/providers";
 import { LevelUp } from "levelup";
 import EncodingDown from "encoding-down";
 import { BlockFetchingError, ApplicationError, UnreachableCaseError } from "@pisa-research/errors";
-import { StartStopService, Lock, PlainObject, DbObject, SerialisableBigNumber } from "@pisa-research/utils";
+import { StartStopService, Lock, PlainObject, DbObject, SerialisableBigNumber, Logger } from "@pisa-research/utils";
 import { ReadOnlyBlockCache, BlockCache, BlockAddResult } from "./blockCache";
 import { IBlockStub, Block, TransactionHashes } from "./block";
 import { BlockItemStore } from "./blockItemStore";
@@ -174,9 +174,10 @@ export class BlockProcessor<TBlock extends IBlockStub> extends StartStopService 
         blockFactory: BlockFactory<TBlock>,
         blockCache: BlockCache<TBlock>,
         private readonly blockItemStore: BlockItemStore<TBlock>,
-        private readonly store: BlockProcessorStore
+        private readonly store: BlockProcessorStore,
+        logger: Logger
     ) {
-        super("block-processor");
+        super("block-processor", logger);
 
         this.getBlockRemote = blockFactory(provider);
         this.mBlockCache = blockCache;

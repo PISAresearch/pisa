@@ -19,8 +19,10 @@ import { BlockchainMachine } from "../src/blockchainMachine";
 import { throwingInstance, fnIt, wait } from "@pisa-research/test-utils";
 import { ArgumentError } from "@pisa-research/errors";
 import chaiAsPromised from "chai-as-promised";
-import { DbObject, defaultSerialiser, logger } from "@pisa-research/utils";
+import { DbObject, defaultSerialiser, Logger } from "@pisa-research/utils";
 chai.use(chaiAsPromised);
+
+const logger = Logger.getLogger();
 
 type TestAnchorState = { number: number, extraData: string };
 const anchorStates: TestAnchorState[] = [];
@@ -87,7 +89,7 @@ const setupBM = async (
     const db = LevelUp(EncodingDown<string, DbObject>(MemDown(), { valueEncoding: "json" }));
 
     const serialiser = defaultSerialiser;
-    const blockItemStore: BlockItemStore<IBlockStub> = new BlockItemStore(db, serialiser);
+    const blockItemStore: BlockItemStore<IBlockStub> = new BlockItemStore(db, serialiser, logger);
     const blockItemStoreSpy = spy(blockItemStore);
     const blockItemStoreAnchorStateSpy = spy(blockItemStore.anchorState);
 
@@ -97,7 +99,7 @@ const setupBM = async (
     const reducer = instance(reducerMock);
 
     if (!actionStore) {
-        actionStore = new CachedKeyValueStore<ComponentAction>(db, serialiser, "test-actions");
+        actionStore = new CachedKeyValueStore<ComponentAction>(db, serialiser, "test-actions", logger);
         await actionStore.start();
     }
     const actionStoreSpy = spy(actionStore);

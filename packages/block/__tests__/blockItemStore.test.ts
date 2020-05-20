@@ -6,11 +6,13 @@ import EncodingDown from "encoding-down";
 import MemDown from "memdown";
 
 import { fnIt, wait } from "@pisa-research/test-utils";
-import { DbObject, defaultSerialiser } from "@pisa-research/utils";
+import { DbObject, defaultSerialiser, Logger } from "@pisa-research/utils";
 import { ApplicationError } from "@pisa-research/errors";
 
 import { BlockItemStore } from "../src/blockItemStore";
 import { IBlockStub } from "../src";
+
+const logger = Logger.getLogger();
 
 describe("BlockItemStore", () => {
     let db: LevelUp<EncodingDown<string, DbObject>>;
@@ -54,7 +56,7 @@ describe("BlockItemStore", () => {
         db = levelUp(
             EncodingDown<string, DbObject>(MemDown(), { valueEncoding: "json" })
         );
-        store = new BlockItemStore<IBlockStub>(db, defaultSerialiser);
+        store = new BlockItemStore<IBlockStub>(db, defaultSerialiser, logger);
         await store.start();
     });
 
@@ -145,7 +147,7 @@ describe("BlockItemStore", () => {
         await store.stop();
 
         // New store using the same db
-        const newStore = new BlockItemStore<IBlockStub>(db, defaultSerialiser);
+        const newStore = new BlockItemStore<IBlockStub>(db, defaultSerialiser, logger);
         await newStore.start();
 
         // Check that all items still return the correct value for the new store

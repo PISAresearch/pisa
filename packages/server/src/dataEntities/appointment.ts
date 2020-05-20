@@ -2,7 +2,7 @@ import { ethers } from "ethers";
 import appointmentRequestSchemaJson from "./appointmentRequestSchema.json";
 import Ajv from "ajv";
 import { PublicDataValidationError, ApplicationError } from "@pisa-research/errors";
-import { logger, Logger, Serialisable, Serialised } from "@pisa-research/utils";
+import { Logger, Serialisable, Serialised } from "@pisa-research/utils";
 import { BigNumber } from "ethers/utils";
 import betterAjvErrors from "better-ajv-errors";
 import { ReadOnlyBlockCache, IBlockStub } from "@pisa-research/block";
@@ -262,7 +262,7 @@ export class Appointment implements Serialisable {
      * @param obj
      * @param log Logger to be used in case of failures
      */
-    public static parse(obj: any, log: Logger = logger) {
+    public static parse(obj: any, log: Logger) {
         const valid = appointmentRequestValidation(obj);
 
         if (!valid) {
@@ -294,7 +294,7 @@ export class Appointment implements Serialisable {
      * Validate property values on the appointment
      * @param log Logger to be used in case of failures
      */
-    public async validate(blockCache: ReadOnlyBlockCache<IBlockStub>, pisaContractAddress: string, log: Logger = logger) {
+    public async validate(blockCache: ReadOnlyBlockCache<IBlockStub>, pisaContractAddress: string, log: Logger) {
         if (this.paymentHash.toLowerCase() !== Appointment.FreeHash) throw new PublicDataValidationError("Invalid payment hash."); // prettier-ignore
 
         const currentHead = blockCache.head.number;
@@ -315,7 +315,7 @@ export class Appointment implements Serialisable {
             try {
                 ethers.utils.getAddress(this.eventAddress);
             } catch (doh) {
-                logger.info({ code: "p_app_parseaddr", err: doh }, "Error parsing address.");
+                log.info({ code: "p_app_parseaddr", err: doh }, "Error parsing address.");
                 throw new PublicDataValidationError(`Invalid eventAddress: ${this.eventAddress}`); // prettier-ignore
             }
 

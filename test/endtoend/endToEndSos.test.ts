@@ -9,14 +9,16 @@ import { expect } from "chai";
 import Ganache from "ganache-core";
 import { BigNumber, arrayify } from "ethers/utils";
 
-import { DbObject } from "@pisa-research/utils";
+import { DbObject, Logger } from "@pisa-research/utils";
 
 import config from "../../packages/server/src/service/config";
 import { PisaService } from "../../packages/server/src/service/service";
 import { wait } from "../../packages/test-utils/src";
 import { deployPisa } from "../../packages/server/__tests__/utils/contract";
-import PisaClient from "../../packages/client";
+import { PisaClient } from "../../packages/client";
 import { encodeTopicsForPisa } from "../../packages/server/src/utils/ethers";
+
+const logger = Logger.getLogger();
 
 const ganache = Ganache.provider({
     mnemonic: "myth like bonus scare over problem client lizard pioneer submit female collect",
@@ -122,7 +124,8 @@ describe("sos end to end", () => {
             nonce,
             provider.network.chainId,
             responderWallet,
-            db
+            db,
+            logger
         );
         await exService.start();
 

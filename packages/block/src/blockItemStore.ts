@@ -4,7 +4,7 @@ import EncodingDown from "encoding-down";
 const sub = require("subleveldown");
 
 import { ApplicationError } from "@pisa-research/errors";
-import { StartStopService, Lock, DbObject, DbObjectSerialiser, PlainObjectOrSerialisable, DbObjectOrSerialisable } from "@pisa-research/utils";
+import { StartStopService, Lock, DbObject, DbObjectSerialiser, PlainObjectOrSerialisable, DbObjectOrSerialisable, Logger } from "@pisa-research/utils";
 
 import { IBlockStub, BlockAndAttached } from "./block";
 import { AnchorState } from "./component";
@@ -30,8 +30,8 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
     private static KEY_STATE = "state";
 
     private readonly subDb: LevelUp<EncodingDown<string, DbObject>>;
-    constructor(db: LevelUp<EncodingDown<string, DbObject>>, private readonly serialiser: DbObjectSerialiser) {
-        super("block-item-store");
+    constructor(db: LevelUp<EncodingDown<string, DbObject>>, private readonly serialiser: DbObjectSerialiser, logger: Logger) {
+        super("block-item-store", logger);
         this.subDb = sub(db, `block-item-store`, { valueEncoding: "json" });
     }
 
@@ -194,7 +194,7 @@ export class BlockItemStore<TBlock extends IBlockStub> extends StartStopService 
 
             const beforeBatchWrite = Date.now();
             await this.mBatch.write();
-            this.logger.info({ code: "p_bis_bchw", duration: Date.now() - beforeBatchWrite, length: this.mBatch.length }, "Batch written.");
+            this.logger.debug({ code: "p_bis_bchw", duration: Date.now() - beforeBatchWrite, length: this.mBatch.length }, "Batch written.");
 
             return callBackResult;
         } finally {

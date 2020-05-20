@@ -2,12 +2,14 @@ import "mocha";
 import { expect } from "chai";
 import { BlockAddResult, BlockCache, IBlockStub, TransactionHashes, BlockItemStore } from "../src";
 import { ArgumentError, ApplicationError } from "@pisa-research/errors";
-import { DbObject, defaultSerialiser } from "@pisa-research/utils";
+import { DbObject, defaultSerialiser, Logger } from "@pisa-research/utils";
 import { fnIt } from "@pisa-research/test-utils";
 
 import LevelUp from "levelup";
 import EncodingDown from "encoding-down";
 import MemDown from "memdown";
+
+const logger = Logger.getLogger();
 
 function generateBlocks(
     nBlocks: number,
@@ -63,7 +65,7 @@ describe("BlockCache", () => {
         db = LevelUp(
             EncodingDown<string, DbObject>(MemDown(), { valueEncoding: "json" })
         );
-        blockStore = new BlockItemStore<IBlockStub>(db, defaultSerialiser);
+        blockStore = new BlockItemStore<IBlockStub>(db, defaultSerialiser, logger);
         await blockStore.start();
 
         bc = new BlockCache(maxDepth, blockStore);

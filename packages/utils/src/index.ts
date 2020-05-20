@@ -1,5 +1,5 @@
 export { Lock, LockManager } from "./lock";
-export { logger, Logger } from "./logger";
+export { Logger } from "./logger";
 export { MapOfSets } from "./mapSet";
 export { StartStopService } from "./startStop";
 export { PlainObject, DbObject } from "./objects";

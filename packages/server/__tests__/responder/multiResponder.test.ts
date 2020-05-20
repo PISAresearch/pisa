@@ -11,12 +11,14 @@ import { BigNumber } from "ethers/utils";
 
 import { fnIt, throwingInstance } from "@pisa-research/test-utils";
 import { ArgumentError } from "@pisa-research/errors";
-import { DbObject } from "@pisa-research/utils";
+import { DbObject, Logger } from "@pisa-research/utils";
 
 import { PisaTransactionIdentifier, GasQueue } from "../../src/responder/gasQueue";
 import { MultiResponder, GasPriceEstimator, ResponderStore } from "../../src/responder";
 
 chai.use(chaiAsPromised);
+
+const logger = Logger.getLogger();
 
 describe("MultiResponder", () => {
     let signer: ethers.Wallet, signerMock: ethers.Wallet;
@@ -66,12 +68,12 @@ describe("MultiResponder", () => {
 
         db = LevelUp(EncodingDown<string, DbObject>(MemDown(), { valueEncoding: "json" }));
         const seedQueue = new GasQueue([], 0, replacementRate, maxConcurrentResponses);
-        store = new ResponderStore(db, "address", seedQueue);
+        store = new ResponderStore(db, "address", seedQueue, logger);
         responderStoreMock = spy(store);
     });
 
     const createResponder = (gasPriceEstimator: GasPriceEstimator) => {
-        return new MultiResponder(signer, gasPriceEstimator, chainId, store, signer.address, new BigNumber("500000000000000000"), pisaContractAddress);
+        return new MultiResponder(signer, gasPriceEstimator, chainId, store, signer.address, new BigNumber("500000000000000000"), pisaContractAddress, logger);
     };
 
     fnIt<MultiResponder>(m => m.startResponse, "can issue transaction", async () => {
@@ -125,7 +127,7 @@ describe("MultiResponder", () => {
     });
 
     fnIt<MultiResponder>(m => m.startResponse, "doesn't queue beyond max depth", async () => {
-        const max2Store = new ResponderStore(db, "address", new GasQueue([], 0, replacementRate, 2));
+        const max2Store = new ResponderStore(db, "address", new GasQueue([], 0, replacementRate, 2), logger);
         const max2StoreMock = spy(max2Store);
         const responder = new MultiResponder(
             signer,
@@ -134,7 +136,8 @@ describe("MultiResponder", () => {
             max2Store,
             signer.address,
             new BigNumber("500000000000000000"),
-            pisaContractAddress
+            pisaContractAddress,
+            logger
         );
         await responder.startResponse(pisaContractAddress, data1, gasLimit, id1, startBlock, endBlock);
         await responder.startResponse(pisaContractAddress, data2, gasLimit, id2, startBlock, endBlock);

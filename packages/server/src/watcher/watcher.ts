@@ -3,7 +3,7 @@ import { ApplicationError, ArgumentError, UnreachableCaseError } from "@pisa-res
 import { AppointmentStore } from "./store";
 import { ReadOnlyBlockCache, IBlockStub, hasLogMatchingEventFilter, Logs } from "@pisa-research/block";
 import { StateReducer, MappedStateReducer, MappedState, Component, BlockNumberState, BlockNumberReducer } from "@pisa-research/block";
-import { logger } from "@pisa-research/utils";
+import { Logger } from "@pisa-research/utils";
 import { MultiResponder } from "../responder";
 import { EventFilter } from "ethers";
 
@@ -93,6 +93,7 @@ export class Watcher extends Component<WatcherAnchorState, IBlockStub & Logs, Wa
         private readonly responder: MultiResponder,
         blockCache: ReadOnlyBlockCache<IBlockStub & Logs>,
         private readonly store: AppointmentStore,
+        private readonly logger: Logger,
         private readonly confirmationsBeforeResponse: number,
         private readonly confirmationsBeforeRemoval: number
     ) {
@@ -151,13 +152,13 @@ export class Watcher extends Component<WatcherAnchorState, IBlockStub & Logs, Wa
 
             // Log if started watching a new appointment
             if (!prevWatcherAppointmentState && appointmentState.state === WatcherAppointmentState.WATCHING) {
-                logger.info({ code: "p_wch_startapp", state: appointmentState, id: appointmentId, blockNumber: state.blockNumber }, `Started watching for appointment.`); // prettier-ignore
+                this.logger.info({ code: "p_wch_startapp", state: appointmentState, id: appointmentId, blockNumber: state.blockNumber }, `Started watching for appointment.`); // prettier-ignore
             }
 
             // Start response if necessary
             if (!this.shouldHaveStartedResponder(prevState, prevWatcherAppointmentState) && this.shouldHaveStartedResponder(state, appointmentState)) {
                 const appointment = this.store.appointmentsById.get(appointmentId)!;
-                logger.info({ code: "p_wch_respapp", state: appointmentState, id: appointmentId, blockNumber: state.blockNumber }, `Responding to appointment.`); // prettier-ignore
+                this.logger.info({ code: "p_wch_respapp", state: appointmentState, id: appointmentId, blockNumber: state.blockNumber }, `Responding to appointment.`); // prettier-ignore
                 actions.push({
                     kind: WatcherActionKind.StartResponse,
                     appointment: appointment,
@@ -170,7 +171,7 @@ export class Watcher extends Component<WatcherAnchorState, IBlockStub & Logs, Wa
                 !this.shouldRemoveObservedAppointment(prevState, prevWatcherAppointmentState) &&
                 this.shouldRemoveObservedAppointment(state, appointmentState)
             ) {
-                logger.info({ code: "p_wch_rmfulfapp", state: appointmentState, id: appointmentId, blockNumber: state.blockNumber }, `Removing fulfilled appointment from watcher.`); // prettier-ignore
+                this.logger.info({ code: "p_wch_rmfulfapp", state: appointmentState, id: appointmentId, blockNumber: state.blockNumber }, `Removing fulfilled appointment from watcher.`); // prettier-ignore
                 actions.push({ kind: WatcherActionKind.RemoveAppointment, appointmentId: appointmentId });
             }
 
@@ -180,7 +181,7 @@ export class Watcher extends Component<WatcherAnchorState, IBlockStub & Logs, Wa
                 !this.shouldRemoveExpiredAppointment(prevState, prevWatcherAppointmentState, endBlock) &&
                 this.shouldRemoveExpiredAppointment(state, appointmentState, endBlock)
             ) {
-                logger.info({ code: "p_wch_rmexpapp", state: appointmentState, id: appointmentId, blockNumber: state.blockNumber }, `Removing expired appointment from watcher.`); // prettier-ignore
+                this.logger.info({ code: "p_wch_rmexpapp", state: appointmentState, id: appointmentId, blockNumber: state.blockNumber }, `Removing expired appointment from watcher.`); // prettier-ignore
                 actions.push({ kind: WatcherActionKind.RemoveAppointment, appointmentId: appointmentId });
             }
         }
