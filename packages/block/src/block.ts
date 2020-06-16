@@ -2,7 +2,7 @@ import { ethers } from "ethers";
 import { ArgumentError } from "@pisa-research/errors";
 import { PlainObjectOrSerialisable, SerialisableBigNumber } from "@pisa-research/utils";
 
-export type IBlockStub = {
+export interface IBlockStub {
     hash: string;
     number: number;
     parentHash: string;
@@ -10,7 +10,7 @@ export type IBlockStub = {
 
 export type Logs = PlainObjectOrSerialisable & {
     logs: (ethers.providers.Log & PlainObjectOrSerialisable)[];
-}
+};
 
 /**
  * Returns true the `block` contains a log that matches `filter`, false otherwise.
@@ -40,15 +40,16 @@ export type TransactionStub = {
     value: SerialisableBigNumber;
     gasLimit: SerialisableBigNumber;
     gasPrice: SerialisableBigNumber;
+    hash: string;
 } & PlainObjectOrSerialisable;
 
 export type Transactions = IBlockStub & {
     transactions: TransactionStub[];
-}
+};
 
 export type Block = IBlockStub & Logs & TransactionHashes & Transactions & PlainObjectOrSerialisable;
 
 export type BlockAndAttached<TBlock extends IBlockStub> = {
     block: TBlock;
     attached: boolean;
-};
+}

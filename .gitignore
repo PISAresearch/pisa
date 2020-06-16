@@ -14,3 +14,4 @@ raiden_demo/.raiden
 coverage
 **/.DS_Store
 packages/*/lib
+pnpm-debug.log
