@@ -76,7 +76,9 @@ export const blockFactory = (provider: ethers.providers.Provider) => async (bloc
                 data: tx.data,
                 value: new SerialisableBigNumber(tx.value),
                 gasLimit: new SerialisableBigNumber(tx.gasLimit),
-                gasPrice: new SerialisableBigNumber(tx.gasPrice)
+                gasPrice: new SerialisableBigNumber(tx.gasPrice),
+                confirmations: tx.confirmations,
+                hash: tx.hash!
             })),
             transactionHashes: ((block.transactions as any) as ethers.providers.TransactionResponse[]).map(t => t.hash!),
             logs
