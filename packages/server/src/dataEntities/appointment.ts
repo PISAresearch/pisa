@@ -166,7 +166,7 @@ export class Appointment implements Serialisable {
             postCondition: this.postCondition,
             paymentHash: this.paymentHash,
             customerSig: this.customerSig
-        }
+        };
     }
 
     public static deserialise(appointment: Serialised<Appointment>) {
@@ -302,8 +302,8 @@ export class Appointment implements Serialisable {
         // before the appointment starts. Therefore a customer would want to hire pisa
         // a small amount in the past to reduce this risk. There is also a margin of error
         // between clients - we may be at different block heights
-        if(this.startBlock < (currentHead - Appointment.FORK_LIMIT - Appointment.SYNCHRONISATION_LIMIT)) throw new PublicDataValidationError(`Start block too low. Start block must be within ${Appointment.FORK_LIMIT + Appointment.SYNCHRONISATION_LIMIT} blocks of the current block ${currentHead}.`); // prettier-ignore
-        if(this.startBlock > (currentHead + Appointment.SYNCHRONISATION_LIMIT)) throw new PublicDataValidationError(`Start block too high. Start block must be within ${Appointment.SYNCHRONISATION_LIMIT} blocks of the current block ${currentHead}.`); // prettier-ignore
+        if(this.startBlock < (currentHead - Appointment.FORK_LIMIT - Appointment.SYNCHRONISATION_LIMIT)) throw new PublicDataValidationError(`Start block ${this.startBlock} too low. Start block must be within ${Appointment.FORK_LIMIT + Appointment.SYNCHRONISATION_LIMIT} blocks of the current block ${currentHead}.`); // prettier-ignore
+        if(this.startBlock > (currentHead + Appointment.SYNCHRONISATION_LIMIT)) throw new PublicDataValidationError(`Start block ${this.startBlock} too high. Start block must be within ${Appointment.SYNCHRONISATION_LIMIT} blocks of the current block ${currentHead}.`); // prettier-ignore
         if((this.endBlock - this.startBlock) > 60000) throw new PublicDataValidationError(`Appointment duration too great. Maximum duration between start and end block is 60000.`); // prettier-ignore
         if((this.endBlock - this.startBlock) < 100) throw new PublicDataValidationError(`Appointment duration too small. Minimum duration between start and end block is 100.`); // prettier-ignore
 

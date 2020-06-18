@@ -206,7 +206,7 @@ describe("Service end-to-end", () => {
             account0,
             "0x0000000000000000000000000000000000000000000000000000000000000001",
             0,
-            currentBlockNumber,
+            currentBlockNumber - 1,
             1000,
             channelContract.address,
             data,
