@@ -1,7 +1,7 @@
 import { BlockProcessor } from "./blockProcessor";
 import { IBlockStub } from "./block";
 import { StartStopService, Lock, Logger } from "@pisa-research/utils";
-import { ArgumentError } from "@pisa-research/errors";
+import { ArgumentError, ApplicationError } from "@pisa-research/errors";
 import { Component, AnchorState, ComponentAction } from "./component";
 import { CachedKeyValueStore, ItemAndId } from "./cachedKeyValueStore";
 import { BlockItemStore } from "./blockItemStore";
@@ -138,6 +138,10 @@ export class BlockchainMachine<TBlock extends IBlockStub> {
  * that component. This class will also use the component's `detectChanges`
  * function to compute the appropriate actions, by comparing the newly computed anchor state with the anchor state of the
  * closest ancestor that was emitted.
+ *
+ * Since this service should never miss blocks that are produced by the BlockProcessor, it is important that
+ * an instance of BlockchainMachineService is started _before_ the BlockProcessor, since event listener are added
+ * during startup. Symmetrically, the BlockchainMachineService must be stopped _after_ the BlockProcessor for a proper cleanup.
  */
 export class BlockchainMachineService<TBlock extends IBlockStub> extends StartStopService {
     private readonly machine: BlockchainMachine<TBlock>;
@@ -154,7 +158,10 @@ export class BlockchainMachineService<TBlock extends IBlockStub> extends StartSt
     }
 
     protected async startInternal(): Promise<void> {
-        if (this.blockProcessor.started) this.logger.error({ code: "p_mcns_bpstart" }, "The BlockProcessor should be started after the BlockchainMachineService."); //prettier-ignore
+        if (this.blockProcessor.started) {
+            this.logger.error({ code: "p_mcns_bpstart" }, "The BlockProcessor must be started after the BlockchainMachineService."); //prettier-ignore
+            throw new ApplicationError("The BlockProcessor must be started after the BlockchainMachineService");
+        }
 
         this.blockProcessor.newBlock.addListener(this.machine.setStateAndDetectChanges);
         // startup any actions that we had not completed
