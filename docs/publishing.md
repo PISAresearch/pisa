@@ -7,3 +7,7 @@ Replace `<version>` in the format `v0.1.39`
 5. `git commit -am "Version bump <version>"`
 6. `pnpm -r publish --filter ./packages --access public`
 7. `git push`
+
+or
+
+./docs/publish version
