@@ -38,7 +38,7 @@ export abstract class StartStopService extends EventEmitter {
             throw new ConfigurationError(`"${name}" is not a valid service name: it must only contain lowercase letters, numbers and hyphens.`);
         }
 
-        this.logger = logger.child({ component: name });
+        this.logger = logger.storedChild({ component: name });
     }
     private mStarted: boolean = false;
     public get started() {

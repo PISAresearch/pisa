@@ -84,13 +84,23 @@ export class Logger {
         this.pino.error(obj, message);
     }
     /**
-     * Makes a child logger. See pino's documentation for the specifications of the `bindings` parameter.
+     * Makes a child logger and stores it. See pino's documentation for the specifications of the `bindings` parameter.
+     * If level of the parent is changed these child loggers will also update their level.
      * @param bindings
      */
-    public child(bindings: { level?: string; serializers?: { [key: string]: pino.SerializerFn }; [key: string]: any }) {
+    public storedChild(bindings: { level?: string; serializers?: { [key: string]: pino.SerializerFn }; [key: string]: any }) {
         const result = new Logger(this.pino.child(bindings));
         this.children.push(result);
         return result;
+    }
+
+    /**
+     * Makes a child logger and doesnt store it. See pino's documentation for the specifications of the `bindings` parameter.
+     * If level of the parent is changed these child loggers will not update their level.
+     * @param bindings
+     */
+    public child(bindings: { level?: string; serializers?: { [key: string]: pino.SerializerFn }; [key: string]: any }) {
+        return new Logger(this.pino.child(bindings));
     }
 
     // We wrap the level, as we only allow a subset of pino's levels
