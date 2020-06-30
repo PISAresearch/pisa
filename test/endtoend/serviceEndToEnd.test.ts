@@ -194,6 +194,7 @@ describe("Service end-to-end", () => {
     }).timeout(3000);
 
     it("create channel, submit appointment twice, trigger dispute, wait for response throws error", async () => {
+        await wait(100);
         const round = 1;
         const setStateHash = KitsuneTools.hashForSetState(hashState, round, channelContract.address);
         const sig0 = await provider.getSigner(account0).signMessage(ethers.utils.arrayify(setStateHash));
@@ -205,7 +206,7 @@ describe("Service end-to-end", () => {
             account0,
             "0x0000000000000000000000000000000000000000000000000000000000000001",
             0,
-            currentBlockNumber,
+            currentBlockNumber - 1,
             1000,
             channelContract.address,
             data,
